@@ -416,7 +416,7 @@
 
     async function loadWeatherData(){
       try{
-        const res = await fetch("./data/weather.json");
+        const res = await fetch("./weather.json");
         if(!res.ok){
           throw new Error(`Failed to load weather.json: ${res.status}`);
         }
