@@ -1,0 +1,100 @@
+{
+  "title": "西望洋颱風情報",
+  "source": "JMA CWA JTWC等機構資料",
+  "points": [
+    {
+      "lat": 9.1,
+      "lon": 131.9,
+      "time": "2026-2-4 20:00",
+      "kind": "obs",
+      "level": "TS",
+      "wind": 18,
+      "pressure": 1000,
+      "note": ""
+    },
+    {
+      "lat": 7.9,
+      "lon": 129.1,
+      "time": "2026-2-5 08:00",
+      "kind": "fcst",
+      "level": "TS",
+      "wind": 18,
+      "pressure": 1000,
+      "note": "預報",
+      "fcst_radius_km": 65,
+      "storm_radius_km": 0
+    },
+    {
+      "lat": 8.2,
+      "lon": 126.9,
+      "time": "2026-2-5 20:00",
+      "kind": "fcst",
+      "level": "TS",
+      "wind": 20,
+      "pressure": 998,
+      "note": "預報",
+      "fcst_radius_km": 95,
+      "storm_radius_km": 0
+    },
+    {
+      "lat": 9.7,
+      "lon": 121.8,
+      "time": "2026-2-6 20:00",
+      "kind": "fcst",
+      "level": "TS",
+      "wind": 18,
+      "pressure": 1000,
+      "note": "預報",
+      "fcst_radius_km": 155,
+      "storm_radius_km": 0
+    },
+    {
+      "lat": 10.9,
+      "lon": 119.9,
+      "time": "2026-2-7 20:00",
+      "kind": "fcst",
+      "level": "TD",
+      "wind": 15,
+      "pressure": 1004,
+      "note": "預報",
+      "fcst_radius_km": 220,
+      "storm_radius_km": 0
+    },
+    {
+      "lat": 11.0,
+      "lon": 116.4,
+      "time": "2026-2-8 20:00",
+      "kind": "fcst",
+      "level": "TD",
+      "wind": 15,
+      "pressure": 1004,
+      "note": "預報",
+      "fcst_radius_km": 320,
+      "storm_radius_km": 0
+    },
+    {
+      "lat": 8.9,
+      "lon": 112.5,
+      "time": "2026-2-9 20:00",
+      "kind": "fcst",
+      "level": "LOW",
+      "wind": 12,
+      "pressure": 1008,
+      "note": "預報",
+      "fcst_radius_km": 380,
+      "storm_radius_km": 0
+    },
+    {
+      "lat": 4.6,
+      "lon": 108.5,
+      "time": "2026-2-10 20:00",
+      "kind": "fcst",
+      "level": "LOW",
+      "wind": 12,
+      "pressure": 1010,
+      "note": "預報",
+      "fcst_radius_km": 420,
+      "storm_radius_km": 0
+    }
+  ]
+}
