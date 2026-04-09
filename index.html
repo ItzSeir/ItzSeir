@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Typhoon Track – JSON Version</title>
+  <title>Typhoon Track – Optimized</title>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 
@@ -203,14 +203,36 @@
     .popup-kv div:nth-child(odd){ color:#6b7280; font-weight:900; }
 
     .tlabel{
-      display:inline-flex; align-items:center; gap:8px; padding: 4px 10px; border-radius: 999px;
-      background: rgba(255,255,255,0.92); border: 1px solid rgba(0,0,0,.10);
-      font-size: 12px; font-weight: 900; color:#111; box-shadow: 0 6px 18px rgba(77,89,95,.12);
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid rgba(0,0,0,.08);
+      font-size: 12px;
+      font-weight: 900;
+      color:#111;
+      box-shadow: 0 8px 20px rgba(77,89,95,.10);
       white-space: nowrap;
+      backdrop-filter: blur(4px);
     }
-    .tlabel .miniDot{ width:8px;height:8px;border-radius:999px; display:inline-block; background:#111; }
+
+    .tlabel .miniDot{
+      width:9px;
+      height:9px;
+      border-radius:999px;
+      display:inline-block;
+      background:#111;
+      flex: 0 0 auto;
+    }
+
     .tlabel-wrap{ transform: translateY(-4px); }
-    .tlabel.current{ border-width: 2px; box-shadow: 0 10px 24px rgba(77,89,95,.18); transform: translateY(-1px); }
+
+    .tlabel.current{
+      border: 2px solid rgba(83,106,184,.35);
+      box-shadow: 0 10px 28px rgba(77,89,95,.16);
+    }
 
     @media print{
       body{ padding: 0; }
@@ -339,8 +361,8 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
-    const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
+    const MAPBOX_TOKEN = "YOUR_MAPBOX_TOKEN";
+    const MAPBOX_STYLE = "YOUR_USERNAME/YOUR_STYLE_ID";
 
     let weatherMeta = {
       title: "颱風情報",
@@ -351,11 +373,11 @@
 
     const levelStyle = {
       LOW: { color: "#6b7280", label: "低壓/殘餘 LOW" },
-      TD:  { color: "#536ab8", label: "熱帶擾動 TD" },
+      TD:  { color: "#536ab8", label: "熱帶低壓 TD" },
       TS:  { color: "#22c55e", label: "輕度颱風 TS" },
-      STS: { color: "#f59e0b", label: "輕度颱風 STS" },
-      TY:  { color: "#ef4444", label: "中度颱風 TY" },
-      STY: { color: "#7c3aed", label: "强烈颱風 STY" }
+      STS: { color: "#f59e0b", label: "中度颱風 STS" },
+      TY:  { color: "#ef4444", label: "強烈颱風 TY" },
+      STY: { color: "#7c3aed", label: "超強颱風 STY" }
     };
 
     function $(id){ return document.getElementById(id); }
@@ -443,7 +465,7 @@
         $("sourceText").innerHTML = `<b>來源：${escapeHtml(weatherMeta.source)}</b><br>`;
       }catch(err){
         console.error(err);
-        alert("weather.json 載入失敗，請確認 data/weather.json 路徑是否正確。");
+        alert("weather.json 載入失敗，請確認路徑是否正確。");
       }
     }
 
@@ -763,25 +785,40 @@
           pane: "conePane",
           stroke: false,
           fillColor: "#60a5fa",
-          fillOpacity: 0.22,
+          fillOpacity: 0.12,
           smoothFactor: 1.0
         }).addTo(map);
         try { forecastCone.bringToBack(); } catch(e){}
       }
     }
 
+    function getLineWeight(level){
+      if(level === "LOW" || level === "TD") return 2.5;
+      if(level === "TS") return 3;
+      if(level === "STS") return 3.5;
+      if(level === "TY" || level === "STY") return 4;
+      return 3;
+    }
+
     function drawSegments(){
       clearLayerArr(segmentLines);
+
       for(let i=0; i<points.length-1; i++){
         const a = points[i], b = points[i+1];
         const st = getStyle(b.level);
         const isForecastSeg = (a.kind === "fcst" || b.kind === "fcst");
-        const dash = isForecastSeg ? "2 10" : null;
+
         const seg = L.polyline([[a.lat,a.lon],[b.lat,b.lon]], {
-          pane: "linePane", weight: 4, color: st.color, dashArray: dash, opacity: 0.95
+          pane: "linePane",
+          weight: getLineWeight(b.level),
+          color: st.color,
+          dashArray: isForecastSeg ? "6 8" : null,
+          opacity: isForecastSeg ? 0.92 : 1
         }).addTo(map);
+
         segmentLines.push(seg);
       }
+
       fullBounds = L.latLngBounds(points.map(p => [p.lat,p.lon]));
     }
 
@@ -792,25 +829,32 @@
       points.forEach((p, i) => {
         const st = getStyle(p.level);
         const isHighlight = i === highlightObsIdx;
-        const m = L.circleMarker([p.lat, p.lon], {
+        const isFcst = p.kind === "fcst";
+
+        const radius =
+          isHighlight ? 8 :
+          isFcst ? 5.5 : 4.5;
+
+        const marker = L.circleMarker([p.lat, p.lon], {
           pane: "markerPane2",
-          radius: isHighlight ? 9 : 6,
-          weight: isHighlight ? 4 : 2,
+          radius,
+          weight: isHighlight ? 3.5 : 2,
           color: st.color,
           fillColor: "#ffffff",
           fillOpacity: 1
         }).addTo(map);
 
-        m.bindPopup(popupHtml(p), { maxWidth: 360 });
-        m.on("click", () => m.openPopup());
-        pointMarkers.push(m);
+        marker.bindPopup(popupHtml(p), { maxWidth: 360 });
+        marker.on("click", () => marker.openPopup());
+        pointMarkers.push(marker);
       });
 
       const cur = points[highlightObsIdx];
       const stCur = getStyle(cur.level);
+
       currentPulse = L.circleMarker([cur.lat, cur.lon], {
         pane: "markerPane2",
-        radius: 10,
+        radius: 12,
         weight: 2,
         color: stCur.color,
         fillOpacity: 0,
@@ -834,10 +878,10 @@
           pane: "ringPane",
           radius: kmToMeters(rKm),
           color: st.color,
-          weight: 2,
-          opacity: 0.9,
+          weight: 1.5,
+          opacity: 0.65,
           fillColor: st.color,
-          fillOpacity: 0.10,
+          fillOpacity: 0.06,
           interactive: false
         }).addTo(map);
         stormRings.push(ring);
@@ -860,18 +904,15 @@
       }
 
       const OFFSETS = [
-        {dx: 110, dy:-40},
-        {dx: 110, dy: 40},
-        {dx:-110, dy:-40},
-        {dx:-110, dy: 40},
-        {dx: 0, dy:-60},
-        {dx: 0, dy: 60},
-        {dx: 140, dy: 0},
-        {dx:-140, dy: 0},
-        {dx: 80, dy:-80},
-        {dx: -80, dy:-80},
-        {dx: 80, dy: 80},
-        {dx: -80, dy: 80}
+        {dx: 120, dy:-20},
+        {dx: 120, dy: 26},
+        {dx: 150, dy:-52},
+        {dx: 150, dy: 56},
+        {dx: 180, dy: 0},
+        {dx: 90, dy:-60},
+        {dx: 90, dy: 60},
+        {dx:-120, dy:-30},
+        {dx:-120, dy: 30}
       ];
 
       const placedRects = [];
@@ -906,7 +947,7 @@
       function measureLabel(html){
         measurer.innerHTML = html;
         const node = measurer.querySelector(".tlabel");
-        if(!node) return {w:160,h:28};
+        if(!node) return {w:160,h:32};
         const r = node.getBoundingClientRect();
         return { w: Math.ceil(r.width), h: Math.ceil(r.height) };
       }
@@ -964,9 +1005,9 @@
 
         const line = L.polyline([[p.lat, p.lon], [attachLL.lat, attachLL.lng]], {
           pane: "labelPane",
-          color: isCurrent ? "rgba(17,24,39,.65)" : "rgba(17,24,39,.55)",
-          weight: 2,
-          dashArray: "1 1",
+          color: isCurrent ? "rgba(17,24,39,.55)" : "rgba(17,24,39,.38)",
+          weight: isCurrent ? 2 : 1.5,
+          dashArray: null,
           interactive: false
         }).addTo(map);
         timeLabels.push(line);
@@ -976,7 +1017,7 @@
       }
 
       let fcstCount = 1;
-      const STEP = 2;
+      const STEP = 3;
 
       points.forEach((p, idx) => {
         if(p.kind !== "fcst") return;
@@ -992,7 +1033,10 @@
 
     function fitAll(){
       if(fullBounds && fullBounds.isValid()){
-        map.fitBounds(fullBounds, { padding: [24,24] });
+        map.fitBounds(fullBounds, {
+          paddingTopLeft: [30, 30],
+          paddingBottomRight: [220, 40]
+        });
       }
     }
 
@@ -1071,23 +1115,42 @@
 
       ensurePanes();
 
-      const mb = L.tileLayer(
-        `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
-        { tileSize: 512, zoomOffset: -1, maxZoom: 18, attribution: "© Mapbox © OpenStreetMap" }
-      );
+      let baseLayerLoaded = false;
 
-      mb.on("tileerror", () => {
-        console.warn("Mapbox tiles 載入失敗，切換到 OSM。");
-        if(map.hasLayer(mb)) map.removeLayer(mb);
+      if(MAPBOX_TOKEN !== "YOUR_MAPBOX_TOKEN" && MAPBOX_STYLE !== "YOUR_USERNAME/YOUR_STYLE_ID"){
+        const mb = L.tileLayer(
+          `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+          { tileSize: 512, zoomOffset: -1, maxZoom: 18, attribution: "© Mapbox © OpenStreetMap" }
+        );
+
+        mb.on("tileerror", () => {
+          if(baseLayerLoaded) return;
+          if(map.hasLayer(mb)) map.removeLayer(mb);
+          const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "© OpenStreetMap"
+          }).addTo(map);
+          osm.once("load", () => {
+            baseLayerLoaded = true;
+            setTimeout(() => map.invalidateSize(), 60);
+          });
+        });
+
+        mb.addTo(map);
+        mb.once("load", () => {
+          baseLayerLoaded = true;
+          setTimeout(() => map.invalidateSize(), 60);
+        });
+      } else {
         const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
           attribution: "© OpenStreetMap"
         }).addTo(map);
-        osm.once("load", () => setTimeout(() => map.invalidateSize(), 60));
-      });
-
-      mb.addTo(map);
-      mb.once("load", () => setTimeout(() => map.invalidateSize(), 60));
+        osm.once("load", () => {
+          baseLayerLoaded = true;
+          setTimeout(() => map.invalidateSize(), 60);
+        });
+      }
 
       cachedConePoly = null;
       drawForecastCone();
