@@ -5,17 +5,17 @@
     {
       "lat": 8.5,
       "lon": 152.4,
-      "time": "2026-4-9 08:00",
+      "time": "2026-04-09 08:00",
       "kind": "obs",
       "level": "TD",
       "wind": 15,
       "pressure": 1000,
       "note": ""
     },
-        {
+    {
       "lat": 8.5,
       "lon": 151.8,
-      "time": "2026-4-9 14:00",
+      "time": "2026-04-09 14:00",
       "kind": "obs",
       "level": "TD",
       "wind": 15,
@@ -23,100 +23,105 @@
       "note": ""
     },
     {
-      "lat": 8.6,
-      "lon": 151.9,
-      "time": "2026-4-9 20:00",
+      "lat": 8.2,
+      "lon": 151.4,
+      "time": "2026-04-09 20:00",
+      "kind": "obs",
+      "level": "TD",
+      "wind": 15,
+      "pressure": 1000,
+      "note": ""
+    },
+
+    {
+      "lat": 8.2,
+      "lon": 151.2,
+      "time": "2026-04-10 02:00",
       "kind": "fcst",
-      "level": "TS",
-      "wind": 18,
-      "pressure": 998,
-      "note": "預報，12小時內有發展為輕度颱風的趨勢",
-      "fcst_radius_km": 100,
-      "storm_radius_km": 100
+      "level": "TD",
+      "wind": 20,
+      "pressure": 995,
+      "note": ""
     },
     {
-      "lat": 8.6,
-      "lon": 151.6,
-      "time": "2026-4-10 02:00",
-      "kind": "fcst",
-      "level": "TS",
-      "wind": 18,
-      "pressure": 998,
-      "note": "預報",
-      "fcst_radius_km": 120,
-      "storm_radius_km": 100
-    },
-    {
-      "lat": 8.5,
-      "lon": 151.3,
-      "time": "2026-4-10 08:00",
-      "kind": "fcst",
-      "level": "TS",
-      "wind": 18,
-      "pressure": 998,
-      "note": "預報",
-      "fcst_radius_km": 140,
-      "storm_radius_km": 100
-    },
-    {
-      "lat": 8.5,
+      "lat": 8.1,
       "lon": 151.0,
-      "time": "2026-4-10 20:00",
+      "time": "2026-04-10 08:00",
       "kind": "fcst",
-      "level": "TS",
+      "level": "TD",
+      "wind": 20,
+      "pressure": 995,
+      "note": ""
+    },
+    {
+      "lat": 8.1,
+      "lon": 150.9,
+      "time": "2026-04-10 14:00",
+      "kind": "fcst",
+      "level": "TD",
       "wind": 23,
       "pressure": 988,
-      "note": "預報",
-      "fcst_radius_km": 150,
-      "storm_radius_km": 150
+      "note": ""
+    },
+    {
+      "lat": 8.3,
+      "lon": 150.7,
+      "time": "2026-04-10 20:00",
+      "kind": "fcst",
+      "level": "TD",
+      "wind": 28,
+      "pressure": 980,
+      "note": ""
     },
     {
       "lat": 8.7,
-      "lon": 150.7,
-      "time": "2026-4-11 08:00",
+      "lon": 150.6,
+      "time": "2026-04-11 08:00",
       "kind": "fcst",
-      "level": "STS",
-      "wind": 25,
-      "pressure": 985,
-      "note": "預報",
-      "fcst_radius_km": 160,
-      "storm_radius_km": 200
-    },
-    {
-      "lat": 9.7,
-      "lon": 149.8,
-      "time": "2026-4-12 08:00",
-      "kind": "fcst",
-      "level": "STS",
+      "level": "TD",
       "wind": 28,
       "pressure": 980,
-      "note": "預報",
-      "fcst_radius_km": 330,
-      "storm_radius_km": 220
+      "note": ""
     },
     {
-      "lat": 11.5,
-      "lon": 147.1,
-      "time": "2026-4-13 08:00",
+      "lat": 9.0,
+      "lon": 150.4,
+      "time": "2026-04-11 20:00",
       "kind": "fcst",
-      "level": "TY",
+      "level": "TD",
       "wind": 33,
       "pressure": 970,
-      "note": "預報，十級風暴風半徑 70 公里",
-      "fcst_radius_km": 350,
-      "storm_radius_km": 220
+      "note": ""
     },
     {
-      "lat": 13.1,
-      "lon": 145.3,
-      "time": "2026-4-14 08:00",
+      "lat": 10.4,
+      "lon": 149.0,
+      "time": "2026-04-12 20:00",
       "kind": "fcst",
-      "level": "TY",
-      "wind": 43,
-      "pressure": 945,
-      "note": "預報，十級風暴風半徑 80 公里",
-      "fcst_radius_km": 540,
-      "storm_radius_km": 250
+      "level": "TD",
+      "wind": 40,
+      "pressure": 950,
+      "note": ""
+    },
+    {
+      "lat": 12.2,
+      "lon": 146.4,
+      "time": "2026-04-13 20:00",
+      "kind": "fcst",
+      "level": "TD",
+      "wind": 48,
+      "pressure": 930,
+      "note": ""
+    },
+    {
+      "lat": 13.9,
+      "lon": 144.8,
+      "time": "2026-04-14 20:00",
+      "kind": "fcst",
+      "level": "TD",
+      "wind": 48,
+      "pressure": 930,
+      "note": ""
     }
   ]
 }
