@@ -289,11 +289,11 @@
 
     const levelStyle = {
       LOW: { color: "#6b7280", label: "低壓/殘餘 LOW" },
-      TD:  { color: "#536ab8", label: "熱帶擾動 TD" },
+      TD:  { color: "#536ab8", label: "熱帶低壓 TD" },
       TS:  { color: "#22c55e", label: "輕度颱風 TS" },
-      STS: { color: "#f59e0b", label: "輕度颱風 STS" },
-      TY:  { color: "#ef4444", label: "中度颱風 TY" },
-      STY: { color: "#7c3aed", label: "强烈颱風 STY" }
+      STS: { color: "#f59e0b", label: "中度颱風 STS" },
+      TY:  { color: "#ef4444", label: "強烈颱風 TY" },
+      STY: { color: "#7c3aed", label: "超強颱風 STY" }
     };
 
     function $(id){ return document.getElementById(id); }
@@ -439,110 +439,70 @@
       return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
 
-    function buildForecastConePolygonSmooth({ stepKm = 25, arcStep = 6 } = {}){
-      const apex = points[getLatestObsIndex()];
-      const firstFcstIdx = points.findIndex(p => p.kind === "fcst");
-      if(firstFcstIdx === -1) return null;
-      const fcst = points.slice(firstFcstIdx).filter(p => p.kind === "fcst");
-      if(fcst.length < 2) return null;
+    function buildForecastConePolygonSmooth(){
+      const latestObsIdx = getLatestObsIndex();
+      const obs = points[latestObsIdx];
+      const fcst = points.filter(p => p.kind === "fcst");
 
-      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+      if(!obs || fcst.length < 2) return null;
 
-      function distKm(a, b){
-        const R = 6371;
-        const dLat = toRad(b.lat - a.lat);
-        const dLon = toRad(b.lon - a.lon);
-        const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;
-        return 2 * R * Math.asin(Math.sqrt(s));
+      function clamp(v, lo, hi){
+        return Math.max(lo, Math.min(hi, v));
       }
 
-      function catmullRom(p0, p1, p2, p3, t){
-        const t2 = t*t, t3 = t2*t;
-        return {
-          lat: 0.5 * ((2*p1.lat) + (-p0.lat + p2.lat)*t + (2*p0.lat - 5*p1.lat + 4*p2.lat - p3.lat)*t2 + (-p0.lat + 3*p1.lat - 3*p2.lat + p3.lat)*t3),
-          lon: 0.5 * ((2*p1.lon) + (-p0.lon + p2.lon)*t + (2*p0.lon - 5*p1.lon + 4*p2.lon - p3.lon)*t2 + (-p0.lon + 3*p1.lon - 3*p2.lon + p3.lon)*t3)
-        };
-      }
-
-      function smoothstep(t){ return t*t*(3 - 2*t); }
-
-      const ctrl = [
-        { lat: apex.lat, lon: apex.lon, rKm: 0 },
-        ...fcst.map((p, i) => ({
-          lat: p.lat, lon: p.lon,
-          rKm: clamp((typeof p.fcst_radius_km === "number") ? p.fcst_radius_km : (80 + i*40), 0, 900)
+      const path = [
+        { lat: obs.lat, lon: obs.lon, rKm: 0 },
+        ...fcst.map(p => ({
+          lat: p.lat,
+          lon: p.lon,
+          rKm: clamp(Number(p.fcst_radius_km || 0), 0, 1000)
         }))
       ];
 
-      const dense = [];
-      for(let i=0; i<ctrl.length-1; i++){
-        const A = ctrl[i];
-        const B = ctrl[i+1];
-        const d = distKm(A, B);
-        const n = Math.max(1, Math.ceil(d / stepKm));
+      function getHeading(i){
+        if(i === 0){
+          return bearingDegrees(path[0].lat, path[0].lon, path[1].lat, path[1].lon);
+        }
+        if(i === path.length - 1){
+          return bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
+        }
 
-        for(let k=0; k<n; k++){
-          const t = k / n;
-          const p0 = ctrl[Math.max(0, i-1)];
-          const p1 = ctrl[i];
-          const p2 = ctrl[i+1];
-          const p3 = ctrl[Math.min(ctrl.length-1, i+2)];
-          const s = catmullRom(p0, p1, p2, p3, t);
-          const rt = smoothstep(t);
-          const r = A.rKm + (B.rKm - A.rKm) * rt;
-          dense.push({ lat: s.lat, lon: s.lon, rKm: clamp(r, 0, 900) });
-        }
-      }
-      dense.push({ lat: ctrl.at(-1).lat, lon: ctrl.at(-1).lon, rKm: ctrl.at(-1).rKm });
-
-      function denseHeading(i){
-        if(i <= 0){
-          const a = dense[0], b = dense[1] || dense[0];
-          return bearingDegrees(a.lat, a.lon, b.lat, b.lon);
-        }
-        if(i >= dense.length - 1){
-          const p = dense[i-1], c = dense[i];
-          return bearingDegrees(p.lat, p.lon, c.lat, c.lon);
-        }
-        const p = dense[i-1], c = dense[i], n = dense[i+1];
-        return avgAngleDeg(
-          bearingDegrees(p.lat, p.lon, c.lat, c.lon),
-          bearingDegrees(c.lat, c.lon, n.lat, n.lon)
-        );
+        const b1 = bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
+        const b2 = bearingDegrees(path[i].lat, path[i].lon, path[i + 1].lat, path[i + 1].lon);
+        return avgAngleDeg(b1, b2);
       }
 
-      const left = [];
-      const right = [];
+      const leftSide = [];
+      const rightSide = [];
 
-      for(let i=0; i<dense.length; i++){
-        const cur = dense[i];
-        const heading = denseHeading(i);
-        const rMeters = kmToMeters(cur.rKm);
-        const leftPt = destinationPoint(cur.lat, cur.lon, (heading - 90 + 360) % 360, rMeters);
-        const rightPt = destinationPoint(cur.lat, cur.lon, (heading + 90) % 360, rMeters);
-        left.push([leftPt.lat, leftPt.lon]);
-        right.push([rightPt.lat, rightPt.lon]);
+      for(let i = 0; i < path.length; i++){
+        const p = path[i];
+        const heading = getHeading(i);
+        const rMeters = kmToMeters(p.rKm);
+
+        const leftPt = destinationPoint(p.lat, p.lon, (heading - 90 + 360) % 360, rMeters);
+        const rightPt = destinationPoint(p.lat, p.lon, (heading + 90) % 360, rMeters);
+
+        leftSide.push([leftPt.lat, leftPt.lon]);
+        rightSide.push([rightPt.lat, rightPt.lon]);
       }
 
-      const end = dense[dense.length - 1];
-      const endHeading = denseHeading(dense.length - 1);
-      const endRMeters = kmToMeters(end.rKm);
+      const end = path[path.length - 1];
+      const endHeading = getHeading(path.length - 1);
+      const endRadius = kmToMeters(end.rKm);
       const endArc = [];
-      for(let a=-90; a<=90; a+=arcStep){
-        const pt = destinationPoint(end.lat, end.lon, (endHeading + a + 360) % 360, endRMeters);
+
+      for(let a = -90; a <= 90; a += 6){
+        const pt = destinationPoint(end.lat, end.lon, (endHeading + a + 360) % 360, endRadius);
         endArc.push([pt.lat, pt.lon]);
       }
 
-      const start = dense[0];
-      const startHeading = denseHeading(0);
-      const startRMeters = kmToMeters(Math.max(8, start.rKm * 0.25));
-      const startArc = [];
-      for(let a=90; a<=270; a+=arcStep){
-        const pt = destinationPoint(start.lat, start.lon, (startHeading + a + 360) % 360, startRMeters);
-        startArc.push([pt.lat, pt.lon]);
-      }
-
-      return [...startArc, ...left, ...endArc, ...right.reverse(), startArc[0]];
+      return [
+        ...leftSide,
+        ...endArc,
+        ...rightSide.reverse(),
+        leftSide[0]
+      ];
     }
 
     let map, fullBounds;
@@ -552,7 +512,6 @@
     const stormRings = [];
     let forecastCone = null;
     let currentPulse = null;
-    let cachedConePoly = null;
 
     const labelItems = [];
     let moveRaf = false;
@@ -573,26 +532,34 @@
 
     function drawForecastCone(){
       const showCone = $("toggleCone")?.checked !== false;
+
       if(!showCone){
-        if(forecastCone){ forecastCone.remove(); forecastCone = null; }
+        if(forecastCone){
+          forecastCone.remove();
+          forecastCone = null;
+        }
         return;
       }
-      if(forecastCone) forecastCone.remove();
 
-      if(!cachedConePoly){
-        cachedConePoly = buildForecastConePolygonSmooth({ stepKm: 25, arcStep: 6 });
+      if(forecastCone){
+        forecastCone.remove();
+        forecastCone = null;
       }
-      const poly = cachedConePoly;
 
-      if(poly && poly.length >= 10){
-        forecastCone = L.polygon(poly, {
-          pane: "conePane",
-          stroke: false,
-          fillColor: "#60a5fa",
-          fillOpacity: 0.12,
-          smoothFactor: 1.0
-        }).addTo(map);
-      }
+      const poly = buildForecastConePolygonSmooth();
+      if(!poly || poly.length < 4) return;
+
+      forecastCone = L.polygon(poly, {
+        pane: "conePane",
+        stroke: false,
+        fillColor: "#60a5fa",
+        fillOpacity: 0.14,
+        smoothFactor: 0
+      }).addTo(map);
+
+      try{
+        forecastCone.bringToBack();
+      }catch(e){}
     }
 
     function getLineWeight(level){
@@ -1121,7 +1088,6 @@
         }).addTo(map);
       }
 
-      cachedConePoly = null;
       drawForecastCone();
       drawSegments();
 
