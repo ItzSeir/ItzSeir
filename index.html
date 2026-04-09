@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Typhoon Track – Stable Draggable Labels</title>
+  <title>颱風預測</title>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -291,9 +291,9 @@
       LOW: { color: "#6b7280", label: "低壓/殘餘 LOW" },
       TD:  { color: "#536ab8", label: "熱帶低壓 TD" },
       TS:  { color: "#22c55e", label: "輕度颱風 TS" },
-      STS: { color: "#f59e0b", label: "中度颱風 STS" },
-      TY:  { color: "#ef4444", label: "強烈颱風 TY" },
-      STY: { color: "#7c3aed", label: "超強颱風 STY" }
+      STS: { color: "#f59e0b", label: "輕度颱風 STS" },
+      TY:  { color: "#ef4444", label: "中度颱風 TY" },
+      STY: { color: "#7c3aed", label: "强烈颱風 STY" }
     };
 
     function $(id){ return document.getElementById(id); }
@@ -450,12 +450,24 @@
         return Math.max(lo, Math.min(hi, v));
       }
 
+      const rawRadii = fcst.map(p => clamp(Number(p.fcst_radius_km || 0), 0, 350));
+      const firstForecastRadius = rawRadii[0] || 30;
+      const START_RADIUS = clamp(firstForecastRadius * 0.38, 12, 120);
+
+      const smoothRadii = rawRadii.map((r, i) => {
+        if(i === 0) return clamp((START_RADIUS + r) / 2, 8, 350);
+
+        const prev = rawRadii[i - 1];
+        const next = rawRadii[i + 1] ?? r;
+        return clamp((prev + r + next) / 3, 8, 350);
+      });
+
       const path = [
-        { lat: obs.lat, lon: obs.lon, rKm: 0 },
-        ...fcst.map(p => ({
+        { lat: obs.lat, lon: obs.lon, rKm: START_RADIUS },
+        ...fcst.map((p, i) => ({
           lat: p.lat,
           lon: p.lon,
-          rKm: clamp(Number(p.fcst_radius_km || 0), 0, 1000)
+          rKm: smoothRadii[i]
         }))
       ];
 
@@ -487,21 +499,30 @@
         rightSide.push([rightPt.lat, rightPt.lon]);
       }
 
+      const start = path[0];
+      const startHeading = getHeading(0);
+      const startRadius = kmToMeters(start.rKm);
+      const startArc = [];
+      for(let a = 90; a <= 270; a += 8){
+        const pt = destinationPoint(start.lat, start.lon, (startHeading + a + 360) % 360, startRadius);
+        startArc.push([pt.lat, pt.lon]);
+      }
+
       const end = path[path.length - 1];
       const endHeading = getHeading(path.length - 1);
       const endRadius = kmToMeters(end.rKm);
       const endArc = [];
-
-      for(let a = -90; a <= 90; a += 6){
+      for(let a = -90; a <= 90; a += 4){
         const pt = destinationPoint(end.lat, end.lon, (endHeading + a + 360) % 360, endRadius);
         endArc.push([pt.lat, pt.lon]);
       }
 
       return [
-        ...leftSide,
+        ...startArc,
+        ...leftSide.slice(1),
         ...endArc,
-        ...rightSide.reverse(),
-        leftSide[0]
+        ...rightSide.slice(1).reverse(),
+        startArc[0]
       ];
     }
 
@@ -551,10 +572,14 @@
 
       forecastCone = L.polygon(poly, {
         pane: "conePane",
-        stroke: false,
+        stroke: true,
+        color: "#60a5fa",
+        weight: 1,
+        opacity: 0.18,
         fillColor: "#60a5fa",
-        fillOpacity: 0.14,
-        smoothFactor: 0
+        fillOpacity: 0.16,
+        smoothFactor: 1.2,
+        interactive: false
       }).addTo(map);
 
       try{
@@ -1065,7 +1090,9 @@
       map = L.map("map", { zoomControl: true });
       map.setView([points[0].lat, points[0].lon], 5);
       ensurePanes();
-
+const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
+const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
+      
       if(MAPBOX_TOKEN !== "YOUR_MAPBOX_TOKEN" && MAPBOX_STYLE !== "YOUR_USERNAME/YOUR_STYLE_ID"){
         const mb = L.tileLayer(
           `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
