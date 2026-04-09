@@ -38,7 +38,7 @@
       "lon": 151.2,
       "time": "2026-04-10 02:00",
       "kind": "fcst",
-      "level": "TD",
+      "level": "TS",
       "wind": 20,
       "pressure": 995,
       "note": ""
@@ -48,7 +48,7 @@
       "lon": 151.0,
       "time": "2026-04-10 08:00",
       "kind": "fcst",
-      "level": "TD",
+      "level": "TS",
       "wind": 20,
       "pressure": 995,
       "note": ""
@@ -58,7 +58,7 @@
       "lon": 150.9,
       "time": "2026-04-10 14:00",
       "kind": "fcst",
-      "level": "TD",
+      "level": "TS",
       "wind": 23,
       "pressure": 988,
       "note": ""
@@ -68,7 +68,7 @@
       "lon": 150.7,
       "time": "2026-04-10 20:00",
       "kind": "fcst",
-      "level": "TD",
+      "level": "STS",
       "wind": 28,
       "pressure": 980,
       "note": ""
@@ -78,7 +78,7 @@
       "lon": 150.6,
       "time": "2026-04-11 08:00",
       "kind": "fcst",
-      "level": "TD",
+      "level": "STS",
       "wind": 28,
       "pressure": 980,
       "note": ""
@@ -88,7 +88,7 @@
       "lon": 150.4,
       "time": "2026-04-11 20:00",
       "kind": "fcst",
-      "level": "TD",
+      "level": "TY",
       "wind": 33,
       "pressure": 970,
       "note": ""
@@ -98,7 +98,7 @@
       "lon": 149.0,
       "time": "2026-04-12 20:00",
       "kind": "fcst",
-      "level": "TD",
+      "level": "TY",
       "wind": 40,
       "pressure": 950,
       "note": ""
@@ -108,7 +108,7 @@
       "lon": 146.4,
       "time": "2026-04-13 20:00",
       "kind": "fcst",
-      "level": "TD",
+      "level": "STY",
       "wind": 48,
       "pressure": 930,
       "note": ""
@@ -118,7 +118,7 @@
       "lon": 144.8,
       "time": "2026-04-14 20:00",
       "kind": "fcst",
-      "level": "TD",
+      "level": "STY",
       "wind": 48,
       "pressure": 930,
       "note": ""
