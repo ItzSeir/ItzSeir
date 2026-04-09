@@ -453,10 +453,9 @@ function buildForecastConePolygonSmooth(){
   function lerp(a, b, t){
     return a + (b - a) * t;
   }
-
-  const MAX_RADIUS = 300;       // 🔥 整體最大 cone 半徑
-  const MAX_RADIUS_JUMP = 15;   // 🔥 每一步最多增加多少 km
-  const SEGMENT_STEPS = 20;      // 🔥 補點數量
+  const MAX_RADIUS = 140;// 🔥 整體最大 cone 半徑
+  const MAX_RADIUS_JUMP = 18;// 🔥 每一步最多增加多少 km
+  const SEGMENT_STEPS = 5;      // 🔥 補點數量
 
   const rawRadii = fcst.map(p => clamp(Number(p.fcst_radius_km || 0), 0, MAX_RADIUS));
 
