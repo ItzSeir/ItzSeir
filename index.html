@@ -439,136 +439,92 @@
       return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
 
-function buildForecastConePolygonSmooth(){
-  const latestObsIdx = getLatestObsIndex();
-  const obs = points[latestObsIdx];
-  const fcst = points.filter(p => p.kind === "fcst");
+    function buildForecastConePolygonSmooth(){
+      const latestObsIdx = getLatestObsIndex();
+      const obs = points[latestObsIdx];
+      const fcst = points.filter(p => p.kind === "fcst");
 
-  if(!obs || fcst.length < 2) return null;
+      if(!obs || fcst.length < 2) return null;
 
-  function clamp(v, lo, hi){
-    return Math.max(lo, Math.min(hi, v));
-  }
+      function clamp(v, lo, hi){
+        return Math.max(lo, Math.min(hi, v));
+      }
 
-  function lerp(a, b, t){
-    return a + (b - a) * t;
-  }
-  const MAX_RADIUS = 140;// 🔥 整體最大 cone 半徑
-  const MAX_RADIUS_JUMP = 18;// 🔥 每一步最多增加多少 km
-  const SEGMENT_STEPS = 5;      // 🔥 補點數量
+      const rawRadii = fcst.map(p => clamp(Number(p.fcst_radius_km || 0), 0, 350));
+      const firstForecastRadius = rawRadii[0] || 30;
+      const START_RADIUS = clamp(firstForecastRadius * 0.38, 12, 120);
 
-  const rawRadii = fcst.map(p => clamp(Number(p.fcst_radius_km || 0), 0, MAX_RADIUS));
+      const smoothRadii = rawRadii.map((r, i) => {
+        if(i === 0) return clamp((START_RADIUS + r) / 2, 8, 350);
 
-  const controlledRadii = [];
-  for(let i = 0; i < rawRadii.length; i++){
-    if(i === 0){
-      controlledRadii.push(rawRadii[i]);
-    }else{
-      const prev = controlledRadii[i - 1];
-      const target = rawRadii[i];
-      const limited = clamp(target, prev - MAX_RADIUS_JUMP, prev + MAX_RADIUS_JUMP);
-      controlledRadii.push(clamp(limited, 0, MAX_RADIUS));
-    }
-  }
-
-  const firstForecastRadius = controlledRadii[0] || 30;
-  const START_RADIUS = clamp(firstForecastRadius * 0.10, 3, 16);
-
-  const smoothRadii = controlledRadii.map((r, i) => {
-    if(i === 0) return clamp((START_RADIUS + r) / 2, 4, MAX_RADIUS);
-
-    const prev = controlledRadii[i - 1];
-    const next = controlledRadii[i + 1] ?? r;
-    return clamp((prev + r + next) / 3, 4, MAX_RADIUS);
-  });
-
-  const basePath = [
-    { lat: obs.lat, lon: obs.lon, rKm: START_RADIUS },
-    ...fcst.map((p, i) => ({
-      lat: p.lat,
-      lon: p.lon,
-      rKm: smoothRadii[i]
-    }))
-  ];
-
-  const path = [];
-  for(let i = 0; i < basePath.length - 1; i++){
-    const a = basePath[i];
-    const b = basePath[i + 1];
-
-    for(let s = 0; s < SEGMENT_STEPS; s++){
-      const t = s / SEGMENT_STEPS;
-      path.push({
-        lat: lerp(a.lat, b.lat, t),
-        lon: lerp(a.lon, b.lon, t),
-        rKm: lerp(a.rKm, b.rKm, t)
+        const prev = rawRadii[i - 1];
+        const next = rawRadii[i + 1] ?? r;
+        return clamp((prev + r + next) / 3, 8, 350);
       });
+
+      const path = [
+        { lat: obs.lat, lon: obs.lon, rKm: START_RADIUS },
+        ...fcst.map((p, i) => ({
+          lat: p.lat,
+          lon: p.lon,
+          rKm: smoothRadii[i]
+        }))
+      ];
+
+      function getHeading(i){
+        if(i === 0){
+          return bearingDegrees(path[0].lat, path[0].lon, path[1].lat, path[1].lon);
+        }
+        if(i === path.length - 1){
+          return bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
+        }
+
+        const b1 = bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
+        const b2 = bearingDegrees(path[i].lat, path[i].lon, path[i + 1].lat, path[i + 1].lon);
+        return avgAngleDeg(b1, b2);
+      }
+
+      const leftSide = [];
+      const rightSide = [];
+
+      for(let i = 0; i < path.length; i++){
+        const p = path[i];
+        const heading = getHeading(i);
+        const rMeters = kmToMeters(p.rKm);
+
+        const leftPt = destinationPoint(p.lat, p.lon, (heading - 90 + 360) % 360, rMeters);
+        const rightPt = destinationPoint(p.lat, p.lon, (heading + 90) % 360, rMeters);
+
+        leftSide.push([leftPt.lat, leftPt.lon]);
+        rightSide.push([rightPt.lat, rightPt.lon]);
+      }
+
+      const start = path[0];
+      const startHeading = getHeading(0);
+      const startRadius = kmToMeters(start.rKm);
+      const startArc = [];
+      for(let a = 90; a <= 270; a += 8){
+        const pt = destinationPoint(start.lat, start.lon, (startHeading + a + 360) % 360, startRadius);
+        startArc.push([pt.lat, pt.lon]);
+      }
+
+      const end = path[path.length - 1];
+      const endHeading = getHeading(path.length - 1);
+      const endRadius = kmToMeters(end.rKm);
+      const endArc = [];
+      for(let a = -90; a <= 90; a += 4){
+        const pt = destinationPoint(end.lat, end.lon, (endHeading + a + 360) % 360, endRadius);
+        endArc.push([pt.lat, pt.lon]);
+      }
+
+      return [
+        ...startArc,
+        ...leftSide.slice(1),
+        ...endArc,
+        ...rightSide.slice(1).reverse(),
+        startArc[0]
+      ];
     }
-  }
-  path.push(basePath[basePath.length - 1]);
-
-  function getHeading(i){
-    if(i === 0){
-      return bearingDegrees(path[0].lat, path[0].lon, path[1].lat, path[1].lon);
-    }
-    if(i === path.length - 1){
-      return bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
-    }
-
-    const b1 = bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
-    const b2 = bearingDegrees(path[i].lat, path[i].lon, path[i + 1].lat, path[i + 1].lon);
-    return avgAngleDeg(b1, b2);
-  }
-
-  const leftSide = [];
-  const rightSide = [];
-
-  for(let i = 0; i < path.length; i++){
-    const p = path[i];
-    const heading = getHeading(i);
-    const rMeters = kmToMeters(p.rKm);
-
-    const leftPt = destinationPoint(
-      p.lat,
-      p.lon,
-      (heading - 90 + 360) % 360,
-      rMeters
-    );
-
-    const rightPt = destinationPoint(
-      p.lat,
-      p.lon,
-      (heading + 90) % 360,
-      rMeters
-    );
-
-    leftSide.push([leftPt.lat, leftPt.lon]);
-    rightSide.push([rightPt.lat, rightPt.lon]);
-  }
-
-  const end = path[path.length - 1];
-  const endHeading = getHeading(path.length - 1);
-  const endRadius = kmToMeters(end.rKm);
-  const endArc = [];
-
-  for(let a = -90; a <= 90; a += 6){
-    const pt = destinationPoint(
-      end.lat,
-      end.lon,
-      (endHeading + a + 360) % 360,
-      endRadius
-    );
-    endArc.push([pt.lat, pt.lon]);
-  }
-
-  return [
-    [obs.lat, obs.lon],
-    ...leftSide.slice(1),
-    ...endArc,
-    ...rightSide.slice(1).reverse(),
-    [obs.lat, obs.lon]
-  ];
-}
 
     let map, fullBounds;
     const segmentLines = [];
