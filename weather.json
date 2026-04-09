@@ -41,7 +41,9 @@
       "level": "TS",
       "wind": 20,
       "pressure": 995,
-      "note": ""
+      "note": "預報，12小時內有發展為輕度颱風的趨勢",
+      "fcst_radius_km": 50,
+      "storm_radius_km": 100
     },
     {
       "lat": 8.1,
@@ -51,17 +53,21 @@
       "level": "TS",
       "wind": 20,
       "pressure": 995,
-      "note": ""
+      "note": "",
+      "fcst_radius_km": 100,
+      "storm_radius_km": 120
     },
     {
       "lat": 8.1,
       "lon": 150.9,
       "time": "2026-04-10 14:00",
       "kind": "fcst",
-      "level": "TS",
+      "level": "STS",
       "wind": 23,
       "pressure": 988,
-      "note": ""
+      "note": "",
+      "fcst_radius_km": 120,
+      "storm_radius_km": 150
     },
     {
       "lat": 8.3,
@@ -71,7 +77,9 @@
       "level": "STS",
       "wind": 28,
       "pressure": 980,
-      "note": ""
+      "note": "",
+      "fcst_radius_km": 140,
+      "storm_radius_km": 180
     },
     {
       "lat": 8.7,
@@ -81,7 +89,9 @@
       "level": "STS",
       "wind": 28,
       "pressure": 980,
-      "note": ""
+      "note": "",
+      "fcst_radius_km": 150,
+      "storm_radius_km": 180
     },
     {
       "lat": 9.0,
@@ -91,7 +101,9 @@
       "level": "TY",
       "wind": 33,
       "pressure": 970,
-      "note": ""
+      "note": "",
+      "fcst_radius_km": 160,
+      "storm_radius_km": 220
     },
     {
       "lat": 10.4,
@@ -101,27 +113,33 @@
       "level": "TY",
       "wind": 40,
       "pressure": 950,
-      "note": ""
+      "note": "",
+      "fcst_radius_km": 330,
+      "storm_radius_km": 250
     },
     {
       "lat": 12.2,
       "lon": 146.4,
       "time": "2026-04-13 20:00",
       "kind": "fcst",
-      "level": "STY",
+      "level": "TY",
       "wind": 48,
       "pressure": 930,
-      "note": ""
+      "note": "",
+      "fcst_radius_km": 350,
+      "storm_radius_km": 300
     },
     {
       "lat": 13.9,
       "lon": 144.8,
       "time": "2026-04-14 20:00",
       "kind": "fcst",
-      "level": "STY",
+      "level": "TY",
       "wind": 48,
       "pressure": 930,
-      "note": ""
+      "note": "",
+      "fcst_radius_km": 540,
+      "storm_radius_km": 300
     }
   ]
 }
