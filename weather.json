@@ -23,18 +23,6 @@
       "note": ""
     },
     {
-      "lat": 8.4,
-      "lon": 152.1,
-      "time": "2026-4-9 14:00",
-      "kind": "fcst",
-      "level": "TD",
-      "wind": 15,
-      "pressure": 1000,
-      "note": "預報",
-      "fcst_radius_km": 50,
-      "storm_radius_km": 0
-    },
-    {
       "lat": 8.6,
       "lon": 151.9,
       "time": "2026-4-9 20:00",
