@@ -282,7 +282,7 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
-    const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";;
+    const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
 
     let weatherMeta = { title: "颱風情報", source: "—" };
     let points = [];
@@ -641,6 +641,7 @@
         }).addTo(map);
 
         marker.bindPopup(popupHtml(p), { maxWidth: 360 });
+        marker.on("click", () => marker.openPopup());
         pointMarkers.push(marker);
       });
 
@@ -836,17 +837,21 @@
       };
 
       const topLeft = getLabelTopLeftPx(item);
-      const marker = L.marker(map.containerPointToLatLng(L.point(topLeft.x, topLeft.y)), {
-        pane: "labelPane",
-        icon: L.divIcon({
-          className: "ty-label-icon",
-          html,
-          iconSize: [size.w, size.h],
-          iconAnchor: [0, 0]
-        }),
-        interactive: true,
-        keyboard: false
-      }).addTo(map);
+
+      const marker = L.marker(
+        map.containerPointToLatLng(L.point(topLeft.x, topLeft.y)),
+        {
+          pane: "labelPane",
+          icon: L.divIcon({
+            className: "ty-label-icon",
+            html,
+            iconSize: [size.w, size.h],
+            iconAnchor: [0, 0]
+          }),
+          interactive: true,
+          keyboard: false
+        }
+      ).addTo(map);
 
       const anchorPx = getLabelAnchorPx(item);
       const anchorLL = map.containerPointToLatLng(L.point(anchorPx.x, anchorPx.y));
@@ -882,25 +887,126 @@
         { dx: -150, dy: -28 },
         { dx: -150, dy: 38 },
         { dx: 85, dy: -68 },
-        { dx: 85, dy: 72 }
+        { dx: 85, dy: 72 },
+        { dx: 180, dy: -8 },
+        { dx: -185, dy: 0 },
+        { dx: 210, dy: 36 },
+        { dx: -210, dy: 52 }
       ];
 
-      let offsetIndex = 0;
+      function rectOverlap(a, b, pad = 10){
+        return !(
+          a.x + a.w + pad < b.x ||
+          b.x + b.w + pad < a.x ||
+          a.y + a.h + pad < b.y ||
+          b.y + b.h + pad < a.y
+        );
+      }
+
+      function getRectForOffset(idx, dx, dyTop, w, h){
+        const stormPt = map.latLngToContainerPoint([points[idx].lat, points[idx].lon]);
+        return {
+          x: stormPt.x + dx,
+          y: stormPt.y + dyTop,
+          w,
+          h
+        };
+      }
+
+      function pickNonOverlapOffset(idx, w, h, usedRects, baseOffsets){
+        for(const raw of baseOffsets){
+          const dx = raw.dx;
+          const dyTop = raw.dy - h;
+          const rect = getRectForOffset(idx, dx, dyTop, w, h);
+
+          let bad = false;
+          for(const r of usedRects){
+            if(rectOverlap(rect, r, 12)){
+              bad = true;
+              break;
+            }
+          }
+
+          if(!bad){
+            usedRects.push(rect);
+            return { dx, dyTop };
+          }
+        }
+
+        const expandSteps = [40, 80, 120, 160];
+        for(const step of expandSteps){
+          for(const raw of baseOffsets){
+            const variants = [
+              { dx: raw.dx + step, dy: raw.dy },
+              { dx: raw.dx - step, dy: raw.dy },
+              { dx: raw.dx, dy: raw.dy + step },
+              { dx: raw.dx, dy: raw.dy - step }
+            ];
+
+            for(const v of variants){
+              const dx = v.dx;
+              const dyTop = v.dy - h;
+              const rect = getRectForOffset(idx, dx, dyTop, w, h);
+
+              let bad = false;
+              for(const r of usedRects){
+                if(rectOverlap(rect, r, 12)){
+                  bad = true;
+                  break;
+                }
+              }
+
+              if(!bad){
+                usedRects.push(rect);
+                return { dx, dyTop };
+              }
+            }
+          }
+        }
+
+        const fallback = baseOffsets[0];
+        const fallbackRect = getRectForOffset(idx, fallback.dx, fallback.dy - h, w, h);
+        usedRects.push(fallbackRect);
+        return { dx: fallback.dx, dyTop: fallback.dy - h };
+      }
+
+      function addAutoLabel(idx, isCurrent, usedRects, preferSet){
+        const p = points[idx];
+        const st = getStyle(p.level);
+        const html = makeLabelHtml(p.time, st.color, isCurrent);
+        const size = measureLabel(html);
+
+        const picked = pickNonOverlapOffset(idx, size.w, size.h, usedRects, preferSet);
+        createLabelItem(idx, isCurrent, picked.dx, picked.dyTop);
+      }
+
+      const usedRects = [];
+
+      addAutoLabel(
+        latestObsIdx,
+        true,
+        usedRects,
+        [
+          { dx: 95, dy: 10 },
+          { dx: 120, dy: -22 },
+          { dx: -165, dy: 16 },
+          { dx: 145, dy: 46 }
+        ]
+      );
+
       let fcstCount = 1;
-      const STEP = 3;
+      const STEP = 2;
 
       points.forEach((p, idx) => {
         if(p.kind !== "fcst") return;
+
         const shouldShow = (fcstCount % STEP === 0);
         fcstCount += 1;
         if(!shouldShow) return;
 
-        const o = preferredOffsets[offsetIndex % preferredOffsets.length];
-        offsetIndex += 1;
-        createLabelItem(idx, false, o.dx, o.dy - 32);
+        addAutoLabel(idx, false, usedRects, preferredOffsets);
       });
 
-      createLabelItem(latestObsIdx, true, 90, 8);
       updateLabelLines();
     }
 
