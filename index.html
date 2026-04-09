@@ -454,17 +454,33 @@ function buildForecastConePolygonSmooth(){
     return a + (b - a) * t;
   }
 
-  // 起點保持較小，避免開頭鼓起來
-  const rawRadii = fcst.map(p => clamp(Number(p.fcst_radius_km || 0), 0, 350));
-  const firstForecastRadius = rawRadii[0] || 30;
-  const START_RADIUS = clamp(firstForecastRadius * 0.12, 4, 28);
+  const MAX_RADIUS = 160;       // 🔥 整體最大 cone 半徑
+  const MAX_RADIUS_JUMP = 22;   // 🔥 每一步最多增加多少 km
+  const SEGMENT_STEPS = 5;      // 🔥 補點數量
 
-  // 先做一次平滑
-  const smoothRadii = rawRadii.map((r, i) => {
-    if(i === 0) return clamp((START_RADIUS + r) / 2, 8, 350);
-    const prev = rawRadii[i - 1];
-    const next = rawRadii[i + 1] ?? r;
-    return clamp((prev + r + next) / 3, 8, 350);
+  const rawRadii = fcst.map(p => clamp(Number(p.fcst_radius_km || 0), 0, MAX_RADIUS));
+
+  const controlledRadii = [];
+  for(let i = 0; i < rawRadii.length; i++){
+    if(i === 0){
+      controlledRadii.push(rawRadii[i]);
+    }else{
+      const prev = controlledRadii[i - 1];
+      const target = rawRadii[i];
+      const limited = clamp(target, prev - MAX_RADIUS_JUMP, prev + MAX_RADIUS_JUMP);
+      controlledRadii.push(clamp(limited, 0, MAX_RADIUS));
+    }
+  }
+
+  const firstForecastRadius = controlledRadii[0] || 30;
+  const START_RADIUS = clamp(firstForecastRadius * 0.10, 3, 16);
+
+  const smoothRadii = controlledRadii.map((r, i) => {
+    if(i === 0) return clamp((START_RADIUS + r) / 2, 4, MAX_RADIUS);
+
+    const prev = controlledRadii[i - 1];
+    const next = controlledRadii[i + 1] ?? r;
+    return clamp((prev + r + next) / 3, 4, MAX_RADIUS);
   });
 
   const basePath = [
@@ -476,10 +492,7 @@ function buildForecastConePolygonSmooth(){
     }))
   ];
 
-  // 🔥 關鍵：在每段中間補點
   const path = [];
-  const SEGMENT_STEPS = 6; // 可改 4 / 6 / 8，越大越平滑
-
   for(let i = 0; i < basePath.length - 1; i++){
     const a = basePath[i];
     const b = basePath[i + 1];
@@ -493,7 +506,6 @@ function buildForecastConePolygonSmooth(){
       });
     }
   }
-
   path.push(basePath[basePath.length - 1]);
 
   function getHeading(i){
@@ -535,13 +547,12 @@ function buildForecastConePolygonSmooth(){
     rightSide.push([rightPt.lat, rightPt.lon]);
   }
 
-  // 尾端半圓收口
   const end = path[path.length - 1];
   const endHeading = getHeading(path.length - 1);
   const endRadius = kmToMeters(end.rKm);
   const endArc = [];
 
-  for(let a = -90; a <= 90; a += 4){
+  for(let a = -90; a <= 90; a += 6){
     const pt = destinationPoint(
       end.lat,
       end.lon,
@@ -551,7 +562,6 @@ function buildForecastConePolygonSmooth(){
     endArc.push([pt.lat, pt.lon]);
   }
 
-  // 開頭尖頭收口
   return [
     [obs.lat, obs.lon],
     ...leftSide.slice(1),
