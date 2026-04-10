@@ -33,42 +33,16 @@
       "note": "",
       "storm_radius_km": 100
     },
-
-    {
-      "lat": 8.3,
-      "lon": 150.5,
-      "time": "2026-04-10 08:00",
-      "kind": "fcst",
-      "level": "TS",
-      "wind": 20,
-      "pressure": 995,
-      "note": "",
-      "fcst_radius_km": 30,
-      "storm_radius_km": 120
-    },
-    {
-      "lat": 8.5,
-      "lon": 150.2,
+   {
+      "lat": 7.9,
+      "lon": 151.1,
       "time": "2026-04-10 14:00",
-      "kind": "fcst",
+      "kind": "obs",
       "level": "STS",
-      "wind": 23,
-      "pressure": 988,
+      "wind": 20,
+      "pressure": 985,
       "note": "",
-      "fcst_radius_km": 40,
-      "storm_radius_km": 150
-    },
-    {
-      "lat": 8.5,
-      "lon": 150.0,
-      "time": "2026-04-10 20:00",
-      "kind": "fcst",
-      "level": "STS",
-      "wind": 28,
-      "pressure": 980,
-      "note": "",
-      "fcst_radius_km": 80,
-      "storm_radius_km": 180
+      "storm_radius_km": 250
     },
     {
       "lat": 8.6,
