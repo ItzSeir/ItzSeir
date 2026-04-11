@@ -31,7 +31,6 @@
       "wind": 20,
       "pressure": 995,
       "note": "",
-      "storm_radius_km": 100
     },
     {
       "lat": 8.0,
@@ -42,12 +41,21 @@
       "wind": 28,
       "pressure": 980,
       "note": "",
-      "storm_radius_km": 250
     },
     {
       "lat": 8.7,
       "lon": 151.5,
       "time": "2026-04-11 14:00",
+      "kind": "obs",
+      "level": "TY",
+      "wind": 38,
+      "pressure": 960,
+      "note": "",
+    },
+        {
+      "lat": 9.0,
+      "lon": 151.3 ,
+      "time": "2026-04-11 20:00",
       "kind": "obs",
       "level": "TY",
       "wind": 38,
