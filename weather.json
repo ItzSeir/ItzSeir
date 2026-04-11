@@ -64,18 +64,6 @@
       "storm_radius_km": 250
     },
     {
-      "lat": 9.1,
-      "lon": 151.3,
-      "time": "2026-04-11 20:00",
-      "kind": "fcst",
-      "level": "TY",
-      "wind": 40,
-      "pressure": 955,
-      "note": "",
-      "fcst_radius_km": 30,
-      "storm_radius_km": 250
-    },
-    {
       "lat": 9.4,
       "lon": 151.0,
       "time": "2026-04-12 02:00",
