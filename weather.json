@@ -30,7 +30,7 @@
       "level": "TS",
       "wind": 20,
       "pressure": 995,
-      "note": "",
+      "note": ""
     },
     {
       "lat": 8.0,
@@ -40,7 +40,7 @@
       "level": "STS",
       "wind": 28,
       "pressure": 980,
-      "note": "",
+      "note": ""
     },
     {
       "lat": 8.7,
@@ -50,11 +50,11 @@
       "level": "TY",
       "wind": 38,
       "pressure": 960,
-      "note": "",
+      "note": ""
     },
     {
       "lat": 9.0,
-      "lon": 151.3 ,
+      "lon": 151.3,
       "time": "2026-04-11 20:00",
       "kind": "obs",
       "level": "TY",
