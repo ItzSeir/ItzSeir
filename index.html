@@ -163,18 +163,7 @@
     }
     .popup-kv{ display:grid; grid-template-columns: 70px 1fr; gap:6px 10px; font-size:12px; color:#374151; font-weight:700; }
     .popup-kv div:nth-child(odd){ color:#6b7280; font-weight:900; }
-    /* 警戒標籤樣式 */
-    .country-alert-label {
-        background: #ff4757;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-weight: bold;
-        font-size: 12px;
-        border: 1px solid white;
-        white-space: nowrap;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    }
+
     .tlabel{
       display:inline-flex;
       align-items:center;
@@ -306,33 +295,7 @@
       TY:  { color: "#ef4444", label: "中度颱風 TY" },
       STY: { color: "#7c3aed", label: "强烈颱風 STY" }
     };
-    const monitorAreas = [
-      // --- 密克羅尼西亞群島 (颱風發源地) ---
-      { name: "密克羅尼西亞 (FSM)", lat: 6.9, lon: 158.2, range: 4.5 },
-      { name: "帛琉 (Palau)", lat: 7.5, lon: 134.6, range: 2.0 },
-      { name: "馬紹爾群島", lat: 7.1, lon: 171.2, range: 3.5 },
-    
-      // --- 美屬領地 (重要觀測點) ---
-      { name: "關島 (Guam)", lat: 13.4, lon: 144.7, range: 1.5 },
-      { name: "塞班/北馬里亞納", lat: 15.2, lon: 145.7, range: 2.0 },
-    
-      // --- 菲律賓 (熱門路徑) ---
-      { name: "菲律賓 (呂宋島)", lat: 16.0, lon: 121.0, range: 4.0 },
-      { name: "菲律賓 (維薩亞斯)", lat: 11.0, lon: 124.5, range: 3.5 },
-    
-      // --- 東亞地區 ---
-      { name: "臺灣 (Taiwan)", lat: 23.7, lon: 121.0, range: 2.5 },
-      { name: "沖繩/琉球群島", lat: 26.3, lon: 127.8, range: 2.0 },
-      { name: "日本 (本州)", lat: 35.0, lon: 139.0, range: 4.0 },
-      { name: "日本 (九州)", lat: 32.6, lon: 130.8, range: 2.5 },
-      { name: "韓國 (Jeju/Busan)", lat: 34.5, lon: 128.0, range: 3.0 },
-    
-      // --- 中國沿海與南海 ---
-      { name: "華東沿海 (上海/浙江)", lat: 29.0, lon: 122.0, range: 3.5 },
-      { name: "華南沿海 (廣東/香港)", lat: 22.5, lon: 114.1, range: 3.0 },
-      { name: "海南島", lat: 19.1, lon: 109.7, range: 2.5 },
-      { name: "越南沿海", lat: 16.0, lon: 108.2, range: 3.5 }
-    ];
+
     function $(id){ return document.getElementById(id); }
 
     function getStyle(level){
@@ -1104,45 +1067,7 @@
         }
       }, { passive: false });
     }
-    function checkCountryAlerts(points, map) {
-    // 1. 篩選出只有預測性質的點位 (fcst)
-    const forecastPoints = points.filter(p => p.kind === "fcst");
 
-    monitorAreas.forEach(area => {
-        let isUnderThreat = false;
-        let threatLevel = ""; // 可擴充：用來記錄預計到達時間
-
-        forecastPoints.forEach(p => {
-            // 計算颱風中心點與國家座標的距離 (1度約等於111公里)
-            const dist = Math.sqrt(Math.pow(p.lat - area.lat, 2) + Math.pow(p.lon - area.lon, 2)) * 111;
-            
-            // 判定門檻：優先使用該點的暴風半徑 (storm_radius_km)，若無則使用國家的預設門檻 (range * 111)
-            const alertThreshold = p.storm_radius_km || (area.range * 111) || 300;
-
-            if (dist < alertThreshold) {
-                isUnderThreat = true;
-            }
-        });
-
-        if (isUnderThreat) {
-            // 在地圖上繪製警告標籤
-            const alertIcon = L.divIcon({
-                className: 'alert-icon', // 建議統一使用你在 CSS 定義的 class
-                html: `<div class="country-alert">⚠ 預警：${area.name}</div>`,
-                iconAnchor: [0, 0]
-            });
-
-            L.marker([area.lat, area.lon], { 
-                icon: alertIcon,
-                pane: 'labelPane', // 確保標籤在最上層，不會被陰影帶遮住
-                interactive: false 
-            }).addTo(map);
-            
-            // 可選：在控制台記錄偵測結果，方便除錯
-            console.log(`[Alert] ${area.name} 受到預測路徑威脅`);
-        }
-    });
-}
     async function init(){
       try{
         await loadWeatherData();
@@ -1191,7 +1116,6 @@ const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
       }
 
       drawForecastCone();
-     drawForecastCone();
       drawSegments();
 
       const latestObsIdx = getLatestObsIndex();
@@ -1200,22 +1124,16 @@ const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
       drawStormRings();
       drawTimeLabels(latestObsIdx);
 
-      // --- 新增：執行國家預警判定 (僅限預測點) ---
-      if (typeof checkCountryAlerts === "function") {
-        checkCountryAlerts(points, map);
-      }
-
-      // --- 介面功能 ---
-      renderLegend();
       renderForecastList();
       enableHorizontalWheelScroll();
 
-      // 事件監聽
       $("toggleLabels").addEventListener("change", () => drawTimeLabels(latestObsIdx));
       $("toggleCone").addEventListener("change", drawForecastCone);
       $("toggleRings").addEventListener("change", drawStormRings);
 
-      map.on("move zoom moveend", scheduleUpdateLabelLines);
+      map.on("move", scheduleUpdateLabelLines);
+      map.on("zoom", scheduleUpdateLabelLines);
+      map.on("moveend", scheduleUpdateLabelLines);
       map.on("zoomend", () => {
         updateLabelLines();
         drawForecastCone();
@@ -1225,14 +1143,19 @@ const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
       fitAll();
       $("fitAllBtn").addEventListener("click", fitAll);
 
-      window.addEventListener("beforeprint", () => map.invalidateSize(true));
+      function beforePrint(){
+        try{ map.invalidateSize(true); }catch(e){}
+      }
+
+      window.addEventListener("beforeprint", beforePrint);
       $("printBtn").addEventListener("click", () => {
-        map.invalidateSize(true);
+        beforePrint();
         setTimeout(() => window.print(), 30);
       });
 
       setTimeout(() => map.invalidateSize(), 250);
     }
+
     window.addEventListener("load", init);
   </script>
 </body>
