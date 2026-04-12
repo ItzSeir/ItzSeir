@@ -3,6 +3,26 @@
   "source": "JMA CWA JTWC等機構資料",
   "points": [
     {
+      "lat": 8.5,
+      "lon": 152.4,
+      "time": "2026-04-09 08:00",
+      "kind": "obs",
+      "level": "TD",
+      "wind": 15,
+      "pressure": 1000,
+      "note": ""
+    },
+    {
+      "lat": 8.2,
+      "lon": 150.7,
+      "time": "2026-04-10 02:00",
+      "kind": "obs",
+      "level": "TS",
+      "wind": 20,
+      "pressure": 995,
+      "note": ""
+    },
+    {
       "lat": 8.0,
       "lon": 150.9,
       "time": "2026-04-10 20:00",
