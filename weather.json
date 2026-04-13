@@ -110,31 +110,29 @@
       "level": "STY",
       "wind": 60,
       "pressure": 895,
+      "note": ""
+    },
+    {
+      "lat": 12.9,
+      "lon": 147.5,
+      "time": "2026-04-13 20:00",
+      "kind": "obs",
+      "level": "STY",
+      "wind": 60,
+      "pressure": 895,
       "note": "最新觀測位置",
       "storm_radius_km": 350
     },
     {
-      "lat": 13.1,
-      "lon": 147.3,
-      "time": "2026-04-13 20:00",
-      "kind": "fcst",
-      "level": "STY",
-      "wind": 60,
-      "pressure": 895,
-      "note": "",
-      "fcst_radius_km": 30,
-      "storm_radius_km": 350
-    },
-    {
-      "lat": 13.5,
-      "lon": 146.9,
+      "lat": 13.4,
+      "lon": 147.0,
       "time": "2026-04-14 02:00",
       "kind": "fcst",
       "level": "STY",
       "wind": 60,
       "pressure": 895,
       "note": "",
-      "fcst_radius_km": 40,
+      "fcst_radius_km": 30,
       "storm_radius_km": 350
     },
     {
@@ -146,13 +144,25 @@
       "wind": 58,
       "pressure": 900,
       "note": "",
-      "fcst_radius_km": 80,
+      "fcst_radius_km": 40,
       "storm_radius_km": 350
     },
     {
       "lat": 14.3,
-      "lon": 146.1,
+      "lon": 146.2,
       "time": "2026-04-14 14:00",
+      "kind": "fcst",
+      "level": "STY",
+      "wind": 58,
+      "pressure": 900,
+      "note": "",
+      "fcst_radius_km": 80,
+      "storm_radius_km": 350
+    },
+    {
+      "lat": 14.7,
+      "lon": 145.9,
+      "time": "2026-04-14 20:00",
       "kind": "fcst",
       "level": "STY",
       "wind": 58,
@@ -162,9 +172,9 @@
       "storm_radius_km": 350
     },
     {
-      "lat": 15.1,
-      "lon": 145.7,
-      "time": "2026-04-15 02:00",
+      "lat": 15.4,
+      "lon": 145.3,
+      "time": "2026-04-15 08:00",
       "kind": "fcst",
       "level": "STY",
       "wind": 55,
@@ -174,33 +184,33 @@
       "storm_radius_km": 350
     },
     {
-      "lat": 15.8,
-      "lon": 145.2,
-      "time": "2026-04-15 14:00",
+      "lat": 16.5,
+      "lon": 144.8,
+      "time": "2026-04-15 20:00",
       "kind": "fcst",
       "level": "STY",
-      "wind": 53,
+      "wind": 51,
       "pressure": 920,
       "note": "",
-      "fcst_radius_km": 140,
-      "storm_radius_km": 350
+      "fcst_radius_km": 130,
+      "storm_radius_km": 320
     },
     {
-      "lat": 18.3,
-      "lon": 144.5,
-      "time": "2026-04-16 14:00",
+      "lat": 18.8,
+      "lon": 144.7,
+      "time": "2026-04-16 20:00",
       "kind": "fcst",
       "level": "STY",
-      "wind": 45,
+      "wind": 43,
       "pressure": 940,
       "note": "",
       "fcst_radius_km": 210,
       "storm_radius_km": 320
     },
     {
-      "lat": 21.2,
-      "lon": 145.9,
-      "time": "2026-04-17 14:00",
+      "lat": 21.4,
+      "lon": 146.1,
+      "time": "2026-04-17 20:00",
       "kind": "fcst",
       "level": "TY",
       "wind": 38,
@@ -210,14 +220,14 @@
       "storm_radius_km": 280
     },
     {
-      "lat": 24.5,
-      "lon": 148.6,
-      "time": "2026-04-18 14:00",
+      "lat": 24.8,
+      "lon": 148.7,
+      "time": "2026-04-18 20:00",
       "kind": "fcst",
       "level": "TY",
-      "wind": 30,
-      "pressure": 975,
-      "note": "逐漸轉向東北",
+      "wind": 33,
+      "pressure": 970,
+      "note": "轉向東北移動",
       "fcst_radius_km": 460,
       "storm_radius_km": 250
     }
