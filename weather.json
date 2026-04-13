@@ -80,7 +80,7 @@
       "level": "STY",
       "wind": 60,
       "pressure": 895,
-      "note": "",
+      "note": ""
     },
     {
       "lat": 11.5,
@@ -90,18 +90,18 @@
       "level": "STY",
       "wind": 60,
       "pressure": 895,
-      "note": "",
+      "note": ""
     },
     {
-  "lat": 12.2,
-  "lon": 148.8,
-  "time": "2026-04-13 08:00",
-  "kind": "obs",
-  "level": "STY",
-  "wind": 60,
-  "pressure": 895,
-  "note": "實測最強巔峰",
-  "storm_radius_km": 35
+      "lat": 12.2,
+      "lon": 148.8,
+      "time": "2026-04-13 08:00",
+      "kind": "obs",
+      "level": "STY",
+      "wind": 60,
+      "pressure": 895,
+      "note": "實測最強巔峰",
+      "storm_radius_km": 350
     },
     {
       "lat": 12.5,
