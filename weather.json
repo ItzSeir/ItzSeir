@@ -80,8 +80,7 @@
       "level": "STY",
       "wind": 60,
       "pressure": 895,
-      "note": "最新觀測位置 (最強巔峰)",
-      "storm_radius_km": 350
+      "note": "",
     },
     {
       "lat": 11.5,
@@ -92,20 +91,17 @@
       "wind": 60,
       "pressure": 895,
       "note": "",
-      "fcst_radius_km": 30,
-      "storm_radius_km": 350
     },
     {
-      "lat": 12.0,
-      "lon": 148.8,
-      "time": "2026-04-13 08:00",
-      "kind": "fcst",
-      "level": "STY",
-      "wind": 60,
-      "pressure": 895,
-      "note": "",
-      "fcst_radius_km": 40,
-      "storm_radius_km": 350
+  "lat": 12.2,
+  "lon": 148.8,
+  "time": "2026-04-13 08:00",
+  "kind": "obs",
+  "level": "STY",
+  "wind": 60,
+  "pressure": 895,
+  "note": "實測最強巔峰",
+  "storm_radius_km": 35
     },
     {
       "lat": 12.5,
