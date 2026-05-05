@@ -595,6 +595,289 @@
       font-weight:650;
     }
 
+    .downloadPanel{
+      padding:20px;
+    }
+
+    .downloadHero{
+      display:grid;
+      grid-template-columns:minmax(0, .95fr) minmax(0, 1.05fr);
+      gap:16px;
+      align-items:stretch;
+      margin-bottom:16px;
+    }
+
+    .downloadSummary,
+    .downloadNotice{
+      min-height:150px;
+      padding:18px;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.84);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .downloadSummary{
+      position:relative;
+      overflow:hidden;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.94), rgba(237,247,247,.84)),
+        radial-gradient(circle at 88% 20%, rgba(42,157,143,.15), transparent 34%);
+    }
+
+    .downloadSummary::after{
+      content:"";
+      position:absolute;
+      right:-48px;
+      bottom:-58px;
+      width:150px;
+      height:150px;
+      border-radius:50%;
+      border:26px solid rgba(15,76,92,.06);
+      pointer-events:none;
+    }
+
+    .downloadTitle{
+      position:relative;
+      z-index:1;
+      margin:12px 0 8px;
+      color:var(--heading);
+      font-size:26px;
+      line-height:1.18;
+      letter-spacing:-.04em;
+      font-weight:900;
+    }
+
+    .downloadText{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.75;
+      font-weight:650;
+    }
+
+    .downloadStats{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:16px;
+      position:relative;
+      z-index:1;
+    }
+
+    .downloadStat{
+      min-height:74px;
+      padding:13px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+    }
+
+    .downloadStat strong{
+      display:block;
+      color:var(--heading);
+      font-size:22px;
+      line-height:1;
+      letter-spacing:-.04em;
+      font-weight:900;
+    }
+
+    .downloadStat span{
+      display:block;
+      margin-top:8px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .downloadNotice{
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      gap:14px;
+    }
+
+    .noticeList{
+      display:grid;
+      gap:10px;
+      margin:0;
+      padding:0;
+      list-style:none;
+    }
+
+    .noticeList li{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      color:#5f7480;
+      font-size:13px;
+      line-height:1.65;
+      font-weight:750;
+    }
+
+    .noticeList li::before{
+      content:"";
+      width:8px;
+      height:8px;
+      margin-top:7px;
+      border-radius:999px;
+      background:var(--teal);
+      box-shadow:0 0 0 5px rgba(42,157,143,.10);
+      flex:0 0 auto;
+    }
+
+    .mapTableWrap{
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:rgba(255,255,255,.88);
+      box-shadow:var(--shadow-soft);
+      overflow:hidden;
+    }
+
+    .mapTableScroll{
+      width:100%;
+      overflow-x:auto;
+      overscroll-behavior-x:contain;
+    }
+
+    .mapTableScroll::-webkit-scrollbar{ height:10px; }
+    .mapTableScroll::-webkit-scrollbar-thumb{
+      background:rgba(15,76,92,.20);
+      border-radius:999px;
+      border:3px solid rgba(255,255,255,.8);
+    }
+
+    .mapTable{
+      width:100%;
+      min-width:820px;
+      border-collapse:collapse;
+    }
+
+    .mapTable thead tr{
+      background:
+        linear-gradient(135deg, rgba(15,76,92,.06), rgba(42,157,143,.055)),
+        rgba(255,255,255,.86);
+    }
+
+    .mapTable th,
+    .mapTable td{
+      padding:16px 18px;
+      text-align:left;
+      border-bottom:1px solid var(--line);
+      vertical-align:middle;
+      font-size:13px;
+    }
+
+    .mapTable th{
+      color:var(--heading);
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .mapTable tbody tr{
+      background:#fff;
+      transition:background .16s ease;
+    }
+
+    .mapTable tbody tr:hover{
+      background:rgba(15,76,92,.035);
+    }
+
+    .mapTable tbody tr:last-child td{
+      border-bottom:0;
+    }
+
+    .mapName{
+      color:var(--heading);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.35;
+      white-space:nowrap;
+    }
+
+    .mapSub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:750;
+      line-height:1.4;
+    }
+
+    .mapVersion,
+    .mapSize,
+    .mapDate{
+      color:#445d69;
+      font-size:13px;
+      font-weight:850;
+      white-space:nowrap;
+    }
+
+    .statusPill{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-height:30px;
+      padding:0 11px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+      border:1px solid transparent;
+    }
+
+    .statusPill::before{
+      content:"";
+      width:7px;
+      height:7px;
+      border-radius:999px;
+      background:currentColor;
+      box-shadow:0 0 0 4px rgba(42,157,143,.10);
+    }
+
+    .status-ready{
+      color:var(--sea);
+      background:rgba(15,76,92,.08);
+      border-color:rgba(15,76,92,.14);
+    }
+
+    .status-archive{
+      color:#6a7d89;
+      background:rgba(106,125,137,.12);
+      border-color:rgba(106,125,137,.18);
+    }
+
+    .downloadBtn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:38px;
+      padding:0 14px;
+      border-radius:999px;
+      color:#fff;
+      text-decoration:none;
+      font-size:12px;
+      font-weight:900;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 12px 24px rgba(15,76,92,.18);
+      transition:transform .16s ease, box-shadow .16s ease;
+      white-space:nowrap;
+    }
+
+    .downloadBtn:hover{
+      transform:translateY(-2px);
+      box-shadow:0 16px 30px rgba(15,76,92,.22);
+    }
+
+    .downloadFootnote{
+      margin:14px 2px 0;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:750;
+      line-height:1.65;
+    }
+
     .galleryGrid{
       display:grid;
       grid-template-columns:1.2fr .8fr .8fr;
@@ -613,9 +896,7 @@
       min-height:180px;
     }
 
-    .galleryItem.big{
-      grid-row:span 2;
-    }
+    .galleryItem.big{ grid-row:span 2; }
 
     .galleryItem::after{
       content:"";
@@ -760,19 +1041,21 @@
       .portalGrid,
       .infoGrid,
       .galleryGrid,
-      .timeline{
+      .timeline,
+      .downloadPanel{
         grid-template-columns:1fr;
         padding:14px;
       }
+
+      .downloadHero{ grid-template-columns:1fr; }
+      .downloadTitle{ font-size:22px; }
+      .downloadStats{ grid-template-columns:1fr; }
 
       .portalCard{ min-height:240px; }
       .galleryGrid{ grid-template-rows:auto; }
       .galleryItem.big{ grid-column:auto; }
       .galleryItem{ min-height:220px; }
-
-      .timelineItem{
-        grid-template-columns:1fr;
-      }
+      .timelineItem{ grid-template-columns:1fr; }
     }
 
     @media (max-width:520px){
@@ -789,10 +1072,7 @@
         letter-spacing:-.035em;
       }
 
-      .heroActions{
-        flex-direction:column;
-      }
-
+      .heroActions{ flex-direction:column; }
       .actionBtn{ width:100%; }
       .statGrid{ grid-template-columns:1fr; }
       .portalTitle{ font-size:25px; }
@@ -804,7 +1084,7 @@
   <main class="page">
     <header class="topbar">
       <a class="brand" href="../" aria-label="返回葉離首頁">
-        <div class="brandMark"></div>
+        <div class="brandMark">麥</div>
         <div class="brandText">
           <strong>葉離社群</strong>
           <span>麥塊 MINECRAFT</span>
@@ -813,10 +1093,10 @@
 
       <nav class="navPills" aria-label="主選單">
         <a href="https://itzseir.github.io/ItzSeir/floestsmp">首頁</a>
-        <a href="">往期活動</a>
-        <a class="active" href="index">麥塊</a>
-        <a href="">其他</a>
-        <a href="">資訊</a>
+        <a href="#versions">往期活動</a>
+        <a class="active" href="index.html">麥塊</a>
+        <a href="#downloads">地圖下載</a>
+        <a href="#info">資訊</a>
       </nav>
     </header>
 
@@ -829,6 +1109,7 @@
         </p>
         <div class="heroActions">
           <a class="actionBtn" href="#versions">選擇版本</a>
+          <a class="actionBtn ghostBtn" href="#downloads">下載地圖</a>
           <a class="actionBtn ghostBtn" href="1.16.5.html">前往 1.16.5</a>
         </div>
       </div>
@@ -844,8 +1125,8 @@
             <div class="statLabel">已建立頁面</div>
           </div>
           <div class="statBox">
-            <div class="statNum">1.19+</div>
-            <div class="statLabel">可新增版本</div>
+            <div class="statNum">4</div>
+            <div class="statLabel">地圖下載</div>
           </div>
         </div>
       </aside>
@@ -923,6 +1204,127 @@
           <h3>精選圖片</h3>
           <p>放置版本代表截圖、地標建築、活動照片與值得保存的回憶畫面。</p>
         </article>
+      </div>
+    </section>
+
+    <section class="section" id="downloads">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot" style="background:var(--warm);"></span> Map Downloads</div>
+          <h2 class="sectionTitle">Minecraft 地圖下載</h2>
+          <p class="sectionDesc">公開下載列表。點擊下載會開啟 Google Drive，檔案較大時請耐心等待。</p>
+        </div>
+      </div>
+
+      <div class="downloadPanel">
+        <div class="downloadHero">
+          <div class="downloadSummary">
+            <div class="miniPill"><span class="pillDot"></span>World Save Archive</div>
+            <h3 class="downloadTitle">原味生存地圖存檔</h3>
+            <p class="downloadText">
+              這裡集中放置葉離 / 花祭 Minecraft 原味生存地圖檔案。包含回溯檔案與不同版本的世界存檔，方便之後下載回顧。
+            </p>
+
+            <div class="downloadStats">
+              <div class="downloadStat">
+                <strong>4</strong>
+                <span>公開地圖</span>
+              </div>
+              <div class="downloadStat">
+                <strong>1GB+</strong>
+                <span>大型存檔</span>
+              </div>
+            </div>
+          </div>
+
+          <aside class="downloadNotice">
+            <div class="miniPill"><span class="pillDot"></span>下載提醒</div>
+            <ul class="noticeList">
+              <li>建議使用電腦下載與解壓縮，部分地圖檔案容量超過 1GB。</li>
+              <li>下載後請確認 Minecraft 版本與世界存檔版本一致。</li>
+              <li>Google Drive 若顯示無法預覽，仍可按下載按鈕取得檔案。</li>
+            </ul>
+          </aside>
+        </div>
+
+        <div class="mapTableWrap">
+          <div class="mapTableScroll">
+            <table class="mapTable">
+              <thead>
+                <tr>
+                  <th>地圖名稱</th>
+                  <th>支援版本</th>
+                  <th>檔案大小</th>
+                  <th>更新日期</th>
+                  <th>狀態</th>
+                  <th>下載</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="mapName">1.16.5 原味生存</div>
+                    <div class="mapSub">回溯存檔</div>
+                  </td>
+                  <td><span class="mapVersion">1.16.5</span></td>
+                  <td><span class="mapSize">1.15 GB</span></td>
+                  <td><span class="mapDate">2023-08-06</span></td>
+                  <td><span class="statusPill status-archive">回溯檔案</span></td>
+                  <td>
+                    <a class="downloadBtn" href="https://drive.google.com/file/d/1-8J7lhYLC5PEc3zPUeuVf_I2I8j_nlJt/view?usp=drive_link" target="_blank" rel="noopener">下載</a>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <div class="mapName">1.19.1 原味生存</div>
+                    <div class="mapSub">公開下載</div>
+                  </td>
+                  <td><span class="mapVersion">1.19.1</span></td>
+                  <td><span class="mapSize">1.95 GB</span></td>
+                  <td><span class="mapDate">2023-05-22</span></td>
+                  <td><span class="statusPill status-ready">READY</span></td>
+                  <td>
+                    <a class="downloadBtn" href="https://drive.google.com/file/d/1k4I-Ebm3GXknm-LnnJk98YLQruasGUnb/view?usp=drive_link" target="_blank" rel="noopener">下載</a>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <div class="mapName">1.20.1 原味生存</div>
+                    <div class="mapSub">公開下載</div>
+                  </td>
+                  <td><span class="mapVersion">1.20.1</span></td>
+                  <td><span class="mapSize">1.16 GB</span></td>
+                  <td><span class="mapDate">2023-09-09</span></td>
+                  <td><span class="statusPill status-ready">READY</span></td>
+                  <td>
+                    <a class="downloadBtn" href="https://drive.google.com/file/d/1WAZ1RPPuxiFVABB_imlE7ZYeX4WPifD8/view?usp=drive_link" target="_blank" rel="noopener">下載</a>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <div class="mapName">1.21 原味生存</div>
+                    <div class="mapSub">公開下載</div>
+                  </td>
+                  <td><span class="mapVersion">1.21</span></td>
+                  <td><span class="mapSize">1.03 GB</span></td>
+                  <td><span class="mapDate">2024-10-20</span></td>
+                  <td><span class="statusPill status-ready">READY</span></td>
+                  <td>
+                    <a class="downloadBtn" href="https://drive.google.com/file/d/1WAZ1RPPuxiFVABB_imlE7ZYeX4WPifD8/view?usp=drive_link" target="_blank" rel="noopener">下載</a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <p class="downloadFootnote">
+          小提示：如果之後要新增地圖，只需要複製其中一個 <code>&lt;tr&gt;</code>，再更換版本、大小、日期與 Google Drive 連結即可。
+        </p>
       </div>
     </section>
 
@@ -1009,4 +1411,7 @@
       </div>
     </section>
 
-    <p class="footerNote">FloestSMP Minecraft Memory H
+    <p class="footerNote">FloestSMP Minecraft Memory Hub</p>
+  </main>
+</body>
+</html>
