@@ -1032,7 +1032,7 @@
         <div class="eyebrow"><span class="dot"></span> CWA EARTHQUAKE MONITOR</div>
         <h1 class="heroTitle">台灣地震<span>即時情報</span></h1>
         <p class="heroDesc">
-          整合中央氣象署 Open Data 的顯著有感地震與小區域地震資料，顯示震央、地震規模、深度、測站震度與各縣市最大震度。版面已統一成葉離網站目前使用的深海藍綠 dashboard 風格。
+          整合中央氣象署 Open Data 的顯著有感地震與小區域地震資料，顯示震央、地震規模、深度、測站震度與各縣市最大震度。
         </p>
         <div class="heroActions">
           <a class="actionBtn" href="#tracker">查看地震地圖</a>
@@ -1063,7 +1063,7 @@
         <div>
           <div class="sectionKicker"><span class="dot" style="background:var(--danger);"></span> Earthquake Tracker</div>
           <h2 class="sectionTitle">地震情報與震度地圖</h2>
-          <p class="sectionDesc">資料來源：中央氣象署 Open Data。若 Mapbox 地圖載入失敗，會自動切換至 OpenStreetMap。</p>
+          <p class="sectionDesc">資料來源：中央氣象署 Open Data</p>
         </div>
 
         <div class="toolbar">
@@ -1115,7 +1115,7 @@
               </div>
 
               <div class="countyGrid" id="countyGrid"></div>
-              <div class="hint">震度 5-/5+、6-/6+ 會保留原始標籤顯示。</div>
+              <div class="hint"></div>
             </div>
           </div>
         </aside>
@@ -1126,13 +1126,6 @@
               <strong>震央與測站震度地圖</strong>
               <span>紅點為震央；圓形數字為測站震度。點擊標記可查看詳細資訊。</span>
             </div>
-            <div class="mapLegendInline" aria-label="簡易圖例">
-              <span class="legendTiny"><i style="background:#ef4444"></i>震央</span>
-              <span class="legendTiny"><i style="background:#34d399"></i>低震度</span>
-              <span class="legendTiny"><i style="background:#fb923c"></i>中震度</span>
-              <span class="legendTiny"><i style="background:#a855f7"></i>高震度</span>
-            </div>
-          </div>
           <div id="map" aria-label="地震地圖"></div>
         </div>
       </div>
