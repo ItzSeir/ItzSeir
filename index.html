@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>葉離｜個人首頁</title>
+  <title>徯風｜個人首頁</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,25 +11,27 @@
 
   <style>
     :root{
-      --bg:#fbf7ef;
-      --bg2:#f5efe4;
-      --cream:#fffaf2;
-      --paper:#fffdf8;
-      --text:#5a4038;
-      --text2:#7c665c;
-      --muted:#a59283;
-      --brown:#6b332f;
-      --brown2:#8b5d4e;
-      --tan:#d2b187;
-      --tan2:#ead9c4;
-      --green:#37a982;
-      --green2:#69bd9b;
-      --red:#e98487;
-      --line:rgba(107,51,47,.15);
-      --line2:rgba(107,51,47,.26);
-      --shadow:0 18px 42px rgba(86,62,46,.10);
-      --shadow-soft:0 10px 24px rgba(86,62,46,.08);
-      --max:980px;
+      --bg:#eef4f7;
+      --bg2:#e3edf2;
+      --surface:#ffffff;
+      --surface-soft:rgba(255,255,255,.76);
+      --surface-glass:rgba(255,255,255,.84);
+      --line:rgba(25,42,58,.10);
+      --line-strong:rgba(25,42,58,.16);
+      --text:#163042;
+      --heading:#122c3c;
+      --muted:#6a7d89;
+      --muted2:#9aabb6;
+      --sea:#0f4c5c;
+      --teal:#2a9d8f;
+      --ice:#7bdff2;
+      --warm:#f4a261;
+      --danger:#d62828;
+      --shadow:0 18px 50px rgba(31,53,72,.12);
+      --shadow-soft:0 10px 30px rgba(31,53,72,.08);
+      --radius:28px;
+      --radius2:20px;
+      --max:1180px;
     }
 
     *{ box-sizing:border-box; }
@@ -41,123 +43,317 @@
       font-family:"Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 15% 6%, rgba(210,177,135,.16), transparent 30%),
-        radial-gradient(circle at 86% 20%, rgba(55,169,130,.10), transparent 28%),
-        linear-gradient(180deg, #fffaf4 0%, var(--bg) 48%, #ffffff 100%);
+        radial-gradient(circle at 10% -10%, rgba(42,157,143,.18), transparent 34%),
+        radial-gradient(circle at 88% 6%, rgba(123,223,242,.18), transparent 30%),
+        linear-gradient(180deg, #f7fbfc 0%, var(--bg) 48%, #ffffff 100%);
       overflow-x:hidden;
     }
 
-    a{ color:inherit; }
-
-    .top-visual{
-      position:relative;
-      height:112px;
-      overflow:hidden;
-      background:
-        linear-gradient(180deg, rgba(56,37,29,.20), rgba(56,37,29,.08)),
-        url("assets/header.jpg") center 46% / cover no-repeat,
-        linear-gradient(135deg, #6b4b3d, #c59b70);
-      clip-path:ellipse(84% 62% at 50% 0%);
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background-image:
+        linear-gradient(rgba(15,76,92,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15,76,92,.05) 1px, transparent 1px);
+      background-size:42px 42px;
+      mask-image:linear-gradient(180deg, rgba(0,0,0,.72), transparent 76%);
+      z-index:-1;
     }
+
+    a{ color:inherit; }
+    button{ font:inherit; }
 
     .page{
       width:min(var(--max), calc(100% - 32px));
-      margin:-42px auto 0;
-      padding:0 0 64px;
-      position:relative;
-      z-index:2;
+      margin:0 auto;
+      padding:28px 0 54px;
     }
 
-    .nav{
-      width:min(760px, 100%);
-      margin:0 auto 28px;
+    .topbar{
+      position:sticky;
+      top:12px;
+      z-index:50;
       display:flex;
       align-items:center;
-      justify-content:center;
-      gap:10px;
-      flex-wrap:wrap;
-      padding:10px 14px;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:22px;
+      padding:12px 14px;
+      border:1px solid var(--line);
       border-radius:999px;
-      background:rgba(255,250,242,.86);
-      border:1px solid rgba(210,177,135,.42);
-      box-shadow:var(--shadow-soft);
-      backdrop-filter:blur(12px);
+      background:rgba(255,255,255,.72);
+      backdrop-filter:blur(18px);
+      box-shadow:0 10px 30px rgba(31,53,72,.08);
     }
 
-    .nav a{
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
       text-decoration:none;
-      padding:8px 13px;
-      border-radius:999px;
-      color:var(--brown);
-      font-size:13px;
+    }
+
+    .brandMark{
+      width:36px;
+      height:36px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      border-radius:14px;
+      color:#fff;
       font-weight:900;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 10px 22px rgba(15,76,92,.22);
+    }
+
+    .brandText{
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      line-height:1.1;
+    }
+
+    .brandText strong{
+      font-size:14px;
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .brandText span{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .navPills{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .navPills a{
+      text-decoration:none;
+      color:#264052;
+      font-size:12px;
+      font-weight:900;
+      padding:9px 12px;
+      border-radius:999px;
       transition:.18s ease;
     }
 
-    .nav a:hover,
-    .nav a.active{
-      color:#fff;
-      background:var(--brown);
+    .navPills a:hover,
+    .navPills a.active{
+      color:var(--sea);
+      background:linear-gradient(135deg, rgba(15,76,92,.10), rgba(42,157,143,.12));
     }
 
-    .title-pill{
-      width:min(350px, 76vw);
-      min-height:46px;
-      margin:0 auto 34px;
+    .hero{
+      display:grid;
+      grid-template-columns:minmax(0, 1.08fr) minmax(300px, .92fr);
+      gap:22px;
+      align-items:stretch;
+      margin-bottom:22px;
+    }
+
+    .heroCard,
+    .profileCard{
+      border:1px solid var(--line);
+      border-radius:32px;
+      background:rgba(255,255,255,.78);
+      backdrop-filter:blur(18px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .heroCard{
+      position:relative;
+      min-height:360px;
+      padding:34px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.98), rgba(236,245,246,.90)),
+        radial-gradient(circle at 86% 14%, rgba(42,157,143,.15), transparent 34%);
+    }
+
+    .heroCard::after{
+      content:"";
+      position:absolute;
+      right:-120px;
+      bottom:-150px;
+      width:340px;
+      height:340px;
+      border-radius:50%;
+      border:42px solid rgba(15,76,92,.075);
+      pointer-events:none;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      max-width:100%;
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid rgba(15,76,92,.14);
+      color:var(--sea);
+      background:rgba(15,76,92,.08);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .dot{
+      width:9px;
+      height:9px;
+      border-radius:999px;
+      display:inline-block;
+      background:var(--teal);
+      flex:0 0 auto;
+    }
+
+    .pillDot{
+      width:5px;
+      height:5px;
+      border-radius:999px;
+      background:#c97920;
+      box-shadow:0 0 0 4px rgba(244,162,97,.13);
+      flex:0 0 auto;
+    }
+
+    .miniPill{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      width:max-content;
+      max-width:100%;
+      padding:7px 12px;
+      border-radius:999px;
+      color:#9a5a12;
+      background:linear-gradient(135deg, rgba(244,162,97,.18), rgba(255,239,221,.92));
+      border:1px solid rgba(244,162,97,.22);
+      box-shadow:0 8px 18px rgba(244,162,97,.10);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .heroTitle{
+      position:relative;
+      z-index:1;
+      margin:24px 0 18px;
+      font-size:clamp(38px, 5vw, 66px);
+      line-height:1.12;
+      letter-spacing:-.045em;
+      font-weight:900;
+      color:var(--heading);
+    }
+
+    .heroTitle span{
+      display:block;
+      color:transparent;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      -webkit-background-clip:text;
+      background-clip:text;
+    }
+
+    .heroDesc{
+      position:relative;
+      z-index:1;
+      max-width:690px;
+      margin:0;
+      color:#5e717d;
+      line-height:1.85;
+      font-size:14px;
+      font-weight:650;
+    }
+
+    .heroActions{
+      position:relative;
+      z-index:1;
       display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:26px;
+    }
+
+    .actionBtn{
+      display:inline-flex;
       align-items:center;
       justify-content:center;
+      min-height:44px;
+      padding:0 16px;
+      border:0;
       border-radius:999px;
-      color:#fff;
-      background:linear-gradient(135deg, var(--tan), #caa77a);
-      box-shadow:0 12px 26px rgba(159,116,75,.16);
-      font-size:24px;
+      font-size:13px;
       font-weight:900;
-      letter-spacing:.04em;
+      cursor:pointer;
+      text-decoration:none;
+      color:#fff;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 14px 28px rgba(15,76,92,.20);
+      transition:transform .16s ease, box-shadow .16s ease;
     }
 
-    .profile-section{
-      position:relative;
-      padding:0 0 46px;
+    .actionBtn:hover{
+      transform:translateY(-2px);
+      box-shadow:0 18px 34px rgba(15,76,92,.24);
     }
 
-    .profile-card{
-      width:min(560px, 100%);
-      margin:0 auto;
+    .ghostBtn{
+      color:#1d3a4a;
+      background:#fff;
+      border:1px solid var(--line-strong);
+      box-shadow:0 10px 22px rgba(31,53,72,.07);
+    }
+
+    .profileCard{
+      padding:24px;
       display:grid;
       grid-template-columns:170px minmax(0, 1fr);
-      gap:28px;
+      gap:20px;
       align-items:center;
-      min-height:230px;
+      min-height:360px;
     }
 
-    .skin-wrap{
-      min-height:230px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+    .skinBox{
+      min-height:260px;
+      display:grid;
+      place-items:center;
+      border-radius:26px;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(123,223,242,.22), transparent 42%),
+        linear-gradient(180deg, rgba(15,76,92,.055), rgba(42,157,143,.065));
+      overflow:hidden;
     }
 
-    .skin{
-      max-width:168px;
-      max-height:230px;
+    .skinBox img{
+      max-width:158px;
+      max-height:260px;
       object-fit:contain;
-      filter:drop-shadow(0 16px 20px rgba(86,62,46,.18));
+      filter:drop-shadow(0 16px 20px rgba(31,53,72,.18));
     }
 
-    .skin-fallback{
+    .skinFallback{
+      position:relative;
       width:82px;
       height:150px;
       border-radius:26px 26px 18px 18px;
       overflow:hidden;
       background:#263545;
       border:10px solid rgba(30,45,58,.86);
-      box-shadow:0 18px 26px rgba(86,62,46,.14);
-      position:relative;
+      box-shadow:0 18px 26px rgba(31,53,72,.14);
       display:none;
     }
 
-    .skin-fallback::before{
+    .skinFallback::before{
       content:"";
       position:absolute;
       left:0;
@@ -167,7 +363,7 @@
       background:linear-gradient(180deg, #7e95c8, #eef2f8);
     }
 
-    .skin-fallback::after{
+    .skinFallback::after{
       content:"";
       position:absolute;
       left:0;
@@ -177,124 +373,152 @@
       background:#263545;
     }
 
-    .profile-text h1{
-      margin:0;
-      color:var(--brown);
-      font-size:24px;
-      line-height:1.2;
-      font-weight:900;
-      letter-spacing:-.03em;
+    .profileText{
+      min-width:0;
     }
 
-    .profile-text h2{
-      margin:4px 0 10px;
-      color:#8a695a;
-      font-size:18px;
-      line-height:1.35;
+    .profileText h2{
+      margin:14px 0 4px;
+      color:var(--heading);
+      font-size:28px;
+      line-height:1.12;
+      letter-spacing:-.04em;
       font-weight:900;
     }
 
-    .profile-text p{
-      margin:0;
-      color:#a08f80;
-      font-size:16px;
-      line-height:1.55;
+    .profileText .subName{
+      margin:0 0 14px;
+      color:#506875;
+      font-size:15px;
       font-weight:900;
+      line-height:1.45;
+    }
+
+    .profileText p{
+      margin:0;
+      color:#627784;
+      font-size:14px;
+      line-height:1.75;
+      font-weight:750;
     }
 
     .highlight-red{ color:#e16e65; }
     .highlight-green{ color:#34a77c; }
 
-    .wave-separator{
-      height:46px;
-      margin:8px calc(50% - 50vw) 54px;
-      background:#fff;
-      clip-path:ellipse(84% 58% at 50% 100%);
+    .section{
+      scroll-margin-top:110px;
+      margin-top:22px;
+      border:1px solid var(--line);
+      border-radius:32px;
+      background:rgba(255,255,255,.76);
+      backdrop-filter:blur(18px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
     }
 
-    .section-title{
-      width:min(350px, 76vw);
-      min-height:46px;
-      margin:0 auto 4px;
+    .sectionHead{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      padding:24px 24px 16px;
+      border-bottom:1px solid var(--line);
+      background:
+        linear-gradient(135deg, rgba(15,76,92,.06), rgba(42,157,143,.05)),
+        rgba(255,255,255,.58);
+    }
+
+    .sectionKicker{
       display:flex;
       align-items:center;
-      justify-content:center;
-      border-radius:999px;
-      color:#fff;
-      background:linear-gradient(135deg, var(--tan), #caa77a);
-      box-shadow:0 12px 26px rgba(159,116,75,.16);
-      font-size:24px;
+      gap:8px;
+      color:var(--sea);
+      font-size:12px;
       font-weight:900;
+      margin-bottom:7px;
+      text-transform:uppercase;
       letter-spacing:.04em;
     }
 
-    .news-wrap{
-      width:min(650px, 100%);
-      margin:0 auto;
-      padding-top:0;
+    .sectionTitle{
+      margin:0;
+      color:var(--heading);
+      font-size:clamp(24px, 3vw, 38px);
+      line-height:1.18;
+      letter-spacing:-.035em;
+      font-weight:900;
     }
 
-    .news-tabs{
+    .sectionDesc{
+      margin:8px 0 0;
+      max-width:760px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.75;
+      font-weight:650;
+    }
+
+    .newsBody{
+      padding:20px;
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 300px;
+      gap:18px;
+      align-items:start;
+    }
+
+    .newsCard{
+      border:1px solid var(--line);
+      border-radius:24px;
+      padding:22px;
+      background:rgba(255,255,255,.88);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .newsTop{
       display:flex;
-      gap:10px;
-      margin:0 0 10px;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
     }
 
-    .tab{
-      min-width:90px;
-      min-height:34px;
+    .dateLabel{
       display:inline-flex;
       align-items:center;
       justify-content:center;
+      min-height:32px;
+      padding:0 12px;
       border-radius:999px;
-      color:#fff;
-      background:var(--brown);
-      border:1px solid rgba(107,51,47,.16);
-      box-shadow:0 8px 18px rgba(107,51,47,.14);
-      font-size:14px;
+      background:rgba(225,110,101,.12);
+      color:#d85d57;
+      border:1px solid rgba(225,110,101,.18);
+      font-size:13px;
       font-weight:900;
     }
 
-    .news-card{
-      padding:22px 36px;
-      border:1px solid rgba(192,145,103,.42);
-      background:rgba(255,253,248,.92);
-      box-shadow:var(--shadow-soft);
-      min-height:230px;
-    }
-
-    .date-label{
-      display:inline-block;
-      padding:0 8px;
-      background:rgba(233,132,135,.92);
-      color:#fff;
-      font-size:20px;
-      line-height:1.25;
+    .newsCard h3{
+      margin:0 0 10px;
+      color:var(--teal);
+      font-size:28px;
+      line-height:1.2;
+      letter-spacing:-.04em;
       font-weight:900;
     }
 
-    .news-card h3{
-      margin:12px 0 4px;
-      color:var(--green);
-      font-size:26px;
-      line-height:1.25;
-      font-weight:900;
-      letter-spacing:-.03em;
-    }
-
-    .news-card p{
+    .newsCard p{
       margin:0;
-      color:#9a897b;
-      font-size:16px;
-      line-height:1.85;
-      font-weight:900;
+      color:#657985;
+      font-size:15px;
+      line-height:1.9;
+      font-weight:800;
     }
 
-    .news-tags{
+    .newsTags{
       display:flex;
       flex-wrap:wrap;
       gap:10px;
-      margin-top:14px;
+      margin-top:16px;
     }
 
     .tag{
@@ -302,190 +526,304 @@
       align-items:center;
       justify-content:center;
       min-height:32px;
-      padding:0 18px;
+      padding:0 14px;
       border-radius:999px;
-      background:#f5ffe2;
-      border:1px solid rgba(132,169,67,.36);
-      color:#5b5c39;
-      font-size:14px;
+      color:#406a58;
+      background:rgba(42,157,143,.09);
+      border:1px solid rgba(42,157,143,.18);
+      font-size:12px;
       font-weight:900;
     }
 
-    .links-section{
-      width:min(650px, 100%);
-      margin:24px auto 0;
-      display:grid;
-      grid-template-columns:repeat(3, 1fr);
-      gap:12px;
+    .sidePanel{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
     }
 
-    .link-card{
-      min-height:92px;
+    .miniCard{
       padding:16px;
-      border-radius:18px;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.88);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .miniCard strong{
+      display:block;
+      color:var(--heading);
+      font-size:18px;
+      line-height:1.25;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+
+    .miniCard span{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+      font-weight:750;
+    }
+
+    .quickGrid{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:16px;
+      padding:20px;
+    }
+
+    .linkCard{
+      min-height:120px;
+      padding:18px;
+      border-radius:24px;
       text-decoration:none;
-      background:rgba(255,253,248,.86);
-      border:1px solid rgba(210,177,135,.36);
+      background:rgba(255,255,255,.84);
+      border:1px solid var(--line);
       box-shadow:var(--shadow-soft);
       transition:.18s ease;
     }
 
-    .link-card:hover{
+    .linkCard:hover{
       transform:translateY(-3px);
+      border-color:rgba(15,76,92,.18);
       box-shadow:var(--shadow);
     }
 
-    .link-card strong{
+    .linkCard strong{
       display:block;
-      color:var(--brown);
-      font-size:16px;
+      color:var(--heading);
+      font-size:18px;
       font-weight:900;
-      margin-bottom:6px;
+      margin:12px 0 6px;
     }
 
-    .link-card span{
+    .linkCard span{
+      display:block;
       color:var(--muted);
       font-size:12px;
-      line-height:1.45;
-      font-weight:800;
+      line-height:1.55;
+      font-weight:750;
     }
 
-    @media (max-width:760px){
-      .top-visual{
-        height:88px;
-      }
-
-      .page{
-        width:min(100% - 24px, var(--max));
-        margin-top:-32px;
-      }
-
-      .profile-card{
+    @media (max-width:1060px){
+      .hero,
+      .newsBody{
         grid-template-columns:1fr;
-        gap:12px;
-        text-align:center;
       }
 
-      .skin-wrap{
-        min-height:190px;
+      .sidePanel{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+      }
+    }
+
+    @media (max-width:780px){
+      .page{
+        width:min(100% - 20px, var(--max));
+        padding-top:14px;
       }
 
-      .skin{
-        max-height:200px;
+      .topbar{
+        top:8px;
+        align-items:flex-start;
+        flex-direction:column;
+        border-radius:22px;
       }
 
-      .news-card{
+      .navPills{
+        width:100%;
+        justify-content:flex-start;
+        flex-wrap:nowrap;
+        overflow:auto;
+        padding-bottom:2px;
+      }
+
+      .navPills a{ flex:0 0 auto; }
+
+      .heroCard,
+      .profileCard{
+        border-radius:26px;
+      }
+
+      .heroCard{
+        min-height:auto;
+        padding:24px;
+      }
+
+      .profileCard{
+        grid-template-columns:1fr;
+        text-align:left;
+      }
+
+      .skinBox{
+        min-height:230px;
+      }
+
+      .section{
+        border-radius:26px;
+      }
+
+      .sectionHead{
+        align-items:flex-start;
+        flex-direction:column;
         padding:20px;
       }
 
-      .links-section{
+      .newsBody,
+      .quickGrid{
+        grid-template-columns:1fr;
+        padding:14px;
+      }
+
+      .sidePanel{
         grid-template-columns:1fr;
       }
     }
 
     @media (max-width:520px){
-      .nav{
-        border-radius:22px;
-      }
+      body{ background:#f7fbfc; }
 
-      .title-pill,
-      .section-title{
+      .page{
         width:100%;
-        font-size:22px;
+        padding:10px 10px 34px;
       }
 
-      .profile-text h1{
-        font-size:22px;
+      .heroTitle{
+        font-size:42px;
+        line-height:1.16;
+        letter-spacing:-.035em;
       }
 
-      .profile-text h2,
-      .profile-text p{
-        font-size:15px;
+      .heroActions{
+        flex-direction:column;
       }
 
-      .date-label{
-        font-size:17px;
-      }
-
-      .news-card h3{
-        font-size:23px;
-      }
-
-      .news-card p{
-        font-size:15px;
+      .actionBtn{
+        width:100%;
       }
     }
   </style>
 </head>
 
 <body>
-  <div class="top-visual" aria-hidden="true"></div>
-
   <main class="page">
-    <nav class="nav" aria-label="主選單">
-      <a class="active" href="index">個人介紹</a>
-      <a href="#news">最新消息</a>
-      <a href="typhoon">颱風預測</a>
-    </nav>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="徯風首頁">
+        <div class="brandMark">徯</div>
+        <div class="brandText">
+          <strong>徯風 ItzSeir</strong>
+          <span>personal website hub</span>
+        </div>
+      </a>
 
-    <section class="profile-section" id="profile">
-      <div class="title-pill">個人介紹</div>
+      <nav class="navPills" aria-label="主選單">
+        <a class="active" href="#top">個人介紹</a>
+        <a href="#news">最新消息</a>
+        <a href="floestsmp/">葉離社群</a>
+        <a href="floestsmp/minecraft/1.16.5.html">Minecraft</a>
+        <a href="floestsmp/typhoon.html">颱風追蹤</a>
+      </nav>
+    </header>
 
-      <div class="profile-card">
-        <div class="skin-wrap">
-          <img class="skin" src="assets/founder-itzzseir.png" alt="徯風 Minecraft skin" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-          <div class="skin-fallback" aria-hidden="true"></div>
+    <section class="hero" id="top">
+      <div class="heroCard">
+        <div class="eyebrow"><span class="dot"></span> PERSONAL INTRODUCTION</div>
+        <h1 class="heroTitle">徯風<span>ItzSeir</span></h1>
+        <p class="heroDesc">
+          主玩 Minecraft、原神、崩鐵、鳴潮等遊戲。也會唱歌，雖然不一定好聽。這個網站用來整理個人內容、社群入口、Minecraft 回憶與一些想發佈的東西。
+        </p>
+        <div class="heroActions">
+          <a class="actionBtn" href="#news">查看最新消息</a>
+          <a class="actionBtn ghostBtn" href="floestsmp/">進入葉離社群</a>
+        </div>
+      </div>
+
+      <aside class="profileCard">
+        <div class="skinBox">
+          <img src="assets/founder-itzzseir.png" alt="徯風 Minecraft skin" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+          <div class="skinFallback" aria-hidden="true"></div>
         </div>
 
-        <div class="profile-text">
-          <h1>徯風</h1>
-          <h2>ItzSeir｜射手座</h2>
+        <div class="profileText">
+          <div class="miniPill"><span class="pillDot"></span>個人介紹</div>
+          <h2>徯風</h2>
+          <p class="subName">ItzSeir｜射手座</p>
           <p>
-            主玩<span class="highlight-red">麥塊</span>，<span class="highlight-red">原神</span>，<span class="highlight-red">崩鐵</span>，鳴潮等遊戲。<br>
-            此外愛<span class="highlight-red">唱歌</span> 但<span class="highlight-green">難聽</span>。<br>
+            主玩<span class="highlight-red">麥塊</span>、<span class="highlight-red">原神</span>、<span class="highlight-red">崩鐵</span>、鳴潮等遊戲。<br>
+            此外愛<span class="highlight-red">唱歌</span>，但<span class="highlight-green">難聽</span>。<br>
             因興趣而製作此網站，發佈任何想發的東西。
           </p>
         </div>
-      </div>
+      </aside>
     </section>
 
-    <div class="wave-separator" aria-hidden="true"></div>
-
-    <section id="news">
-      <div class="section-title">最新消息</div>
-
-      <div class="news-wrap">
-        <div class="news-tabs">
-          <span class="tab">通知</span>
+    <section class="section" id="news">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot" style="background:var(--warm);"></span> News</div>
+          <h2 class="sectionTitle">最新消息</h2>
+          <p class="sectionDesc">公告、近況與未來安排會放在這裡。</p>
         </div>
+      </div>
 
-        <article class="news-card">
-          <div class="date-label">2025年4月24日</div>
+      <div class="newsBody">
+        <article class="newsCard">
+          <div class="newsTop">
+            <span class="miniPill"><span class="pillDot"></span>通知</span>
+            <span class="dateLabel">2025年4月24日</span>
+          </div>
           <h3>未來展望</h3>
           <p>
             未來一年（至2026年9月），徯風可能無法時常出現，因爲有<span class="highlight-green">實習及一些大型專案</span>需要去實行。
           </p>
-          <div class="news-tags">
+          <div class="newsTags">
             <span class="tag">編寫：徯風</span>
             <span class="tag">剪輯：徯風</span>
           </div>
         </article>
+
+        <aside class="sidePanel">
+          <div class="miniCard">
+            <strong>目前狀態</strong>
+            <span>網站整理中，部分頁面和圖片路徑仍會持續調整。</span>
+          </div>
+          <div class="miniCard">
+            <strong>更新方向</strong>
+            <span>首頁、葉離社群、Minecraft 回憶頁與颱風追蹤頁會統一使用同一套 UI 風格。</span>
+          </div>
+        </aside>
       </div>
     </section>
 
-    <section class="links-section" aria-label="快捷入口">
-      <a class="link-card" href="floestsmp/">
-        <strong>葉離社群</strong>
-        <span>查看社群介紹、活動與 Discord 資訊。</span>
-      </a>
-      <a class="link-card" href="floestsmp/minecraft/1.16.5.html">
-        <strong>Minecraft</strong>
-        <span>查看 1.16.5 原味生存回憶。</span>
-      </a>
-      <a class="link-card" href="floestsmp/typhoon.html">
-        <strong>颱風追蹤</strong>
-        <span>查看互動式颱風路徑與預報。</span>
-      </a>
+    <section class="section">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot"></span> Quick Links</div>
+          <h2 class="sectionTitle">快捷入口</h2>
+          <p class="sectionDesc">快速前往目前網站的主要頁面。</p>
+        </div>
+      </div>
+
+      <div class="quickGrid">
+        <a class="linkCard" href="floestsmp/">
+          <div class="miniPill"><span class="pillDot"></span>Community</div>
+          <strong>葉離社群</strong>
+          <span>查看社群介紹、活動、Discord 資訊。</span>
+        </a>
+
+        <a class="linkCard" href="floestsmp/minecraft/1.16.5.html">
+          <div class="miniPill"><span class="pillDot"></span>Minecraft</div>
+          <strong>1.16.5 原味生存</strong>
+          <span>查看建築回憶、鯨魚鎮與成員列表。</span>
+        </a>
+
+        <a class="linkCard" href="floestsmp/typhoon.html">
+          <div class="miniPill"><span class="pillDot"></span>Tracker</div>
+          <strong>颱風追蹤</strong>
+          <span>查看互動式颱風路徑、預報與地圖。</span>
+        </a>
+      </div>
     </section>
   </main>
 </body>
