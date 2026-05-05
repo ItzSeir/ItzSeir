@@ -595,11 +595,10 @@
         <div class="eyebrow"><span class="liveDot"></span> 即時天氣情報</div>
         <h1 class="heroTitle">天氣情報<span id="pageTitle">颱風與警報整合</span></h1>
         <p class="heroDesc">
-          本頁將颱風追蹤器升級為完整天氣情報頁：整合台灣 CAP 天氣特報、香港天文台警告、馬來西亞天氣警報，以及原本的互動式颱風路徑追蹤器。
+          本頁先保留原本的互動式颱風路徑追蹤器，作為天氣情報頁的主要內容。天氣警報區塊已暫時移除，避免影響颱風地圖載入。
         </p>
         <div class="heroActions">
-          <button class="actionBtn" type="button" onclick="document.getElementById('alerts').scrollIntoView({behavior:'smooth'});">查看天氣警報</button>
-          <button class="actionBtn ghostBtn" type="button" onclick="document.getElementById('tracker').scrollIntoView({behavior:'smooth'});">查看颱風追蹤器</button>
+          <button class="actionBtn" type="button" onclick="document.getElementById('tracker').scrollIntoView({behavior:'smooth'});">查看颱風追蹤器</button>
         </div>
       </div>
 
@@ -615,11 +614,11 @@
 
         <div class="metricCard">
           <div class="metricTop">
-            <span class="metricLabel">天氣警報</span>
-            <span class="metricIcon">!</span>
+            <span class="metricLabel">資料狀態</span>
+            <span class="metricIcon">i</span>
           </div>
-          <div class="metricValue" id="heroAlertCount">—</div>
-          <div class="metricHint">台灣 / 香港 / 馬來西亞</div>
+          <div class="metricValue" id="heroAlertCount">Tracker</div>
+          <div class="metricHint">只保留颱風追蹤器</div>
         </div>
 
         <div class="metricCard">
@@ -631,135 +630,6 @@
           <div class="metricHint" id="heroPres">氣壓：—</div>
         </div>
       </aside>
-    </section>
-
-    <section class="section" id="alerts">
-      <div class="sectionHead">
-        <div>
-          <div class="sectionKicker"><span class="dot" style="background:#ef4444;"></span> WEATHER ALERTS</div>
-          <h2 class="sectionTitle">天氣警報總覽</h2>
-          <p class="sectionDesc">整合台灣中央氣象署 CAP、香港天文台警告與馬來西亞 data.gov.my 天氣警報。左側選擇警報，右側查看詳細內容。</p>
-        </div>
-
-        <div class="toolbar">
-          <label class="toggle" title="自動更新警報資料">
-            <input type="checkbox" id="toggleAlertAuto" checked>
-            自動更新
-          </label>
-          <span class="chip" id="alertStatusChip">—</span>
-          <button class="btn btnGhost" id="alertRefreshBtn" type="button">立即更新</button>
-        </div>
-      </div>
-
-      <div class="alertBody">
-        <div class="filters" style="grid-template-columns:minmax(180px, 260px) minmax(220px, 1fr);">
-          <select class="select" id="alertTypeFilter" aria-label="alert-type-filter">
-            <option value="all">全部類型</option>
-            <option value="typhoon">颱風 / 熱帶氣旋</option>
-            <option value="rain">豪雨 / 降雨</option>
-            <option value="wind">強風</option>
-            <option value="heat">高溫</option>
-            <option value="cold">低溫</option>
-            <option value="sea">海象</option>
-            <option value="other">其他</option>
-          </select>
-          <input class="search" id="alertSearch" placeholder="搜尋標題 / 內容 / 區域…" />
-        </div>
-
-        <div class="countryAlertGrid">
-          <section class="countrySection" id="twAlerts">
-            <div class="countrySectionHead">
-              <div class="countrySectionTitle"><span class="dot" style="background:#3b82f6;"></span>台灣天氣警報</div>
-              <span class="chip" id="twAlertCount">0 筆</span>
-            </div>
-            <div class="countrySectionBody">
-              <aside class="alertPanel">
-                <div class="panelHead">
-                  <div class="panelTitle"><span class="dot" style="background:#3b82f6;"></span>台灣警報清單</div>
-                </div>
-                <div class="panelBody"><div class="alertList" id="twAlertList"></div></div>
-              </aside>
-              <main class="alertPanel">
-                <div class="panelHead">
-                  <div class="panelTitle"><span class="dot" style="background:#f4a261;"></span>台灣警報詳細</div>
-                  <span class="chip" id="twSelectedChip">未選取</span>
-                </div>
-                <div class="panelBody">
-                  <div class="detailCards">
-                    <div class="detailCard"><div class="detailValue" id="twHeadline">—</div><div class="detailLabel">標題</div></div>
-                    <div class="detailCard"><div class="detailValue" id="twEvent">—</div><div class="detailLabel">事件 / 類型</div></div>
-                    <div class="detailCard"><div class="detailValue" id="twIssued">—</div><div class="detailLabel">發布</div></div>
-                    <div class="detailCard"><div class="detailValue" id="twValid">—</div><div class="detailLabel">有效時間</div></div>
-                  </div>
-                  <div class="detailBox"><div class="detailBoxHead"><div class="detailBoxTitle">內容與影響區域</div></div><div class="detailText" id="twText">（請在左側點選一筆警報）</div></div>
-                </div>
-              </main>
-            </div>
-          </section>
-
-          <section class="countrySection" id="hkAlerts">
-            <div class="countrySectionHead">
-              <div class="countrySectionTitle"><span class="dot" style="background:#ef4444;"></span>香港天氣警告</div>
-              <span class="chip" id="hkAlertCount">0 筆</span>
-            </div>
-            <div class="countrySectionBody">
-              <aside class="alertPanel">
-                <div class="panelHead">
-                  <div class="panelTitle"><span class="dot" style="background:#ef4444;"></span>香港警告清單</div>
-                </div>
-                <div class="panelBody"><div class="alertList" id="hkAlertList"></div></div>
-              </aside>
-              <main class="alertPanel">
-                <div class="panelHead">
-                  <div class="panelTitle"><span class="dot" style="background:#f4a261;"></span>香港警告詳細</div>
-                  <span class="chip" id="hkSelectedChip">未選取</span>
-                </div>
-                <div class="panelBody">
-                  <div class="detailCards">
-                    <div class="detailCard"><div class="detailValue" id="hkHeadline">—</div><div class="detailLabel">標題</div></div>
-                    <div class="detailCard"><div class="detailValue" id="hkEvent">—</div><div class="detailLabel">事件 / 類型</div></div>
-                    <div class="detailCard"><div class="detailValue" id="hkIssued">—</div><div class="detailLabel">發布</div></div>
-                    <div class="detailCard"><div class="detailValue" id="hkValid">—</div><div class="detailLabel">有效時間</div></div>
-                  </div>
-                  <div class="detailBox"><div class="detailBoxHead"><div class="detailBoxTitle">內容與影響區域</div></div><div class="detailText" id="hkText">（請在左側點選一筆警告）</div></div>
-                </div>
-              </main>
-            </div>
-          </section>
-
-          <section class="countrySection" id="myAlerts">
-            <div class="countrySectionHead">
-              <div class="countrySectionTitle"><span class="dot" style="background:#2a9d8f;"></span>馬來西亞天氣警報</div>
-              <span class="chip" id="myAlertCount">0 筆</span>
-            </div>
-            <div class="countrySectionBody">
-              <aside class="alertPanel">
-                <div class="panelHead">
-                  <div class="panelTitle"><span class="dot" style="background:#2a9d8f;"></span>馬來西亞警報清單</div>
-                </div>
-                <div class="panelBody"><div class="alertList" id="myAlertList"></div></div>
-              </aside>
-              <main class="alertPanel">
-                <div class="panelHead">
-                  <div class="panelTitle"><span class="dot" style="background:#f4a261;"></span>馬來西亞警報詳細</div>
-                  <span class="chip" id="mySelectedChip">未選取</span>
-                </div>
-                <div class="panelBody">
-                  <div class="detailCards">
-                    <div class="detailCard"><div class="detailValue" id="myHeadline">—</div><div class="detailLabel">標題</div></div>
-                    <div class="detailCard"><div class="detailValue" id="myEvent">—</div><div class="detailLabel">事件 / 類型</div></div>
-                    <div class="detailCard"><div class="detailValue" id="myIssued">—</div><div class="detailLabel">發布</div></div>
-                    <div class="detailCard"><div class="detailValue" id="myValid">—</div><div class="detailLabel">有效時間</div></div>
-                  </div>
-                  <div class="detailBox"><div class="detailBoxHead"><div class="detailBoxTitle">內容與影響區域</div></div><div class="detailText" id="myText">（請在左側點選一筆警報）</div></div>
-                </div>
-              </main>
-            </div>
-          </section>
-        </div>
-
-        <div class="alertMeta" id="alertHintText"></div>
-      </div>
     </section>
 
     <section class="section" id="tracker">
@@ -876,198 +746,271 @@
     }
 
     /***********************
-     * Weather alerts: Taiwan CAP + Hong Kong + Malaysia
+     * Typhoon tracker
      ***********************/
-    const CAP_BASE = "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Warning/";
-    const TW_DATASETS = [
-      { id:"W-C0033-003", name:"豪雨特報", type:"rain", color:"#3b82f6" },
-      { id:"W-C0033-004", name:"低溫特報", type:"cold", color:"#06b6d4" },
-      { id:"W-C0033-005", name:"高溫資訊", type:"heat", color:"#f97316" },
-      { id:"W-C0033-006", name:"陸上強風特報", type:"wind", color:"#64748b" },
-      { id:"W-C0034-001", name:"颱風警報", type:"typhoon", color:"#ef4444" }
-    ];
-    const HK_API = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc";
-    const MY_API = "https://api.data.gov.my/weather/warning";
-    const ALERT_AUTO_SEC = 60;
+    const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
+    const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
 
-    let allAlerts = [];
-    let filteredAlerts = [];
-    let selectedAlertIndex = -1;
-    let activeAlertCountry = "tw";
-    let alertAutoTimer = null;
-    let alertTickTimer = null;
+    let map;
+    let weatherMeta = { title:"颱風情報", source:"—" };
+    let points = [];
+    let tyLayers = [];
 
-    function parseCapXml(xmlText){
-      const p = new DOMParser();
-      const xml = p.parseFromString(xmlText, "application/xml");
-      if(xml.querySelector("parsererror")) return { ok:false, raw:xmlText };
-      const textOf = (sel) => {
-        const el = xml.querySelector(sel);
-        return el ? (el.textContent || "").trim() : "";
-      };
-      const sent = textOf("alert > sent");
-      const identifier = textOf("alert > identifier");
-      const headline = textOf("alert > info > headline") || textOf("alert > info > event");
-      const event = textOf("alert > info > event");
-      const effective = textOf("alert > info > effective");
-      const expires = textOf("alert > info > expires");
-      const description = textOf("alert > info > description");
-      const instruction = textOf("alert > info > instruction");
-      const areas = Array.from(xml.querySelectorAll("alert > info > area > areaDesc")).map(x => (x.textContent || "").trim()).filter(Boolean).join("；");
-      return { ok:true, sent, identifier, headline, event, effective, expires, description, instruction, area:areas, raw:xmlText };
+    function getStyle(level){
+      const s = String(level || "").toLowerCase();
+      if(s.includes("strong") || s.includes("猛烈") || s.includes("super")) return { color:"#d62828", label:level || "強烈" };
+      if(s.includes("typhoon") || s.includes("颱風")) return { color:"#ef4444", label:level || "颱風" };
+      if(s.includes("storm") || s.includes("熱帶風暴")) return { color:"#f97316", label:level || "熱帶風暴" };
+      if(s.includes("depression") || s.includes("低壓")) return { color:"#2a9d8f", label:level || "熱帶低壓" };
+      return { color:"#0f4c5c", label:level || "—" };
     }
 
-    async function fetchTaiwanAlerts(){
-      const results = await Promise.allSettled(TW_DATASETS.map(async d => {
-        const res = await fetch(`${CAP_BASE}${encodeURIComponent(d.id)}.cap`, { cache:"no-store" });
-        if(!res.ok) throw new Error(`TW ${d.id} HTTP ${res.status}`);
-        const xml = await res.text();
-        const p = parseCapXml(xml);
-        return {
-          region:"tw",
-          regionName:"台灣",
-          type:d.type,
-          source:"中央氣象署 CAP",
-          color:d.color,
-          title:p.ok ? (p.headline || d.name) : `CAP 解析失敗：${d.name}`,
-          event:p.ok ? (p.event || d.name) : d.name,
-          issued:p.sent || p.effective || "",
-          validFrom:p.effective || "",
-          validTo:p.expires || "",
-          area:p.area || "—",
-          text:[p.description ? `【說明】\n${p.description}` : "", p.instruction ? `\n【指示】\n${p.instruction}` : ""].filter(Boolean).join("\n") || "（此警報沒有內容）"
-        };
-      }));
-      return results.filter(r => r.status === "fulfilled").map(r => r.value);
+    function kindLabel(kind){
+      return kind === "obs" ? "觀測" : kind === "fcst" ? "預報" : "資料點";
     }
 
-    function hkCategory(name){
-      if(!name) return "other";
-      if(name.includes("熱帶氣旋")) return "typhoon";
-      if(name.includes("雨")) return "rain";
-      if(name.includes("風")) return "wind";
-      if(name.includes("酷熱") || name.includes("熱")) return "heat";
-      if(name.includes("寒冷") || name.includes("冷")) return "cold";
-      return "other";
+    function fmtTime(t, mode="short"){
+      if(!t) return "—";
+      const d = new Date(t);
+      if(Number.isNaN(d.getTime())) return String(t);
+      return d.toLocaleString("zh-TW", mode === "full" ? {
+        year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false
+      } : { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false });
     }
 
-    async function fetchHongKongAlerts(){
-      const res = await fetch(HK_API, { cache:"no-store" });
-      if(!res.ok) throw new Error(`HK HTTP ${res.status}`);
-      const data = await res.json();
-      return Object.values(data || {}).map(w => {
-        const type = hkCategory(w.name || "");
-        return {
-          region:"hk",
-          regionName:"香港",
-          type,
-          source:"香港天文台 HKO Open Data",
-          color:type === "typhoon" ? "#ef4444" : type === "rain" ? "#3b82f6" : type === "wind" ? "#64748b" : "#2a9d8f",
-          title:w.name || "香港天氣警告",
-          event:type === "typhoon" ? "熱帶氣旋" : type === "rain" ? "降雨" : type === "wind" ? "強風" : "其他",
-          issued:w.issueTime || w.updateTime || "",
-          validFrom:w.issueTime || "",
-          validTo:w.expireTime || "",
-          area:"香港",
-          text:w.action || w.description || "（此警告沒有內容）"
-        };
-      });
+    function fmtWindMs(v){
+      if(v === null || v === undefined || !isFinite(v)) return "—";
+      return `${Number(v).toFixed(0)} m/s`;
     }
 
-    function myCategory(text){
-      const s = String(text || "").toLowerCase();
-      if(s.includes("wind")) return "wind";
-      if(s.includes("rain")) return "rain";
-      if(s.includes("sea")) return "sea";
-      return "other";
+    function clearTyLayers(){
+      tyLayers.forEach(l => l.remove());
+      tyLayers = [];
     }
 
-    async function fetchMalaysiaAlerts(){
-      const res = await fetch(MY_API, { cache:"no-store" });
-      if(!res.ok) throw new Error(`MY HTTP ${res.status}`);
-      const data = await res.json();
-      return (Array.isArray(data) ? data : []).map(w => {
-        const title = w.heading_en || w.heading_bm || "Malaysia Weather Warning";
-        const type = myCategory(title);
-        return {
-          region:"my",
-          regionName:"馬來西亞",
-          type,
-          source:"MET Malaysia / data.gov.my",
-          color:type === "rain" ? "#3b82f6" : type === "wind" ? "#64748b" : type === "sea" ? "#f97316" : "#2a9d8f",
-          title,
-          event:type === "rain" ? "豪雨" : type === "wind" ? "強風" : type === "sea" ? "海象" : "其他",
-          issued:w.warning_issue__issued || "",
-          validFrom:w.valid_from || "",
-          validTo:w.valid_to || "",
-          area:w.area || w.state || "馬來西亞",
-          text:w.text_en || w.text_bm || "（此警報沒有內容）"
-        };
-      });
+    function addTyLayer(layer){
+      layer.addTo(map);
+      tyLayers.push(layer);
+      return layer;
     }
 
-    function typeLabel(type){
-      return {
-        typhoon:"颱風 / 熱帶氣旋",
-        rain:"豪雨 / 降雨",
-        wind:"強風",
-        heat:"高溫",
-        cold:"低溫",
-        sea:"海象",
-        other:"其他"
-      }[type] || "其他";
+    async function loadWeatherData(){
+      try{
+        const res = await fetch("./weather.json", { cache:"no-store" });
+        if(!res.ok) throw new Error(`weather.json HTTP ${res.status}`);
+        const data = await res.json();
+
+        weatherMeta.title = data.title || "颱風情報";
+        weatherMeta.source = data.source || "weather.json";
+
+        points = (Array.isArray(data.points) ? data.points : []).map(p => ({
+          lat:Number(p.lat),
+          lon:Number(p.lon),
+          time:String(p.time ?? ""),
+          kind:String(p.kind ?? ""),
+          level:String(p.level ?? ""),
+          wind:p.wind === null || p.wind === undefined || p.wind === "" ? null : Number(p.wind),
+          pressure:p.pressure === null || p.pressure === undefined || p.pressure === "" ? null : Number(p.pressure),
+          note:String(p.note ?? ""),
+          fcst_radius_km:p.fcst_radius_km === null || p.fcst_radius_km === undefined || p.fcst_radius_km === "" ? 0 : Number(p.fcst_radius_km),
+          storm_radius_km:p.storm_radius_km === null || p.storm_radius_km === undefined || p.storm_radius_km === "" ? 0 : Number(p.storm_radius_km)
+        })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+
+        $("pageTitle").textContent = weatherMeta.title;
+        $("sourceText").innerHTML = `<b>來源：${escapeHtml(weatherMeta.source)}</b><br>`;
+      }catch(err){
+        console.warn("weather.json 讀取失敗：", err);
+        weatherMeta.title = "目前沒有颱風資料";
+        weatherMeta.source = "weather.json 未載入 / 無即時颱風資料";
+        points = [];
+        $("pageTitle").textContent = "目前沒有颱風資料";
+        $("sourceText").innerHTML = `<b>來源：weather.json 未載入</b><br>如果你有颱風資料，請確認 weather.json 和這個 HTML 放在同一個資料夾。`;
+      }
     }
 
-    function getFilteredForRegion(region){
-      const type = $("alertTypeFilter").value;
-      const q = String($("alertSearch").value || "").trim().toLowerCase();
-      return allAlerts.filter(a => {
-        if(a.region !== region) return false;
-        if(type !== "all" && a.type !== type) return false;
-        if(q){
-          const hay = `${a.regionName} ${a.title} ${a.event} ${a.area} ${a.text}`.toLowerCase();
-          if(!hay.includes(q)) return false;
-        }
-        return true;
-      });
+    function popupHtml(p){
+      const st = getStyle(p.level);
+      const sr = p.storm_radius_km > 0 ? `${p.storm_radius_km} km` : "—";
+      return `
+        <div class="popup-card">
+          <div class="popup-head">
+            <div class="popup-title">${escapeHtml(kindLabel(p.kind))}</div>
+            <span class="popup-badge" style="border-color:${st.color}33;">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:999px;background:${st.color};"></span>
+              ${escapeHtml(st.label)}
+            </span>
+          </div>
+          <div class="popup-kv">
+            <div>時間</div><div>${escapeHtml(fmtTime(p.time,"full"))}</div>
+            <div>座標</div><div>${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}</div>
+            <div>風速</div><div>${escapeHtml(fmtWindMs(p.wind))}</div>
+            <div>氣壓</div><div>${p.pressure ? escapeHtml(p.pressure + " hPa") : "—"}</div>
+            <div>暴風圈</div><div>${escapeHtml(sr)}</div>
+            <div>備註</div><div>${escapeHtml(p.note || "—")}</div>
+          </div>
+        </div>
+      `;
     }
 
-    function renderAllAlertContainers(){
-      const tw = getFilteredForRegion("tw");
-      const hk = getFilteredForRegion("hk");
-      const my = getFilteredForRegion("my");
-
-      $("twAlertCount").textContent = `${tw.length} 筆`;
-      $("hkAlertCount").textContent = `${hk.length} 筆`;
-      $("myAlertCount").textContent = `${my.length} 筆`;
-      $("heroAlertCount").textContent = tw.length + hk.length + my.length;
-
-      renderCountryAlertList("tw", tw);
-      renderCountryAlertList("hk", hk);
-      renderCountryAlertList("my", my);
+    function getLatestObsIndex(){
+      for(let i = points.length - 1; i >= 0; i--){
+        if(points[i].kind === "obs") return i;
+      }
+      return 0;
     }
 
-    function renderCountryAlertList(region, arr){
-      const list = $(`${region}AlertList`);
+    function updateObsPanel(){
+      if(!points.length) return;
+      const p = points[getLatestObsIndex()];
+      const st = getStyle(p.level);
+      $("levelDotObs").style.background = st.color;
+      $("levelTextObs").textContent = st.label;
+      $("infoTimeObs").textContent = `時間：${fmtTime(p.time,"full")}`;
+      $("obsCoord").textContent = `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}`;
+      $("obsWind").textContent = fmtWindMs(p.wind);
+      $("obsPres").textContent = p.pressure ? `${p.pressure} hPa` : "—";
+      $("infoNoteObs").textContent = p.note || "—";
+
+      $("heroLevel").textContent = st.label;
+      $("heroTime").textContent = `時間：${fmtTime(p.time,"full")}`;
+      $("heroWind").textContent = fmtWindMs(p.wind);
+      $("heroPres").textContent = `氣壓：${p.pressure ? `${p.pressure} hPa` : "—"}`;
+    }
+
+    function renderForecastList(){
+      const list = $("fcstList");
       list.innerHTML = "";
+      const fcsts = points.filter(p => p.kind !== "obs");
+      $("fcstCount").textContent = `${fcsts.length} 筆`;
+      if(!fcsts.length){
+        list.innerHTML = `<div class="empty">沒有預報資料</div>`;
+        return;
+      }
+      fcsts.forEach(p => {
+        const st = getStyle(p.level);
+        const el = document.createElement("div");
+        el.className = "fcstCard";
+        el.innerHTML = `
+          <div class="fcstRow1">
+            <div class="fcstTime">${escapeHtml(fmtTime(p.time,"short"))}</div>
+            <span class="fcstBadge"><span class="dot" style="background:${st.color};box-shadow:none;width:8px;height:8px;"></span>${escapeHtml(st.label)}</span>
+          </div>
+          <div class="fcstKv">
+            <div class="k">座標</div><div class="v">${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}</div>
+            <div class="k">風速</div><div class="v">${escapeHtml(fmtWindMs(p.wind))}</div>
+            <div class="k">氣壓</div><div class="v">${p.pressure ? `${p.pressure} hPa` : "—"}</div>
+          </div>
+        `;
+        el.addEventListener("click", () => map.setView([p.lat, p.lon], Math.max(map.getZoom(), 6)));
+        list.appendChild(el);
+      });
+    }
 
-      if(!arr.length){
-        list.innerHTML = `<div class="empty">目前沒有符合條件的警報</div>`;
-        renderCountryAlertDetails(region, null);
+    function renderTyphoon(){
+      clearTyLayers();
+      if(!points.length){
+        $("levelTextObs").textContent = "目前無颱風資料";
+        $("infoTimeObs").textContent = "時間：—";
+        $("obsCoord").textContent = "—";
+        $("obsWind").textContent = "—";
+        $("obsPres").textContent = "—";
+        $("infoNoteObs").textContent = "沒有可顯示的颱風路徑。請確認 weather.json 是否存在，或目前是否沒有正在追蹤的颱風。";
+        $("fcstCount").textContent = "0 筆";
+        $("fcstList").innerHTML = `<div class="empty">目前沒有颱風預報資料</div>`;
+        $("heroLevel").textContent = "目前無颱風資料";
+        $("heroTime").textContent = "時間：—";
+        $("heroWind").textContent = "—";
+        $("heroPres").textContent = "氣壓：—";
+        if(map) map.setView([23.7, 121.0], 5);
+        setTimeout(() => map && map.invalidateSize(), 120);
         return;
       }
 
-      arr.forEach((a, idx) => {
-        const el = document.createElement("div");
-        el.className = "alertItem";
-        el.innerHTML = `
-          <div class="alertTop">
-            <div class="alertTime">${escapeHtml(a.regionName)}｜${escapeHtml(fmtDateTime(a.issued || a.validFrom))}</div>
-            <div class="badge"><span class="bD$("alertTypeFilter").addEventListener("change", () => { applyAlertFilters(); });Path);
+      const obs = points.filter(p => p.kind === "obs");
+      const fcst = points.filter(p => p.kind !== "obs");
+      const showCone = $("toggleCone").checked;
+      const showRings = $("toggleRings").checked;
+      const showLabels = $("toggleLabels").checked;
+
+      if(obs.length > 1){
+        addTyLayer(L.polyline(obs.map(p => [p.lat,p.lon]), { color:"#0f4c5c", weight:4, opacity:.9 }));
+      }
+      if(fcst.length > 1){
+        addTyLayer(L.polyline(fcst.map(p => [p.lat,p.lon]), { color:"#2a9d8f", weight:4, opacity:.9, dashArray:"8 8" }));
+      }
+      if(obs.length && fcst.length){
+        const latest = obs[obs.length - 1];
+        addTyLayer(L.polyline([[latest.lat,latest.lon],[fcst[0].lat,fcst[0].lon]], { color:"#2a9d8f", weight:4, opacity:.8, dashArray:"8 8" }));
+      }
+
+      points.forEach((p, idx) => {
+        const st = getStyle(p.level);
+        const isObs = p.kind === "obs";
+        if(showCone && !isObs && p.fcst_radius_km > 0){
+          addTyLayer(L.circle([p.lat,p.lon], { radius:p.fcst_radius_km * 1000, color:"#60a5fa", weight:1, fillColor:"#60a5fa", fillOpacity:.10, opacity:.35 }));
+        }
+        if(showRings && p.storm_radius_km > 0){
+          addTyLayer(L.circle([p.lat,p.lon], { radius:p.storm_radius_km * 1000, color:st.color, weight:1.5, fillColor:st.color, fillOpacity:.055, opacity:.35 }));
+        }
+        addTyLayer(L.circleMarker([p.lat,p.lon], { radius:isObs ? 7 : 6, color:"#fff", weight:2, fillColor:st.color, fillOpacity:1 })).bindPopup(popupHtml(p)));
+        if(showLabels){
+          const label = L.marker([p.lat,p.lon], {
+            icon:L.divIcon({
+              className:"ty-label-icon",
+              html:`<div class="tlabel"><span class="miniDot" style="background:${st.color};"></span>${escapeHtml(fmtTime(p.time,"short"))}</div>`,
+              iconSize:null,
+              iconAnchor:[0,34]
+            })
+          });
+          addTyLayer(label);
+        }
+      });
+
+      updateObsPanel();
+      renderForecastList();
+      fitTyphoonPath();
+      setTimeout(() => map.invalidateSize(), 120);
+    }
+
+    function fitTyphoonPath(){
+      if(!points.length) return;
+      const bounds = L.latLngBounds(points.map(p => [p.lat,p.lon]));
+      map.fitBounds(bounds, { padding:[55,55] });
+    }
+
+    async function initTyphoon(){
+      map = L.map("map", { zoomControl:true });
+
+      const mb = L.tileLayer(
+        `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+        {
+          tileSize:512,
+          zoomOffset:-1,
+          maxZoom:18,
+          attribution:"© Mapbox © OpenStreetMap"
+        }
+      );
+
+      mb.on("tileerror", () => {
+        console.warn("Mapbox tiles 載入失敗，地圖底圖可能暫時無法顯示。仍保留 Mapbox，不自動改成 OpenStreetMap。");
+      });
+
+      mb.addTo(map);
+      map.setView([23.7, 121.0], 5);
+      await loadWeatherData();
+      renderTyphoon();
+      setTimeout(() => map.invalidateSize(), 200);
+      setTimeout(() => map.invalidateSize(), 800);
+    }
+
+    /***********************
+     * Init
+     ***********************/
+    function init(){
+      ["toggleLabels","toggleCone","toggleRings"].forEach(id => $(id).addEventListener("change", renderTyphoon));
+      $("fitAllBtn").addEventListener("click", fitTyphoonPath);
       $("printBtn").addEventListener("click", () => window.print());
 
-      refreshAlerts({ silent:true });
-      if($("toggleAlertAuto").checked) startAlertAuto();
       initTyphoon();
       setTimeout(() => map && map.invalidateSize(), 400);
     }
@@ -1076,7 +1019,3 @@
   </script>
 </body>
 </html>
-$("alertSearch").addEventListener("input", () => {
-        clearTimeout(window.__alertSearchTimer);
-        window.__alertSearchTimer = setTimeout(() => { applyAlertFilters(); }, 120);
-      });
