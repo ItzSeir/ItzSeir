@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>葉離｜個人首頁</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#fbf7ef;
+      --bg2:#f5efe4;
+      --cream:#fffaf2;
+      --paper:#fffdf8;
+      --text:#5a4038;
+      --text2:#7c665c;
+      --muted:#a59283;
+      --brown:#6b332f;
+      --brown2:#8b5d4e;
+      --tan:#d2b187;
+      --tan2:#ead9c4;
+      --green:#37a982;
+      --green2:#69bd9b;
+      --red:#e98487;
+      --line:rgba(107,51,47,.15);
+      --line2:rgba(107,51,47,.26);
+      --shadow:0 18px 42px rgba(86,62,46,.10);
+      --shadow-soft:0 10px 24px rgba(86,62,46,.08);
+      --max:980px;
+    }
+
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:"Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 15% 6%, rgba(210,177,135,.16), transparent 30%),
+        radial-gradient(circle at 86% 20%, rgba(55,169,130,.10), transparent 28%),
+        linear-gradient(180deg, #fffaf4 0%, var(--bg) 48%, #ffffff 100%);
+      overflow-x:hidden;
+    }
+
+    a{ color:inherit; }
+
+    .top-visual{
+      position:relative;
+      height:112px;
+      overflow:hidden;
+      background:
+        linear-gradient(180deg, rgba(56,37,29,.20), rgba(56,37,29,.08)),
+        url("assets/header.jpg") center 46% / cover no-repeat,
+        linear-gradient(135deg, #6b4b3d, #c59b70);
+      clip-path:ellipse(84% 62% at 50% 0%);
+    }
+
+    .page{
+      width:min(var(--max), calc(100% - 32px));
+      margin:-42px auto 0;
+      padding:0 0 64px;
+      position:relative;
+      z-index:2;
+    }
+
+    .nav{
+      width:min(760px, 100%);
+      margin:0 auto 28px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,250,242,.86);
+      border:1px solid rgba(210,177,135,.42);
+      box-shadow:var(--shadow-soft);
+      backdrop-filter:blur(12px);
+    }
+
+    .nav a{
+      text-decoration:none;
+      padding:8px 13px;
+      border-radius:999px;
+      color:var(--brown);
+      font-size:13px;
+      font-weight:900;
+      transition:.18s ease;
+    }
+
+    .nav a:hover,
+    .nav a.active{
+      color:#fff;
+      background:var(--brown);
+    }
+
+    .title-pill{
+      width:min(350px, 76vw);
+      min-height:46px;
+      margin:0 auto 34px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      color:#fff;
+      background:linear-gradient(135deg, var(--tan), #caa77a);
+      box-shadow:0 12px 26px rgba(159,116,75,.16);
+      font-size:24px;
+      font-weight:900;
+      letter-spacing:.04em;
+    }
+
+    .profile-section{
+      position:relative;
+      padding:0 0 46px;
+    }
+
+    .profile-card{
+      width:min(560px, 100%);
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:170px minmax(0, 1fr);
+      gap:28px;
+      align-items:center;
+      min-height:230px;
+    }
+
+    .skin-wrap{
+      min-height:230px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .skin{
+      max-width:168px;
+      max-height:230px;
+      object-fit:contain;
+      filter:drop-shadow(0 16px 20px rgba(86,62,46,.18));
+    }
+
+    .skin-fallback{
+      width:82px;
+      height:150px;
+      border-radius:26px 26px 18px 18px;
+      overflow:hidden;
+      background:#263545;
+      border:10px solid rgba(30,45,58,.86);
+      box-shadow:0 18px 26px rgba(86,62,46,.14);
+      position:relative;
+      display:none;
+    }
+
+    .skin-fallback::before{
+      content:"";
+      position:absolute;
+      left:0;
+      right:0;
+      top:0;
+      height:50%;
+      background:linear-gradient(180deg, #7e95c8, #eef2f8);
+    }
+
+    .skin-fallback::after{
+      content:"";
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:50%;
+      background:#263545;
+    }
+
+    .profile-text h1{
+      margin:0;
+      color:var(--brown);
+      font-size:24px;
+      line-height:1.2;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
+
+    .profile-text h2{
+      margin:4px 0 10px;
+      color:#8a695a;
+      font-size:18px;
+      line-height:1.35;
+      font-weight:900;
+    }
+
+    .profile-text p{
+      margin:0;
+      color:#a08f80;
+      font-size:16px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .highlight-red{ color:#e16e65; }
+    .highlight-green{ color:#34a77c; }
+
+    .wave-separator{
+      height:46px;
+      margin:8px calc(50% - 50vw) 54px;
+      background:#fff;
+      clip-path:ellipse(84% 58% at 50% 100%);
+    }
+
+    .section-title{
+      width:min(350px, 76vw);
+      min-height:46px;
+      margin:0 auto 4px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      color:#fff;
+      background:linear-gradient(135deg, var(--tan), #caa77a);
+      box-shadow:0 12px 26px rgba(159,116,75,.16);
+      font-size:24px;
+      font-weight:900;
+      letter-spacing:.04em;
+    }
+
+    .news-wrap{
+      width:min(650px, 100%);
+      margin:0 auto;
+      padding-top:0;
+    }
+
+    .news-tabs{
+      display:flex;
+      gap:10px;
+      margin:0 0 10px;
+    }
+
+    .tab{
+      min-width:90px;
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      color:#fff;
+      background:var(--brown);
+      border:1px solid rgba(107,51,47,.16);
+      box-shadow:0 8px 18px rgba(107,51,47,.14);
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .news-card{
+      padding:22px 36px;
+      border:1px solid rgba(192,145,103,.42);
+      background:rgba(255,253,248,.92);
+      box-shadow:var(--shadow-soft);
+      min-height:230px;
+    }
+
+    .date-label{
+      display:inline-block;
+      padding:0 8px;
+      background:rgba(233,132,135,.92);
+      color:#fff;
+      font-size:20px;
+      line-height:1.25;
+      font-weight:900;
+    }
+
+    .news-card h3{
+      margin:12px 0 4px;
+      color:var(--green);
+      font-size:26px;
+      line-height:1.25;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
+
+    .news-card p{
+      margin:0;
+      color:#9a897b;
+      font-size:16px;
+      line-height:1.85;
+      font-weight:900;
+    }
+
+    .news-tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:32px;
+      padding:0 18px;
+      border-radius:999px;
+      background:#f5ffe2;
+      border:1px solid rgba(132,169,67,.36);
+      color:#5b5c39;
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .links-section{
+      width:min(650px, 100%);
+      margin:24px auto 0;
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:12px;
+    }
+
+    .link-card{
+      min-height:92px;
+      padding:16px;
+      border-radius:18px;
+      text-decoration:none;
+      background:rgba(255,253,248,.86);
+      border:1px solid rgba(210,177,135,.36);
+      box-shadow:var(--shadow-soft);
+      transition:.18s ease;
+    }
+
+    .link-card:hover{
+      transform:translateY(-3px);
+      box-shadow:var(--shadow);
+    }
+
+    .link-card strong{
+      display:block;
+      color:var(--brown);
+      font-size:16px;
+      font-weight:900;
+      margin-bottom:6px;
+    }
+
+    .link-card span{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    @media (max-width:760px){
+      .top-visual{
+        height:88px;
+      }
+
+      .page{
+        width:min(100% - 24px, var(--max));
+        margin-top:-32px;
+      }
+
+      .profile-card{
+        grid-template-columns:1fr;
+        gap:12px;
+        text-align:center;
+      }
+
+      .skin-wrap{
+        min-height:190px;
+      }
+
+      .skin{
+        max-height:200px;
+      }
+
+      .news-card{
+        padding:20px;
+      }
+
+      .links-section{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:520px){
+      .nav{
+        border-radius:22px;
+      }
+
+      .title-pill,
+      .section-title{
+        width:100%;
+        font-size:22px;
+      }
+
+      .profile-text h1{
+        font-size:22px;
+      }
+
+      .profile-text h2,
+      .profile-text p{
+        font-size:15px;
+      }
+
+      .date-label{
+        font-size:17px;
+      }
+
+      .news-card h3{
+        font-size:23px;
+      }
+
+      .news-card p{
+        font-size:15px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="top-visual" aria-hidden="true"></div>
+
+  <main class="page">
+    <nav class="nav" aria-label="主選單">
+      <a class="active" href="#profile">個人介紹</a>
+      <a href="#news">最新消息</a>
+      <a href="floestsmp/">葉離社群</a>
+      <a href="floestsmp/typhoon.html">颱風追蹤</a>
+    </nav>
+
+    <section class="profile-section" id="profile">
+      <div class="title-pill">個人介紹</div>
+
+      <div class="profile-card">
+        <div class="skin-wrap">
+          <img class="skin" src="assets/founder-itzzseir.png" alt="徯風 Minecraft skin" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+          <div class="skin-fallback" aria-hidden="true"></div>
+        </div>
+
+        <div class="profile-text">
+          <h1>徯風</h1>
+          <h2>ItzSeir｜射手座</h2>
+          <p>
+            主玩<span class="highlight-red">麥塊</span>，<span class="highlight-red">原神</span>，<span class="highlight-red">崩鐵</span>，鳴潮等遊戲。<br>
+            此外愛<span class="highlight-red">唱歌</span> 但<span class="highlight-green">難聽</span>。<br>
+            因興趣而製作此網站，發佈任何想發的東西。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <div class="wave-separator" aria-hidden="true"></div>
+
+    <section id="news">
+      <div class="section-title">最新消息</div>
+
+      <div class="news-wrap">
+        <div class="news-tabs">
+          <span class="tab">通知</span>
+        </div>
+
+        <article class="news-card">
+          <div class="date-label">2025年4月24日</div>
+          <h3>未來展望</h3>
+          <p>
+            未來一年（至2026年9月），徯風可能無法時常出現，因爲有<span class="highlight-green">實習及一些大型專案</span>需要去實行。
+          </p>
+          <div class="news-tags">
+            <span class="tag">編寫：徯風</span>
+            <span class="tag">剪輯：徯風</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="links-section" aria-label="快捷入口">
+      <a class="link-card" href="floestsmp/">
+        <strong>葉離社群</strong>
+        <span>查看社群介紹、活動與 Discord 資訊。</span>
+      </a>
+      <a class="link-card" href="floestsmp/minecraft/1.16.5.html">
+        <strong>Minecraft</strong>
+        <span>查看 1.16.5 原味生存回憶。</span>
+      </a>
+      <a class="link-card" href="floestsmp/typhoon.html">
+        <strong>颱風追蹤</strong>
+        <span>查看互動式颱風路徑與預報。</span>
+      </a>
+    </section>
+  </main>
+</body>
+</html>
