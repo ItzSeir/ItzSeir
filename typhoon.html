@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>颱風預測｜Typhoon Forecast</title>
+  <title>筱風｜颱風追蹤t</title>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -437,16 +437,17 @@
     .btn:hover{ transform:translateY(-1px); box-shadow:0 14px 24px rgba(31,53,72,.10); }
 
     .trackerBody{
-      padding:20px;
+      padding:16px;
       display:grid;
-      grid-template-columns:340px minmax(0, 1fr);
-      gap:18px;
+      grid-template-columns:300px minmax(0, 1fr);
+      gap:16px;
+      align-items:start;
     }
 
     .sidePanel{
       display:flex;
       flex-direction:column;
-      gap:14px;
+      gap:12px;
       min-width:0;
     }
 
@@ -454,40 +455,45 @@
     .forecastPanel,
     .sourcePanel{
       border:1px solid var(--line);
-      border-radius:24px;
-      background:var(--surface-glass);
+      border-radius:22px;
+      background:rgba(255,255,255,.88);
       box-shadow:0 10px 24px rgba(31,53,72,.07);
       overflow:hidden;
     }
 
-    .sourcePanel{ padding:16px; }
+    .sourcePanel{
+      padding:14px;
+      background:linear-gradient(135deg, rgba(255,255,255,.92), rgba(239,248,248,.82));
+    }
 
     .sourceLabel{
       display:flex;
       align-items:center;
       gap:8px;
       color:#0f4c5c;
-      font-size:12px;
+      font-size:11px;
       font-weight:900;
       margin-bottom:8px;
+      letter-spacing:.03em;
     }
 
     .sub{
       margin:0;
       color:#647983;
       font-size:12px;
-      font-weight:700;
+      font-weight:800;
       line-height:1.65;
       word-break:break-word;
     }
 
     .statusTop{
-      padding:16px;
+      padding:14px;
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:12px;
+      gap:10px;
       border-bottom:1px solid var(--line);
+      background:linear-gradient(135deg, rgba(15,76,92,.035), rgba(42,157,143,.045));
     }
 
     .badge{
@@ -495,7 +501,7 @@
       align-items:center;
       gap:8px;
       min-width:0;
-      padding:8px 11px;
+      padding:7px 11px;
       border-radius:999px;
       border:1px solid var(--line-strong);
       background:#fff;
@@ -503,6 +509,7 @@
       font-size:12px;
       font-weight:900;
       white-space:nowrap;
+      box-shadow:0 8px 18px rgba(31,53,72,.05);
     }
 
     .dot{
@@ -516,66 +523,82 @@
 
     .miniMeta{
       color:var(--muted);
-      font-size:12px;
-      font-weight:800;
+      font-size:11px;
+      font-weight:900;
       line-height:1.5;
+      white-space:nowrap;
     }
 
-    .statusBody{ padding:16px; }
+    .statusBody{ padding:14px; }
 
     .infoGrid{
       display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
+      grid-template-columns:1fr 1fr;
+      gap:9px;
     }
 
     .ibox{
-      min-height:78px;
+      min-height:72px;
       border:1px solid var(--line);
-      border-radius:18px;
-      padding:14px;
+      border-radius:16px;
+      padding:12px 13px;
       background:#fff;
       display:flex;
       flex-direction:column;
       justify-content:center;
+      box-shadow:0 8px 18px rgba(31,53,72,.035);
+    }
+
+    .ibox:first-child{
+      grid-column:1 / -1;
+      min-height:76px;
+      background:linear-gradient(135deg, #fff, rgba(239,248,248,.72));
     }
 
     .ival{
       color:#122c3c;
-      font-size:24px;
-      line-height:1.1;
+      font-size:20px;
+      line-height:1.08;
       letter-spacing:-.04em;
       font-weight:900;
       word-break:break-word;
     }
 
+    .ibox:first-child .ival{
+      font-size:24px;
+    }
+
     .ilabel{
-      margin-top:7px;
+      margin-top:6px;
       color:var(--muted);
-      font-size:12px;
+      font-size:11px;
       font-weight:900;
     }
 
     .noteBox{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:linear-gradient(135deg, rgba(15,76,92,.08), rgba(42,157,143,.075));
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:linear-gradient(135deg, rgba(15,76,92,.075), rgba(42,157,143,.065));
       color:#536b77;
-      font-size:12px;
-      font-weight:800;
+      font-size:11px;
+      font-weight:900;
       line-height:1.65;
     }
 
-    .forecastPanel{ min-height:0; }
+    .forecastPanel{
+      min-height:0;
+      background:rgba(255,255,255,.88);
+    }
 
     .fcstTop{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:12px;
-      padding:15px 16px;
+      gap:10px;
+      padding:13px 14px;
       border-bottom:1px solid var(--line);
+      background:linear-gradient(135deg, rgba(15,76,92,.025), rgba(42,157,143,.035));
     }
 
     .fcstTitle{
@@ -583,7 +606,7 @@
       align-items:center;
       gap:9px;
       color:#122c3c;
-      font-size:13px;
+      font-size:12px;
       font-weight:900;
     }
 
@@ -591,13 +614,13 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-height:30px;
+      min-height:28px;
       padding:0 10px;
       border-radius:999px;
       border:1px solid var(--line-strong);
       background:#fff;
       color:#0f4c5c;
-      font-size:12px;
+      font-size:11px;
       font-weight:900;
       white-space:nowrap;
     }
@@ -605,10 +628,10 @@
     .fcstList{
       display:flex;
       flex-direction:column;
-      gap:10px;
-      max-height:430px;
+      gap:9px;
+      max-height:382px;
       overflow:auto;
-      padding:14px;
+      padding:12px;
       overscroll-behavior:contain;
     }
 
@@ -619,8 +642,8 @@
       width:100%;
       flex:0 0 auto;
       border:1px solid var(--line);
-      border-radius:18px;
-      padding:12px;
+      border-radius:16px;
+      padding:11px;
       background:#fff;
       cursor:pointer;
       transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
@@ -636,13 +659,13 @@
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
+      gap:8px;
+      margin-bottom:8px;
     }
 
     .fcstTime{
       color:#122c3c;
-      font-size:13px;
+      font-size:12px;
       font-weight:900;
       white-space:nowrap;
     }
@@ -651,7 +674,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
-      padding:5px 9px;
+      padding:4px 8px;
       border-radius:999px;
       border:1px solid var(--line-strong);
       background:#fff;
@@ -662,10 +685,10 @@
 
     .fcstKv{
       display:grid;
-      grid-template-columns:54px 1fr;
-      gap:6px 8px;
+      grid-template-columns:46px 1fr;
+      gap:5px 8px;
       color:#374151;
-      font-size:12px;
+      font-size:11px;
       line-height:1.35;
     }
 
@@ -675,19 +698,22 @@
     .mapShell{
       min-width:0;
       border:1px solid var(--line);
-      border-radius:28px;
+      border-radius:26px;
       background:#fff;
       box-shadow:0 12px 28px rgba(31,53,72,.08);
       overflow:hidden;
       position:relative;
+      display:flex;
+      flex-direction:column;
     }
 
     .mapHeader{
+      flex:0 0 auto;
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:14px;
-      padding:14px 16px;
+      gap:12px;
+      padding:12px 14px;
       border-bottom:1px solid var(--line);
       background:linear-gradient(135deg, rgba(249,252,252,.96), rgba(231,242,243,.78));
     }
@@ -697,7 +723,7 @@
       align-items:center;
       gap:8px;
       color:#122c3c;
-      font-size:13px;
+      font-size:12px;
       font-weight:900;
     }
 
@@ -731,10 +757,15 @@
 
     #map{
       width:100%;
-      height:680px;
-      min-height:500px;
-      background:#f4fafb;
+      height:clamp(520px, 58vh, 610px);
+      min-height:520px;
+      background:#eef8fb;
       position:relative;
+      flex:0 0 auto;
+    }
+
+    .leaflet-container{
+      background:#eef8fb;
     }
 
     .analysisGrid{
@@ -831,8 +862,8 @@
       .sidePanel{ display:grid; grid-template-columns:1fr 1fr; align-items:start; }
       .sourcePanel{ grid-column:1 / -1; }
       .fcstList{ max-height:none; flex-direction:row; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; }
-      .fcstCard{ width:240px; scroll-snap-align:start; }
-      #map{ height:620px; }
+      .fcstCard{ width:235px; scroll-snap-align:start; }
+      #map{ height:600px; min-height:500px; }
     }
 
     @media (max-width:780px){
@@ -845,11 +876,11 @@
       .section{ border-radius:26px; }
       .sectionHead{ align-items:flex-start; flex-direction:column; padding:20px; }
       .toolbar{ justify-content:flex-start; }
-      .trackerBody{ padding:14px; }
+      .trackerBody{ padding:14px; gap:14px; }
       .sidePanel{ grid-template-columns:1fr; }
       .mapHeader{ align-items:flex-start; flex-direction:column; }
       .mapLegend{ justify-content:flex-start; }
-      #map{ height:560px; min-height:440px; }
+      #map{ height:540px; min-height:440px; }
       .analysisGrid{ grid-template-columns:1fr; padding:14px; }
     }
 
@@ -864,7 +895,7 @@
       .toggle,.btn{ flex:1 1 calc(50% - 7px); justify-content:center; padding:0 10px; }
       .btn#printBtn{ flex-basis:100%; }
       .fcstCard{ width:220px; }
-      #map{ height:520px; min-height:420px; }
+      #map{ height:500px; min-height:420px; }
     }
 
     @media print{
@@ -886,10 +917,10 @@
   <main class="page">
     <header class="topbar" aria-label="page navigation">
       <div class="brand">
-        <div class="brandMark">颱</div>
+        <div class="brandMark"></div>
         <div class="brandText">
-          <strong>Weather Intelligence</strong>
-          <span>Typhoon forecast dashboard</span>
+          <strong>颱風追蹤</strong>
+          <span>颱風預測路徑圖</span>
         </div>
       </div>
 
@@ -1860,6 +1891,8 @@
       });
 
       setTimeout(() => map.invalidateSize(), 300);
+      setTimeout(() => map.invalidateSize(), 800);
+      setTimeout(() => map.invalidateSize(), 1400);
       window.addEventListener("resize", () => {
         try{
           map.invalidateSize();
