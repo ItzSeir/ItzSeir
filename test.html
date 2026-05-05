@@ -1,0 +1,1630 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>筱風｜天氣情報</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#eef4f7;
+      --surface:#ffffff;
+      --line:rgba(25,42,58,.10);
+      --line-strong:rgba(25,42,58,.16);
+      --text:#163042;
+      --heading:#122c3c;
+      --muted:#6a7d89;
+      --sea:#0f4c5c;
+      --teal:#2a9d8f;
+      --danger:#d62828;
+      --warm:#f4a261;
+      --shadow:0 18px 50px rgba(31,53,72,.12);
+      --shadow-soft:0 10px 30px rgba(31,53,72,.08);
+      --max:1240px;
+    }
+
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+    html,body{ min-height:100%; }
+
+    body{
+      margin:0;
+      font-family:"Noto Sans TC","Segoe UI",Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% -10%, rgba(42,157,143,.18), transparent 34%),
+        radial-gradient(circle at 92% 8%, rgba(123,223,242,.18), transparent 30%),
+        linear-gradient(180deg, #f7fbfc 0%, var(--bg) 48%, #ffffff 100%);
+      overflow-x:hidden;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background-image:
+        linear-gradient(rgba(15,76,92,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15,76,92,.05) 1px, transparent 1px);
+      background-size:42px 42px;
+      mask-image:linear-gradient(180deg, rgba(0,0,0,.7), transparent 72%);
+      z-index:-1;
+    }
+
+    a{ color:inherit; }
+    button{ font:inherit; -webkit-tap-highlight-color:transparent; }
+
+    .page{
+      width:min(var(--max), calc(100% - 32px));
+      margin:0 auto;
+      padding:28px 0 44px;
+    }
+
+    .topbar{
+      position:sticky;
+      top:12px;
+      z-index:1000;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:22px;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:rgba(255,255,255,.72);
+      backdrop-filter:blur(18px);
+      box-shadow:0 10px 30px rgba(31,53,72,.08);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      text-decoration:none;
+    }
+
+    .brandMark{
+      width:36px;
+      height:36px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-weight:900;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 10px 22px rgba(15,76,92,.22);
+      flex:0 0 auto;
+    }
+
+    .brandText{ display:flex; flex-direction:column; min-width:0; line-height:1.1; }
+    .brandText strong{ font-size:14px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .brandText span{ margin-top:4px; font-size:11px; font-weight:800; color:var(--muted); white-space:nowrap; }
+
+    .navPills{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .navPills a{
+      text-decoration:none;
+      color:#264052;
+      font-size:12px;
+      font-weight:900;
+      padding:9px 12px;
+      border-radius:999px;
+      transition:.18s ease;
+      white-space:nowrap;
+    }
+
+    .navPills a:hover,
+    .navPills a.active{
+      background:linear-gradient(135deg, rgba(15,76,92,.10), rgba(42,157,143,.12));
+      color:var(--sea);
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:minmax(0, 1.05fr) minmax(300px, .95fr);
+      gap:22px;
+      align-items:stretch;
+      margin-bottom:22px;
+    }
+
+    .heroCard,
+    .metricCard,
+    .section{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.76);
+      backdrop-filter:blur(18px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .heroCard{
+      position:relative;
+      border-radius:32px;
+      min-height:292px;
+      padding:32px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.98), rgba(236,245,246,.90)),
+        radial-gradient(circle at 86% 12%, rgba(42,157,143,.15), transparent 34%);
+    }
+
+    .heroCard::after{
+      content:"";
+      position:absolute;
+      right:-120px;
+      bottom:-150px;
+      width:340px;
+      height:340px;
+      border-radius:50%;
+      border:42px solid rgba(15,76,92,.075);
+      pointer-events:none;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid rgba(15,76,92,.14);
+      color:var(--sea);
+      background:rgba(15,76,92,.08);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .liveDot,
+    .dot{
+      width:9px;
+      height:9px;
+      border-radius:999px;
+      display:inline-block;
+      background:var(--danger);
+      box-shadow:0 0 0 6px rgba(214,40,40,.11);
+      flex:0 0 auto;
+    }
+
+    .dot{ box-shadow:none; width:10px; height:10px; }
+
+    .heroTitle{
+      position:relative;
+      z-index:1;
+      margin:18px 0 12px;
+      font-size:clamp(32px, 5vw, 58px);
+      line-height:1.12;
+      letter-spacing:-.045em;
+      font-weight:900;
+      color:var(--heading);
+    }
+
+    .heroTitle span{
+      display:block;
+      color:transparent;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      -webkit-background-clip:text;
+      background-clip:text;
+    }
+
+    .heroDesc{
+      position:relative;
+      z-index:1;
+      max-width:680px;
+      margin:0;
+      color:#5e717d;
+      line-height:1.8;
+      font-size:14px;
+      font-weight:650;
+    }
+
+    .heroActions{ position:relative; z-index:1; display:flex; gap:10px; flex-wrap:wrap; margin-top:24px; }
+
+    .actionBtn,
+    .btn{
+      min-height:40px;
+      padding:0 15px;
+      border:0;
+      border-radius:999px;
+      font-size:13px;
+      font-weight:900;
+      cursor:pointer;
+      text-decoration:none;
+      color:#fff;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 14px 28px rgba(15,76,92,.20);
+      transition:transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+      white-space:nowrap;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .actionBtn:hover,
+    .btn:hover{ transform:translateY(-2px); box-shadow:0 18px 34px rgba(15,76,92,.24); }
+
+    .ghostBtn,
+    .btnGhost{
+      color:#1d3a4a;
+      background:#fff;
+      border:1px solid var(--line-strong);
+      box-shadow:0 10px 22px rgba(31,53,72,.07);
+    }
+
+    .heroSide{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+    .metricCard{
+      border-radius:24px;
+      padding:18px;
+      background:rgba(255,255,255,.86);
+      box-shadow:var(--shadow-soft);
+      min-height:136px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+
+    .metricCard.wide{ grid-column:1 / -1; }
+    .metricTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px; }
+    .metricLabel{ color:var(--muted); font-size:12px; font-weight:900; }
+    .metricIcon{ width:34px; height:34px; display:grid; place-items:center; border-radius:14px; background:linear-gradient(135deg, rgba(15,76,92,.12), rgba(42,157,143,.12)); color:var(--sea); font-weight:900; }
+    .metricValue{ color:var(--heading); font-size:clamp(20px, 3vw, 30px); line-height:1.05; letter-spacing:-.04em; font-weight:900; word-break:break-word; }
+    .metricHint{ margin-top:8px; color:var(--muted); font-size:12px; font-weight:750; line-height:1.5; }
+
+    .section{
+      scroll-margin-top:110px;
+      margin-top:22px;
+      border-radius:32px;
+    }
+
+    .sectionHead{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      padding:24px 24px 16px;
+      border-bottom:1px solid var(--line);
+      background:
+        linear-gradient(135deg, rgba(15,76,92,.06), rgba(42,157,143,.05)),
+        rgba(255,255,255,.58);
+    }
+
+    .sectionKicker{ display:flex; align-items:center; gap:8px; color:var(--sea); font-size:12px; font-weight:900; margin-bottom:7px; }
+    .sectionTitle{ margin:0; color:var(--heading); font-size:clamp(22px, 3vw, 34px); line-height:1.1; letter-spacing:-.04em; font-weight:900; }
+    .sectionDesc{ margin:8px 0 0; max-width:760px; color:var(--muted); font-size:13px; line-height:1.75; font-weight:650; }
+    .toolbar{ display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; flex:0 0 auto; }
+
+    .toggle,
+    .chip{
+      border:1px solid var(--line-strong);
+      background:#fff;
+      color:#244150;
+      box-shadow:0 8px 18px rgba(31,53,72,.06);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .toggle{ display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 12px; border-radius:999px; user-select:none; cursor:pointer; white-space:nowrap; }
+    .toggle input{ accent-color:var(--sea); }
+    .chip{ display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 11px; border-radius:999px; white-space:nowrap; }
+
+    .trackerBody{ padding:16px; display:grid; grid-template-columns:300px minmax(0, 1fr); gap:16px; align-items:start; }
+    .sidePanel{ display:flex; flex-direction:column; gap:12px; min-width:0; }
+    .statusCard,.forecastPanel,.sourcePanel{ border:1px solid var(--line); border-radius:22px; background:rgba(255,255,255,.88); box-shadow:0 10px 24px rgba(31,53,72,.07); overflow:hidden; }
+    .sourcePanel{ padding:14px; background:linear-gradient(135deg, rgba(255,255,255,.92), rgba(239,248,248,.82)); }
+    .sourceLabel{ display:flex; align-items:center; gap:8px; color:var(--sea); font-size:11px; font-weight:900; margin-bottom:8px; letter-spacing:.03em; }
+    .sub{ margin:0; color:#647983; font-size:12px; font-weight:800; line-height:1.65; word-break:break-word; }
+    .statusTop{ padding:14px; display:flex; align-items:center; justify-content:space-between; gap:10px; border-bottom:1px solid var(--line); background:linear-gradient(135deg, rgba(15,76,92,.035), rgba(42,157,143,.045)); }
+    .miniMeta{ color:var(--muted); font-size:11px; font-weight:900; line-height:1.5; white-space:nowrap; }
+    .statusBody{ padding:14px; }
+    .infoGrid{ display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .ibox{ min-height:72px; border:1px solid var(--line); border-radius:16px; padding:12px 13px; background:#fff; display:flex; flex-direction:column; justify-content:center; box-shadow:0 8px 18px rgba(31,53,72,.035); }
+    .ibox:first-child{ grid-column:1 / -1; min-height:76px; background:linear-gradient(135deg, #fff, rgba(239,248,248,.72)); }
+    .ival{ color:var(--heading); font-size:20px; line-height:1.08; letter-spacing:-.04em; font-weight:900; word-break:break-word; }
+    .ibox:first-child .ival{ font-size:24px; }
+    .ilabel{ margin-top:6px; color:var(--muted); font-size:11px; font-weight:900; }
+    .noteBox{ margin-top:10px; padding:10px 12px; border-radius:16px; background:linear-gradient(135deg, rgba(15,76,92,.075), rgba(42,157,143,.065)); color:#536b77; font-size:11px; font-weight:900; line-height:1.65; }
+    .fcstTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 14px; border-bottom:1px solid var(--line); background:linear-gradient(135deg, rgba(15,76,92,.025), rgba(42,157,143,.035)); }
+    .fcstTitle{ display:flex; align-items:center; gap:9px; color:var(--heading); font-size:12px; font-weight:900; }
+    .fcstList{ display:flex; flex-direction:column; gap:9px; max-height:382px; overflow:auto; padding:12px; overscroll-behavior:contain; }
+    .fcstList::-webkit-scrollbar{ width:10px; height:10px; }
+    .fcstList::-webkit-scrollbar-thumb{ background:rgba(15,76,92,.20); border-radius:999px; border:3px solid rgba(255,255,255,.8); }
+    .fcstCard{ width:100%; flex:0 0 auto; border:1px solid var(--line); border-radius:16px; padding:11px; background:#fff; cursor:pointer; transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+    .fcstCard:hover{ transform:translateY(-2px); border-color:rgba(15,76,92,.25); box-shadow:0 14px 28px rgba(31,53,72,.10); }
+    .fcstRow1{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+    .fcstTime{ color:var(--heading); font-size:12px; font-weight:900; white-space:nowrap; }
+    .fcstBadge{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid var(--line-strong); background:#fff; font-size:11px; font-weight:900; white-space:nowrap; }
+    .fcstKv{ display:grid; grid-template-columns:46px 1fr; gap:5px 8px; color:#374151; font-size:11px; line-height:1.35; }
+    .fcstKv .k{ color:var(--muted); font-weight:900; }
+    .fcstKv .v{ color:var(--heading); font-weight:900; }
+    .mapShell{ min-width:0; border:1px solid var(--line); border-radius:26px; background:#fff; box-shadow:0 12px 28px rgba(31,53,72,.08); overflow:hidden; position:relative; display:flex; flex-direction:column; }
+    .mapHeader{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid var(--line); background:linear-gradient(135deg, rgba(249,252,252,.96), rgba(231,242,243,.78)); }
+    .mapHeader strong{ display:flex; align-items:center; gap:8px; color:var(--heading); font-size:12px; font-weight:900; }
+    .mapLegend{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .legendItem{ display:inline-flex; align-items:center; gap:6px; color:#647983; font-size:11px; font-weight:900; white-space:nowrap; }
+    .legendLine{ width:18px; height:3px; border-radius:999px; background:var(--sea); }
+    .legendLine.dash{ background:repeating-linear-gradient(90deg, var(--teal) 0 6px, transparent 6px 10px); }
+    #map{ width:100%; height:clamp(520px, 58vh, 610px); min-height:520px; background:#eef8fb; position:relative; flex:0 0 auto; }
+    .leaflet-container{ background:#eef8fb; }
+    .popup-card{ min-width:240px; }
+    .popup-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; }
+    .popup-title{ font-weight:900; color:var(--heading); }
+    .popup-badge{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:900; border:1px solid rgba(0,0,0,.08); background:#fff; white-space:nowrap; }
+    .popup-kv{ display:grid; grid-template-columns:70px 1fr; gap:6px 10px; font-size:12px; color:#374151; font-weight:700; }
+    .popup-kv div:nth-child(odd){ color:var(--muted); font-weight:900; }
+    .tlabel{ display:inline-flex; align-items:center; gap:8px; padding:8px 13px; border-radius:999px; background:rgba(255,255,255,.96); border:1px solid rgba(25,42,58,.12); font-size:12px; font-weight:900; color:var(--heading); box-shadow:0 10px 22px rgba(31,53,72,.12); white-space:nowrap; backdrop-filter:blur(8px); }
+    .tlabel .miniDot{ width:9px; height:9px; border-radius:999px; display:inline-block; background:#111; flex:0 0 auto; }
+    .leaflet-div-icon.ty-label-icon{ background:transparent; border:none; }
+    .leaflet-popup-content-wrapper{ border-radius:18px; box-shadow:0 20px 44px rgba(31,53,72,.18); }
+    .leaflet-control-zoom{ border:none !important; box-shadow:0 10px 22px rgba(31,53,72,.12) !important; }
+    .leaflet-control-zoom a{ border-color:var(--line) !important; color:var(--text) !important; }
+    .empty{ text-align:center; font-size:13px; font-weight:900; color:var(--muted); padding:34px 0; }
+
+    .alertBody{
+      padding:20px;
+      display:grid;
+      grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);
+      gap:18px;
+      align-items:stretch;
+    }
+
+    .alertBox{
+      min-width:0;
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:rgba(255,255,255,.86);
+      box-shadow:0 10px 24px rgba(31,53,72,.07);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height:520px;
+      max-height:720px;
+    }
+
+    .alertHead{
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      background:linear-gradient(135deg, rgba(15,76,92,.035), rgba(42,157,143,.04));
+    }
+
+    .alertHeadTitle{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:var(--heading);
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .alertPanelBody{
+      padding:14px;
+      overflow:auto;
+      min-height:0;
+    }
+
+    .alertFilters{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:9px;
+      margin-bottom:12px;
+    }
+
+    .alertSelect,
+    .alertSearch{
+      width:100%;
+      min-height:42px;
+      border:1px solid var(--line-strong);
+      border-radius:16px;
+      padding:0 13px;
+      outline:none;
+      background:#fff;
+      color:#244150;
+      font-size:12px;
+      font-weight:900;
+      box-shadow:0 8px 18px rgba(31,53,72,.05);
+    }
+
+    .alertSelect:focus,
+    .alertSearch:focus{
+      border-color:rgba(15,76,92,.28);
+      box-shadow:0 0 0 4px rgba(15,76,92,.08);
+    }
+
+    .cwaList{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .cwaItem{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      padding:12px;
+      cursor:pointer;
+      transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+
+    .cwaItem:hover,
+    .cwaItem.active{
+      transform:translateY(-2px);
+      border-color:rgba(15,76,92,.22);
+      box-shadow:0 12px 24px rgba(31,53,72,.09);
+    }
+
+    .cwaItemTop{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:7px;
+    }
+
+    .cwaTime{
+      color:var(--heading);
+      font-size:12px;
+      line-height:1.45;
+      font-weight:900;
+    }
+
+    .cwaBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      border:1px solid var(--line-strong);
+      background:#fff;
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .cwaBadgeDot{
+      width:9px;
+      height:9px;
+      border-radius:999px;
+      display:inline-block;
+      flex:0 0 auto;
+    }
+
+    .cwaTitle{
+      color:var(--heading);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .cwaMeta{
+      margin-top:6px;
+      color:#536b77;
+      font-size:12px;
+      line-height:1.6;
+      font-weight:750;
+    }
+
+    .alertCards{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+
+    .alertCard{
+      min-height:72px;
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:13px;
+      background:#fff;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+
+    .alertVal{
+      color:var(--heading);
+      font-size:14px;
+      line-height:1.35;
+      font-weight:900;
+      word-break:break-word;
+    }
+
+    .alertLab{
+      margin-top:7px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .alertDetailBox{
+      margin-top:12px;
+      border:1px solid var(--line);
+      border-radius:20px;
+      background:#fff;
+      overflow:hidden;
+    }
+
+    .alertDetailHead{
+      padding:12px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .alertDetailTitle{
+      color:var(--heading);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .alertKv{
+      display:grid;
+      grid-template-columns:90px 1fr;
+      gap:8px 10px;
+      color:#374151;
+      font-size:12px;
+      font-weight:800;
+      line-height:1.6;
+      padding:12px 12px 0;
+    }
+
+    .alertKv .k{
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .alertMono{
+      margin:12px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:11px;
+      background:rgba(15,76,92,.045);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      overflow:auto;
+      max-height:280px;
+      white-space:pre-wrap;
+      word-break:break-word;
+      color:#263d4a;
+      line-height:1.65;
+      font-weight:700;
+    }
+
+    @media (max-width:980px){
+      .alertBody{ grid-template-columns:1fr; }
+      .alertBox{ min-height:420px; max-height:none; }
+    }
+
+    @media (max-width:1100px){
+      .hero{ grid-template-columns:1fr; }
+      .trackerBody{ grid-template-columns:1fr; }
+      .sidePanel{ display:grid; grid-template-columns:1fr 1fr; align-items:start; }
+      .sourcePanel{ grid-column:1 / -1; }
+      .fcstList{ max-height:none; flex-direction:row; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; }
+      .fcstCard{ width:235px; scroll-snap-align:start; }
+      #map{ height:600px; min-height:500px; }
+    }
+
+    @media (max-width:780px){
+      .page{ width:min(100% - 20px, var(--max)); padding-top:14px; }
+      .topbar{ top:8px; border-radius:22px; align-items:flex-start; flex-direction:column; }
+      .navPills{ width:100%; justify-content:flex-start; overflow:auto; flex-wrap:nowrap; padding-bottom:2px; }
+      .navPills a{ flex:0 0 auto; }
+      .heroCard{ padding:24px; border-radius:26px; min-height:auto; }
+      .heroSide{ grid-template-columns:1fr; }
+      .section{ border-radius:26px; }
+      .sectionHead{ align-items:flex-start; flex-direction:column; padding:20px; }
+      .toolbar{ justify-content:flex-start; }
+      .trackerBody{ padding:14px; gap:14px; }
+      .sidePanel{ grid-template-columns:1fr; }
+      .mapHeader{ align-items:flex-start; flex-direction:column; }
+      .mapLegend{ justify-content:flex-start; }
+      #map{ height:540px; min-height:440px; }
+    }
+
+    @media (max-width:520px){
+      body{ background:#f7fbfc; }
+      .page{ width:100%; padding:10px 10px 28px; }
+      .heroCard,.section{ border-radius:22px; }
+      .heroTitle{ font-size:38px; }
+      .heroActions{ flex-direction:column; }
+      .actionBtn{ width:100%; }
+      .toolbar{ width:100%; gap:7px; }
+      .toggle,.btn{ flex:1 1 calc(50% - 7px); justify-content:center; padding:0 10px; }
+      .fcstCard{ width:220px; }
+      #map{ height:500px; min-height:420px; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <header class="topbar" aria-label="page navigation">
+      <a class="brand" href="index" aria-label="首頁">
+        <div class="brandMark">天</div>
+        <div class="brandText">
+          <strong>筱風</strong>
+          <span>天氣情報</span>
+        </div>
+      </a>
+
+      <nav class="navPills" aria-label="主選單">
+        <a href="index">首頁</a>
+        <a href="cover">翻唱</a>
+        <a class="active" href="weather">天氣情報</a>
+        <a href="earthquake">地震情報</a>
+      </nav>
+    </header>
+
+    <section class="hero" id="overview">
+      <div class="heroCard">
+        <div class="eyebrow"><span class="liveDot"></span> 即時天氣情報</div>
+        <h1 class="heroTitle">天氣情報<span id="pageTitle">颱風路徑追蹤器</span></h1>
+        <p class="heroDesc">
+          本頁已移除天氣警報區塊，只保留颱風路徑追蹤器。颱風資料完全來自 weather.json，讀取成功後會顯示路徑、預報點、暴風圈與資料來源。
+        </p>
+        <div class="heroActions">
+          <button class="actionBtn" type="button" onclick="document.getElementById('alerts').scrollIntoView({behavior:'smooth'});">查看天氣警報</button>
+          <button class="actionBtn ghostBtn" type="button" onclick="document.getElementById('tracker').scrollIntoView({behavior:'smooth'});">查看颱風追蹤器</button>
+        </div>
+      </div>
+
+      <aside class="heroSide" aria-label="weather summary">
+        <div class="metricCard wide">
+          <div class="metricTop">
+            <span class="metricLabel">目前颱風狀態</span>
+            <span class="metricIcon">●</span>
+          </div>
+          <div class="metricValue" id="heroLevel">—</div>
+          <div class="metricHint" id="heroTime">時間：—</div>
+        </div>
+
+        <div class="metricCard">
+          <div class="metricTop">
+            <span class="metricLabel">資料狀態</span>
+            <span class="metricIcon">i</span>
+          </div>
+          <div class="metricValue" id="heroAlertCount">weather.json</div>
+          <div class="metricHint">資料來源不受警報功能影響</div>
+        </div>
+
+        <div class="metricCard">
+          <div class="metricTop">
+            <span class="metricLabel">颱風資料</span>
+            <span class="metricIcon">↗</span>
+          </div>
+          <div class="metricValue" id="heroWind">—</div>
+          <div class="metricHint" id="heroPres">氣壓：—</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section" id="alerts">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot" style="background:#ef4444;"></span> TAIWAN WEATHER ALERTS</div>
+          <h2 class="sectionTitle">台灣天氣警報</h2>
+          <p class="sectionDesc">資料來源：中央氣象署。保留原本 CAP 警報內容，只重新整理成與頁面一致的 dashboard 設計。</p>
+        </div>
+
+        <div class="toolbar" aria-label="cwa alert controls">
+          <label class="toggle" title="自動更新">
+            <input type="checkbox" id="cwaToggleAuto" checked>
+            自動更新
+          </label>
+          <span class="chip" id="cwaStatusChip">—</span>
+          <button class="btn" id="cwaRefreshBtn" type="button">立即更新</button>
+        </div>
+      </div>
+
+      <div class="alertBody">
+        <div class="alertBox" aria-label="alert-list">
+          <div class="alertHead">
+            <div class="alertHeadTitle"><span class="dot" style="background:#ef4444;"></span> 警報清單（CAP）</div>
+            <span class="chip" id="cwaCountChip">0 筆</span>
+          </div>
+          <div class="alertPanelBody" id="cwaLeftScroll">
+            <div class="alertFilters">
+              <select class="alertSelect" id="cwaTypeFilter" aria-label="type-filter"></select>
+              <input class="alertSearch" id="cwaSearchInput" placeholder="搜尋（標題/事件/內容/區域）…" />
+            </div>
+            <div class="cwaList" id="cwaList"></div>
+            <div class="hint" id="cwaHintText"></div>
+          </div>
+        </div>
+
+        <div class="alertBox" aria-label="alert-details">
+          <div class="alertHead">
+            <div class="alertHeadTitle"><span class="dot" style="background:#f4a261;"></span> 警報詳細</div>
+            <span class="chip" id="cwaSelChip">未選取</span>
+          </div>
+          <div class="alertPanelBody">
+            <div class="alertCards">
+              <div class="alertCard"><div class="alertVal" id="cwaHeadline">—</div><div class="alertLab">標題</div></div>
+              <div class="alertCard"><div class="alertVal" id="cwaEvent">—</div><div class="alertLab">事件</div></div>
+              <div class="alertCard"><div class="alertVal" id="cwaSent">—</div><div class="alertLab">發布</div></div>
+              <div class="alertCard"><div class="alertVal" id="cwaValid">—</div><div class="alertLab">有效</div></div>
+            </div>
+
+            <div class="alertDetailBox">
+              <div class="alertDetailHead">
+                <div class="alertDetailTitle">內容</div>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                  <button class="btn" id="cwaCopyBtn" type="button">複製內容</button>
+                  <button class="btn" id="cwaRawBtn" type="button">顯示 Raw CAP</button>
+                </div>
+              </div>
+              <div class="alertKv">
+                <div class="k">類型</div><div id="cwaType">—</div>
+                <div class="k">區域</div><div id="cwaArea">—</div>
+              </div>
+              <div class="alertMono" id="cwaText">（請在左側點選一筆警報）</div>
+              <div class="alertMono" id="cwaRaw" style="display:none;"></div>
+              <div class="hint" style="margin:0 12px 12px;">若用「雙擊開 HTML」遇到讀不到，多半是瀏覽器跨域限制；改用 Live Server / 本地伺服器開就會好。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="tracker">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot" style="background:#4f8cff;"></span> TYPHOON TRACKER SECTOR</div>
+          <h2 class="sectionTitle">颱風路徑追蹤器</h2>
+          <p class="sectionDesc">此區塊只讀取 weather.json。天氣警報功能已移除，不會再影響颱風路徑圖初始化與資料載入。</p>
+        </div>
+
+        <div class="toolbar" aria-label="map controls">
+          <label class="toggle" title="顯示或隱藏地圖時間標籤">
+            <input type="checkbox" id="toggleLabels" checked>
+            顯示時間
+          </label>
+          <label class="toggle" title="顯示或隱藏預報不確定性陰影帶">
+            <input type="checkbox" id="toggleCone" checked>
+            陰影帶
+          </label>
+          <label class="toggle" title="顯示或隱藏暴風圈">
+            <input type="checkbox" id="toggleRings" checked>
+            暴風圈
+          </label>
+          <button class="btn btnGhost" id="fitAllBtn" type="button">完整路徑</button>
+          <button class="btn btnGhost" id="printBtn" type="button">列印 / PDF</button>
+        </div>
+      </div>
+
+      <div class="trackerBody">
+        <aside class="sidePanel">
+          <div class="statusCard">
+            <div class="statusTop">
+              <div class="chip">
+                <span class="dot" id="levelDotObs"></span>
+                <span id="levelTextObs">—</span>
+              </div>
+              <div class="miniMeta" id="infoTimeObs">時間：—</div>
+            </div>
+
+            <div class="statusBody">
+              <div class="infoGrid" aria-label="obs-info-grid">
+                <div class="ibox">
+                  <div class="ival" id="obsCoord">—</div>
+                  <div class="ilabel">座標</div>
+                </div>
+                <div class="ibox">
+                  <div class="ival" id="obsWind">—</div>
+                  <div class="ilabel">風速</div>
+                </div>
+                <div class="ibox">
+                  <div class="ival" id="obsPres">—</div>
+                  <div class="ilabel">氣壓</div>
+                </div>
+              </div>
+              <div class="noteBox" id="infoNoteObs">—</div>
+            </div>
+          </div>
+
+          <div class="forecastPanel">
+            <div class="fcstTop">
+              <div class="fcstTitle">
+                <span class="dot" style="background:#60a5fa;"></span>
+                <span>預報列表</span>
+              </div>
+              <span class="chip" id="fcstCount">0 筆</span>
+            </div>
+            <div class="fcstList" id="fcstList" aria-label="forecast-list"></div>
+          </div>
+
+          <div class="sourcePanel">
+            <div class="sourceLabel"><span class="dot" style="background:#7c5cff;"></span> DATA SOURCE</div>
+            <p class="sub" id="sourceText"><b>來源：載入中...</b><br></p>
+            <button class="btn btnGhost" id="reloadWeatherBtn" type="button" style="margin-top:12px;width:100%;">重新讀取 weather.json</button>
+          </div>
+        </aside>
+
+        <div class="mapShell">
+          <div class="mapHeader">
+            <strong><span class="dot" style="background:#4f8cff;"></span> Interactive Map</strong>
+            <div class="mapLegend" aria-label="map legend">
+              <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
+              <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
+              <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 預報不確定性</span>
+            </div>
+          </div>
+          <div id="map"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    "use strict";
+
+    var MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
+    var MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
+
+    var map = null;
+    var weatherMeta = { title:"颱風情報", source:"—" };
+    var points = [];
+    var tyLayers = [];
+
+    function byId(id){ return document.getElementById(id); }
+
+    function escapeHtml(s){
+      return String(s == null ? "" : s).replace(/[&<>\"']/g, function(m){
+        return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m];
+      });
+    }
+
+    function parseDateSafe(value){
+      if(!value) return null;
+      var safe = String(value).trim().replace(" ", "T");
+      var d = new Date(safe);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function fmtTime(value, mode){
+      var d = parseDateSafe(value);
+      if(!d) return String(value || "—");
+      var options = mode === "full" ? {
+        year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false
+      } : {
+        month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false
+      };
+      return d.toLocaleString("zh-TW", options);
+    }
+
+    function fmtWindMs(v){
+      if(v === null || v === undefined || !Number.isFinite(Number(v))) return "—";
+      return Number(v).toFixed(0) + " m/s";
+    }
+
+    function getStyle(level){
+      var raw = String(level || "");
+      var s = raw.toLowerCase();
+      if(s.indexOf("sty") >= 0 || s.indexOf("strong") >= 0 || s.indexOf("猛烈") >= 0 || s.indexOf("super") >= 0){
+        return { color:"#d62828", label:raw || "STY" };
+      }
+      if(s.indexOf("ty") >= 0 || s.indexOf("typhoon") >= 0 || s.indexOf("颱風") >= 0){
+        return { color:"#ef4444", label:raw || "TY" };
+      }
+      if(s.indexOf("sts") >= 0){
+        return { color:"#f97316", label:raw || "STS" };
+      }
+      if(s.indexOf("ts") >= 0 || s.indexOf("storm") >= 0 || s.indexOf("熱帶風暴") >= 0){
+        return { color:"#f59e0b", label:raw || "TS" };
+      }
+      if(s.indexOf("td") >= 0 || s.indexOf("depression") >= 0 || s.indexOf("低壓") >= 0){
+        return { color:"#2a9d8f", label:raw || "TD" };
+      }
+      return { color:"#0f4c5c", label:raw || "—" };
+    }
+
+    function kindLabel(kind){
+      return kind === "obs" ? "觀測" : kind === "fcst" ? "預報" : "資料點";
+    }
+
+    function setText(id, value){
+      var el = byId(id);
+      if(el) el.textContent = value;
+    }
+
+    function setHtml(id, value){
+      var el = byId(id);
+      if(el) el.innerHTML = value;
+    }
+
+    function clearTyLayers(){
+      tyLayers.forEach(function(layer){ layer.remove(); });
+      tyLayers = [];
+    }
+
+    function addTyLayer(layer){
+      layer.addTo(map);
+      tyLayers.push(layer);
+      return layer;
+    }
+
+    function uniqueArray(arr){
+      var seen = {};
+      return arr.filter(function(item){
+        if(!item || seen[item]) return false;
+        seen[item] = true;
+        return true;
+      });
+    }
+
+    function withCacheBuster(url){
+      var sep = url.indexOf("?") >= 0 ? "&" : "?";
+      return url + sep + "v=" + Date.now();
+    }
+
+    function buildWeatherJsonPaths(){
+      var origin = window.location.origin;
+      var parts = window.location.pathname.split("/").filter(Boolean);
+      var projectBase = parts.length ? "/" + parts[0] + "/" : "/";
+
+      return uniqueArray([
+        "weather.json",
+        "./weather.json",
+        "../weather.json",
+        origin + projectBase + "weather.json",
+        origin + projectBase + "floestsmp/weather.json",
+        "/ItzSeir/weather.json",
+        "/ItzSeir/floestsmp/weather.json"
+      ]);
+    }
+
+    async function fetchJsonFromPaths(paths){
+      var lastError = null;
+      var attempts = [];
+
+      for(var i = 0; i < paths.length; i += 1){
+        var path = paths[i];
+        var url = withCacheBuster(path);
+
+        try{
+          var res = await fetch(url, {
+            cache:"no-store",
+            headers:{ "Accept":"application/json,text/plain,*/*" }
+          });
+
+          attempts.push(path + " → HTTP " + res.status);
+
+          if(!res.ok) throw new Error(path + " HTTP " + res.status);
+
+          var raw = await res.text();
+          var data = JSON.parse(raw);
+
+          if(!data || !Array.isArray(data.points)){
+            throw new Error(path + " 已讀到，但不是有效的 weather.json：缺少 points 陣列");
+          }
+
+          return { data:data, path:path, error:null, attempts:attempts };
+        }catch(err){
+          lastError = err;
+          attempts.push(path + " → " + (err && err.message ? err.message : String(err)));
+          console.warn("weather.json 讀取失敗：", path, err);
+        }
+      }
+
+      return { data:null, path:"", error:lastError, attempts:attempts };
+    }
+
+    async function loadWeatherData(){
+      setHtml("sourceText", "<b>來源：讀取中...</b><br>正在嘗試讀取 weather.json");
+      var result = await fetchJsonFromPaths(buildWeatherJsonPaths());
+
+      if(!result.data){
+        weatherMeta.title = "目前沒有颱風資料";
+        weatherMeta.source = "weather.json 未載入";
+        points = [];
+        setText("pageTitle", "目前沒有颱風資料");
+        setHtml("sourceText", "<b>來源：weather.json 未載入</b><br>目前頁面：" + escapeHtml(window.location.href) + "<br>最後錯誤：" + escapeHtml(result.error && result.error.message ? result.error.message : "未知錯誤") + "<br><br><b>嘗試路徑：</b><br>" + escapeHtml((result.attempts || []).join("
+")).replace(/
+/g, "<br>"));
+        return;
+      }
+
+      var data = result.data;
+      weatherMeta.title = data.title || "颱風情報";
+      weatherMeta.source = (data.source || "weather.json") + "（" + result.path + "）";
+
+      points = (Array.isArray(data.points) ? data.points : []).map(function(p){
+        return {
+          lat:Number(p.lat),
+          lon:Number(p.lon),
+          time:String(p.time == null ? "" : p.time),
+          kind:String(p.kind == null ? "" : p.kind),
+          level:String(p.level == null ? "" : p.level),
+          wind:p.wind === null || p.wind === undefined || p.wind === "" ? null : Number(p.wind),
+          pressure:p.pressure === null || p.pressure === undefined || p.pressure === "" ? null : Number(p.pressure),
+          note:String(p.note == null ? "" : p.note),
+          fcst_radius_km:p.fcst_radius_km === null || p.fcst_radius_km === undefined || p.fcst_radius_km === "" ? 0 : Number(p.fcst_radius_km),
+          storm_radius_km:p.storm_radius_km === null || p.storm_radius_km === undefined || p.storm_radius_km === "" ? 0 : Number(p.storm_radius_km)
+        };
+      }).filter(function(p){
+        return Number.isFinite(p.lat) && Number.isFinite(p.lon);
+      });
+
+      setText("pageTitle", weatherMeta.title);
+      setHtml("sourceText", "<b>來源：" + escapeHtml(weatherMeta.source) + "</b><br>已載入 " + points.length + " 個路徑點。<br>目前頁面：" + escapeHtml(window.location.pathname));
+    }
+
+    function popupHtml(p){
+      var st = getStyle(p.level);
+      var sr = p.storm_radius_km > 0 ? p.storm_radius_km + " km" : "—";
+      return "" +
+        "<div class=\"popup-card\">" +
+          "<div class=\"popup-head\">" +
+            "<div class=\"popup-title\">" + escapeHtml(kindLabel(p.kind)) + "</div>" +
+            "<span class=\"popup-badge\" style=\"border-color:" + st.color + "33;\">" +
+              "<span style=\"display:inline-block;width:8px;height:8px;border-radius:999px;background:" + st.color + ";\"></span>" +
+              escapeHtml(st.label) +
+            "</span>" +
+          "</div>" +
+          "<div class=\"popup-kv\">" +
+            "<div>時間</div><div>" + escapeHtml(fmtTime(p.time, "full")) + "</div>" +
+            "<div>座標</div><div>" + p.lat.toFixed(2) + ", " + p.lon.toFixed(2) + "</div>" +
+            "<div>風速</div><div>" + escapeHtml(fmtWindMs(p.wind)) + "</div>" +
+            "<div>氣壓</div><div>" + (p.pressure ? escapeHtml(p.pressure + " hPa") : "—") + "</div>" +
+            "<div>暴風圈</div><div>" + escapeHtml(sr) + "</div>" +
+            "<div>備註</div><div>" + escapeHtml(p.note || "—") + "</div>" +
+          "</div>" +
+        "</div>";
+    }
+
+    function getLatestObsIndex(){
+      for(var i = points.length - 1; i >= 0; i -= 1){
+        if(points[i].kind === "obs") return i;
+      }
+      return 0;
+    }
+
+    function updateObsPanel(){
+      if(!points.length) return;
+      var p = points[getLatestObsIndex()];
+      var st = getStyle(p.level);
+      var dot = byId("levelDotObs");
+      if(dot) dot.style.background = st.color;
+      setText("levelTextObs", st.label);
+      setText("infoTimeObs", "時間：" + fmtTime(p.time, "full"));
+      setText("obsCoord", p.lat.toFixed(2) + ", " + p.lon.toFixed(2));
+      setText("obsWind", fmtWindMs(p.wind));
+      setText("obsPres", p.pressure ? p.pressure + " hPa" : "—");
+      setText("infoNoteObs", p.note || "—");
+      setText("heroLevel", st.label);
+      setText("heroTime", "時間：" + fmtTime(p.time, "full"));
+      setText("heroWind", fmtWindMs(p.wind));
+      setText("heroPres", "氣壓：" + (p.pressure ? p.pressure + " hPa" : "—"));
+    }
+
+    function renderForecastList(){
+      var list = byId("fcstList");
+      if(!list) return;
+      list.innerHTML = "";
+      var fcsts = points.filter(function(p){ return p.kind !== "obs"; });
+      setText("fcstCount", fcsts.length + " 筆");
+
+      if(!fcsts.length){
+        list.innerHTML = "<div class=\"empty\">沒有預報資料</div>";
+        return;
+      }
+
+      fcsts.forEach(function(p){
+        var st = getStyle(p.level);
+        var el = document.createElement("div");
+        el.className = "fcstCard";
+        el.innerHTML = "" +
+          "<div class=\"fcstRow1\">" +
+            "<div class=\"fcstTime\">" + escapeHtml(fmtTime(p.time, "short")) + "</div>" +
+            "<span class=\"fcstBadge\"><span class=\"dot\" style=\"background:" + st.color + ";box-shadow:none;width:8px;height:8px;\"></span>" + escapeHtml(st.label) + "</span>" +
+          "</div>" +
+          "<div class=\"fcstKv\">" +
+            "<div class=\"k\">座標</div><div class=\"v\">" + p.lat.toFixed(2) + ", " + p.lon.toFixed(2) + "</div>" +
+            "<div class=\"k\">風速</div><div class=\"v\">" + escapeHtml(fmtWindMs(p.wind)) + "</div>" +
+            "<div class=\"k\">氣壓</div><div class=\"v\">" + (p.pressure ? p.pressure + " hPa" : "—") + "</div>" +
+          "</div>";
+        el.addEventListener("click", function(){
+          if(map) map.setView([p.lat, p.lon], Math.max(map.getZoom(), 6));
+        });
+        list.appendChild(el);
+      });
+    }
+
+    function renderTyphoon(){
+      clearTyLayers();
+
+      if(!points.length){
+        setText("levelTextObs", "目前無颱風資料");
+        setText("infoTimeObs", "時間：—");
+        setText("obsCoord", "—");
+        setText("obsWind", "—");
+        setText("obsPres", "—");
+        setText("infoNoteObs", "沒有可顯示的颱風路徑。請確認 weather.json 是否存在，或目前是否沒有正在追蹤的颱風。");
+        setText("fcstCount", "0 筆");
+        setHtml("fcstList", "<div class=\"empty\">目前沒有颱風預報資料</div>");
+        setText("heroLevel", "目前無颱風資料");
+        setText("heroTime", "時間：—");
+        setText("heroWind", "—");
+        setText("heroPres", "氣壓：—");
+        if(map) map.setView([23.7, 121.0], 5);
+        setTimeout(function(){ if(map) map.invalidateSize(); }, 120);
+        return;
+      }
+
+      var obs = points.filter(function(p){ return p.kind === "obs"; });
+      var fcst = points.filter(function(p){ return p.kind !== "obs"; });
+      var showCone = byId("toggleCone") && byId("toggleCone").checked;
+      var showRings = byId("toggleRings") && byId("toggleRings").checked;
+      var showLabels = byId("toggleLabels") && byId("toggleLabels").checked;
+
+      if(obs.length > 1){
+        addTyLayer(L.polyline(obs.map(function(p){ return [p.lat, p.lon]; }), { color:"#0f4c5c", weight:4, opacity:.9 }));
+      }
+
+      if(fcst.length > 1){
+        addTyLayer(L.polyline(fcst.map(function(p){ return [p.lat, p.lon]; }), { color:"#2a9d8f", weight:4, opacity:.9, dashArray:"8 8" }));
+      }
+
+      if(obs.length && fcst.length){
+        var latest = obs[obs.length - 1];
+        addTyLayer(L.polyline([[latest.lat, latest.lon], [fcst[0].lat, fcst[0].lon]], { color:"#2a9d8f", weight:4, opacity:.8, dashArray:"8 8" }));
+      }
+
+      points.forEach(function(p){
+        var st = getStyle(p.level);
+        var isObs = p.kind === "obs";
+
+        if(showCone && !isObs && p.fcst_radius_km > 0){
+          addTyLayer(L.circle([p.lat, p.lon], {
+            radius:p.fcst_radius_km * 1000,
+            color:"#60a5fa",
+            weight:1,
+            fillColor:"#60a5fa",
+            fillOpacity:.10,
+            opacity:.35
+          }));
+        }
+
+        if(showRings && p.storm_radius_km > 0){
+          addTyLayer(L.circle([p.lat, p.lon], {
+            radius:p.storm_radius_km * 1000,
+            color:st.color,
+            weight:1.5,
+            fillColor:st.color,
+            fillOpacity:.055,
+            opacity:.35
+          }));
+        }
+
+        var marker = L.circleMarker([p.lat, p.lon], {
+          radius:isObs ? 7 : 6,
+          color:"#fff",
+          weight:2,
+          fillColor:st.color,
+          fillOpacity:1
+        }).bindPopup(popupHtml(p));
+        addTyLayer(marker);
+
+        if(showLabels){
+          var labelHtml = "<div class=\"tlabel\"><span class=\"miniDot\" style=\"background:" + st.color + ";\"></span>" + escapeHtml(fmtTime(p.time, "short")) + "</div>";
+          var label = L.marker([p.lat, p.lon], {
+            icon:L.divIcon({
+              className:"ty-label-icon",
+              html:labelHtml,
+              iconSize:null,
+              iconAnchor:[0,34]
+            })
+          });
+          addTyLayer(label);
+        }
+      });
+
+      updateObsPanel();
+      renderForecastList();
+      fitTyphoonPath();
+      setTimeout(function(){ if(map) map.invalidateSize(); }, 120);
+    }
+
+    function fitTyphoonPath(){
+      if(!map || !points.length) return;
+      var bounds = L.latLngBounds(points.map(function(p){ return [p.lat, p.lon]; }));
+      map.fitBounds(bounds, { padding:[55,55] });
+    }
+
+    async function initTyphoon(){
+      map = L.map("map", { zoomControl:true });
+
+      var mb = L.tileLayer(
+        "https://api.mapbox.com/styles/v1/" + MAPBOX_STYLE + "/tiles/512/{z}/{x}/{y}?access_token=" + MAPBOX_TOKEN,
+        {
+          tileSize:512,
+          zoomOffset:-1,
+          maxZoom:18,
+          attribution:"© Mapbox © OpenStreetMap"
+        }
+      );
+
+      mb.on("tileerror", function(){
+        console.warn("Mapbox tiles 載入失敗。此版本保留 Mapbox，不自動切換 OpenStreetMap。");
+      });
+
+      mb.addTo(map);
+      map.setView([23.7, 121.0], 5);
+
+      await loadWeatherData();
+      renderTyphoon();
+
+      setTimeout(function(){ if(map) map.invalidateSize(); }, 200);
+      setTimeout(function(){ if(map) map.invalidateSize(); }, 800);
+    }
+
+    /***********************
+     * Taiwan CWA CAP alerts
+     ***********************/
+    var CWA_CAP_BASE = "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Warning/";
+    var CWA_DATASETS = [
+      { id:"W-C0033-003", name:"豪雨特報", kind:"rain", color:"#3b82f6" },
+      { id:"W-C0033-004", name:"低溫特報", kind:"cold", color:"#06b6d4" },
+      { id:"W-C0033-005", name:"高溫資訊", kind:"heat", color:"#f97316" },
+      { id:"W-C0033-006", name:"陸上強風特報", kind:"wind", color:"#64748b" },
+      { id:"W-C0034-001", name:"颱風警報", kind:"typhoon", color:"#ef4444" }
+    ];
+    var CWA_AUTO_REFRESH_SEC = 60;
+    var cwaAutoTimer = null;
+    var cwaTickTimer = null;
+    var cwaAllAlerts = [];
+    var cwaFilteredAlerts = [];
+    var cwaSelectedIndex = -1;
+
+    function cwaFmtTime(t){
+      if(!t) return "—";
+      try{
+        var d = new Date(t);
+        if(Number.isNaN(d.getTime())) return t;
+        return d.toLocaleString();
+      }catch(err){
+        return t;
+      }
+    }
+
+    function nowHHMMSS(){
+      var d = new Date();
+      var pad = function(n){ return String(n).padStart(2,"0"); };
+      return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+    }
+
+    function parseCwaCapXml(xmlText){
+      var parser = new DOMParser();
+      var xml = parser.parseFromString(xmlText, "application/xml");
+      if(xml.querySelector("parsererror")) return { ok:false, err:"parsererror", raw:xmlText };
+
+      var textOf = function(sel){
+        var el = xml.querySelector(sel);
+        return el ? (el.textContent || "").trim() : "";
+      };
+
+      var sent = textOf("alert > sent");
+      var identifier = textOf("alert > identifier");
+      var info = xml.querySelector("alert > info");
+      if(!info){
+        return { ok:true, sent:sent, identifier:identifier, raw:xmlText, headline:"", event:"", effective:"", expires:"", description:"", instruction:"", area:"" };
+      }
+
+      var areaEls = xml.querySelectorAll("alert > info > area > areaDesc");
+      var area = Array.from(areaEls).map(function(x){ return (x.textContent || "").trim(); }).filter(Boolean).join("；");
+
+      return {
+        ok:true,
+        sent:sent,
+        identifier:identifier,
+        raw:xmlText,
+        headline:textOf("alert > info > headline") || textOf("alert > info > event"),
+        event:textOf("alert > info > event"),
+        effective:textOf("alert > info > effective"),
+        expires:textOf("alert > info > expires"),
+        description:textOf("alert > info > description"),
+        instruction:textOf("alert > info > instruction"),
+        area:area
+      };
+    }
+
+    async function fetchCwaCap(datasetId){
+      var url = CWA_CAP_BASE + encodeURIComponent(datasetId) + ".cap";
+      var res = await fetch(url, { cache:"no-store" });
+      if(!res.ok) throw new Error("HTTP " + res.status + " (" + datasetId + ")");
+      return await res.text();
+    }
+
+    function cwaBuildFilters(){
+      var typeSel = byId("cwaTypeFilter");
+      if(!typeSel) return;
+      typeSel.innerHTML = "";
+      var optAll = document.createElement("option");
+      optAll.value = "all";
+      optAll.textContent = "全部特報";
+      typeSel.appendChild(optAll);
+      CWA_DATASETS.forEach(function(d){
+        var opt = document.createElement("option");
+        opt.value = d.kind;
+        opt.textContent = d.name;
+        typeSel.appendChild(opt);
+      });
+    }
+
+    function cwaApplyFilters(){
+      var type = byId("cwaTypeFilter") ? byId("cwaTypeFilter").value : "all";
+      var q = String(byId("cwaSearchInput") ? byId("cwaSearchInput").value : "").trim().toLowerCase();
+      cwaFilteredAlerts = cwaAllAlerts.filter(function(a){
+        var okType = type === "all" ? true : a.kind === type;
+        var hay = (a.headline + " " + a.event + " " + a.description + " " + a.instruction + " " + a.area).toLowerCase();
+        var okQ = q ? hay.indexOf(q) >= 0 : true;
+        return okType && okQ;
+      });
+      cwaRenderList();
+      if(cwaFilteredAlerts.length && cwaSelectedIndex === -1){
+        cwaSelectedIndex = 0;
+        cwaRenderDetails(cwaFilteredAlerts[0]);
+        cwaHighlightActive();
+      }else if(cwaSelectedIndex >= 0 && cwaFilteredAlerts[cwaSelectedIndex]){
+        cwaRenderDetails(cwaFilteredAlerts[cwaSelectedIndex]);
+        cwaHighlightActive();
+      }else{
+        cwaRenderDetails(null);
+      }
+    }
+
+    function cwaHighlightActive(){
+      document.querySelectorAll(".cwaItem").forEach(function(el, idx){
+        el.classList.toggle("active", idx === cwaSelectedIndex);
+      });
+    }
+
+    function cwaRenderList(){
+      setText("cwaCountChip", cwaFilteredAlerts.length + " 筆");
+      var list = byId("cwaList");
+      if(!list) return;
+      list.innerHTML = "";
+      if(!cwaFilteredAlerts.length){
+        list.innerHTML = "<div class=\"empty\">沒有符合條件的警報</div>";
+        setText("cwaHintText", "你可以改篩選條件，或按「立即更新」。");
+        return;
+      }
+      setText("cwaHintText", "點選左側任一筆，右側顯示詳細內容。");
+      cwaFilteredAlerts.forEach(function(a, idx){
+        var el = document.createElement("div");
+        el.className = "cwaItem" + (idx === cwaSelectedIndex ? " active" : "");
+        var dotColor = a.color || "#111827";
+        el.innerHTML = "" +
+          "<div class=\"cwaItemTop\">" +
+            "<div class=\"cwaTime\">" + escapeHtml(cwaFmtTime(a.sent || a.effective || "")) + "</div>" +
+            "<div class=\"cwaBadge\"><span class=\"cwaBadgeDot\" style=\"background:" + dotColor + ";\"></span>" + escapeHtml(a.datasetName || "—") + "</div>" +
+          "</div>" +
+          "<div class=\"cwaTitle\">" + escapeHtml(a.headline || a.event || "—") + "</div>" +
+          "<div class=\"cwaMeta\"><b>有效：</b>" + escapeHtml(cwaFmtTime(a.effective)) + " → " + escapeHtml(cwaFmtTime(a.expires)) + "</div>";
+        el.addEventListener("click", function(){
+          cwaSelectedIndex = idx;
+          cwaRenderDetails(a);
+          cwaHighlightActive();
+        });
+        list.appendChild(el);
+      });
+    }
+
+    function cwaRenderDetails(a){
+      if(!a){
+        setText("cwaSelChip", "未選取");
+        setText("cwaHeadline", "—");
+        setText("cwaEvent", "—");
+        setText("cwaSent", "—");
+        setText("cwaValid", "—");
+        setText("cwaType", "—");
+        setText("cwaArea", "—");
+        setText("cwaText", "（請在左側點選一筆警報）");
+        setText("cwaRaw", "");
+        if(byId("cwaRaw")) byId("cwaRaw").style.display = "none";
+        if(byId("cwaText")) byId("cwaText").style.display = "block";
+        setText("cwaRawBtn", "顯示 Raw CAP");
+        return;
+      }
+      setText("cwaSelChip", a.datasetName || "CAP");
+      setText("cwaHeadline", a.headline || "—");
+      setText("cwaEvent", a.event || "—");
+      setText("cwaSent", cwaFmtTime(a.sent) || "—");
+      setText("cwaValid", cwaFmtTime(a.effective) + " → " + cwaFmtTime(a.expires));
+      setText("cwaType", a.datasetName || "—");
+      setText("cwaArea", a.area || "—");
+      var text = [
+        a.description ? "【說明】\n" + a.description : "",
+        a.instruction ? "\n【指示】\n" + a.instruction : ""
+      ].filter(Boolean).join("\n");
+      setText("cwaText", text || "（此警報沒有內容）");
+      setText("cwaRaw", a.raw || "");
+    }
+
+    async function cwaCopyText(text){
+      var t = String(text || "");
+      try{
+        await navigator.clipboard.writeText(t);
+        return true;
+      }catch(err){
+        var ta = document.createElement("textarea");
+        ta.value = t;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        return true;
+      }
+    }
+
+    async function cwaRefresh(opts){
+      opts = opts || {};
+      var silent = !!opts.silent;
+      if(!silent){
+        var refreshBtn = byId("cwaRefreshBtn");
+        if(refreshBtn){
+          refreshBtn.disabled = true;
+          refreshBtn.textContent = "更新中…";
+        }
+      }
+      setText("cwaStatusChip", "讀取中…");
+      try{
+        var settled = await Promise.allSettled(CWA_DATASETS.map(async function(d){
+          var xml = await fetchCwaCap(d.id);
+          var parsed = parseCwaCapXml(xml);
+          return {
+            datasetId:d.id,
+            datasetName:d.name,
+            kind:d.kind,
+            color:d.color,
+            sent:parsed.sent || "",
+            identifier:parsed.identifier || "",
+            headline:parsed.headline || d.name,
+            event:parsed.event || d.name,
+            effective:parsed.effective || "",
+            expires:parsed.expires || "",
+            description:parsed.description || "",
+            instruction:parsed.instruction || "",
+            area:parsed.area || "—",
+            raw:parsed.raw || xml
+          };
+        }));
+        cwaAllAlerts = settled.filter(function(r){ return r.status === "fulfilled"; }).map(function(r){ return r.value; });
+        var failed = settled.filter(function(r){ return r.status === "rejected"; }).length;
+        cwaAllAlerts.sort(function(a,b){ return String(b.sent || b.effective || "").localeCompare(String(a.sent || a.effective || "")); });
+        cwaSelectedIndex = -1;
+        cwaApplyFilters();
+        setText("cwaStatusChip", failed ? "已更新（失敗 " + failed + "）" : "已更新 " + nowHHMMSS());
+      }catch(err){
+        console.error(err);
+        setText("cwaStatusChip", "更新失敗");
+        setHtml("cwaList", "<div class=\"empty\">警報讀取失敗</div>");
+        setText("cwaHintText", "請檢查網路或跨域限制。");
+      }finally{
+        if(!silent){
+          var btn = byId("cwaRefreshBtn");
+          if(btn){
+            btn.disabled = false;
+            btn.textContent = "立即更新";
+          }
+        }
+      }
+    }
+
+    function cwaStartAuto(){
+      cwaStopAuto();
+      var remain = CWA_AUTO_REFRESH_SEC;
+      function tick(){
+        setText("cwaStatusChip", "下次更新：" + remain + "s");
+        remain -= 1;
+        if(remain < 0) remain = CWA_AUTO_REFRESH_SEC;
+      }
+      tick();
+      cwaTickTimer = setInterval(tick, 1000);
+      cwaAutoTimer = setInterval(function(){
+        remain = CWA_AUTO_REFRESH_SEC;
+        cwaRefresh({ silent:true });
+      }, CWA_AUTO_REFRESH_SEC * 1000);
+    }
+
+    function cwaStopAuto(){
+      if(cwaAutoTimer){ clearInterval(cwaAutoTimer); cwaAutoTimer = null; }
+      if(cwaTickTimer){ clearInterval(cwaTickTimer); cwaTickTimer = null; }
+      setText("cwaStatusChip", "已暫停");
+    }
+
+    function cwaInit(){
+      cwaBuildFilters();
+      var refreshBtn = byId("cwaRefreshBtn");
+      if(refreshBtn) refreshBtn.addEventListener("click", function(){ cwaRefresh({ silent:false }); });
+      var toggleAuto = byId("cwaToggleAuto");
+      if(toggleAuto) toggleAuto.addEventListener("change", function(e){ e.target.checked ? cwaStartAuto() : cwaStopAuto(); });
+      var typeFilter = byId("cwaTypeFilter");
+      if(typeFilter) typeFilter.addEventListener("change", function(){ cwaSelectedIndex = -1; cwaApplyFilters(); });
+      var searchInput = byId("cwaSearchInput");
+      if(searchInput) searchInput.addEventListener("input", function(){
+        clearTimeout(window.__cwaSearchTimer);
+        window.__cwaSearchTimer = setTimeout(function(){ cwaSelectedIndex = -1; cwaApplyFilters(); }, 120);
+      });
+      var copyBtn = byId("cwaCopyBtn");
+      if(copyBtn) copyBtn.addEventListener("click", async function(){
+        await cwaCopyText(byId("cwaText") ? byId("cwaText").textContent : "");
+        copyBtn.textContent = "已複製";
+        setTimeout(function(){ copyBtn.textContent = "複製內容"; }, 1000);
+      });
+      var rawBtn = byId("cwaRawBtn");
+      if(rawBtn) rawBtn.addEventListener("click", function(){
+        var raw = byId("cwaRaw");
+        var text = byId("cwaText");
+        var isRaw = raw && raw.style.display !== "none";
+        if(raw) raw.style.display = isRaw ? "none" : "block";
+        if(text) text.style.display = isRaw ? "block" : "none";
+        rawBtn.textContent = isRaw ? "顯示 Raw CAP" : "顯示整理內容";
+      });
+      cwaRefresh({ silent:true });
+      if(toggleAuto && toggleAuto.checked) cwaStartAuto();
+    }
+
+    function runBasicTests(){
+      console.assert(fmtTime("2026-04-09 08:00", "short") !== "2026-04-09 08:00", "fmtTime should parse space-separated datetime");
+      console.assert(fmtWindMs(15) === "15 m/s", "fmtWindMs should format numeric wind speed");
+      console.assert(getStyle("STY").label === "STY", "getStyle should preserve STY label");
+      console.assert(getStyle("TY").color === "#ef4444", "getStyle should classify TY");
+      console.assert(escapeHtml("<x>") === "&lt;x&gt;", "escapeHtml should escape tags");
+      console.assert(parseCwaCapXml("<alert><sent>2026-01-01T00:00:00+08:00</sent><info><event>測試</event><area><areaDesc>台灣</areaDesc></area></info></alert>").area === "台灣", "parseCwaCapXml should parse areaDesc");
+    }
+
+    function init(){
+      runBasicTests();
+
+      ["toggleLabels", "toggleCone", "toggleRings"].forEach(function(id){
+        var el = byId(id);
+        if(el) el.addEventListener("change", renderTyphoon);
+      });
+
+      var fitBtn = byId("fitAllBtn");
+      if(fitBtn) fitBtn.addEventListener("click", fitTyphoonPath);
+
+      var printBtn = byId("printBtn");
+      if(printBtn) printBtn.addEventListener("click", function(){ window.print(); });
+
+      var reloadBtn = byId("reloadWeatherBtn");
+      if(reloadBtn){
+        reloadBtn.addEventListener("click", async function(){
+          reloadBtn.textContent = "讀取中…";
+          await loadWeatherData();
+          renderTyphoon();
+          reloadBtn.textContent = "重新讀取 weather.json";
+        });
+      }
+
+      cwaInit();
+
+      initTyphoon().catch(function(err){
+        console.error(err);
+        setText("pageTitle", "初始化失敗");
+        setHtml("sourceText", "<b>初始化失敗</b><br>" + escapeHtml(err && err.message ? err.message : err));
+      });
+
+      setTimeout(function(){ if(map) map.invalidateSize(); }, 400);
+    }
+
+    window.addEventListener("load", init);
+  </script>
+</body>
+</html>
