@@ -324,10 +324,69 @@
     /* Weather alerts */
     .alertBody{
       display:grid;
-      grid-template-columns:360px minmax(0, 1fr);
+      grid-template-columns:1fr;
       gap:18px;
       padding:20px;
       align-items:start;
+    }
+
+    .countryTabs{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+
+    .countryTab{
+      min-height:38px;
+      padding:0 13px;
+      border-radius:999px;
+      border:1px solid var(--line-strong);
+      background:#fff;
+      color:#244150;
+      box-shadow:0 8px 18px rgba(31,53,72,.06);
+      font-size:12px;
+      font-weight:900;
+      cursor:pointer;
+      transition:.16s ease;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      white-space:nowrap;
+    }
+
+    .countryTab:hover{
+      transform:translateY(-1px);
+      border-color:rgba(15,76,92,.22);
+    }
+
+    .countryTab.active{
+      color:#fff;
+      border-color:transparent;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 14px 28px rgba(15,76,92,.18);
+    }
+
+    .countryAlertGrid{
+      display:grid;
+      grid-template-columns:minmax(0, .95fr) minmax(0, 1.05fr);
+      gap:18px;
+      align-items:start;
+    }
+
+    .countryAlertView{
+      display:none;
+    }
+
+    .countryAlertView.active{
+      display:block;
+    }
+
+    .countryStack{
+      display:grid;
+      gap:12px;
     }
 
     .alertPanel{
@@ -436,7 +495,8 @@
 
     @media (max-width:1100px){
       .hero{ grid-template-columns:1fr; }
-      .alertBody,.trackerBody{ grid-template-columns:1fr; }
+      .countryAlertGrid,.trackerBody{ grid-template-columns:1fr; }
+      .alertBody{ grid-template-columns:1fr; }
       .sidePanel{ display:grid; grid-template-columns:1fr 1fr; align-items:start; }
       .sourcePanel{ grid-column:1 / -1; }
       .fcstList{ max-height:none; flex-direction:row; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; }
@@ -558,58 +618,86 @@
       </div>
 
       <div class="alertBody">
-        <aside class="alertPanel">
-          <div class="panelHead">
-            <div class="panelTitle"><span class="dot" style="background:#ef4444;"></span>警報清單</div>
-            <span class="chip" id="alertCountChip">0 筆</span>
+        <div>
+          <div class="countryTabs" aria-label="選擇警報國家">
+            <button class="countryTab active" type="button" data-country="tw"><span class="bDot" style="background:#3b82f6"></span>台灣</button>
+            <button class="countryTab" type="button" data-country="hk"><span class="bDot" style="background:#ef4444"></span>香港</button>
+            <button class="countryTab" type="button" data-country="my"><span class="bDot" style="background:#2a9d8f"></span>馬來西亞</button>
           </div>
-          <div class="panelBody">
-            <div class="filters">
-              <select class="select" id="regionFilter" aria-label="region-filter">
-                <option value="all">全部地區</option>
-                <option value="tw">台灣</option>
-                <option value="hk">香港</option>
-                <option value="my">馬來西亞</option>
-              </select>
-              <select class="select" id="alertTypeFilter" aria-label="alert-type-filter">
-                <option value="all">全部類型</option>
-                <option value="typhoon">颱風 / 熱帶氣旋</option>
-                <option value="rain">豪雨 / 降雨</option>
-                <option value="wind">強風</option>
-                <option value="heat">高溫</option>
-                <option value="cold">低溫</option>
-                <option value="sea">海象</option>
-                <option value="other">其他</option>
-              </select>
-              <input class="search" id="alertSearch" placeholder="搜尋標題 / 內容 / 區域…" />
-            </div>
-            <div class="alertList" id="alertList"></div>
+
+          <div class="filters" style="grid-template-columns:minmax(180px, 260px) minmax(220px, 1fr);">
+            <select class="select" id="alertTypeFilter" aria-label="alert-type-filter">
+              <option value="all">全部類型</option>
+              <option value="typhoon">颱風 / 熱帶氣旋</option>
+              <option value="rain">豪雨 / 降雨</option>
+              <option value="wind">強風</option>
+              <option value="heat">高溫</option>
+              <option value="cold">低溫</option>
+              <option value="sea">海象</option>
+              <option value="other">其他</option>
+            </select>
+            <input class="search" id="alertSearch" placeholder="搜尋標題 / 內容 / 區域…" />
+          </div>
+        </div>
+
+        <div class="countryAlertGrid">
+          <div class="countryStack">
+            <aside class="alertPanel countryAlertView active" id="alertViewTw">
+              <div class="panelHead">
+                <div class="panelTitle"><span class="dot" style="background:#3b82f6;"></span>台灣警報</div>
+                <span class="chip" id="twAlertCount">0 筆</span>
+              </div>
+              <div class="panelBody">
+                <div class="alertList" id="twAlertList"></div>
+              </div>
+            </aside>
+
+            <aside class="alertPanel countryAlertView" id="alertViewHk">
+              <div class="panelHead">
+                <div class="panelTitle"><span class="dot" style="background:#ef4444;"></span>香港警告</div>
+                <span class="chip" id="hkAlertCount">0 筆</span>
+              </div>
+              <div class="panelBody">
+                <div class="alertList" id="hkAlertList"></div>
+              </div>
+            </aside>
+
+            <aside class="alertPanel countryAlertView" id="alertViewMy">
+              <div class="panelHead">
+                <div class="panelTitle"><span class="dot" style="background:#2a9d8f;"></span>馬來西亞警報</div>
+                <span class="chip" id="myAlertCount">0 筆</span>
+              </div>
+              <div class="panelBody">
+                <div class="alertList" id="myAlertList"></div>
+              </div>
+            </aside>
+
             <div class="alertMeta" id="alertHintText"></div>
           </div>
-        </aside>
 
-        <main class="alertPanel">
-          <div class="panelHead">
-            <div class="panelTitle"><span class="dot" style="background:#f4a261;"></span>警報詳細</div>
-            <span class="chip" id="selectedAlertChip">未選取</span>
-          </div>
-          <div class="panelBody">
-            <div class="detailCards">
-              <div class="detailCard"><div class="detailValue" id="alertHeadline">—</div><div class="detailLabel">標題</div></div>
-              <div class="detailCard"><div class="detailValue" id="alertEvent">—</div><div class="detailLabel">事件 / 類型</div></div>
-              <div class="detailCard"><div class="detailValue" id="alertIssued">—</div><div class="detailLabel">發布</div></div>
-              <div class="detailCard"><div class="detailValue" id="alertValid">—</div><div class="detailLabel">有效時間</div></div>
+          <main class="alertPanel">
+            <div class="panelHead">
+              <div class="panelTitle"><span class="dot" style="background:#f4a261;"></span>警報詳細</div>
+              <span class="chip" id="selectedAlertChip">未選取</span>
             </div>
-
-            <div class="detailBox">
-              <div class="detailBoxHead">
-                <div class="detailBoxTitle">內容與影響區域</div>
-                <button class="btn btnGhost" id="copyAlertBtn" type="button">複製內容</button>
+            <div class="panelBody">
+              <div class="detailCards">
+                <div class="detailCard"><div class="detailValue" id="alertHeadline">—</div><div class="detailLabel">標題</div></div>
+                <div class="detailCard"><div class="detailValue" id="alertEvent">—</div><div class="detailLabel">事件 / 類型</div></div>
+                <div class="detailCard"><div class="detailValue" id="alertIssued">—</div><div class="detailLabel">發布</div></div>
+                <div class="detailCard"><div class="detailValue" id="alertValid">—</div><div class="detailLabel">有效時間</div></div>
               </div>
-              <div class="detailText" id="alertText">（請在左側點選一筆警報）</div>
+
+              <div class="detailBox">
+                <div class="detailBoxHead">
+                  <div class="detailBoxTitle">內容與影響區域</div>
+                  <button class="btn btnGhost" id="copyAlertBtn" type="button">複製內容</button>
+                </div>
+                <div class="detailText" id="alertText">（請在左側點選一筆警報）</div>
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
     </section>
 
@@ -744,6 +832,7 @@
     let allAlerts = [];
     let filteredAlerts = [];
     let selectedAlertIndex = -1;
+    let activeAlertCountry = "tw";
     let alertAutoTimer = null;
     let alertTickTimer = null;
 
@@ -869,11 +958,11 @@
     }
 
     function applyAlertFilters(){
-      const region = $("regionFilter").value;
       const type = $("alertTypeFilter").value;
       const q = String($("alertSearch").value || "").trim().toLowerCase();
+
       filteredAlerts = allAlerts.filter(a => {
-        if(region !== "all" && a.region !== region) return false;
+        if(a.region !== activeAlertCountry) return false;
         if(type !== "all" && a.type !== type) return false;
         if(q){
           const hay = `${a.regionName} ${a.title} ${a.event} ${a.area} ${a.text}`.toLowerCase();
@@ -881,15 +970,56 @@
         }
         return true;
       });
+
       renderAlertList();
     }
 
     function renderAlertList(){
-      const list = $("alertList");
-      list.innerHTML = "";
-      $("alertCountChip").textContent = `${filteredAlerts.length} 筆`;
-      $("heroAlertCount").textContent = filteredAlerts.length;
+      const list = $("alfunction getAlertListEl(region){
+      if(region === "tw") return $("twAlertList");
+      if(region === "hk") return $("hkAlertList");
+      return $("myAlertList");
+    }
 
+    function updateCountryCounts(){
+      const type = $("alertTypeFilter").value;
+      const q = String($("alertSearch").value || "").trim().toLowerCase();
+      const countFor = (region) => allAlerts.filter(a => {
+        if(a.region !== region) return false;
+        if(type !== "all" && a.type !== type) return false;
+        if(q){
+          const hay = `${a.regionName} ${a.title} ${a.event} ${a.area} ${a.text}`.toLowerCase();
+          if(!hay.includes(q)) return false;
+        }
+        return true;
+      }).length;
+      $("twAlertCount").textContent = `${countFor("tw")} 筆`;
+      $("hkAlertCount").textContent = `${countFor("hk")} 筆`;
+      $("myAlertCount").textContent = `${countFor("my")} 筆`;
+      $("alertCountChip").textContent = `${filteredAlerts.length} 筆`;
+      $("heroAlertCount").textContent = allAlerts.length;
+    }
+
+    function setActiveCountry(region){
+      activeAlertCountry = region;
+      selectedAlertIndex = -1;
+
+      document.querySelectorAll(".countryTab").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.country === region);
+      });
+
+      $("alertViewTw").classList.toggle("active", region === "tw");
+      $("alertViewHk").classList.toggle("active", region === "hk");
+      $("alertViewMy").classList.toggle("active", region === "my");
+
+      applyAlertFilters();
+    }
+
+    function renderAlertList(){
+      ["twAlertList","hkAlertList","myAlertList"].forEach(id => $(id).innerHTML = "");
+      updateCountryCounts();
+
+      const list = getAlertListEl(activeAlertCountry);
       if(!filteredAlerts.length){
         list.innerHTML = `<div class="empty">目前沒有符合條件的警報</div>`;
         renderAlertDetails(null);
@@ -922,9 +1052,7 @@
       }
     }
 
-    function renderAlertDetails(a){
-      if(!a){
-        $("selectedAlertChip").textContent = "未選取";
+    function renderAlertDetailsxtContent = "未選取";
         $("alertHeadline").textContent = "—";
         $("alertEvent").textContent = "—";
         $("alertIssued").textContent = "—";
@@ -999,6 +1127,9 @@
     /***********************
      * Typhoon tracker
      ***********************/
+    const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
+    const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
+
     let map;
     let weatherMeta = { title:"颱風情報", source:"—" };
     let points = [];
@@ -1229,11 +1360,21 @@
     async function initTyphoon(){
       map = L.map("map", { zoomControl:true });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom:19,
-        attribution:"© OpenStreetMap"
-      }).addTo(map);
+      const mb = L.tileLayer(
+        `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+        {
+          tileSize:512,
+          zoomOffset:-1,
+          maxZoom:18,
+          attribution:"© Mapbox © OpenStreetMap"
+        }
+      );
 
+      mb.on("tileerror", () => {
+        console.warn("Mapbox tiles 載入失敗，地圖底圖可能暫時無法顯示。仍保留 Mapbox，不自動改成 OpenStreetMap。");
+      });
+
+      mb.addTo(map);
       map.setView([23.7, 121.0], 5);
       await loadWeatherData();
       renderTyphoon();
@@ -1247,7 +1388,9 @@
     function init(){
       $("alertRefreshBtn").addEventListener("click", () => refreshAlerts({ silent:false }));
       $("toggleAlertAuto").addEventListener("change", e => e.target.checked ? startAlertAuto() : stopAlertAuto());
-      $("regionFilter").addEventListener("change", () => { selectedAlertIndex = -1; applyAlertFilters(); });
+      document.querySelectorAll(".countryTab").forEach(btn => {
+        btn.addEventListener("click", () => setActiveCountry(btn.dataset.country));
+      });
       $("alertTypeFilter").addEventListener("change", () => { selectedAlertIndex = -1; applyAlertFilters(); });
       $("alertSearch").addEventListener("input", () => {
         clearTimeout(window.__alertSearchTimer);
