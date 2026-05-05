@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>葉離社群｜麥塊</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#eef4f7;
+      --bg2:#e3edf2;
+      --surface:#ffffff;
+      --surface-soft:rgba(255,255,255,.76);
+      --surface-glass:rgba(255,255,255,.84);
+      --line:rgba(25,42,58,.10);
+      --line-strong:rgba(25,42,58,.16);
+      --text:#163042;
+      --heading:#122c3c;
+      --muted:#6a7d89;
+      --muted2:#9aabb6;
+      --sea:#0f4c5c;
+      --teal:#2a9d8f;
+      --ice:#7bdff2;
+      --warm:#f4a261;
+      --danger:#d62828;
+      --shadow:0 18px 50px rgba(31,53,72,.12);
+      --shadow-soft:0 10px 30px rgba(31,53,72,.08);
+      --radius:28px;
+      --radius2:20px;
+      --max:1240px;
+    }
+
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:"Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 10% -10%, rgba(42,157,143,.18), transparent 34%),
+        radial-gradient(circle at 88% 6%, rgba(123,223,242,.18), transparent 30%),
+        linear-gradient(180deg, #f7fbfc 0%, var(--bg) 48%, #ffffff 100%);
+      overflow-x:hidden;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background-image:
+        linear-gradient(rgba(15,76,92,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15,76,92,.05) 1px, transparent 1px);
+      background-size:42px 42px;
+      mask-image:linear-gradient(180deg, rgba(0,0,0,.72), transparent 76%);
+      z-index:-1;
+    }
+
+    a{ color:inherit; }
+    button{ font:inherit; }
+
+    .page{
+      width:min(var(--max), calc(100% - 32px));
+      margin:0 auto;
+      padding:28px 0 54px;
+    }
+
+    .topbar{
+      position:sticky;
+      top:12px;
+      z-index:50;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:22px;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:rgba(255,255,255,.72);
+      backdrop-filter:blur(18px);
+      box-shadow:0 10px 30px rgba(31,53,72,.08);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      text-decoration:none;
+    }
+
+    .brandMark{
+      width:36px;
+      height:36px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      border-radius:14px;
+      color:#fff;
+      font-weight:900;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 10px 22px rgba(15,76,92,.22);
+    }
+
+    .brandText{
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      line-height:1.1;
+    }
+
+    .brandText strong{
+      font-size:14px;
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .brandText span{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .navPills{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .navPills a{
+      text-decoration:none;
+      color:#264052;
+      font-size:12px;
+      font-weight:900;
+      padding:9px 12px;
+      border-radius:999px;
+      transition:.18s ease;
+    }
+
+    .navPills a:hover,
+    .navPills a.active{
+      color:var(--sea);
+      background:linear-gradient(135deg, rgba(15,76,92,.10), rgba(42,157,143,.12));
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:minmax(0, 1.08fr) minmax(320px, .92fr);
+      gap:22px;
+      align-items:stretch;
+      margin-bottom:22px;
+    }
+
+    .heroCard,
+    .summaryPanel{
+      border:1px solid var(--line);
+      border-radius:32px;
+      background:rgba(255,255,255,.78);
+      backdrop-filter:blur(18px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .heroCard{
+      position:relative;
+      min-height:360px;
+      padding:34px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.98), rgba(236,245,246,.90)),
+        radial-gradient(circle at 86% 14%, rgba(42,157,143,.15), transparent 34%);
+    }
+
+    .heroCard::after{
+      content:"";
+      position:absolute;
+      right:-120px;
+      bottom:-150px;
+      width:340px;
+      height:340px;
+      border-radius:50%;
+      border:42px solid rgba(15,76,92,.075);
+      pointer-events:none;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      max-width:100%;
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid rgba(15,76,92,.14);
+      color:var(--sea);
+      background:rgba(15,76,92,.08);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .dot{
+      width:9px;
+      height:9px;
+      border-radius:999px;
+      display:inline-block;
+      background:var(--teal);
+      flex:0 0 auto;
+    }
+
+    .pillDot{
+      width:5px;
+      height:5px;
+      border-radius:999px;
+      background:#c97920;
+      box-shadow:0 0 0 4px rgba(244,162,97,.13);
+      flex:0 0 auto;
+    }
+
+    .miniPill{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      width:max-content;
+      max-width:100%;
+      padding:7px 12px;
+      border-radius:999px;
+      color:#9a5a12;
+      background:linear-gradient(135deg, rgba(244,162,97,.18), rgba(255,239,221,.92));
+      border:1px solid rgba(244,162,97,.22);
+      box-shadow:0 8px 18px rgba(244,162,97,.10);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .heroTitle{
+      position:relative;
+      z-index:1;
+      margin:24px 0 18px;
+      font-size:clamp(40px, 5vw, 68px);
+      line-height:1.12;
+      letter-spacing:-.045em;
+      font-weight:900;
+      color:var(--heading);
+    }
+
+    .heroTitle span{
+      display:block;
+      color:transparent;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      -webkit-background-clip:text;
+      background-clip:text;
+    }
+
+    .heroDesc{
+      position:relative;
+      z-index:1;
+      max-width:720px;
+      margin:0;
+      color:#5e717d;
+      line-height:1.85;
+      font-size:14px;
+      font-weight:650;
+    }
+
+    .heroActions{
+      position:relative;
+      z-index:1;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:26px;
+    }
+
+    .actionBtn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:44px;
+      padding:0 16px;
+      border:0;
+      border-radius:999px;
+      font-size:13px;
+      font-weight:900;
+      cursor:pointer;
+      text-decoration:none;
+      color:#fff;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 14px 28px rgba(15,76,92,.20);
+      transition:transform .16s ease, box-shadow .16s ease;
+    }
+
+    .actionBtn:hover{
+      transform:translateY(-2px);
+      box-shadow:0 18px 34px rgba(15,76,92,.24);
+    }
+
+    .ghostBtn{
+      color:#1d3a4a;
+      background:#fff;
+      border:1px solid var(--line-strong);
+      box-shadow:0 10px 22px rgba(31,53,72,.07);
+    }
+
+    .summaryPanel{
+      padding:20px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .summaryImg{
+      min-height:172px;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(15,76,92,.12), rgba(42,157,143,.16)),
+        url("../pitcure/1.16.5/1.png") center / cover no-repeat;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);
+      overflow:hidden;
+    }
+
+    .summaryTitle{
+      margin:0;
+      color:var(--heading);
+      font-size:22px;
+      line-height:1.2;
+      letter-spacing:-.035em;
+      font-weight:900;
+    }
+
+    .summaryText{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.75;
+      font-weight:650;
+    }
+
+    .statGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:auto;
+    }
+
+    .statBox{
+      min-height:82px;
+      padding:14px;
+      border:1px solid var(--line);
+      border-radius:20px;
+      background:#fff;
+    }
+
+    .statNum{
+      color:var(--heading);
+      font-size:24px;
+      font-weight:900;
+      line-height:1;
+      letter-spacing:-.04em;
+    }
+
+    .statLabel{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .section{
+      scroll-margin-top:110px;
+      margin-top:22px;
+      border:1px solid var(--line);
+      border-radius:32px;
+      background:rgba(255,255,255,.76);
+      backdrop-filter:blur(18px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .sectionHead{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      padding:24px 24px 16px;
+      border-bottom:1px solid var(--line);
+      background:
+        linear-gradient(135deg, rgba(15,76,92,.06), rgba(42,157,143,.05)),
+        rgba(255,255,255,.58);
+    }
+
+    .sectionKicker{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:var(--sea);
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:7px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .sectionTitle{
+      margin:0;
+      color:var(--heading);
+      font-size:clamp(24px, 3vw, 38px);
+      line-height:1.18;
+      letter-spacing:-.035em;
+      font-weight:900;
+    }
+
+    .sectionDesc{
+      margin:8px 0 0;
+      max-width:760px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.75;
+      font-weight:650;
+    }
+
+    .portalGrid{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:16px;
+      padding:20px;
+    }
+
+    .portalCard{
+      position:relative;
+      min-height:260px;
+      display:flex;
+      flex-direction:column;
+      justify-content:flex-end;
+      padding:18px;
+      border-radius:26px;
+      border:1px solid var(--line);
+      overflow:hidden;
+      text-decoration:none;
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+
+    .portalCard:hover{
+      transform:translateY(-4px);
+      border-color:rgba(15,76,92,.20);
+      box-shadow:var(--shadow);
+    }
+
+    .portalCard::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:var(--portal-img) center / cover no-repeat;
+      transform:scale(1.03);
+      transition:transform .35s ease;
+    }
+
+    .portalCard:hover::before{
+      transform:scale(1.08);
+    }
+
+    .portalCard::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg, rgba(8,22,30,.02) 0%, rgba(8,22,30,.26) 42%, rgba(8,22,30,.78) 100%);
+    }
+
+    .portalContent{
+      position:relative;
+      z-index:1;
+      color:#fff;
+    }
+
+    .portalMeta{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+
+    .portalBadge{
+      display:inline-flex;
+      align-items:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      color:#0f4c5c;
+      background:rgba(255,255,255,.9);
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .portalStatus{
+      display:inline-flex;
+      align-items:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      color:#fff;
+      background:rgba(42,157,143,.72);
+      border:1px solid rgba(255,255,255,.22);
+      backdrop-filter:blur(8px);
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .portalCard.locked{
+      cursor:not-allowed;
+    }
+
+    .portalCard.locked .portalStatus{
+      background:rgba(106,125,137,.72);
+    }
+
+    .portalTitle{
+      margin:0;
+      font-size:28px;
+      line-height:1.1;
+      letter-spacing:-.04em;
+      font-weight:900;
+      text-shadow:0 8px 18px rgba(0,0,0,.24);
+    }
+
+    .portalDesc{
+      margin:10px 0 0;
+      max-width:420px;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:650;
+      opacity:.92;
+    }
+
+    .infoGrid{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:16px;
+      padding:20px;
+    }
+
+    .infoCard{
+      min-height:160px;
+      padding:18px;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.82);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .infoIcon{
+      width:38px;
+      height:38px;
+      display:grid;
+      place-items:center;
+      border-radius:16px;
+      background:linear-gradient(135deg, rgba(15,76,92,.12), rgba(42,157,143,.12));
+      color:var(--sea);
+      font-weight:900;
+      margin-bottom:14px;
+    }
+
+    .infoCard h3{
+      margin:0 0 8px;
+      color:var(--heading);
+      font-size:17px;
+      line-height:1.25;
+      font-weight:900;
+      letter-spacing:-.02em;
+    }
+
+    .infoCard p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.75;
+      font-weight:650;
+    }
+
+    .galleryGrid{
+      display:grid;
+      grid-template-columns:1.2fr .8fr .8fr;
+      grid-template-rows:220px 220px;
+      gap:14px;
+      padding:20px;
+    }
+
+    .galleryItem{
+      position:relative;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:var(--img) center / cover no-repeat, linear-gradient(135deg, rgba(15,76,92,.15), rgba(42,157,143,.12));
+      box-shadow:var(--shadow-soft);
+      overflow:hidden;
+      min-height:180px;
+    }
+
+    .galleryItem.big{
+      grid-row:span 2;
+    }
+
+    .galleryItem::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(180deg, rgba(8,22,30,0) 0%, rgba(8,22,30,.64) 100%);
+    }
+
+    .galleryCaption{
+      position:absolute;
+      left:16px;
+      right:16px;
+      bottom:14px;
+      z-index:1;
+      color:#fff;
+    }
+
+    .galleryCaption strong{
+      display:block;
+      font-size:17px;
+      line-height:1.25;
+      font-weight:900;
+      letter-spacing:-.02em;
+      text-shadow:0 8px 18px rgba(0,0,0,.22);
+    }
+
+    .galleryCaption span{
+      display:block;
+      margin-top:5px;
+      font-size:12px;
+      line-height:1.45;
+      font-weight:650;
+      opacity:.88;
+    }
+
+    .timeline{
+      padding:20px;
+      display:grid;
+      gap:12px;
+    }
+
+    .timelineItem{
+      display:grid;
+      grid-template-columns:120px minmax(0, 1fr);
+      gap:14px;
+      align-items:start;
+      padding:16px;
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:rgba(255,255,255,.82);
+      box-shadow:0 8px 20px rgba(31,53,72,.06);
+    }
+
+    .timelineVersion{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:max-content;
+      padding:7px 12px;
+      border-radius:999px;
+      color:#9a5a12;
+      background:linear-gradient(135deg, rgba(244,162,97,.18), rgba(255,239,221,.92));
+      border:1px solid rgba(244,162,97,.22);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .timelineText h3{
+      margin:0 0 6px;
+      color:var(--heading);
+      font-size:18px;
+      line-height:1.3;
+      font-weight:900;
+    }
+
+    .timelineText p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.7;
+      font-weight:650;
+    }
+
+    .footerNote{
+      margin-top:22px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+      text-align:center;
+    }
+
+    @media (max-width:1060px){
+      .hero{ grid-template-columns:1fr; }
+      .portalGrid,
+      .infoGrid{ grid-template-columns:1fr 1fr; }
+      .galleryGrid{
+        grid-template-columns:1fr 1fr;
+        grid-template-rows:220px 220px 220px;
+      }
+      .galleryItem.big{ grid-row:span 1; grid-column:span 2; }
+    }
+
+    @media (max-width:780px){
+      .page{
+        width:min(100% - 20px, var(--max));
+        padding-top:14px;
+      }
+
+      .topbar{
+        top:8px;
+        align-items:flex-start;
+        flex-direction:column;
+        border-radius:22px;
+      }
+
+      .navPills{
+        width:100%;
+        justify-content:flex-start;
+        flex-wrap:nowrap;
+        overflow:auto;
+        padding-bottom:2px;
+      }
+
+      .navPills a{ flex:0 0 auto; }
+
+      .heroCard,
+      .summaryPanel,
+      .section{ border-radius:26px; }
+
+      .heroCard{
+        min-height:auto;
+        padding:24px;
+      }
+
+      .sectionHead{
+        align-items:flex-start;
+        flex-direction:column;
+        padding:20px;
+      }
+
+      .portalGrid,
+      .infoGrid,
+      .galleryGrid,
+      .timeline{
+        grid-template-columns:1fr;
+        padding:14px;
+      }
+
+      .portalCard{ min-height:240px; }
+      .galleryGrid{ grid-template-rows:auto; }
+      .galleryItem.big{ grid-column:auto; }
+      .galleryItem{ min-height:220px; }
+
+      .timelineItem{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:520px){
+      body{ background:#f7fbfc; }
+
+      .page{
+        width:100%;
+        padding:10px 10px 34px;
+      }
+
+      .heroTitle{
+        font-size:42px;
+        line-height:1.16;
+        letter-spacing:-.035em;
+      }
+
+      .heroActions{
+        flex-direction:column;
+      }
+
+      .actionBtn{ width:100%; }
+      .statGrid{ grid-template-columns:1fr; }
+      .portalTitle{ font-size:25px; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="返回葉離首頁">
+        <div class="brandMark"></div>
+        <div class="brandText">
+          <strong>葉離社群</strong>
+          <span>麥塊 MINECRAFT</span>
+        </div>
+      </a>
+
+      <nav class="navPills" aria-label="主選單">
+        <a href="../">社群首頁</a>
+        <a class="active" href="index.html">Minecraft</a>
+        <a href="1.16.5.html">1.16.5</a>
+        <a href="../typhoon.html">颱風追蹤</a>
+      </nav>
+    </header>
+
+    <section class="hero" id="top">
+      <div class="heroCard">
+        <div class="eyebrow"><span class="dot"></span> MINECRAFT MEMORY HUB</div>
+        <h1 class="heroTitle">Minecraft<span>回憶入口</span></h1>
+        <p class="heroDesc">
+          這裡整理葉離 / 花祭在不同 Minecraft 版本中的生存紀錄、城鎮、建築、成員與精選圖片。你可以從版本傳送門進入不同時期的回憶頁，例如 1.16.5 原味生存、1.19 企劃或未來更多版本。
+        </p>
+        <div class="heroActions">
+          <a class="actionBtn" href="#versions">選擇版本</a>
+          <a class="actionBtn ghostBtn" href="1.16.5.html">前往 1.16.5</a>
+        </div>
+      </div>
+
+      <aside class="summaryPanel">
+        <div class="summaryImg" aria-label="Minecraft 精選圖片"></div>
+        <div class="miniPill"><span class="pillDot"></span>Archive Summary</div>
+        <h2 class="summaryTitle">版本、城鎮與建築回憶集中區</h2>
+        <p class="summaryText">用同一個入口連到所有 Minecraft 版本頁，避免之後版本變多時首頁太亂。</p>
+        <div class="statGrid">
+          <div class="statBox">
+            <div class="statNum">1.16.5</div>
+            <div class="statLabel">已建立頁面</div>
+          </div>
+          <div class="statBox">
+            <div class="statNum">1.19+</div>
+            <div class="statLabel">可新增版本</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section" id="versions">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot"></span> Version Portals</div>
+          <h2 class="sectionTitle">版本傳送門</h2>
+          <p class="sectionDesc">每一張卡片都是一個版本入口。已完成的版本可以點擊進入，未完成的版本先作為預告卡保留。</p>
+        </div>
+      </div>
+
+      <div class="portalGrid">
+        <a class="portalCard" href="1.16.5.html" style="--portal-img:url('../pitcure/1.16.5/1.png');">
+          <div class="portalContent">
+            <div class="portalMeta">
+              <span class="portalBadge">原味生存</span>
+              <span class="portalStatus">可進入</span>
+            </div>
+            <h3 class="portalTitle">1.16.5</h3>
+            <p class="portalDesc">鯨魚鎮、星巴克、紅石音樂、雕像與早期原味生存回憶。</p>
+          </div>
+        </a>
+
+        <a class="portalCard locked" href="#" onclick="return false;" style="--portal-img:linear-gradient(135deg, rgba(15,76,92,.58), rgba(42,157,143,.50)), url('../pitcure/1.16.5/2.png');">
+          <div class="portalContent">
+            <div class="portalMeta">
+              <span class="portalBadge">企劃版本</span>
+              <span class="portalStatus">整理中</span>
+            </div>
+            <h3 class="portalTitle">1.19</h3>
+            <p class="portalDesc">之後可放置 1.19 版本的基地、城鎮與活動紀錄。</p>
+          </div>
+        </a>
+
+        <a class="portalCard locked" href="#" onclick="return false;" style="--portal-img:linear-gradient(135deg, rgba(15,76,92,.62), rgba(42,157,143,.42)), url('../pitcure/1.16.5/3.png');">
+          <div class="portalContent">
+            <div class="portalMeta">
+              <span class="portalBadge">未來版本</span>
+              <span class="portalStatus">Coming Soon</span>
+            </div>
+            <h3 class="portalTitle">更多版本</h3>
+            <p class="portalDesc">可以繼續新增 1.20、1.21 或其他企劃頁面。</p>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section class="section" id="info">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot" style="background:var(--warm);"></span> Server Info</div>
+          <h2 class="sectionTitle">Minecraft 資訊</h2>
+          <p class="sectionDesc">這裡可以放整個 Minecraft 回憶區的說明，讓玩家知道每個版本頁的用途。</p>
+        </div>
+      </div>
+
+      <div class="infoGrid">
+        <article class="infoCard">
+          <div class="infoIcon">城</div>
+          <h3>城鎮與基地</h3>
+          <p>整理不同版本中的主城、玩家基地、商店街、紀念建築與道路規劃。</p>
+        </article>
+
+        <article class="infoCard">
+          <div class="infoIcon">人</div>
+          <h3>參與成員</h3>
+          <p>每個版本可以記錄參與玩家、建造者、美化者與輔助者，保留誰一起完成了什麼。</p>
+        </article>
+
+        <article class="infoCard">
+          <div class="infoIcon">圖</div>
+          <h3>精選圖片</h3>
+          <p>放置版本代表截圖、地標建築、活動照片與值得保存的回憶畫面。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="gallery">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot"></span> Featured Gallery</div>
+          <h2 class="sectionTitle">精選圖片</h2>
+          <p class="sectionDesc">先放 1.16.5 的圖片作為展示。之後可以換成不同版本的精選截圖。</p>
+        </div>
+      </div>
+
+      <div class="galleryGrid">
+        <div class="galleryItem big" style="--img:url('../pitcure/1.16.5/1.png');">
+          <div class="galleryCaption">
+            <strong>星巴克</strong>
+            <span>鯨魚鎮代表建築之一。</span>
+          </div>
+        </div>
+
+        <div class="galleryItem" style="--img:url('../pitcure/1.16.5/2.png');">
+          <div class="galleryCaption">
+            <strong>紅石音樂</strong>
+            <span>版本中的紅石與音樂回憶。</span>
+          </div>
+        </div>
+
+        <div class="galleryItem" style="--img:url('../pitcure/1.16.5/3.png');">
+          <div class="galleryCaption">
+            <strong>雕像</strong>
+            <span>城鎮地標與裝飾建築。</span>
+          </div>
+        </div>
+
+        <div class="galleryItem" style="--img:url('../pitcure/1.16.5/4.png');">
+          <div class="galleryCaption">
+            <strong>更多回憶</strong>
+            <span>可替換成其他圖片。</span>
+          </div>
+        </div>
+
+        <div class="galleryItem" style="--img:url('../pitcure/1.16.5/5.png');">
+          <div class="galleryCaption">
+            <strong>版本紀錄</strong>
+            <span>保留不同時期的畫面。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="timeline">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot" style="background:var(--warm);"></span> Timeline</div>
+          <h2 class="sectionTitle">版本時間線</h2>
+          <p class="sectionDesc">用簡短時間線整理不同版本的狀態，之後新增頁面時比較清楚。</p>
+        </div>
+      </div>
+
+      <div class="timeline">
+        <article class="timelineItem">
+          <div><span class="timelineVersion">1.16.5</span></div>
+          <div class="timelineText">
+            <h3>原味生存回憶頁已建立</h3>
+            <p>包含鯨魚鎮、建築卡片、參與成員與圖片記錄。</p>
+          </div>
+        </article>
+
+        <article class="timelineItem">
+          <div><span class="timelineVersion">1.19</span></div>
+          <div class="timelineText">
+            <h3>資料整理中</h3>
+            <p>可以之後新增 `1.19.html`，並在傳送門中改成可點擊。</p>
+          </div>
+        </article>
+
+        <article class="timelineItem">
+          <div><span class="timelineVersion">Future</span></div>
+          <div class="timelineText">
+            <h3>更多版本預留</h3>
+            <p>未來可擴充更多版本、活動、地圖與玩家回憶頁。</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <p class="footerNote">FloestSMP Minecraft Memory H
