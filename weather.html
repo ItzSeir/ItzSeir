@@ -491,7 +491,7 @@
       <nav class="navPills" aria-label="主選單">
         <a href="index">首頁</a>
         <a href="cover">翻唱</a>
-        <a class="active" href="weather">天氣情報</a>
+        <a class="active" href="typhoon">天氣情報</a>
         <a href="earthquake">地震情報</a>
       </nav>
     </header>
@@ -618,7 +618,7 @@
         <div>
           <div class="sectionKicker"><span class="dot" style="background:#4f8cff;"></span> TYPHOON TRACKER SECTOR</div>
           <h2 class="sectionTitle">颱風路徑追蹤器</h2>
-          <p class="sectionDesc">保留原本的互動地圖、時間標籤、預報陰影帶、暴風圈開關與 forecast cards，作為天氣情報頁中的颱風 sector。</p>
+          <p class="sectionDesc">颱風追蹤器是天氣情報頁其中一個 sector。若沒有正在追蹤的颱風或 weather.json 無法讀取，系統會顯示無資料狀態，不會讓整個地圖區塊壞掉。</p>
         </div>
 
         <div class="toolbar" aria-label="map controls">
@@ -976,13 +976,18 @@
       stopAlertAuto();
       let remaining = ALERT_AUTO_SEC;
       const tick = () => {
-        $("alertStatusChip").textContent = `下次更新：${remaining}s（${nowHHMMSS()}）`;
+        const current = $("alertStatusChip").textContent || "";
+        if(!current.includes("讀取中")){
+          $("alertStatusChip").textContent = `下次更新：${remaining}s`;
+        }
         remaining -= 1;
         if(remaining < 0) remaining = ALERT_AUTO_SEC;
       };
-      tick();
       alertTickTimer = setInterval(tick, 1000);
-      alertAutoTimer = setInterval(() => refreshAlerts({ silent:true }), ALERT_AUTO_SEC * 1000);
+      alertAutoTimer = setInterval(async () => {
+        remaining = ALERT_AUTO_SEC;
+        await refreshAlerts({ silent:true });
+      }, ALERT_AUTO_SEC * 1000);
     }
 
     function stopAlertAuto(){
@@ -994,9 +999,6 @@
     /***********************
      * Typhoon tracker
      ***********************/
-    const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
-    const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
-
     let map;
     let weatherMeta = { title:"颱風情報", source:"—" };
     let points = [];
@@ -1041,28 +1043,37 @@
     }
 
     async function loadWeatherData(){
-      const res = await fetch("./weather.json", { cache:"no-store" });
-      if(!res.ok) throw new Error(`Failed to load weather.json: ${res.status}`);
-      const data = await res.json();
+      try{
+        const res = await fetch("./weather.json", { cache:"no-store" });
+        if(!res.ok) throw new Error(`weather.json HTTP ${res.status}`);
+        const data = await res.json();
 
-      weatherMeta.title = data.title || "颱風情報";
-      weatherMeta.source = data.source || "—";
+        weatherMeta.title = data.title || "颱風情報";
+        weatherMeta.source = data.source || "weather.json";
 
-      points = (Array.isArray(data.points) ? data.points : []).map(p => ({
-        lat:Number(p.lat),
-        lon:Number(p.lon),
-        time:String(p.time ?? ""),
-        kind:String(p.kind ?? ""),
-        level:String(p.level ?? ""),
-        wind:p.wind === null || p.wind === undefined || p.wind === "" ? null : Number(p.wind),
-        pressure:p.pressure === null || p.pressure === undefined || p.pressure === "" ? null : Number(p.pressure),
-        note:String(p.note ?? ""),
-        fcst_radius_km:p.fcst_radius_km === null || p.fcst_radius_km === undefined || p.fcst_radius_km === "" ? 0 : Number(p.fcst_radius_km),
-        storm_radius_km:p.storm_radius_km === null || p.storm_radius_km === undefined || p.storm_radius_km === "" ? 0 : Number(p.storm_radius_km)
-      })).filter(p => isFinite(p.lat) && isFinite(p.lon));
+        points = (Array.isArray(data.points) ? data.points : []).map(p => ({
+          lat:Number(p.lat),
+          lon:Number(p.lon),
+          time:String(p.time ?? ""),
+          kind:String(p.kind ?? ""),
+          level:String(p.level ?? ""),
+          wind:p.wind === null || p.wind === undefined || p.wind === "" ? null : Number(p.wind),
+          pressure:p.pressure === null || p.pressure === undefined || p.pressure === "" ? null : Number(p.pressure),
+          note:String(p.note ?? ""),
+          fcst_radius_km:p.fcst_radius_km === null || p.fcst_radius_km === undefined || p.fcst_radius_km === "" ? 0 : Number(p.fcst_radius_km),
+          storm_radius_km:p.storm_radius_km === null || p.storm_radius_km === undefined || p.storm_radius_km === "" ? 0 : Number(p.storm_radius_km)
+        })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
 
-      $("pageTitle").textContent = weatherMeta.title;
-      $("sourceText").innerHTML = `<b>來源：${escapeHtml(weatherMeta.source)}</b><br>`;
+        $("pageTitle").textContent = weatherMeta.title;
+        $("sourceText").innerHTML = `<b>來源：${escapeHtml(weatherMeta.source)}</b><br>`;
+      }catch(err){
+        console.warn("weather.json 讀取失敗：", err);
+        weatherMeta.title = "目前沒有颱風資料";
+        weatherMeta.source = "weather.json 未載入 / 無即時颱風資料";
+        points = [];
+        $("pageTitle").textContent = "目前沒有颱風資料";
+        $("sourceText").innerHTML = `<b>來源：weather.json 未載入</b><br>如果你有颱風資料，請確認 weather.json 和這個 HTML 放在同一個資料夾。`;
+      }
     }
 
     function popupHtml(p){
@@ -1146,7 +1157,20 @@
     function renderTyphoon(){
       clearTyLayers();
       if(!points.length){
-        $("fcstList").innerHTML = `<div class="empty">無法讀取 weather.json</div>`;
+        $("levelTextObs").textContent = "目前無颱風資料";
+        $("infoTimeObs").textContent = "時間：—";
+        $("obsCoord").textContent = "—";
+        $("obsWind").textContent = "—";
+        $("obsPres").textContent = "—";
+        $("infoNoteObs").textContent = "沒有可顯示的颱風路徑。請確認 weather.json 是否存在，或目前是否沒有正在追蹤的颱風。";
+        $("fcstCount").textContent = "0 筆";
+        $("fcstList").innerHTML = `<div class="empty">目前沒有颱風預報資料</div>`;
+        $("heroLevel").textContent = "目前無颱風資料";
+        $("heroTime").textContent = "時間：—";
+        $("heroWind").textContent = "—";
+        $("heroPres").textContent = "氣壓：—";
+        if(map) map.setView([23.7, 121.0], 5);
+        setTimeout(() => map && map.invalidateSize(), 120);
         return;
       }
 
@@ -1204,27 +1228,17 @@
 
     async function initTyphoon(){
       map = L.map("map", { zoomControl:true });
-      const mb = L.tileLayer(`https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`, {
-        tileSize:512,
-        zoomOffset:-1,
-        maxZoom:18,
-        attribution:"© Mapbox © OpenStreetMap"
-      });
-      mb.on("tileerror", () => {
-        if(map.hasLayer(mb)) map.removeLayer(mb);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap" }).addTo(map);
-      });
-      mb.addTo(map);
-      map.setView([22.5, 125], 5);
 
-      try{
-        await loadWeatherData();
-        renderTyphoon();
-      }catch(err){
-        console.error(err);
-        $("pageTitle").textContent = "無法載入 weather.json";
-        $("sourceText").innerHTML = `<b>來源：weather.json 載入失敗</b><br>${escapeHtml(err.message || err)}`;
-      }
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom:19,
+        attribution:"© OpenStreetMap"
+      }).addTo(map);
+
+      map.setView([23.7, 121.0], 5);
+      await loadWeatherData();
+      renderTyphoon();
+      setTimeout(() => map.invalidateSize(), 200);
+      setTimeout(() => map.invalidateSize(), 800);
     }
 
     /***********************
