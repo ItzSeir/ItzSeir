@@ -1,0 +1,2156 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>徯風｜翻唱清單</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#eef4f7;
+  --bg2:#e3edf2;
+  --surface:#ffffff;
+  --surface-soft:rgba(255,255,255,.76);
+  --surface-glass:rgba(255,255,255,.84);
+  --line:rgba(25,42,58,.10);
+  --line-strong:rgba(25,42,58,.16);
+  --text:#163042;
+  --heading:#122c3c;
+  --muted:#6a7d89;
+  --muted2:#9aabb6;
+  --sea:#0f4c5c;
+  --teal:#2a9d8f;
+  --ice:#7bdff2;
+  --warm:#f4a261;
+  --danger:#d62828;
+  --shadow:0 18px 50px rgba(31,53,72,.12);
+  --shadow-soft:0 10px 30px rgba(31,53,72,.08);
+  --radius:28px;
+  --radius2:20px;
+  --max:1240px;
+}
+
+*{ box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+html,body{ width:100%; max-width:100%; overflow-x:hidden; }
+
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:"Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at 10% -10%, rgba(42,157,143,.18), transparent 34%),
+    radial-gradient(circle at 88% 6%, rgba(123,223,242,.18), transparent 30%),
+    linear-gradient(180deg, #f7fbfc 0%, var(--bg) 48%, #ffffff 100%);
+}
+
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(rgba(15,76,92,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,76,92,.05) 1px, transparent 1px);
+  background-size:42px 42px;
+  mask-image:linear-gradient(180deg, rgba(0,0,0,.72), transparent 76%);
+  z-index:-1;
+}
+
+a{ color:inherit; }
+button,input{ font:inherit; }
+button{ -webkit-tap-highlight-color:transparent; }
+
+.page{
+  width:min(var(--max), calc(100% - 32px));
+  margin:0 auto;
+  padding:28px 0 54px;
+}
+
+.topbar{
+  position:sticky;
+  top:12px;
+  z-index:50;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:22px;
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  backdrop-filter:blur(18px);
+  box-shadow:0 10px 30px rgba(31,53,72,.08);
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  text-decoration:none;
+}
+
+.brandMark{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border-radius:14px;
+  color:#fff;
+  font-weight:900;
+  background:linear-gradient(135deg, var(--sea), var(--teal));
+  box-shadow:0 10px 22px rgba(15,76,92,.22);
+}
+
+.brandText{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  line-height:1.1;
+}
+
+.brandText strong{
+  font-size:14px;
+  font-weight:900;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.brandText span{
+  margin-top:4px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.navPills{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.navPills a{
+  text-decoration:none;
+  color:#264052;
+  font-size:12px;
+  font-weight:900;
+  padding:9px 12px;
+  border-radius:999px;
+  transition:.18s ease;
+}
+
+.navPills a:hover,
+.navPills a.active{
+  color:var(--sea);
+  background:linear-gradient(135deg, rgba(15,76,92,.10), rgba(42,157,143,.12));
+}
+
+.hero{
+  display:grid;
+  grid-template-columns:minmax(0, 1.08fr) minmax(320px, .92fr);
+  gap:22px;
+  align-items:stretch;
+  margin-bottom:22px;
+}
+
+.heroCard,
+.statsPanel{
+  border:1px solid var(--line);
+  border-radius:32px;
+  background:rgba(255,255,255,.78);
+  backdrop-filter:blur(18px);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+.heroCard{
+  position:relative;
+  min-height:320px;
+  padding:34px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.98), rgba(236,245,246,.90)),
+    radial-gradient(circle at 86% 14%, rgba(42,157,143,.15), transparent 34%);
+}
+
+.heroCard::after{
+  content:"";
+  position:absolute;
+  right:-120px;
+  bottom:-150px;
+  width:340px;
+  height:340px;
+  border-radius:50%;
+  border:42px solid rgba(15,76,92,.075);
+  pointer-events:none;
+}
+
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  width:max-content;
+  max-width:100%;
+  padding:7px 12px;
+  border-radius:999px;
+  border:1px solid rgba(15,76,92,.14);
+  color:var(--sea);
+  background:rgba(15,76,92,.08);
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.dot{
+  width:9px;
+  height:9px;
+  border-radius:999px;
+  display:inline-block;
+  background:var(--teal);
+  flex:0 0 auto;
+}
+
+.pillDot{
+  width:5px;
+  height:5px;
+  border-radius:999px;
+  background:#c97920;
+  box-shadow:0 0 0 4px rgba(244,162,97,.13);
+  flex:0 0 auto;
+}
+
+.miniPill{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  width:max-content;
+  max-width:100%;
+  padding:7px 12px;
+  border-radius:999px;
+  color:#9a5a12;
+  background:linear-gradient(135deg, rgba(244,162,97,.18), rgba(255,239,221,.92));
+  border:1px solid rgba(244,162,97,.22);
+  box-shadow:0 8px 18px rgba(244,162,97,.10);
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.heroTitle{
+  position:relative;
+  z-index:1;
+  margin:24px 0 18px;
+  font-size:clamp(40px, 5vw, 68px);
+  line-height:1.12;
+  letter-spacing:-.045em;
+  font-weight:900;
+  color:var(--heading);
+}
+
+.heroTitle span{
+  display:block;
+  color:transparent;
+  background:linear-gradient(135deg, var(--sea), var(--teal));
+  -webkit-background-clip:text;
+  background-clip:text;
+}
+
+.heroDesc{
+  position:relative;
+  z-index:1;
+  max-width:720px;
+  margin:0;
+  color:#5e717d;
+  line-height:1.85;
+  font-size:14px;
+  font-weight:650;
+}
+
+.heroActions{
+  position:relative;
+  z-index:1;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:26px;
+}
+
+.actionBtn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:44px;
+  padding:0 16px;
+  border:0;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+  text-decoration:none;
+  color:#fff;
+  background:linear-gradient(135deg, var(--sea), var(--teal));
+  box-shadow:0 14px 28px rgba(15,76,92,.20);
+  transition:transform .16s ease, box-shadow .16s ease;
+}
+
+.actionBtn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 18px 34px rgba(15,76,92,.24);
+}
+
+.ghostBtn{
+  color:#1d3a4a;
+  background:#fff;
+  border:1px solid var(--line-strong);
+  box-shadow:0 10px 22px rgba(31,53,72,.07);
+}
+
+.statsPanel{
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.albumVisual{
+  position:relative;
+  min-height:176px;
+  border-radius:26px;
+  border:1px solid var(--line);
+  background:
+    radial-gradient(circle at 30% 26%, rgba(123,223,242,.35), transparent 30%),
+    radial-gradient(circle at 76% 72%, rgba(42,157,143,.24), transparent 36%),
+    linear-gradient(135deg, rgba(15,76,92,.16), rgba(42,157,143,.10));
+  overflow:hidden;
+}
+
+.albumVisual::before{
+  content:"♪";
+  position:absolute;
+  right:28px;
+  bottom:-14px;
+  color:rgba(15,76,92,.13);
+  font-size:144px;
+  line-height:1;
+  font-weight:900;
+}
+
+.albumVisual::after{
+  content:"Cover";
+  position:absolute;
+  left:18px;
+  bottom:16px;
+  color:var(--heading);
+  font-size:26px;
+  font-weight:900;
+  letter-spacing:-.04em;
+}
+
+.statsTitle{
+  margin:0;
+  color:var(--heading);
+  font-size:22px;
+  line-height:1.2;
+  letter-spacing:-.035em;
+  font-weight:900;
+}
+
+.statsText{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.75;
+  font-weight:650;
+}
+
+.statGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:auto;
+}
+
+.statBox{
+  min-height:82px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:#fff;
+}
+
+.statNum{
+  color:var(--heading);
+  font-size:24px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:-.04em;
+}
+
+.statLabel{
+  margin-top:8px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:900;
+}
+
+.appSection{
+  border:1px solid var(--line);
+  border-radius:32px;
+  background:rgba(255,255,255,.76);
+  backdrop-filter:blur(18px);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+.sectionHead{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  padding:24px 24px 16px;
+  border-bottom:1px solid var(--line);
+  background:
+    linear-gradient(135deg, rgba(15,76,92,.06), rgba(42,157,143,.05)),
+    rgba(255,255,255,.58);
+}
+
+.sectionKicker{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:var(--sea);
+  font-size:12px;
+  font-weight:900;
+  margin-bottom:7px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.sectionTitle{
+  margin:0;
+  color:var(--heading);
+  font-size:clamp(24px, 3vw, 38px);
+  line-height:1.18;
+  letter-spacing:-.035em;
+  font-weight:900;
+}
+
+.sectionDesc{
+  margin:8px 0 0;
+  max-width:760px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.75;
+  font-weight:650;
+}
+
+.app{
+  display:grid;
+  grid-template-columns:320px minmax(0, 1fr);
+  gap:18px;
+  padding:20px;
+  align-items:start;
+  width:100%;
+}
+
+.card{
+  min-width:0;
+  border:1px solid var(--line);
+  border-radius:26px;
+  background:rgba(255,255,255,.84);
+  box-shadow:var(--shadow-soft);
+  overflow:hidden;
+}
+
+.sidebar{
+  padding:16px;
+}
+
+.side-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:var(--heading);
+  font-size:15px;
+  font-weight:900;
+  margin-bottom:12px;
+}
+
+.search{
+  width:100%;
+  min-height:42px;
+  padding:0 14px;
+  border-radius:999px;
+  border:1px solid var(--line-strong);
+  color:var(--heading);
+  font-size:13px;
+  font-weight:750;
+  outline:none;
+  background:#fff;
+  box-shadow:0 8px 18px rgba(31,53,72,.05);
+}
+
+.search:focus{
+  border-color:rgba(15,76,92,.28);
+  box-shadow:0 0 0 4px rgba(15,76,92,.08);
+}
+
+.song-list{
+  display:grid;
+  gap:10px;
+  margin-top:12px;
+  max-height:590px;
+  overflow-y:auto;
+  padding-right:4px;
+  min-width:0;
+  overscroll-behavior:contain;
+}
+
+.song-list::-webkit-scrollbar{ width:10px; }
+.song-list::-webkit-scrollbar-thumb{ background:rgba(15,76,92,.20); border-radius:999px; border:3px solid rgba(255,255,255,.8); }
+.song-list::-webkit-scrollbar-track{ background:transparent; }
+
+.song-item{
+  min-width:0;
+  min-height:58px;
+  padding:12px 13px;
+  border-radius:18px;
+  border:1px solid var(--line);
+  cursor:pointer;
+  background:#fff;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  transition:transform .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.song-item:hover{
+  transform:translateY(-1px);
+  border-color:rgba(15,76,92,.22);
+  box-shadow:0 10px 22px rgba(31,53,72,.08);
+}
+
+.song-item.active{
+  background:linear-gradient(135deg, rgba(15,76,92,.08), rgba(42,157,143,.07));
+  border-color:rgba(15,76,92,.22);
+}
+
+.song-item span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--heading);
+  font-size:13px;
+  font-weight:900;
+}
+
+.song-item small{
+  flex:0 0 auto;
+  font-size:11px;
+  color:var(--muted);
+  font-weight:900;
+  font-variant-numeric:tabular-nums;
+}
+
+.main{
+  padding:18px;
+  min-width:0;
+}
+
+.playerShell{
+  width:100%;
+  min-width:0;
+  display:grid;
+  gap:14px;
+}
+
+.player,
+.lyricsCard{
+  min-width:0;
+  padding:18px;
+  border:1px solid var(--line);
+  border-radius:24px;
+  background:rgba(255,255,255,.90);
+  box-shadow:0 8px 20px rgba(31,53,72,.06);
+}
+
+.playerHead{
+  display:grid;
+  gap:14px;
+}
+
+.headRow{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+  flex-wrap:wrap;
+}
+
+.trackInfo{
+  min-width:0;
+  flex:1 1 auto;
+}
+
+.trackTop{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  flex-wrap:wrap;
+}
+
+.trackTitle{
+  color:var(--heading);
+  font-size:24px;
+  line-height:1.14;
+  letter-spacing:-.035em;
+  font-weight:900;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.trackDesc{
+  margin-top:7px;
+  color:var(--muted);
+  font-weight:800;
+  font-size:13px;
+  line-height:1.55;
+}
+
+.metaPills{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:34px;
+  padding:0 11px;
+  border-radius:999px;
+  border:1px solid var(--line-strong);
+  background:#fff;
+  color:#244150;
+  font-weight:900;
+  font-size:12px;
+  white-space:nowrap;
+}
+
+.pill .dot{
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:var(--teal);
+  flex:0 0 auto;
+}
+
+.wave{
+  display:inline-flex;
+  align-items:flex-end;
+  gap:3px;
+  height:30px;
+  padding:7px 10px;
+  border-radius:999px;
+  border:1px solid rgba(15,76,92,.14);
+  background:rgba(15,76,92,.08);
+}
+
+.wave i{
+  display:block;
+  width:3px;
+  height:6px;
+  border-radius:999px;
+  background:rgba(15,76,92,.75);
+  transform-origin:bottom;
+  animation:wave 900ms ease-in-out infinite;
+  animation-play-state:paused;
+}
+
+.wave i:nth-child(1){ animation-delay:0ms; }
+.wave i:nth-child(2){ animation-delay:120ms; }
+.wave i:nth-child(3){ animation-delay:240ms; }
+.wave i:nth-child(4){ animation-delay:360ms; }
+.wave i:nth-child(5){ animation-delay:480ms; }
+
+@keyframes wave{
+  0%{ transform:scaleY(.35); opacity:.55; }
+  50%{ transform:scaleY(1.15); opacity:1; }
+  100%{ transform:scaleY(.45); opacity:.65; }
+}
+
+.player.playing .wave i{ animation-play-state:running; }
+.player.paused .wave i{ animation-play-state:paused; }
+
+.controls{
+  display:grid;
+  gap:14px;
+  margin-top:2px;
+}
+
+.ctrlRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-start;
+}
+
+.btnGroup{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.btn{
+  height:40px;
+  padding:0 14px;
+  border-radius:999px;
+  border:1px solid var(--line-strong);
+  background:#fff;
+  color:#244150;
+  font-weight:900;
+  font-size:13px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  white-space:nowrap;
+  box-shadow:0 8px 18px rgba(31,53,72,.06);
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 14px 24px rgba(31,53,72,.10);
+}
+
+.btn.primary{
+  background:linear-gradient(135deg, var(--sea), var(--teal));
+  border-color:transparent;
+  color:#fff;
+  box-shadow:0 14px 28px rgba(15,76,92,.20);
+}
+
+.btn.ghost{
+  background:rgba(15,76,92,.045);
+}
+
+.btn.active{
+  background:#122c3c;
+  border-color:#122c3c;
+  color:#fff;
+}
+
+.bigPlay{
+  min-width:118px;
+}
+
+.progress{
+  display:grid;
+  gap:12px;
+  padding-top:12px;
+  border-top:1px dashed rgba(25,42,58,.12);
+}
+
+.progressRow{
+  display:grid;
+  grid-template-columns:56px 1fr 56px;
+  gap:10px;
+  align-items:center;
+}
+
+.time{
+  color:var(--heading);
+  font-weight:900;
+  font-size:13px;
+  text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+
+.range,
+.vol{
+  width:100%;
+  accent-color:var(--sea);
+}
+
+.volRow{
+  display:grid;
+  grid-template-columns:42px 1fr;
+  gap:12px;
+  align-items:center;
+}
+
+.label{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:900;
+}
+
+.hint{
+  display:none;
+}
+
+.lyricsHead{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.lyricsTitle{
+  color:var(--heading);
+  font-size:15px;
+  font-weight:900;
+}
+
+.lyricsTools{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.smallBtn{
+  height:34px;
+  padding:0 12px;
+  border-radius:999px;
+  border:1px solid var(--line-strong);
+  background:rgba(15,76,92,.045);
+  color:#244150;
+  font-weight:900;
+  font-size:12px;
+  cursor:pointer;
+  transition:.16s ease;
+}
+
+.smallBtn:hover{
+  background:rgba(15,76,92,.08);
+}
+
+.smallBtn.active{
+  background:#122c3c;
+  border-color:#122c3c;
+  color:#fff;
+}
+
+.lyricsBox{
+  margin-top:12px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:rgba(15,76,92,.025);
+  max-height:340px;
+  overflow:auto;
+  padding:10px;
+  min-width:0;
+  overscroll-behavior:contain;
+}
+
+.lyricsBox::-webkit-scrollbar{ width:10px; }
+.lyricsBox::-webkit-scrollbar-thumb{ background:rgba(15,76,92,.20); border-radius:999px; border:3px solid rgba(255,255,255,.8); }
+.lyricsBox::-webkit-scrollbar-track{ background:transparent; }
+
+.lyLine{
+  padding:10px 12px;
+  border-radius:14px;
+  color:#244150;
+  cursor:pointer;
+  line-height:1.55;
+  user-select:none;
+  display:flex;
+  align-items:flex-start;
+  font-size:14px;
+  font-weight:850;
+  border:1px solid transparent;
+}
+
+.lyLine:hover{
+  background:rgba(15,76,92,.055);
+}
+
+.lyLine .t{
+  display:none;
+}
+
+.lyLine .tx{
+  flex:1 1 auto;
+}
+
+.lyLine.active{
+  color:var(--heading);
+  background:linear-gradient(135deg, rgba(15,76,92,.08), rgba(42,157,143,.07));
+  border-color:rgba(15,76,92,.15);
+}
+
+.lyEmpty{
+  padding:12px 10px;
+  color:var(--muted);
+  font-weight:900;
+  font-size:13px;
+}
+
+.toast{
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#122c3c;
+  color:#fff;
+  padding:9px 15px;
+  border-radius:999px;
+  font-weight:900;
+  opacity:0;
+  transition:.2s;
+  pointer-events:none;
+  box-shadow:0 14px 28px rgba(15,76,92,.22);
+  z-index:999;
+}
+
+.toast.show{ opacity:1; }
+
+.redesign-player{
+  padding:0;
+  overflow:hidden;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.96), rgba(238,247,247,.88)),
+    radial-gradient(circle at 82% 12%, rgba(42,157,143,.16), transparent 34%);
+}
+
+.nowPlaying{
+  display:grid;
+  grid-template-columns:230px minmax(0, 1fr);
+  gap:22px;
+  align-items:stretch;
+  padding:22px;
+}
+
+.coverDisc{
+  position:relative;
+  min-height:250px;
+  border-radius:28px;
+  overflow:hidden;
+  border:1px solid rgba(15,76,92,.12);
+  background:
+    radial-gradient(circle at 34% 28%, rgba(123,223,242,.48), transparent 28%),
+    radial-gradient(circle at 78% 76%, rgba(42,157,143,.34), transparent 36%),
+    linear-gradient(135deg, rgba(15,76,92,.18), rgba(42,157,143,.12));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.20), 0 16px 34px rgba(31,53,72,.12);
+}
+
+.coverDisc::before{
+  content:"";
+  position:absolute;
+  width:168px;
+  height:168px;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  border-radius:50%;
+  background:
+    radial-gradient(circle at center, #ffffff 0 13%, rgba(15,76,92,.16) 14% 20%, transparent 21%),
+    conic-gradient(from 90deg, rgba(15,76,92,.82), rgba(42,157,143,.72), rgba(123,223,242,.62), rgba(15,76,92,.82));
+  box-shadow:0 20px 34px rgba(31,53,72,.16);
+  animation:discSpin 8s linear infinite;
+  animation-play-state:paused;
+}
+
+.coverDisc::after{
+  content:"♪";
+  position:absolute;
+  right:18px;
+  bottom:-10px;
+  color:rgba(15,76,92,.16);
+  font-size:116px;
+  line-height:1;
+  font-weight:900;
+}
+
+.player.playing .coverDisc::before{
+  animation-play-state:running;
+}
+
+@keyframes discSpin{
+  to{ transform:translate(-50%, -50%) rotate(360deg); }
+}
+
+.coverBadge{
+  position:absolute;
+  left:14px;
+  top:14px;
+  z-index:2;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-height:32px;
+  padding:0 11px;
+  border-radius:999px;
+  color:#0f4c5c;
+  background:rgba(255,255,255,.82);
+  border:1px solid rgba(255,255,255,.42);
+  backdrop-filter:blur(10px);
+  font-size:12px;
+  font-weight:900;
+  box-shadow:0 10px 22px rgba(31,53,72,.10);
+}
+
+.coverBadge span{
+  width:7px;
+  height:7px;
+  border-radius:999px;
+  background:var(--teal);
+  box-shadow:0 0 0 5px rgba(42,157,143,.14);
+}
+
+.coverBars{
+  position:absolute;
+  left:16px;
+  bottom:16px;
+  z-index:2;
+  display:flex;
+  align-items:flex-end;
+  gap:4px;
+  height:34px;
+  padding:9px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,255,255,.42);
+  backdrop-filter:blur(10px);
+}
+
+.coverBars i{
+  display:block;
+  width:4px;
+  height:9px;
+  border-radius:999px;
+  background:var(--sea);
+  transform-origin:bottom;
+  animation:coverWave 850ms ease-in-out infinite;
+  animation-play-state:paused;
+}
+
+.coverBars i:nth-child(2){ animation-delay:120ms; }
+.coverBars i:nth-child(3){ animation-delay:240ms; }
+.coverBars i:nth-child(4){ animation-delay:360ms; }
+.coverBars i:nth-child(5){ animation-delay:480ms; }
+
+.player.playing .coverBars i{
+  animation-play-state:running;
+}
+
+@keyframes coverWave{
+  0%,100%{ transform:scaleY(.45); opacity:.58; }
+  50%{ transform:scaleY(1.45); opacity:1; }
+}
+
+.trackPanel{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.trackHeader{
+  min-width:0;
+}
+
+.trackLabelRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+.redesign-player .trackTitle{
+  color:var(--heading);
+  font-size:clamp(26px, 3vw, 38px);
+  line-height:1.08;
+  letter-spacing:-.055em;
+  font-weight:900;
+  min-width:0;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+}
+
+.redesign-player .trackDesc{
+  margin-top:10px;
+  color:#627784;
+  font-weight:750;
+  font-size:14px;
+  line-height:1.65;
+}
+
+.playerMetaGrid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:10px;
+}
+
+.metaTile{
+  min-height:68px;
+  padding:12px 13px;
+  border-radius:18px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.82);
+}
+
+.metaTileLabel{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:900;
+  margin-bottom:7px;
+}
+
+.metaTileValue{
+  color:var(--heading);
+  font-size:13px;
+  font-weight:900;
+  line-height:1.25;
+}
+
+.controlDock{
+  display:grid;
+  gap:14px;
+  padding:15px;
+  border-radius:24px;
+  background:rgba(255,255,255,.70);
+  border:1px solid rgba(25,42,58,.09);
+  box-shadow:0 10px 24px rgba(31,53,72,.06);
+}
+
+.mainControls{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  gap:10px;
+  align-items:center;
+}
+
+.mainControls .btn{
+  height:44px;
+}
+
+.mainControls #prevBtn{
+  justify-self:end;
+}
+
+.mainControls #nextBtn{
+  justify-self:start;
+}
+
+.mainControls .bigPlay{
+  min-width:132px;
+  height:50px !important;
+  font-size:14px;
+}
+
+.extraControls{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.redesign-player .progress{
+  border-top:0;
+  padding-top:0;
+  display:grid;
+  gap:12px;
+}
+
+.redesign-player .progressRow{
+  grid-template-columns:52px 1fr 52px;
+}
+
+.range,
+.vol{
+  cursor:pointer;
+}
+
+.redesign-player .volRow{
+  max-width:420px;
+  width:100%;
+  margin:0 auto;
+}
+
+.lyricsCard{
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.94), rgba(244,249,249,.82));
+}
+
+.lyricsTitle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.lyricsTitle::before{
+  content:"";
+  width:9px;
+  height:9px;
+  border-radius:999px;
+  background:var(--teal);
+  box-shadow:0 0 0 5px rgba(42,157,143,.12);
+}
+
+@media (max-width:780px){
+  .nowPlaying{
+    grid-template-columns:1fr;
+    padding:16px;
+    gap:16px;
+  }
+
+  .coverDisc{
+    min-height:220px;
+  }
+
+  .playerMetaGrid{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:520px){
+  .nowPlaying{
+    padding:14px;
+    gap:14px;
+  }
+
+  .coverDisc{
+    min-height:190px;
+    border-radius:22px;
+  }
+
+  .mainControls{
+    grid-template-columns:1fr;
+  }
+
+  .mainControls #prevBtn,
+  .mainControls #nextBtn{
+    justify-self:stretch;
+  }
+
+  .extraControls{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:1060px){
+  .hero{
+    grid-template-columns:1fr;
+  }
+
+  .app{
+    grid-template-columns:1fr;
+  }
+
+  .main{
+    order:1;
+  }
+
+  .sidebar{
+    order:2;
+  }
+
+  .song-list{
+    max-height:none;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    overflow:visible;
+  }
+}
+
+@media (max-width:780px){
+  .page{
+    width:min(100% - 20px, var(--max));
+    padding-top:14px;
+  }
+
+  .topbar{
+    top:8px;
+    align-items:flex-start;
+    flex-direction:column;
+    border-radius:22px;
+  }
+
+  .navPills{
+    width:100%;
+    justify-content:flex-start;
+    flex-wrap:nowrap;
+    overflow:auto;
+    padding-bottom:2px;
+  }
+
+  .navPills a{
+    flex:0 0 auto;
+  }
+
+  .heroCard,
+  .statsPanel,
+  .appSection{
+    border-radius:26px;
+  }
+
+  .heroCard{
+    min-height:auto;
+    padding:24px;
+  }
+
+  .sectionHead{
+    align-items:flex-start;
+    flex-direction:column;
+    padding:20px;
+  }
+
+  .app{
+    padding:14px;
+    gap:14px;
+  }
+
+  .main,
+  .sidebar{
+    padding:14px;
+  }
+
+  .song-list{
+    grid-template-columns:1fr;
+  }
+
+  .player,
+  .lyricsCard{
+    padding:14px;
+    border-radius:22px;
+  }
+
+  .trackTitle{
+    font-size:20px;
+  }
+
+  .headRow{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .metaPills{
+    width:100%;
+    justify-content:flex-start;
+  }
+
+  .ctrlRow{
+    display:grid;
+    gap:10px;
+  }
+
+  .ctrlRow .btnGroup:nth-of-type(1){
+    display:grid !important;
+    grid-template-columns:1fr 1.3fr 1fr;
+    gap:8px;
+    width:100%;
+  }
+
+  .ctrlRow .btnGroup:nth-of-type(2){
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    width:100%;
+  }
+
+  #prevBtn,
+  #playBtn,
+  #nextBtn,
+  #loopBtn,
+  #copyBtn{
+    width:100%;
+  }
+
+  .btn{
+    height:40px;
+    font-size:12px;
+    padding:0 10px;
+  }
+
+  .bigPlay{
+    min-width:unset;
+  }
+
+  .progressRow{
+    grid-template-columns:48px 1fr 48px;
+    gap:8px;
+  }
+
+  .time{
+    font-size:12px;
+  }
+
+  .lyricsBox{
+    max-height:260px;
+  }
+}
+
+@media (max-width:520px){
+  body{ background:#f7fbfc; }
+
+  .page{
+    width:100%;
+    padding:10px 10px 34px;
+  }
+
+  .heroTitle{
+    font-size:42px;
+    line-height:1.16;
+    letter-spacing:-.035em;
+  }
+
+  .heroActions{
+    flex-direction:column;
+  }
+
+  .actionBtn{
+    width:100%;
+  }
+
+  .statGrid{
+    grid-template-columns:1fr;
+  }
+
+  .trackTitle{
+    font-size:18px;
+  }
+
+  .btn{
+    height:38px;
+  }
+
+  .smallBtn{
+    height:32px;
+    font-size:11px;
+  }
+
+  .lyricsBox{
+    max-height:220px;
+  }
+}
+</style>
+</head>
+
+<body>
+<main class="page">
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="返回首頁">
+      <div class="brandMark">唱</div>
+      <div class="brandText">
+        <strong>徯風翻唱</strong>
+        <span>cover music playlist</span>
+      </div>
+    </a>
+
+    <nav class="navPills" aria-label="主選單">
+      <a href="index.html">首頁</a>
+      <a class="active" href="cover.html">翻唱</a>
+      <a href="floestsmp/">葉離社群</a>
+      <a href="floestsmp/minecraft/">Minecraft</a>
+      <a href="floestsmp/typhoon.html">颱風追蹤</a>
+    </nav>
+  </header>
+
+  <section class="hero" id="top">
+    <div class="heroCard">
+      <div class="eyebrow"><span class="dot"></span> COVER MUSIC PLAYER</div>
+      <h1 class="heroTitle">翻唱清單<span>Cover Archive</span></h1>
+      <p class="heroDesc">
+        這裡整理徯風的翻唱 MP3，包含歌曲搜尋、播放控制、清單循環、單曲循環、LRC 歌詞同步與複製音檔連結功能。整體 UI 已統一成目前網站使用的深海藍綠設計風格。
+      </p>
+      <div class="heroActions">
+        <a class="actionBtn" href="#player-section">開始聆聽</a>
+        <a class="actionBtn ghostBtn" href="index.html">返回首頁</a>
+      </div>
+    </div>
+
+    <aside class="statsPanel">
+      <div class="albumVisual" aria-label="cover visual"></div>
+      <div class="miniPill"><span class="pillDot"></span>Playlist Summary</div>
+      <h2 class="statsTitle">翻唱作品集中播放器</h2>
+      <p class="statsText">支援 MP3 直連、LRC 歌詞、自動跟隨、點擊歌詞跳轉與行動裝置版面。</p>
+      <div class="statGrid">
+        <div class="statBox">
+          <div class="statNum" id="songTotal">—</div>
+          <div class="statLabel">歌曲數量</div>
+        </div>
+        <div class="statBox">
+          <div class="statNum">LRC</div>
+          <div class="statLabel">歌詞同步</div>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="appSection" id="player-section">
+    <div class="sectionHead">
+      <div>
+        <div class="sectionKicker"><span class="dot"></span> Music Player</div>
+        <h2 class="sectionTitle">翻唱播放器</h2>
+        <p class="sectionDesc">左側選擇歌曲，右側播放與查看歌詞。手機版會自動把播放器放在上方、歌曲清單放在下方。</p>
+      </div>
+    </div>
+
+    <div class="app">
+      <aside class="card sidebar">
+        <div class="side-title">
+          <span>翻唱列表</span>
+          <span class="miniPill"><span class="pillDot"></span>MP3</span>
+        </div>
+        <input type="search" id="searchInput" class="search" placeholder="搜尋歌名...">
+        <div class="song-list" id="songList"></div>
+      </aside>
+
+      <main class="card main">
+        <div class="playerShell" id="playerArea"></div>
+      </main>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast">已複製</div>
+
+<script>
+let SONGS = [
+  { id:"1", name:"你的酒館對我打了烊", desc:"原唱：陳雪凝",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/9b1fef7298ff09fbcc342334ab465f16b40f9c0b/Music/%E4%BD%A0%E7%9A%84%E9%85%92%E9%A4%A8%E5%B0%8D%E6%88%91%E6%89%93%E4%BA%86%E7%83%8A.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/e16a135dbb5da25a6f90bdf9db80cf34ba2fe80c/LRC/%E4%BD%A0%E7%9A%84%E9%85%92%E9%A6%86%E5%AF%B9%E6%88%91%E6%89%93%E4%BA%86%E7%83%8A.lrc",
+    createdAt:"2025-04-29"
+  },
+  { id:"2", name:"Señorita（合唱）", desc:"原唱：Shawn Mendes, Camila Cabello",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/9b1fef7298ff09fbcc342334ab465f16b40f9c0b/Music/Senorita.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/e16a135dbb5da25a6f90bdf9db80cf34ba2fe80c/LRC/Se%C3%B1orita.lrc",
+    createdAt:"2025-05-13"
+  },
+  { id:"3", name:"踏山河", desc:"原唱：是七叔呢",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/07781fe94ccaf0a9c4999186d36de7eb26a69367/Music/%E8%B8%8F%E5%B1%B1%E6%B2%B3.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/e16a135dbb5da25a6f90bdf9db80cf34ba2fe80c/LRC/%E8%B8%8F%E5%B1%B1%E6%B2%B3.lrc",
+    createdAt:"2025-05-22"
+  },
+  { id:"4", name:"我的一個道姑朋友", desc:"原唱：以冬",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/07781fe94ccaf0a9c4999186d36de7eb26a69367/Music/%E6%88%91%E7%9A%84%E4%B8%80%E5%80%8B%E9%81%93%E5%A7%91%E6%9C%8B%E5%8F%8B.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/e16a135dbb5da25a6f90bdf9db80cf34ba2fe80c/LRC/%E6%88%91%E7%9A%84%E4%B8%80%E4%B8%AA%E9%81%93%E5%A7%91%E6%9C%8B%E5%8F%8B.lrc",
+    createdAt:"2025-06-10"
+  },
+  { id:"5", name:"失眠飛行（合唱）", desc:"原唱：接個吻，開一槍、 沈以誠、 薛黛霏",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/0c21d1fc38334559497b61cedcb647ba2538ebd6/Music/%E5%A4%B1%E7%9C%A0%E9%A3%9B%E8%A1%8C.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/e16a135dbb5da25a6f90bdf9db80cf34ba2fe80c/LRC/%E5%A4%B1%E7%9C%A0%E9%A3%9E%E8%A1%8C.lrc",
+    createdAt:"2025-06-21"
+  },
+  { id:"6", name:"同花順", desc:"原唱：林倛玉（en版本）",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/07781fe94ccaf0a9c4999186d36de7eb26a69367/Music/%E5%90%8C%E8%8A%B1%E9%A0%86.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/b8f661c89e0f33584dcb562cfcfbad2a5da36bf5/LRC/%E5%90%8C%E8%8A%B1%E9%A1%BA.lrc",
+    createdAt:"2025-07-04"
+  },
+  { id:"7", name:"你敢不敢", desc:"原唱：徐佳瑩",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/07781fe94ccaf0a9c4999186d36de7eb26a69367/Music/%E4%BD%A0%E6%95%A2%E4%B8%8D%E6%95%A2.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/b8f661c89e0f33584dcb562cfcfbad2a5da36bf5/LRC/%E4%BD%A0%E6%95%A2%E4%B8%8D%E6%95%A2.lrc",
+    createdAt:"2025-07-11"
+  },
+  { id:"8", name:"從前說", desc:"原唱：小阿七",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/07781fe94ccaf0a9c4999186d36de7eb26a69367/Music/%E5%BE%9E%E5%89%8D%E8%AA%AA.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/b8f661c89e0f33584dcb562cfcfbad2a5da36bf5/LRC/%E4%BB%8E%E5%89%8D%E8%AF%B4.lrc",
+    createdAt:"2025-07-18"
+  },
+  { id:"9", name:"沒有理由", desc:"原唱：Ryan.B, effie",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/0c21d1fc38334559497b61cedcb647ba2538ebd6/Music/%E6%B2%92%E6%9C%89%E7%90%86%E7%94%B1.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/b8f661c89e0f33584dcb562cfcfbad2a5da36bf5/LRC/%E6%B2%A1%E6%9C%89%E7%90%86%E7%94%B1.lrc",
+    createdAt:"2025-09-06"
+  },
+  { id:"10", name:"阿拉斯加海灣", desc:"原唱：菲道爾（藍心羽版本）",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/07781fe94ccaf0a9c4999186d36de7eb26a69367/Music/%E9%98%BF%E6%8B%89%E6%96%AF%E5%8A%A0%E6%B5%B7%E7%81%A3.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/b8f661c89e0f33584dcb562cfcfbad2a5da36bf5/LRC/%E9%98%BF%E6%8B%89%E6%96%AF%E5%8A%A0%E6%B5%B7%E6%B9%BE.lrc",
+    createdAt:"2025-10-13"
+  },
+  { id:"11", name:"離開我的依賴", desc:"原唱：王艷薇（en版本）",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/9ae7a675a1b2f20f97feb2c7127b41edae2555ee/Music/%E9%9B%A2%E9%96%8B%E6%88%91%E7%9A%84%E4%BE%9D%E8%B3%B4.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/fcaef085835f316e96c050d047b46bea3c734ee0/LRC/%E7%A6%BB%E5%BC%80%E6%88%91%E7%9A%84%E4%BE%9D%E8%B5%96.lrc",
+    createdAt:"2025-10-15"
+  },
+  { id:"12", name:"打上花火（合唱）", desc:"原唱：DAOKO、米津玄師",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/0c21d1fc38334559497b61cedcb647ba2538ebd6/Music/%E6%89%93%E4%B8%8A%E8%8A%B1%E7%81%AB.mp3",
+    lrcUrl:"",
+    createdAt:"2025-10-20"
+  },
+  { id:"13", name:"刻在我心底的名字（合唱）", desc:"原唱：盧廣仲（蔡依林、田馥甄版本）",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/0c21d1fc38334559497b61cedcb647ba2538ebd6/Music/%E5%88%BB%E5%9C%A8%E6%88%91%E5%BF%83%E5%BA%95%E7%9A%84%E5%90%8D%E5%AD%97.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/8f810a0303992c3b5846dd57459e88618a887503/LRC/%E5%88%BB%E5%9C%A8%E6%88%91%E5%BF%83%E5%BA%95%E7%9A%84%E5%90%8D%E5%AD%97.lrc",
+    createdAt:"2025-11-14"
+  },
+  { id:"14", name:"暗示分離（合唱）", desc:"原唱：en（姚曉棠、en版本）",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/9ae7a675a1b2f20f97feb2c7127b41edae2555ee/Music/%E6%9A%97%E7%A4%BA%E5%88%86%E9%9B%A2.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/8f810a0303992c3b5846dd57459e88618a887503/LRC/%E6%9A%97%E7%A4%BA%E5%88%86%E7%A6%BB.lrc",
+    createdAt:"2025-11-18"
+  },
+  { id:"15", name:"無人之島", desc:"原唱：任然",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/0c21d1fc38334559497b61cedcb647ba2538ebd6/Music/%E7%84%A1%E4%BA%BA%E4%B9%8B%E5%B3%B6.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/b8f661c89e0f33584dcb562cfcfbad2a5da36bf5/LRC/%E6%97%A0%E4%BA%BA%E4%B9%8B%E5%B2%9B.lrc",
+    createdAt:"2025-10-02"
+  },
+  { id:"16", name:"下墜Falling", desc:"原唱：Corki",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/7b96ddb162ab2dcd46de3cb4b65a6922b732cc0f/Music/%E4%B8%8B%E5%A2%9CFalling.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/886e06537699d40d8721dc14bb6f6144a26fe7c6/LRC/%E4%B8%8B%E5%9D%A0Falling.lrc",
+    createdAt:"2025-11-23"
+  },
+  { id:"17", name:"空心", desc:"原唱：光澤",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/7b96ddb162ab2dcd46de3cb4b65a6922b732cc0f/Music/%E7%A9%BA%E5%BF%83.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/886e06537699d40d8721dc14bb6f6144a26fe7c6/LRC/%E7%A9%BA%E5%BF%83.lrc",
+    createdAt:"2025-12-18"
+  },
+  { id:"18", name:"人質", desc:"原唱：張惠妹",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/7b96ddb162ab2dcd46de3cb4b65a6922b732cc0f/Music/%E4%BA%BA%E8%B3%AA.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/886e06537699d40d8721dc14bb6f6144a26fe7c6/LRC/%E4%BA%BA%E8%B4%A8.lrc",
+    createdAt:"2025-12-24"
+  },
+  { id:"19", name:"最懂我的人（合唱）", desc:"原唱：鍾盛忠、鍾曉玉",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/7b96ddb162ab2dcd46de3cb4b65a6922b732cc0f/Music/%E6%9C%80%E6%87%82%E6%88%91%E7%9A%84%E4%BA%BA.mp3",
+    lrcUrl:"",
+    createdAt:"2025-12-28"
+  },
+  { id:"20", name:"誰", desc:"原唱：曲肖冰",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/7b96ddb162ab2dcd46de3cb4b65a6922b732cc0f/Music/%E8%AA%B0.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/886e06537699d40d8721dc14bb6f6144a26fe7c6/LRC/%E8%B0%81.lrc",
+    createdAt:"2026-01-15"
+  },
+  { id:"21", name:"9420", desc:"原唱：麥小兜",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/7b96ddb162ab2dcd46de3cb4b65a6922b732cc0f/Music/9420.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/886e06537699d40d8721dc14bb6f6144a26fe7c6/LRC/9420.lrc",
+    createdAt:"2026-01-26"
+  },
+  { id:"22", name:"天后", desc:"原唱：陳勢安",
+    mp3Url:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/7b96ddb162ab2dcd46de3cb4b65a6922b732cc0f/Music/%E5%A4%A9%E5%90%8E.mp3",
+    lrcUrl:"https://raw.githubusercontent.com/ItzSeir/ItzSeir/886e06537699d40d8721dc14bb6f6144a26fe7c6/LRC/%E5%A4%A9%E5%90%8E.lrc",
+    createdAt:"2026-01-31"
+  },
+];
+
+const $ = id => document.getElementById(id);
+
+const audio = new Audio();
+audio.preload = "metadata";
+audio.volume = 0.5;
+
+let currentId = null;
+let loopMode = "list";
+let searchKeyword = "";
+let lyrics = [];
+let activeLyIndex = -1;
+let lyricsAutoScroll = true;
+let lyricsCollapsed = false;
+let lastLyricsUrl = "";
+
+function escapeHtml(s){
+  return String(s ?? "").replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[m]));
+}
+
+function fmt(sec){
+  if(!isFinite(sec) || sec < 0) return "00:00";
+  const s = Math.floor(sec);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return String(m).padStart(2,"0") + ":" + String(r).padStart(2,"0");
+}
+
+function sortSongs(){
+  SONGS.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function showToast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove("show"), 1200);
+}
+
+function clamp(v,min,max){
+  return Math.max(min, Math.min(max, v));
+}
+
+function idxById(id){
+  return Math.max(0, SONGS.findIndex(s => s.id === id));
+}
+
+function currentSong(){
+  return SONGS.find(s => s.id === currentId) || SONGS[0] || null;
+}
+
+function parseLRC(text){
+  const src = String(text || "").replace(/\r/g, "");
+  const lines = src.split("\n");
+
+  let offsetMs = 0;
+  for(const raw of lines){
+    const line = raw.replace(/^\uFEFF/, "").trim();
+    const m = line.match(/^\[offset:\s*([+-]?\d+)\s*\]$/i);
+    if(m){ offsetMs = Number(m[1]) || 0; break; }
+  }
+
+  const offsetSec = offsetMs / 1000;
+  const out = [];
+  const timeTag = /[\[<](\d{1,2}):(\d{2})(?:\.(\d{1,3}))?[\]>]/g;
+
+  for(const raw of lines){
+    const line = raw.replace(/^\uFEFF/, "").trim();
+    if(!line) continue;
+    if(/^\[(ti|ar|al|by|length|re|ve):/i.test(line)) continue;
+    if(/^\[offset:/i.test(line)) continue;
+
+    const tags = [...line.matchAll(timeTag)];
+    if(tags.length === 0) continue;
+
+    const textPart = line.replace(timeTag, "").trim();
+    for(const t of tags){
+      const mm = Number(t[1]);
+      const ss = Number(t[2]);
+      const frac = t[3] ? t[3].padEnd(3,"0") : "000";
+      let time = mm * 60 + ss + Number(frac) / 1000;
+      time = time + offsetSec;
+      if(time < 0) time = 0;
+      out.push({ time, text: textPart || "…" });
+    }
+  }
+
+  out.sort((a,b) => a.time - b.time);
+
+  const merged = [];
+  for(const item of out){
+    const last = merged[merged.length - 1];
+    if(last && Math.abs(last.time - item.time) < 0.001){
+      last.text = item.text;
+    }else{
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+async function loadLyricsForSong(song){
+  lyrics = [];
+  activeLyIndex = -1;
+
+  const url = String(song?.lrcUrl || "").trim();
+  lastLyricsUrl = url;
+  renderLyrics();
+
+  if(!url) return;
+
+  try{
+    const bust = (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+    const res = await fetch(url + bust, { cache:"no-store" });
+    if(!res.ok) throw new Error("fetch failed");
+
+    const txt = await res.text();
+    if(String(song?.lrcUrl || "").trim() !== lastLyricsUrl) return;
+    lyrics = parseLRC(txt);
+  }catch(e){
+    lyrics = [];
+    showToast("歌詞載入失敗");
+  }
+
+  renderLyrics();
+  syncLyricsActive(true);
+}
+
+function findActiveLyIndex(t){
+  if(!lyrics.length) return -1;
+  let lo = 0, hi = lyrics.length - 1, ans = -1;
+  while(lo <= hi){
+    const mid = (lo + hi) >> 1;
+    if(lyrics[mid].time <= t + 0.01){
+      ans = mid;
+      lo = mid + 1;
+    }else{
+      hi = mid - 1;
+    }
+  }
+  return ans;
+}
+
+function renderList(){
+  const box = $("songList");
+  box.innerHTML = "";
+  const q = searchKeyword.trim().toLowerCase();
+  const filtered = SONGS.filter(s => !q || String(s.name || "").toLowerCase().includes(q));
+
+  if(filtered.length === 0){
+    const empty = document.createElement("div");
+    empty.style.padding = "10px 12px";
+    empty.style.color = "#6a7d89";
+    empty.style.fontWeight = "900";
+    empty.textContent = "沒有符合的歌曲";
+    box.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach(s => {
+    const div = document.createElement("div");
+    div.className = "song-item" + (s.id === currentId ? " active" : "");
+    div.innerHTML = `<span>${escapeHtml(s.name)}</span><small>${escapeHtml(s.createdAt)}</small>`;
+    div.onclick = () => loadById(s.id, false);
+    box.appendChild(div);
+  });
+}
+
+function loadById(id, autoplay){
+  const s = SONGS.find(x => x.id === id);
+  if(!s) return;
+
+  currentId = id;
+  audio.src = String(s.mp3Url || "").trim();
+  audio.load();
+
+  renderPlayer();
+  renderList();
+  loadLyricsForSong(s);
+
+  if(autoplay){
+    audio.play().catch(() => showToast("無法播放（可能跨域或連結失效）"));
+  }
+}
+
+function nextSong(){
+  const i = idxById(currentId);
+  if(i < SONGS.length - 1){
+    loadById(SONGS[i + 1].id, true);
+  }else if(loopMode === "list"){
+    loadById(SONGS[0].id, true);
+  }else{
+    audio.pause();
+    syncPlayBtn();
+    syncPlayerStateClass();
+  }
+}
+
+function prevSong(){
+  const i = idxfunction loopLabel(){
+  if(loopMode === "list") return "🔁 清單循環";
+  if(loopMode === "single") return "🔂 單曲循環";
+  return "➡ 不循環";
+}
+
+function syncfunction loopLabel(){
+  if(loopMode === "list") return "清單循環";
+  if(loopMode === "single") return "單曲循環";
+  return "不循環";
+}("active");
+    if(loopMode !== "off") b.classList.add("active");
+  }
+  if(pill) pill.textContent = loopLabe "暫停";
+}
+
+function syncPlayerStateClass(){
+  const root = $("playerRoot");
+  if(!root) return;
+  root.classList.toggle("playing", !audio.paused);
+  root.classList.toggle("paused", audio.paused);
+}
+
+function bindWheelControls(){
+  const playerEl = $("playerRoot");
+  const seek = $("seek");
+  const vol = $("vol");
+
+  if(playerEl){
+    playerEl.addEventListener("wheel", (e) => {
+      if(e.ctrlKey) return;
+      const t = e.target;
+      if(t && (t.id === "seek" || t.id === "vol")) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      audio.volume = clamp((audio.volume ?? 0.5) + delta, 0, 1);
+      if(vol) vol.value = String(audio.volume);
+    }, { passive:false });
+  }
+
+  if(seek){
+    seek.addEventListener("wheel", (e) => {
+      if(e.ctrlKey) return;
+      e.preventDefault();
+      if(!isFinite(audio.duration) || audio.duration <= 0) return;
+      const step = e.shiftKey ? 15 : 5;
+      const dir = e.deltaY > 0 ? -1 : 1;
+      audio.currentTime = clamp(audio.currentTime + dir * step, 0, audio.duration);
+    }, { passive:false });
+  }
+
+  if(vol){
+    vol.addEventListener("wheel", (e) => {
+      if(e.ctrlKey) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      audio.volume = clamp((audio.volume ?? 0.5) + delta, 0, 1);
+      vol.value = String(audio.volume);
+    }, { passive:false });
+  }
+}
+
+function renderLyrics(){
+  const box = $("lyricsBox");
+  const autoBtn = $("lyAutoBtn");
+  const foldBtn = $("lyFoldBtn");
+
+  if(autoBtn) autoBtn.classList.toggle("active", !!lyricsAutoScroll);
+  if(foldBtn) foldBtn.textContent = lyricsCollapsed ? "展開" : "摺疊";
+  if(!box) return;
+
+  if(lyric{
+    box.style.display = "";
+  }
+
+  if(!lyrics.length){
+    box.innerHTML = `<div class="lyEmpty">沒有歌詞</div>`;
+    return;
+  }
+
+  box.innerHTML = lyrics.if(foldBtn) foldBtn.textContent = lyricsCollapsed ? "展開歌詞" : "收合歌詞";=== activeLyIndex ? " active" : "";
+    return `<div class="lyLine${active}" data-t="${l.time}">
+      <div class="t">${escapeHtml(t)}</div>
+      <div class="tx" title="${escapeHtml(l.text)}">${escapeHtnite(t)) audio.currentTime = clamp(t, 0, isFinite(audio.duration) ? audio.duration : t);
+      audio.play().catch(() => {});
+      lyricsAutoScroll = return `<div class="lyLine${active}" data-t="${l.time}">
+      <div class="tx" title="${escapeHtml(l.text)}">${escapeHtml(l.text)}</div>
+    </div>`;"active", !!lyricsAutoScroll);
+}
+
+function syncLyricsActive(forceScroll){
+  if(!lyrics.length) return;
+  const box = $("lyricsBox");
+  if(!box || lyricsCollapsed) return;
+
+  const idx = findActiveLyIndex(audio.currentTime || 0);
+  if(idx === activeLyIndex && !forceScroll) return;
+  activeLyIndex = idx;
+
+  const lines = box.querySelectorAll(".lyLine");
+  lines.forEach((el, i) => el.classList.toggle("active", i === activeLyIndex));
+
+  if(activeLyIndex < 0 || !lines[activeLyIndex]) return;
+
+  if(lyricsAutoScroll || forceScroll){
+    const el = lines[activeLyIndex];
+    const boxRect = box.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const elTopInBox = (elRect.top - boxRect.top) + box.scrollTop;
+    const elCenter = elTopInBox + el.offsetHeight / 2;
+    const targetTop = elCenter - box.clientHeight / 2;
+    const maxTop = Math.max(0, box.scrollHeight - box.clientHeight);
+    const nextTop = Math.max(0, Math.min(targetTop, maxTop));
+
+    box.scrollTo({
+      top:nextTop,
+      behavior:forceScroll ? "auto" : "smooth"
+    });
+  }
+}
+
+function renderPlayer(){
+  const s = currentSong();
+  if(!s){
+    $("playerArea").innerHTML = `<div class="player"><div class="hint">目前沒有歌曲</div></div>`;
+    return;
+  }
+
+  $("playerArea").innerHTML = `
+    <div class="player redesign-player paused" id="playerRoot">
+      <div class="nowPlaying">
+        <div class="coverDisc" aria-label="播放器封面">
+          <div class="coverBadge"><span></span>Now Playing</div>
+          <div class="coverBars"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+
+        <div class="trackPanel">
+          <div class="trackHeader">
+            <div class="trackLabelRow">
+              <div class="miniPill"><span class="pillDot"></span>Cover Track</div>
+              <div class="wave" title="播放中"><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+
+            <div class="trackTitle" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
+            <div class="trackDesc">${escapeHtml(s.desc || "")}</div>
+          </div>
+
+          <div class="playerMetaGrid">
+            <div class="metaTile">
+              <div class="metaTileLabel">發布日期</div>
+              <div class="metaTileValue">${escapeHtml(s.createdAt)}</div>
+            </div>
+            <div class="metaTile">
+              <div class="metaTileLabel">播放模式</div>
+              <div class="metaTileValue" id="loopPill">${escapeHtml(loopLabel())}</div>
+            </div>
+          </div>
+
+          <div class="controlDock">
+            <div class="progress">
+              <div class="progressRow">
+                <span class="time" id="cur">00:00</span>
+                <input type="range" id="seek" class="range" min="0" max="1000" value="0" />
+                <spa   <button class="btn primary bigPlay" id="playBtn">播放</button>
+              <button class="btn ghost" id="nextBtn">下一首 ⏭</button>
+            </div>
+
+            <div class="extraControls">
+              <button class="btn" id="loopBtn">${escapeHtml(loopLabel())}</       <span class="label">音量</span>
+              <input type="range" id="vol" class="vol" min="0" max="1" step="0.01" value="${audio.volume}" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lyricsCard">
+      <div class="lyricsHead">
+        <div class="lyricsTitle">歌詞</div>
+        <div class="lyricsTools">
+          <<button class="btn ghost" id="prevBtn">上一首</button>
+              <button class="btn primary bigPlay" id="playBtn">播放</button>
+              <button class="btn ghost" id="nextBtn">下一首</button>c () => {
+    if(audio.paused){
+      try{ await audio.play(); }
+      catc<button class="btn" id="loopBtn">${escapeHtml(loopLabel())}</button>
+              <button class="btn" id="copyBtn">複製音檔連結</button>("loopBtn").onclick = () => {
+    if(loopMode === "list") loopMode = "single";
+    else if(loopMode === "single") loopMode = "off";
+    else loopMode = "list";
+    syncLoopBtn();
+  };
+
+  $("copyBtn").onclick = async () => {
+    const url = String(s.mp3Url || "").trim();
+    try{
+      await navigator.clipboard.writeText(url);
+      showToast("連結已複製");
+    }catch{
+      showToast("複製失敗");
+    }
+  };
+
+  $("lyAutoBtn").onclick = <button class="smallBtn active" id="lyAutoBtn">跟隨歌詞</button>
+          <button class="smallBtn" id="lyFoldBtn">收合歌詞</button>
+          <button class="smallBtn" id="lyReloadBtn">重載歌詞</button>d = !lyricsCollapsed;
+    renderLyrics();
+  };
+
+  $("lyReloadBtn").onclick = () => {
+    const s2 = currentSong();
+    if(s2) loadLyricsForSong(s2);
+  };
+
+  $("vol").oninput = () => {
+    audio.volume = Number($("vol").value);
+  };
+
+  $("seek").oninput = () => {
+    if(isFinite(audio.duration) && audio.duration > 0){
+      audio.currentTime = (Number($("seek").value) / 1000) * audio.duration;
+      syncLyricsActive(false);
+    }
+  };
+
+  const lyBox = $("lyricsBox");
+  if(lyBox){
+    let userScrolling = false;
+    lyBox.addEventListener("touchstart", () => { userScrolling = true; }, { passive:true });
+    lyBox.addEventListener("wheel", () => { userScrolling = true; }, { passive:true });
+    lyBox.addEventListener("scroll", () => {
+      if(userScrolling && lyricsAutoScroll){
+        lyricsAutoScroll = false;
+        renderLyricsToolsState();
+      }
+    }, { passive:true });
+    lyBox.addEventListener("touchend", () => { userScrolling = false; }, { passive:true });
+  }
+
+  syncPlayBtn();
+  syncLoopBtn();
+  syncPlayerStateClass();
+  bindWheelControls();
+  renderLyrics();
+}
+
+audio.addEventListener("timeupdate", () => {
+  const cur = $("cur"), dur = $("dur"), seek = $("seek");
+  if(cur) cur.textContent = fmt(audio.currentTime);
+  if(dur && isFinite(audio.duration) && audio.duration > 0) dur.textContent = fmt(audio.duration);
+  if(seek && isFinite(audio.duration) && audio.duration > 0){
+    seek.value = String(Math.floor((audio.currentTime / audio.duration) * 1000));
+  }
+  syncLyricsActive(false);
+});
+
+audio.addEventListener("loadedmetadata", () => {
+  const dur = $("dur");
+  if(dur && isFinite(audio.duration) && audio.duration > 0) dur.textContent = fmt(audio.duration);
+  syncLyricsActive(true);
+});
+
+audio.addEventListener("play", () => {
+  syncPlayBtn();
+  syncPlayerStateClass();
+});
+
+audio.addEventListener("pause", () => {
+  syncPlayBtn();
+  syncPlayerStateClass();
+});
+
+audio.addEventListener("ended", () => {
+  if(loopMode === "single"){
+    audio.currentTime = 0;
+    audio.play().catch(() => showToast("無法播放"));
+  }else{
+    nextSong();
+  }
+});
+
+$("searchInput").addEventListener("input", (e) => {
+  searchKeyword = e.target.value || "";
+  renderList();
+});
+
+(function init(){
+  sortSongs();
+  const total = $("songTotal");
+  if(total) total.textContent = SONGS.length;
+
+  if(SONGS.length === 0){
+    $("playerArea").innerHTML = `<div class="player"><div class="hint">目前沒有歌曲</div></div>`;
+    return;
+  }
+
+  currentId = SONGS[0].id;
+  loadById(currentId, false);
+  renderList();
+})();
+</script>
+</body>
+</html>
