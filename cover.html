@@ -895,6 +895,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 }
 
 .lyLine .tx{
+  min-width:0;
   flex:1 1 auto;
 }
 
@@ -1850,20 +1851,34 @@ function nextSong(){
 }
 
 function prevSong(){
-  const i = idxfunction loopLabel(){
-  if(loopMode === "list") return "🔁 清單循環";
-  if(loopMode === "single") return "🔂 單曲循環";
-  return "➡ 不循環";
+  const i = idxById(currentId);
+  if(i > 0){
+    loadById(SONGS[i - 1].id, true);
+  }else{
+    loadById(SONGS[SONGS.length - 1].id, true);
+  }
 }
 
-function syncfunction loopLabel(){
+function loopLabel(){
   if(loopMode === "list") return "清單循環";
   if(loopMode === "single") return "單曲循環";
   return "不循環";
-}("active");
+}
+
+function syncLoopBtn(){
+  const b = $("loopBtn");
+  const pill = $("loopPill");
+  if(b){
+    b.textContent = loopLabel();
+    b.classList.remove("active");
     if(loopMode !== "off") b.classList.add("active");
   }
-  if(pill) pill.textContent = loopLabe "暫停";
+  if(pill) pill.textContent = loopLabel();
+}
+
+function syncPlayBtn(){
+  const b = $("playBtn");
+  if(b) b.textContent = audio.paused ? "播放" : "暫停";
 }
 
 function syncPlayerStateClass(){
@@ -1918,10 +1933,13 @@ function renderLyrics(){
   const foldBtn = $("lyFoldBtn");
 
   if(autoBtn) autoBtn.classList.toggle("active", !!lyricsAutoScroll);
-  if(foldBtn) foldBtn.textContent = lyricsCollapsed ? "展開" : "摺疊";
+  if(foldBtn) foldBtn.textContent = lyricsCollapsed ? "展開歌詞" : "收合歌詞";
   if(!box) return;
 
-  if(lyric{
+  if(lyricsCollapsed){
+    box.style.display = "none";
+    return;
+  }else{
     box.style.display = "";
   }
 
@@ -1930,14 +1948,29 @@ function renderLyrics(){
     return;
   }
 
-  box.innerHTML = lyrics.if(foldBtn) foldBtn.textContent = lyricsCollapsed ? "展開歌詞" : "收合歌詞";=== activeLyIndex ? " active" : "";
+  box.innerHTML = lyrics.map((l, i) => {
+    const t = fmt(l.time);
+    const active = i === activeLyIndex ? " active" : "";
     return `<div class="lyLine${active}" data-t="${l.time}">
-      <div class="t">${escapeHtml(t)}</div>
-      <div class="tx" title="${escapeHtml(l.text)}">${escapeHtnite(t)) audio.currentTime = clamp(t, 0, isFinite(audio.duration) ? audio.duration : t);
-      audio.play().catch(() => {});
-      lyricsAutoScroll = return `<div class="lyLine${active}" data-t="${l.time}">
       <div class="tx" title="${escapeHtml(l.text)}">${escapeHtml(l.text)}</div>
-    </div>`;"active", !!lyricsAutoScroll);
+    </div>`;
+  }).join("");
+
+  box.querySelectorAll(".lyLine").forEach(el => {
+    el.onclick = () => {
+      const t = Number(el.getAttribute("data-t") || "0");
+      if(isFinite(t)) audio.currentTime = clamp(t, 0, isFinite(audio.duration) ? audio.duration : t);
+      audio.play().catch(() => {});
+      lyricsAutoScroll = false;
+      renderLyricsToolsState();
+      syncLyricsActive(true);
+    };
+  });
+}
+
+function renderLyricsToolsState(){
+  const autoBtn = $("lyAutoBtn");
+  if(autoBtn) autoBtn.classList.toggle("active", !!lyricsAutoScroll);
 }
 
 function syncLyricsActive(forceScroll){
@@ -2013,12 +2046,23 @@ function renderPlayer(){
               <div class="progressRow">
                 <span class="time" id="cur">00:00</span>
                 <input type="range" id="seek" class="range" min="0" max="1000" value="0" />
-                <spa   <button class="btn primary bigPlay" id="playBtn">播放</button>
-              <button class="btn ghost" id="nextBtn">下一首 ⏭</button>
+                <span class="time" id="dur">00:00</span>
+              </div>
+            </div>
+
+            <div class="mainControls">
+              <button class="btn ghost" id="prevBtn">上一首</button>
+              <button class="btn primary bigPlay" id="playBtn">播放</button>
+              <button class="btn ghost" id="nextBtn">下一首</button>
             </div>
 
             <div class="extraControls">
-              <button class="btn" id="loopBtn">${escapeHtml(loopLabel())}</       <span class="label">音量</span>
+              <button class="btn" id="loopBtn">${escapeHtml(loopLabel())}</button>
+              <button class="btn" id="copyBtn">複製音檔連結</button>
+            </div>
+
+            <div class="volRow">
+              <span class="label">音量</span>
               <input type="range" id="vol" class="vol" min="0" max="1" step="0.01" value="${audio.volume}" />
             </div>
           </div>
@@ -2030,13 +2074,30 @@ function renderPlayer(){
       <div class="lyricsHead">
         <div class="lyricsTitle">歌詞</div>
         <div class="lyricsTools">
-          <<button class="btn ghost" id="prevBtn">上一首</button>
-              <button class="btn primary bigPlay" id="playBtn">播放</button>
-              <button class="btn ghost" id="nextBtn">下一首</button>c () => {
+          <button class="smallBtn active" id="lyAutoBtn">跟隨歌詞</button>
+          <button class="smallBtn" id="lyFoldBtn">收合歌詞</button>
+          <button class="smallBtn" id="lyReloadBtn">重載歌詞</button>
+        </div>
+      </div>
+      <div class="lyricsBox" id="lyricsBox"></div>
+    </div>
+  `;
+
+  $("prevBtn").onclick = prevSong;
+  $("nextBtn").onclick = nextSong;
+
+  $("playBtn").onclick = async () => {
     if(audio.paused){
       try{ await audio.play(); }
-      catc<button class="btn" id="loopBtn">${escapeHtml(loopLabel())}</button>
-              <button class="btn" id="copyBtn">複製音檔連結</button>("loopBtn").onclick = () => {
+      catch{ showToast("無法播放（可能跨域或連結失效）"); }
+    }else{
+      audio.pause();
+    }
+    syncPlayBtn();
+    syncPlayerStateClass();
+  };
+
+  $("loopBtn").onclick = () => {
     if(loopMode === "list") loopMode = "single";
     else if(loopMode === "single") loopMode = "off";
     else loopMode = "list";
@@ -2053,9 +2114,14 @@ function renderPlayer(){
     }
   };
 
-  $("lyAutoBtn").onclick = <button class="smallBtn active" id="lyAutoBtn">跟隨歌詞</button>
-          <button class="smallBtn" id="lyFoldBtn">收合歌詞</button>
-          <button class="smallBtn" id="lyReloadBtn">重載歌詞</button>d = !lyricsCollapsed;
+  $("lyAutoBtn").onclick = () => {
+    lyricsAutoScroll = !lyricsAutoScroll;
+    renderLyricsToolsState();
+    if(lyricsAutoScroll) syncLyricsActive(true);
+  };
+
+  $("lyFoldBtn").onclick = () => {
+    lyricsCollapsed = !lyricsCollapsed;
     renderLyrics();
   };
 
@@ -2131,25 +2197,38 @@ audio.addEventListener("ended", () => {
   }
 });
 
-$("searchInput").addEventListener("input", (e) => {
-  searchKeyword = e.target.value || "";
-  renderList();
-});
-
-(function init(){
+function initCoverPlayer(){
   sortSongs();
+
   const total = $("songTotal");
   if(total) total.textContent = SONGS.length;
 
-  if(SONGS.length === 0){
-    $("playerArea").innerHTML = `<div class="player"><div class="hint">目前沒有歌曲</div></div>`;
+  const searchInput = $("searchInput");
+  if(searchInput){
+    searchInput.addEventListener("input", (e) => {
+      searchKeyword = e.target.value || "";
+      renderList();
+    });
+  }
+
+  const playerArea = $("playerArea");
+  if(!playerArea) return;
+
+  if(!Array.isArray(SONGS) || SONGS.length === 0){
+    playerArea.innerHTML = `<div class="player"><div class="lyEmpty">目前沒有歌曲</div></div>`;
     return;
   }
 
   currentId = SONGS[0].id;
   loadById(currentId, false);
   renderList();
-})();
+}
+
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", initCoverPlayer);
+}else{
+  initCoverPlayer();
+}
 </script>
 </body>
 </html>
