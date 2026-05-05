@@ -1,0 +1,1699 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>筱風｜地震情報</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#eef4f7;
+      --bg2:#e3edf2;
+      --surface:#ffffff;
+      --surface-soft:rgba(255,255,255,.76);
+      --surface-glass:rgba(255,255,255,.84);
+      --line:rgba(25,42,58,.10);
+      --line-strong:rgba(25,42,58,.16);
+      --text:#163042;
+      --heading:#122c3c;
+      --muted:#6a7d89;
+      --muted2:#9aabb6;
+      --sea:#0f4c5c;
+      --teal:#2a9d8f;
+      --ice:#7bdff2;
+      --warm:#f4a261;
+      --danger:#d62828;
+      --shadow:0 18px 50px rgba(31,53,72,.12);
+      --shadow-soft:0 10px 30px rgba(31,53,72,.08);
+      --radius:28px;
+      --radius2:20px;
+      --max:1240px;
+    }
+
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:"Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 10% -10%, rgba(42,157,143,.18), transparent 34%),
+        radial-gradient(circle at 88% 6%, rgba(123,223,242,.18), transparent 30%),
+        linear-gradient(180deg, #f7fbfc 0%, var(--bg) 48%, #ffffff 100%);
+      overflow-x:hidden;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background-image:
+        linear-gradient(rgba(15,76,92,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15,76,92,.05) 1px, transparent 1px);
+      background-size:42px 42px;
+      mask-image:linear-gradient(180deg, rgba(0,0,0,.72), transparent 76%);
+      z-index:-1;
+    }
+
+    a{ color:inherit; }
+    button,input,select{ font:inherit; }
+
+    .page{
+      width:min(var(--max), calc(100% - 32px));
+      margin:0 auto;
+      padding:28px 0 54px;
+    }
+
+    .topbar{
+      position:sticky;
+      top:12px;
+      z-index:50;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:22px;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:rgba(255,255,255,.72);
+      backdrop-filter:blur(18px);
+      box-shadow:0 10px 30px rgba(31,53,72,.08);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      text-decoration:none;
+    }
+
+    .brandMark{
+      width:36px;
+      height:36px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      border-radius:14px;
+      color:#fff;
+      font-weight:900;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 10px 22px rgba(15,76,92,.22);
+    }
+
+    .brandText{
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      line-height:1.1;
+    }
+
+    .brandText strong{
+      font-size:14px;
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .brandText span{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .navPills{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .navPills a{
+      text-decoration:none;
+      color:#264052;
+      font-size:12px;
+      font-weight:900;
+      padding:9px 12px;
+      border-radius:999px;
+      transition:.18s ease;
+    }
+
+    .navPills a:hover,
+    .navPills a.active{
+      color:var(--sea);
+      background:linear-gradient(135deg, rgba(15,76,92,.10), rgba(42,157,143,.12));
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:minmax(0, 1.1fr) minmax(320px, .9fr);
+      gap:22px;
+      align-items:stretch;
+      margin-bottom:22px;
+    }
+
+    .heroCard,
+    .quickPanel{
+      border:1px solid var(--line);
+      border-radius:32px;
+      background:rgba(255,255,255,.78);
+      backdrop-filter:blur(18px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .heroCard{
+      position:relative;
+      min-height:330px;
+      padding:34px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.98), rgba(236,245,246,.90)),
+        radial-gradient(circle at 86% 14%, rgba(42,157,143,.15), transparent 34%);
+    }
+
+    .heroCard::after{
+      content:"";
+      position:absolute;
+      right:-120px;
+      bottom:-150px;
+      width:340px;
+      height:340px;
+      border-radius:50%;
+      border:42px solid rgba(15,76,92,.075);
+      pointer-events:none;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:max-content;
+      max-width:100%;
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid rgba(15,76,92,.14);
+      color:var(--sea);
+      background:rgba(15,76,92,.08);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .dot{
+      width:9px;
+      height:9px;
+      border-radius:999px;
+      display:inline-block;
+      background:var(--teal);
+      flex:0 0 auto;
+    }
+
+    .pillDot{
+      width:5px;
+      height:5px;
+      border-radius:999px;
+      background:#c97920;
+      box-shadow:0 0 0 4px rgba(244,162,97,.13);
+      flex:0 0 auto;
+    }
+
+    .miniPill{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      width:max-content;
+      max-width:100%;
+      padding:7px 12px;
+      border-radius:999px;
+      color:#9a5a12;
+      background:linear-gradient(135deg, rgba(244,162,97,.18), rgba(255,239,221,.92));
+      border:1px solid rgba(244,162,97,.22);
+      box-shadow:0 8px 18px rgba(244,162,97,.10);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .heroTitle{
+      position:relative;
+      z-index:1;
+      margin:24px 0 18px;
+      font-size:clamp(40px, 5vw, 68px);
+      line-height:1.12;
+      letter-spacing:-.045em;
+      font-weight:900;
+      color:var(--heading);
+    }
+
+    .heroTitle span{
+      display:block;
+      color:transparent;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      -webkit-background-clip:text;
+      background-clip:text;
+    }
+
+    .heroDesc{
+      position:relative;
+      z-index:1;
+      max-width:760px;
+      margin:0;
+      color:#5e717d;
+      line-height:1.85;
+      font-size:14px;
+      font-weight:650;
+    }
+
+    .heroActions{
+      position:relative;
+      z-index:1;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:26px;
+    }
+
+    .actionBtn,
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:42px;
+      padding:0 15px;
+      border-radius:999px;
+      border:0;
+      font-size:13px;
+      font-weight:900;
+      cursor:pointer;
+      text-decoration:none;
+      color:#fff;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 14px 28px rgba(15,76,92,.20);
+      transition:transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+      white-space:nowrap;
+    }
+
+    .actionBtn:hover,
+    .btn:hover{
+      transform:translateY(-2px);
+      box-shadow:0 18px 34px rgba(15,76,92,.24);
+    }
+
+    .ghostBtn,
+    .btnGhost{
+      color:#1d3a4a;
+      background:#fff;
+      border:1px solid var(--line-strong);
+      box-shadow:0 10px 22px rgba(31,53,72,.07);
+    }
+
+    .btn:disabled{
+      cursor:not-allowed;
+      opacity:.62;
+      transform:none;
+    }
+
+    .quickPanel{
+      padding:20px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .quakeVisual{
+      position:relative;
+      min-height:170px;
+      border-radius:24px;
+      border:1px solid var(--line);
+      background:
+        radial-gradient(circle at 30% 24%, rgba(214,40,40,.16), transparent 28%),
+        radial-gradient(circle at 72% 72%, rgba(42,157,143,.24), transparent 34%),
+        linear-gradient(135deg, rgba(15,76,92,.13), rgba(42,157,143,.08));
+      overflow:hidden;
+    }
+
+    .quakeVisual::before{
+      content:"";
+      position:absolute;
+      left:24px;
+      top:50%;
+      width:80%;
+      height:2px;
+      background:linear-gradient(90deg, transparent, rgba(15,76,92,.28), transparent);
+      transform:translateY(-50%);
+    }
+
+    .quakeVisual::after{
+      content:"M";
+      position:absolute;
+      right:22px;
+      bottom:8px;
+      color:rgba(15,76,92,.14);
+      font-size:120px;
+      line-height:1;
+      letter-spacing:-.08em;
+      font-weight:900;
+    }
+
+    .quickTitle{
+      margin:0;
+      color:var(--heading);
+      font-size:22px;
+      line-height:1.2;
+      letter-spacing:-.035em;
+      font-weight:900;
+    }
+
+    .quickText{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.75;
+      font-weight:650;
+    }
+
+    .quickGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:auto;
+    }
+
+    .quickStat{
+      min-height:82px;
+      padding:14px;
+      border:1px solid var(--line);
+      border-radius:20px;
+      background:#fff;
+    }
+
+    .quickNum{
+      color:var(--heading);
+      font-size:24px;
+      font-weight:900;
+      line-height:1;
+      letter-spacing:-.04em;
+    }
+
+    .quickLabel{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .section{
+      scroll-margin-top:110px;
+      margin-top:22px;
+      border:1px solid var(--line);
+      border-radius:32px;
+      background:rgba(255,255,255,.76);
+      backdrop-filter:blur(18px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .sectionHead{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      padding:24px 24px 16px;
+      border-bottom:1px solid var(--line);
+      background:
+        linear-gradient(135deg, rgba(15,76,92,.06), rgba(42,157,143,.05)),
+        rgba(255,255,255,.58);
+    }
+
+    .sectionKicker{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:var(--sea);
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:7px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .sectionTitle{
+      margin:0;
+      color:var(--heading);
+      font-size:clamp(24px, 3vw, 38px);
+      line-height:1.18;
+      letter-spacing:-.035em;
+      font-weight:900;
+    }
+
+    .sectionDesc{
+      margin:8px 0 0;
+      max-width:760px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.75;
+      font-weight:650;
+    }
+
+    .toolbar{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .toggle{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:0 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:#244150;
+      font-size:12px;
+      font-weight:900;
+      user-select:none;
+      cursor:pointer;
+      white-space:nowrap;
+      box-shadow:0 8px 18px rgba(31,53,72,.06);
+    }
+
+    .toggle input{
+      accent-color:var(--sea);
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-height:34px;
+      padding:0 11px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:#244150;
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+      box-shadow:0 8px 18px rgba(31,53,72,.05);
+    }
+
+    .quakeBody{
+      display:grid;
+      grid-template-columns:330px minmax(0, 1fr);
+      gap:18px;
+      padding:20px;
+      align-items:start;
+    }
+
+    .sideStack{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      min-width:0;
+    }
+
+    .panelBox{
+      min-width:0;
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:rgba(255,255,255,.86);
+      box-shadow:var(--shadow-soft);
+      overflow:hidden;
+    }
+
+    .pbHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:14px;
+      border-bottom:1px solid var(--line);
+      background:rgba(255,255,255,.72);
+    }
+
+    .pbTitle{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:var(--heading);
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .pbBody{
+      padding:14px;
+    }
+
+    .select{
+      width:100%;
+      min-height:42px;
+      margin-bottom:12px;
+      padding:0 13px;
+      border-radius:16px;
+      border:1px solid var(--line-strong);
+      outline:none;
+      background:#fff;
+      color:var(--heading);
+      font-size:12px;
+      font-weight:900;
+      box-shadow:0 8px 18px rgba(31,53,72,.05);
+    }
+
+    .select:focus{
+      border-color:rgba(15,76,92,.28);
+      box-shadow:0 0 0 4px rgba(15,76,92,.08);
+    }
+
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      max-height:420px;
+      overflow-y:auto;
+      padding-right:3px;
+      overscroll-behavior:contain;
+    }
+
+    .list::-webkit-scrollbar,
+    .countyGrid::-webkit-scrollbar{ width:10px; }
+    .list::-webkit-scrollbar-thumb,
+    .countyGrid::-webkit-scrollbar-thumb{
+      background:rgba(15,76,92,.20);
+      border-radius:999px;
+      border:3px solid rgba(255,255,255,.8);
+    }
+
+    .item{
+      padding:12px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+      cursor:pointer;
+      transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+
+    .item:hover{
+      transform:translateY(-2px);
+      border-color:rgba(15,76,92,.18);
+      box-shadow:0 12px 24px rgba(31,53,72,.09);
+    }
+
+    .itemTop{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:7px;
+    }
+
+    .itemTime{
+      color:var(--heading);
+      font-size:12px;
+      line-height:1.45;
+      font-weight:900;
+    }
+
+    .itemMag{
+      flex:0 0 auto;
+      display:inline-flex;
+      align-items:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      color:#9b3d34;
+      background:rgba(214,40,40,.09);
+      border:1px solid rgba(214,40,40,.16);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .itemLoc{
+      color:#536b77;
+      font-size:12px;
+      line-height:1.55;
+      font-weight:750;
+    }
+
+    .infoGrid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+
+    .infoCard{
+      min-height:78px;
+      padding:13px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+    }
+
+    .val{
+      color:var(--heading);
+      font-size:18px;
+      line-height:1.2;
+      font-weight:900;
+      word-break:break-word;
+    }
+
+    .lab{
+      margin-top:7px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .countyTitle{
+      margin:14px 0 10px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      color:var(--heading);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .countyGrid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:8px;
+      max-height:260px;
+      overflow-y:auto;
+      padding-right:3px;
+    }
+
+    .countyItem{
+      min-width:0;
+      min-height:46px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:9px 10px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
+    }
+
+    .countyName{
+      min-width:0;
+      color:var(--heading);
+      font-size:12px;
+      font-weight:900;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .countyInt{
+      flex:0 0 auto;
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-height:28px;
+      padding:0 9px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.88);
+      color:#244150;
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .iDot{
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      display:inline-block;
+    }
+
+    .hint{
+      margin-top:9px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.55;
+      font-weight:850;
+    }
+
+    .mapShell{
+      min-width:0;
+      border:1px solid var(--line);
+      border-radius:26px;
+      background:#fff;
+      box-shadow:0 12px 28px rgba(31,53,72,.08);
+      overflow:hidden;
+    }
+
+    .mapHeader{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+      padding:14px;
+      border-bottom:1px solid var(--line);
+      background:rgba(255,255,255,.76);
+    }
+
+    .mapHeader strong{
+      display:block;
+      color:var(--heading);
+      font-size:15px;
+      font-weight:900;
+      line-height:1.25;
+    }
+
+    .mapHeader span{
+      display:block;
+      margin-top:5px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:750;
+      line-height:1.45;
+    }
+
+    .mapLegendInline{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .legendTiny{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      min-height:30px;
+      padding:0 9px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid var(--line);
+      color:#244150;
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .legendTiny i{
+      display:block;
+      width:10px;
+      height:10px;
+      border-radius:999px;
+    }
+
+    #map{
+      width:100%;
+      height:clamp(580px, 70vh, 760px);
+      min-height:540px;
+      background:#f4fafb;
+    }
+
+    .legend{
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(25,42,58,.12);
+      border-radius:16px;
+      padding:10px;
+      box-shadow:0 12px 26px rgba(31,53,72,.12);
+      color:var(--heading);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.4;
+    }
+
+    .legend .row{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:6px;
+    }
+
+    .swatch{
+      width:14px;
+      height:14px;
+      border-radius:6px;
+      border:1px solid rgba(25,42,58,.14);
+    }
+
+    .epi{
+      width:20px;
+      height:20px;
+      border-radius:999px;
+      background:rgba(214,40,40,1);
+      border:3px solid #fff;
+      box-shadow:0 12px 26px rgba(214,40,40,.25);
+    }
+
+    .stn{
+      width:26px;
+      height:26px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#fff;
+      border:3px solid var(--sea);
+      box-shadow:0 10px 20px rgba(31,53,72,.13);
+      color:var(--heading);
+      font-weight:900;
+      font-size:12px;
+      line-height:1;
+      user-select:none;
+    }
+
+    @media (max-width:1100px){
+      .hero,
+      .quakeBody{
+        grid-template-columns:1fr;
+      }
+
+      .sideStack{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        align-items:start;
+      }
+
+      .panelBox.infoPanel{
+        min-height:100%;
+      }
+
+      #map{
+        height:620px;
+        min-height:500px;
+      }
+    }
+
+    @media (max-width:780px){
+      .page{
+        width:min(100% - 20px, var(--max));
+        padding-top:14px;
+      }
+
+      .topbar{
+        top:8px;
+        align-items:flex-start;
+        flex-direction:column;
+        border-radius:22px;
+      }
+
+      .navPills{
+        width:100%;
+        justify-content:flex-start;
+        flex-wrap:nowrap;
+        overflow:auto;
+        padding-bottom:2px;
+      }
+
+      .navPills a{
+        flex:0 0 auto;
+      }
+
+      .heroCard,
+      .quickPanel,
+      .section{
+        border-radius:26px;
+      }
+
+      .heroCard{
+        min-height:auto;
+        padding:24px;
+      }
+
+      .sectionHead{
+        align-items:flex-start;
+        flex-direction:column;
+        padding:20px;
+      }
+
+      .toolbar{
+        justify-content:flex-start;
+      }
+
+      .quakeBody{
+        padding:14px;
+        gap:14px;
+      }
+
+      .sideStack{
+        grid-template-columns:1fr;
+      }
+
+      .infoGrid,
+      .countyGrid{
+        grid-template-columns:1fr;
+      }
+
+      .mapHeader{
+        flex-direction:column;
+      }
+
+      #map{
+        height:560px;
+        min-height:460px;
+      }
+    }
+
+    @media (max-width:520px){
+      body{ background:#f7fbfc; }
+
+      .page{
+        width:100%;
+        padding:10px 10px 34px;
+      }
+
+      .heroTitle{
+        font-size:42px;
+        line-height:1.16;
+        letter-spacing:-.035em;
+      }
+
+      .heroActions{
+        flex-direction:column;
+      }
+
+      .actionBtn{
+        width:100%;
+      }
+
+      .quickGrid{
+        grid-template-columns:1fr;
+      }
+
+      #map{
+        height:520px;
+        min-height:420px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <header class="topbar">
+      <a class="brand" href="https://itzseir.github.io/ItzSeir/" aria-label="返回首頁">
+        <div class="brandMark"></div>
+        <div class="brandText">
+          <strong>筱風</strong>
+          <span>地震情報</span>
+        </div>
+      </a>
+
+      <nav class="navPills" aria-label="主選單">
+        <a href="https://itzseir.github.io/ItzSeir/floestsmp">首頁</a>
+        <a href="past-events.html">往期活動</a>
+        <a href="minecraft/index.html">麥塊</a>
+        <a href="typhoon.html">颱風追蹤</a>
+        <a class="active" href="earthquake.html">地震情報</a>
+      </nav>
+    </header>
+
+    <section class="hero" id="top">
+      <div class="heroCard">
+        <div class="eyebrow"><span class="dot"></span> CWA EARTHQUAKE MONITOR</div>
+        <h1 class="heroTitle">台灣地震<span>即時情報</span></h1>
+        <p class="heroDesc">
+          整合中央氣象署 Open Data 的顯著有感地震與小區域地震資料，顯示震央、地震規模、深度、測站震度與各縣市最大震度。版面已統一成葉離網站目前使用的深海藍綠 dashboard 風格。
+        </p>
+        <div class="heroActions">
+          <a class="actionBtn" href="#tracker">查看地震地圖</a>
+          <button class="actionBtn ghostBtn" type="button" id="heroRefreshBtn">立即更新</button>
+        </div>
+      </div>
+
+      <aside class="quickPanel">
+        <div class="quakeVisual" aria-hidden="true"></div>
+        <div class="miniPill"><span class="pillDot"></span>Live Data Summary</div>
+        <h2 class="quickTitle">地震資訊 Dashboard</h2>
+        <p class="quickText">上方選擇報告，下方地圖自動定位震央與測站震度。支援自動更新與測站顯示切換。</p>
+        <div class="quickGrid">
+          <div class="quickStat">
+            <div class="quickNum" id="heroEqCount">—</div>
+            <div class="quickLabel">地震報告</div>
+          </div>
+          <div class="quickStat">
+            <div class="quickNum" id="heroCountyCount">—</div>
+            <div class="quickLabel">縣市震度</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section" id="tracker">
+      <div class="sectionHead">
+        <div>
+          <div class="sectionKicker"><span class="dot" style="background:var(--danger);"></span> Earthquake Tracker</div>
+          <h2 class="sectionTitle">地震情報與震度地圖</h2>
+          <p class="sectionDesc">資料來源：中央氣象署 Open Data。若 Mapbox 地圖載入失敗，會自動切換至 OpenStreetMap。</p>
+        </div>
+
+        <div class="toolbar">
+          <label class="toggle" title="顯示或隱藏測站震度點">
+            <input type="checkbox" id="toggleStations" checked>
+            顯示測站震度
+          </label>
+
+          <label class="toggle" title="自動向 CWA 更新資料">
+            <input type="checkbox" id="toggleAuto" checked>
+            自動更新
+          </label>
+
+          <span class="chip" id="autoStatus">下次更新：—</span>
+          <button class="btn btnGhost" id="refreshBtn" type="button">立即更新</button>
+        </div>
+      </div>
+
+      <div class="quakeBody">
+        <aside class="sideStack">
+          <div class="panelBox" aria-label="地震報告列表">
+            <div class="pbHead">
+              <div class="pbTitle"><span class="dot"></span>地震報告</div>
+              <span class="chip" id="eqCountChip">0 筆</span>
+            </div>
+            <div class="pbBody">
+              <select class="select" id="eqSelect" aria-label="選擇地震報告"></select>
+              <div class="list" id="eqList"></div>
+              <div class="hint" id="hintText"></div>
+            </div>
+          </div>
+
+          <div class="panelBox infoPanel" aria-label="地震資訊與縣市震度">
+            <div class="pbHead">
+              <div class="pbTitle"><span class="dot" style="background:var(--warm);"></span>地震資訊</div>
+              <span class="chip" id="countyCount">0 筆</span>
+            </div>
+            <div class="pbBody">
+              <div class="infoGrid">
+                <div class="infoCard"><div class="val" id="vTime">—</div><div class="lab">發震時間</div></div>
+                <div class="infoCard"><div class="val" id="vMag">—</div><div class="lab">規模</div></div>
+                <div class="infoCard"><div class="val" id="vDepth">—</div><div class="lab">深度</div></div>
+                <div class="infoCard"><div class="val" id="vMaxInt">—</div><div class="lab">最大震度</div></div>
+              </div>
+
+              <div class="countyTitle">
+                <span>各縣市最大震度</span>
+                <span class="miniPill"><span class="pillDot"></span>County Max</span>
+              </div>
+
+              <div class="countyGrid" id="countyGrid"></div>
+              <div class="hint">震度 5-/5+、6-/6+ 會保留原始標籤顯示。</div>
+            </div>
+          </div>
+        </aside>
+
+        <div class="mapShell">
+          <div class="mapHeader">
+            <div>
+              <strong>震央與測站震度地圖</strong>
+              <span>紅點為震央；圓形數字為測站震度。點擊標記可查看詳細資訊。</span>
+            </div>
+            <div class="mapLegendInline" aria-label="簡易圖例">
+              <span class="legendTiny"><i style="background:#ef4444"></i>震央</span>
+              <span class="legendTiny"><i style="background:#34d399"></i>低震度</span>
+              <span class="legendTiny"><i style="background:#fb923c"></i>中震度</span>
+              <span class="legendTiny"><i style="background:#a855f7"></i>高震度</span>
+            </div>
+          </div>
+          <div id="map" aria-label="地震地圖"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    /***********************
+     * CWA 授權碼
+     ***********************/
+    const CWA_AUTH = "CWA-FC8C348E-F564-4D70-88BF-55EFE12E4CA2";
+
+    /***********************
+     * Mapbox style/token
+     ***********************/
+    const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
+    const MAPBOX_STYLE = "itzseir/cmjoiqmu000g401qqh40c87nx";
+
+    /***********************
+     * CWA 地震資料集
+     * 顯著有感地震：E-A0015-001
+     * 小區域地震：E-A0016-001
+     ***********************/
+    const API_BASE = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/";
+    const DATASET_SIGNIFICANT = "E-A0015-001";
+    const DATASET_LOCAL = "E-A0016-001";
+
+    const AUTO_REFRESH_SEC = 60;
+    let autoTimer = null;
+    let nextTickTimer = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(s){
+      return String(s ?? "").replace(/[&<>"']/g, m => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[m]));
+    }
+
+    function toNum(x){
+      const n = Number(x);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function normalizeIntensityLabel(raw){
+      const s = String(raw ?? "").trim();
+      if(!s) return { label:null, bucket:null };
+
+      if(/6\s*(強|\+)/.test(s) || /6\+/.test(s)) return { label:"6+", bucket:6 };
+      if(/6\s*(弱|\-)/.test(s) || /6\-/.test(s)) return { label:"6-", bucket:6 };
+      if(/5\s*(強|\+)/.test(s) || /5\+/.test(s)) return { label:"5+", bucket:5 };
+      if(/5\s*(弱|\-)/.test(s) || /5\-/.test(s)) return { label:"5-", bucket:5 };
+
+      const m = s.match(/([0-7])/);
+      if(m) return { label:m[1], bucket:Number(m[1]) };
+
+      return { label:s, bucket:null };
+    }
+
+    const palette = {
+      0:"#94a3b8",
+      1:"#60a5fa",
+      2:"#34d399",
+      3:"#fbbf24",
+      4:"#fb923c",
+      5:"#ef4444",
+      6:"#a855f7",
+      7:"#111827"
+    };
+
+    function intensityColor(bucket){
+      const b = Math.max(0, Math.min(7, (bucket ?? 0)|0));
+      return palette[b] || "#111827";
+    }
+
+    let map;
+    let epicenterMarker = null;
+    const stationMarkers = [];
+    let legendCtrl = null;
+
+    let cachedAll = [];
+    let currentIndex = 0;
+    let lastRenderedKey = "";
+
+    function buildLegend(){
+      if(legendCtrl) legendCtrl.remove();
+      legendCtrl = L.control({ position:"bottomleft" });
+      legendCtrl.onAdd = () => {
+        const el = L.DomUtil.create("div", "legend");
+        el.innerHTML = `
+          <div style="font-weight:900;font-size:12px;">震度圖例</div>
+          ${[0,1,2,3,4,5,6,7].map(i => `
+            <div class="row">
+              <span class="swatch" style="background:${palette[i]};"></span>
+              <span>震度 ${i}${i===5 ? "（含 5- / 5+）" : i===6 ? "（含 6- / 6+）" : ""}</span>
+            </div>
+          `).join("")}
+        `;
+        return el;
+      };
+      legendCtrl.addTo(map);
+    }
+
+    function pickEarthquakeArray(records){
+      const arr = records?.Earthquake;
+      return Array.isArray(arr) ? arr : [];
+    }
+
+    function getOriginTime(eq){
+      return eq?.EarthquakeInfo?.OriginTime ?? eq?.OriginTime ?? "";
+    }
+
+    function getMagnitude(eq){
+      const mag = eq?.EarthquakeInfo?.EarthquakeMagnitude;
+      const val = mag?.MagnitudeValue ?? mag?.Value ?? mag?.Magnitude;
+      const n = Number(val);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function getDepth(eq){
+      const d = eq?.EarthquakeInfo?.FocalDepth ?? eq?.EarthquakeInfo?.Depth ?? eq?.FocalDepth;
+      const n = Number(d);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function getEpicenter(eq){
+      const epic = eq?.EarthquakeInfo?.Epicenter ?? {};
+      const lat = toNum(epic?.EpicenterLatitude ?? epic?.Latitude ?? epic?.Lat);
+      const lon = toNum(epic?.EpicenterLongitude ?? epic?.Longitude ?? epic?.Lon ?? epic?.Lng);
+      const location = epic?.Location ?? epic?.EpicenterLocation ?? "";
+      return { lat, lon, location };
+    }
+
+    function getIntensityStations(eq){
+      const areas = eq?.Intensity?.ShakingArea;
+      if(!Array.isArray(areas)) return [];
+
+      const stations = [];
+      for(const a of areas){
+        const county = a?.CountyName ?? a?.AreaDesc ?? "";
+        const eqStations = a?.EqStation;
+        if(Array.isArray(eqStations)){
+          for(const s of eqStations){
+            const name = s?.StationName ?? s?.Name ?? "";
+            const lat = toNum(s?.StationLatitude ?? s?.Latitude ?? s?.Lat);
+            const lon = toNum(s?.StationLongitude ?? s?.Longitude ?? s?.Lon ?? s?.Lng);
+            if(lat == null || lon == null) continue;
+
+            const raw = s?.StationIntensity ?? s?.Intensity ?? s?.SeismicIntensity ?? "";
+            const norm = normalizeIntensityLabel(raw);
+
+            stations.push({
+              county,
+              station:name,
+              label:norm.label,
+              bucket:norm.bucket,
+              lat,
+              lon
+            });
+          }
+        }
+      }
+      return stations;
+    }
+
+    function makeEqKey(eq){
+      const t = getOriginTime(eq) || "";
+      const m = getMagnitude(eq);
+      const e = getEpicenter(eq);
+      return `${t}|${m ?? ""}|${e.lat ?? ""},${e.lon ?? ""}`;
+    }
+
+    function setTopCards({ time, mag, depth, maxLabel }){
+      $("vTime").textContent = time || "—";
+      $("vMag").textContent = (mag != null) ? `M${mag.toFixed(1)}` : "—";
+      $("vDepth").textContent = (depth != null) ? `${depth.toFixed(1)} km` : "—";
+      $("vMaxInt").textContent = (maxLabel != null) ? `震度 ${maxLabel}` : "—";
+    }
+
+    function rankLabel(lab){
+      if(lab === "7") return 70;
+      if(lab === "6+") return 62;
+      if(lab === "6-") return 61;
+      if(lab === "6") return 60;
+      if(lab === "5+") return 52;
+      if(lab === "5-") return 51;
+      if(lab === "5") return 50;
+      const n = Number(lab);
+      return Number.isFinite(n) ? n * 10 : 0;
+    }
+
+    function buildCountyMax(stations){
+      const m = new Map();
+      for(const s of stations){
+        const k = (s.county || "").trim();
+        if(!k) continue;
+        const label = s.label ?? (s.bucket != null ? String(s.bucket) : null);
+        const bucket = (s.bucket != null) ? s.bucket : -1;
+        if(label == null) continue;
+
+        const cur = m.get(k);
+        if(!cur){
+          m.set(k, { bucket, label });
+        }else{
+          if(bucket > cur.bucket) m.set(k, { bucket, label });
+          else if(bucket === cur.bucket && rankLabel(label) > rankLabel(cur.label)) m.set(k, { bucket, label });
+        }
+      }
+      return Array.from(m.entries())
+        .map(([county, v]) => ({ county, bucket:v.bucket, label:v.label }))
+        .sort((a,b) => (b.bucket - a.bucket) || rankLabel(b.label) - rankLabel(a.label) || a.county.localeCompare(b.county, "zh-Hant"));
+    }
+
+    function renderCountyGrid(stations){
+      const grid = $("countyGrid");
+      grid.innerHTML = "";
+
+      const rows = buildCountyMax(stations);
+      $("countyCount").textContent = `${rows.length} 筆`;
+      $("heroCountyCount").textContent = rows.length;
+
+      if(!rows.length){
+        grid.innerHTML = `<div style="grid-column:1/-1;color:#6a7d89;font-weight:900;font-size:12px;">沒有縣市震度資料</div>`;
+        return;
+      }
+
+      for(const r of rows){
+        const color = intensityColor(r.bucket);
+        const el = document.createElement("div");
+        el.className = "countyItem";
+        el.innerHTML = `
+          <div class="countyName" title="${escapeHtml(r.county)}">${escapeHtml(r.county)}</div>
+          <div class="countyInt">
+            <span class="iDot" style="background:${color};"></span>
+            震度 ${escapeHtml(r.label)}
+          </div>
+        `;
+        grid.appendChild(el);
+      }
+    }
+
+    function getMaxIntensityLabel(stations){
+      if(!stations.length) return null;
+      let best = null;
+      for(const s of stations){
+        const lab = s.label ?? (s.bucket != null ? String(s.bucket) : null);
+        if(!lab) continue;
+        if(!best || rankLabel(lab) > rankLabel(best)) best = lab;
+      }
+      return best;
+    }
+
+    function formatSelectText(eq){
+      const time = getOriginTime(eq) || "—";
+      const mag = getMagnitude(eq);
+      const epi = getEpicenter(eq);
+      const loc = epi.location || "—";
+      const tag = eq?._kind === "local" ? "【小區域】" : "【顯著】";
+      return `${tag} ${time}｜M${mag != null ? mag.toFixed(1) : "—"}｜${loc}`;
+    }
+
+    function renderSidePanel(){
+      const sel = $("eqSelect");
+      const list = $("eqList");
+      const hint = $("hintText");
+
+      sel.innerHTML = "";
+      list.innerHTML = "";
+
+      $("eqCountChip").textContent = `${cachedAll.length} 筆`;
+      $("heroEqCount").textContent = cachedAll.length;
+
+      if(!cachedAll.length){
+        sel.innerHTML = `<option>沒有資料</option>`;
+        hint.textContent = "找不到地震清單。";
+        return;
+      }
+
+      cachedAll.forEach((eq, idx) => {
+        const opt = document.createElement("option");
+        opt.value = String(idx);
+        opt.textContent = formatSelectText(eq);
+        if(idx === currentIndex) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      cachedAll.slice(0, 10).forEach((eq, idx) => {
+        const time = getOriginTime(eq) || "—";
+        const mag = getMagnitude(eq);
+        const epi = getEpicenter(eq);
+        const loc = epi.location || "—";
+        const tag = eq?._kind === "local" ? "小區域" : "顯著";
+
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `
+          <div class="itemTop">
+            <div class="itemTime">${escapeHtml(tag + "｜" + time)}</div>
+            <div class="itemMag">M${mag != null ? mag.toFixed(1) : "—"}</div>
+          </div>
+          <div class="itemLoc">${escapeHtml(loc)}</div>
+        `;
+        item.addEventListener("click", () => {
+          currentIndex = idx;
+          $("eqSelect").value = String(idx);
+          lastRenderedKey = "";
+          renderCurrent({ keepViewIfSame:false });
+        });
+        list.appendChild(item);
+      });
+
+      hint.textContent = "顯示最新 10 筆；更多可用上方下拉選單選擇。";
+    }
+
+    function clearLayers(){
+      if(epicenterMarker){ epicenterMarker.remove(); epicenterMarker = null; }
+      stationMarkers.forEach(m => m.remove());
+      stationMarkers.length = 0;
+    }
+
+    function renderEarthquake(eq, { keepViewIfSame=false } = {}){
+      const key = makeEqKey(eq);
+      const same = (key && key === lastRenderedKey);
+
+      const stations = getIntensityStations(eq);
+      const maxLabel = getMaxIntensityLabel(stations);
+
+      setTopCards({
+        time:getOriginTime(eq),
+        mag:getMagnitude(eq),
+        depth:getDepth(eq),
+        maxLabel
+      });
+      renderCountyGrid(stations);
+
+      if(keepViewIfSame && same) return;
+
+      lastRenderedKey = key;
+      clearLayers();
+
+      const epi = getEpicenter(eq);
+      const time = getOriginTime(eq);
+      const mag = getMagnitude(eq);
+      const depth = getDepth(eq);
+
+      if(epi.lat != null && epi.lon != null){
+        const html = `<div class="epi" title="震央"></div>`;
+        epicenterMarker = L.marker([epi.lat, epi.lon], {
+          icon:L.divIcon({ className:"", html, iconSize:[20,20], iconAnchor:[10,10] })
+        }).addTo(map);
+
+        const epiPopup = `
+          <div style="min-width:260px;">
+            <div style="font-weight:900;font-size:14px;margin-bottom:8px;">地震資訊</div>
+            <div style="font-size:12px;font-weight:900;color:#374151;line-height:1.6;">
+              <div>類型：${escapeHtml(eq?._kind === "local" ? "小區域地震" : "顯著有感地震")}</div>
+              <div>時間：${escapeHtml(time || "-")}</div>
+              <div>位置：${escapeHtml(epi.location || "-")}</div>
+              <div>座標：${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}</div>
+              <div>規模：${mag != null ? mag.toFixed(1) : "-"}</div>
+              <div>深度：${depth != null ? depth.toFixed(1) + " km" : "-"}</div>
+            </div>
+          </div>
+        `;
+        epicenterMarker.bindPopup(epiPopup, { maxWidth:420 });
+      }
+
+      const showStations = $("toggleStations")?.checked !== false;
+      if(showStations && stations.length){
+        for(const s of stations){
+          const color = intensityColor(s.bucket);
+          const label = s.label ?? (s.bucket != null ? String(s.bucket) : "—");
+
+          const html = `
+            <div class="stn" style="border-color:${color};" title="震度 ${escapeHtml(label)}">
+              ${escapeHtml(label)}
+            </div>
+          `;
+
+          const mk = L.marker([s.lat, s.lon], {
+            icon:L.divIcon({
+              className:"",
+              html,
+              iconSize:[26,26],
+              iconAnchor:[13,13]
+            })
+          }).addTo(map);
+
+          const popup = `
+            <div style="min-width:240px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;border:1px solid rgba(0,0,0,.10);background:#fff;font-weight:900;font-size:12px;">
+                  <span style="width:10px;height:10px;border-radius:999px;background:${color};display:inline-block;"></span>
+                  <span>震度 ${escapeHtml(label)}</span>
+                </span>
+              </div>
+              <div style="font-size:12px;font-weight:900;color:#374151;line-height:1.6;">
+                <div>縣市：${escapeHtml(s.county || "-")}</div>
+                <div>測站：${escapeHtml(s.station || "-")}</div>
+                <div>座標：${s.lat.toFixed(3)}, ${s.lon.toFixed(3)}</div>
+              </div>
+            </div>
+          `;
+          mk.bindPopup(popup, { maxWidth:420 });
+          stationMarkers.push(mk);
+        }
+      }
+
+      const all = [];
+      if(epi.lat != null && epi.lon != null) all.push([epi.lat, epi.lon]);
+      for(const s of stations) all.push([s.lat, s.lon]);
+
+      if(all.length){
+        map.fitBounds(L.latLngBounds(all), { padding:[60,60] });
+      }else{
+        map.setView([23.7, 121.0], 7);
+      }
+
+      setTimeout(() => map.invalidateSize(), 80);
+    }
+
+    function renderCurrent(opts){
+      const eq = cachedAll[currentIndex];
+      if(!eq) return;
+      renderEarthquake(eq, opts);
+    }
+
+    async function fetchOne(datasetId, limit = 20){
+      const url = `${API_BASE}${datasetId}?Authorization=${encodeURIComponent(CWA_AUTH)}&format=JSON&limit=${limit}`;
+      const res = await fetch(url, { cache:"no-store" });
+      if(!res.ok) throw new Error(`API 失敗：HTTP ${res.status}`);
+      const data = await res.json();
+      return pickEarthquakeArray(data?.records);
+    }
+
+    async function fetchMerged(limitEach = 20){
+      const [sig, loc] = await Promise.all([
+        fetchOne(DATASET_SIGNIFICANT, limitEach),
+        fetchOne(DATASET_LOCAL, limitEach)
+      ]);
+      const sig2 = sig.map(x => ({ ...x, _kind:"significant" }));
+      const loc2 = loc.map(x => ({ ...x, _kind:"local" }));
+      const all = [...sig2, ...loc2].filter(Boolean);
+      all.sort((a,b) => (getOriginTime(b) || "").localeCompare(getOriginTime(a) || ""));
+      return all;
+    }
+
+    function nowHHMMSS(){
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function setAutoStatusNext(sec){
+      if(sec == null){
+        $("autoStatus").textContent = "下次更新：—";
+        return;
+      }
+      $("autoStatus").textContent = `下次更新：${sec}s（${nowHHMMSS()}）`;
+    }
+
+    async function refresh({ silent=false } = {}){
+      if(!silent){
+        $("refreshBtn").disabled = true;
+        $("refreshBtn").textContent = "更新中…";
+      }
+
+      try{
+        const list = await fetchMerged(20);
+        cachedAll = list;
+        if(currentIndex >= cachedAll.length) currentIndex = 0;
+
+        renderSidePanel();
+        renderCurrent({ keepViewIfSame:true });
+      }catch(err){
+        console.error(err);
+        if(!silent) alert("讀取地震資料失敗：\n" + (err?.message || err));
+      }finally{
+        if(!silent){
+          $("refreshBtn").disabled = false;
+          $("refreshBtn").textContent = "立即更新";
+        }
+      }
+    }
+
+    function startAuto(){
+      stopAuto();
+      let remaining = AUTO_REFRESH_SEC;
+      setAutoStatusNext(remaining);
+
+      nextTickTimer = setInterval(() => {
+        remaining -= 1;
+        if(remaining <= 0) remaining = AUTO_REFRESH_SEC;
+        setAutoStatusNext(remaining);
+      }, 1000);
+
+      autoTimer = setInterval(() => {
+        refresh({ silent:true });
+      }, AUTO_REFRESH_SEC * 1000);
+    }
+
+    function stopAuto(){
+      if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+      if(nextTickTimer){ clearInterval(nextTickTimer); nextTickTimer = null; }
+      setAutoStatusNext(null);
+    }
+
+    function init(){
+      map = L.map("map", { zoomControl:true });
+
+      const mb = L.tileLayer(
+        `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+        { tileSize:512, zoomOffset:-1, maxZoom:18, attribution:"© Mapbox © OpenStreetMap" }
+      );
+
+      mb.on("tileerror", () => {
+        console.warn("Mapbox tiles 載入失敗，切換到 OSM。");
+        if(map.hasLayer(mb)) map.removeLayer(mb);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom:19,
+          attribution:"© OpenStreetMap"
+        }).addTo(map);
+      });
+
+      mb.addTo(map);
+      map.setView([23.7, 121.0], 7);
+      buildLegend();
+
+      $("refreshBtn").addEventListener("click", () => refresh({ silent:false }));
+      $("heroRefreshBtn").addEventListener("click", () => refresh({ silent:false }));
+
+      $("toggleStations").addEventListener("change", () => {
+        lastRenderedKey = "";
+        renderCurrent({ keepViewIfSame:false });
+      });
+
+      $("eqSelect").addEventListener("change", (e) => {
+        currentIndex = Number(e.target.value) || 0;
+        lastRenderedKey = "";
+        renderCurrent({ keepViewIfSame:false });
+      });
+
+      $("toggleAuto").addEventListener("change", (e) => {
+        if(e.target.checked) startAuto();
+        else stopAuto();
+      });
+
+      refresh({ silent:true }).then(() => {
+        lastRenderedKey = "";
+        renderCurrent({ keepViewIfSame:false });
+      });
+
+      if($("toggleAuto").checked) startAuto();
+
+      setTimeout(() => map.invalidateSize(), 250);
+      setTimeout(() => map.invalidateSize(), 900);
+    }
+
+    window.addEventListener("load", init);
+  </script>
+</body>
+</html>
