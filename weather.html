@@ -752,15 +752,12 @@
     .trackerBody{
       padding:20px;
       display:grid;
-      grid-template-columns:340px minmax(0, 1fr);
+      grid-template-columns:1fr;
       gap:18px;
     }
 
-    .sidePanel{
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-      min-width:0;
+    .typhoonSummary{
+      width:100%;
     }
 
     .statusCard,
@@ -773,27 +770,8 @@
       overflow:hidden;
     }
 
-    .sourcePanel{
-      padding:16px;
-    }
-
-    .sourceLabel{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      color:#0f4c5c;
-      font-size:12px;
-      font-weight:900;
-      margin-bottom:8px;
-    }
-
-    .sub{
-      margin:0;
-      color:#647983;
-      font-size:12px;
-      font-weight:700;
-      line-height:1.65;
-      word-break:break-word;
+    .typhoonStatusWide{
+      border-radius:26px;
     }
 
     .statusTop{
@@ -803,6 +781,7 @@
       justify-content:space-between;
       gap:12px;
       border-bottom:1px solid var(--line);
+      background:linear-gradient(135deg, rgba(249,252,252,.96), rgba(231,242,243,.78));
     }
 
     .badge{
@@ -842,12 +821,12 @@
 
     .infoGrid{
       display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:12px;
     }
 
     .ibox{
-      min-height:78px;
+      min-height:96px;
       border:1px solid var(--line);
       border-radius:18px;
       padding:14px;
@@ -859,7 +838,7 @@
 
     .ival{
       color:#122c3c;
-      font-size:24px;
+      font-size:clamp(20px, 2.4vw, 30px);
       line-height:1.1;
       letter-spacing:-.04em;
       font-weight:900;
@@ -884,136 +863,10 @@
       line-height:1.65;
     }
 
-    .forecastPanel{
-      min-height:0;
-    }
-
-    .fcstTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:15px 16px;
-      border-bottom:1px solid var(--line);
-    }
-
-    .fcstTitle{
-      display:flex;
-      align-items:center;
-      gap:9px;
-      color:#122c3c;
-      font-size:13px;
-      font-weight:900;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:30px;
-      padding:0 10px;
-      border-radius:999px;
-      border:1px solid var(--line-strong);
-      background:#fff;
-      color:#0f4c5c;
-      font-size:12px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-
-    .fcstList{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      max-height:430px;
-      overflow:auto;
-      padding:14px;
-      overscroll-behavior:contain;
-    }
-
-    .fcstList::-webkit-scrollbar,
-    .warningSimpleList::-webkit-scrollbar,
-    .warningMono::-webkit-scrollbar{
-      width:10px;
-      height:10px;
-    }
-
-    .fcstList::-webkit-scrollbar-thumb,
-    .warningSimpleList::-webkit-scrollbar-thumb,
-    .warningMono::-webkit-scrollbar-thumb{
-      background:rgba(15,76,92,.20);
-      border-radius:999px;
-      border:3px solid rgba(255,255,255,.8);
-    }
-
-    .fcstCard{
-      width:100%;
-      flex:0 0 auto;
-      border:1px solid var(--line);
-      border-radius:18px;
-      padding:12px;
-      background:#fff;
-      cursor:pointer;
-      transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
-    }
-
-    .fcstCard:hover{
-      transform:translateY(-2px);
-      border-color:rgba(15,76,92,.25);
-      box-shadow:0 14px 28px rgba(31,53,72,.10);
-    }
-
-    .fcstRow1{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
-    }
-
-    .fcstTime{
-      color:#122c3c;
-      font-size:13px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-
-    .fcstBadge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:5px 9px;
-      border-radius:999px;
-      border:1px solid var(--line-strong);
-      background:#fff;
-      font-size:11px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-
-    .fcstKv{
-      display:grid;
-      grid-template-columns:54px 1fr;
-      gap:6px 8px;
-      color:#374151;
-      font-size:12px;
-      line-height:1.35;
-    }
-
-    .fcstKv .k{
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .fcstKv .v{
-      color:#122c3c;
-      font-weight:900;
-    }
-
     .mapShell{
       min-width:0;
       border:1px solid var(--line);
-      border-radius:28px;
+      border-radius:30px;
       background:#fff;
       box-shadow:0 12px 28px rgba(31,53,72,.08);
       overflow:hidden;
@@ -1069,10 +922,167 @@
 
     #map{
       width:100%;
-      height:680px;
-      min-height:500px;
+      height:720px;
+      min-height:560px;
       background:#f4fafb;
       position:relative;
+    }
+
+    .typhoonBottomGrid{
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 320px;
+      gap:18px;
+      align-items:stretch;
+    }
+
+    .sourcePanel{
+      padding:16px;
+      min-height:100%;
+    }
+
+    .sourceLabel{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:#0f4c5c;
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+
+    .sub{
+      margin:0;
+      color:#647983;
+      font-size:12px;
+      font-weight:700;
+      line-height:1.65;
+      word-break:break-word;
+    }
+
+    .fcstTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:15px 16px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(135deg, rgba(249,252,252,.96), rgba(231,242,243,.78));
+    }
+
+    .fcstTitle{
+      display:flex;
+      align-items:center;
+      gap:9px;
+      color:#122c3c;
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:30px;
+      padding:0 10px;
+      border-radius:999px;
+      border:1px solid var(--line-strong);
+      background:#fff;
+      color:#0f4c5c;
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .fcstList{
+      display:flex;
+      flex-direction:row;
+      gap:10px;
+      max-height:none;
+      overflow-x:auto;
+      overflow-y:hidden;
+      padding:14px;
+      overscroll-behavior:contain;
+      scroll-snap-type:x mandatory;
+    }
+
+    .fcstList::-webkit-scrollbar,
+    .warningSimpleList::-webkit-scrollbar,
+    .warningMono::-webkit-scrollbar{
+      width:10px;
+      height:10px;
+    }
+
+    .fcstList::-webkit-scrollbar-thumb,
+    .warningSimpleList::-webkit-scrollbar-thumb,
+    .warningMono::-webkit-scrollbar-thumb{
+      background:rgba(15,76,92,.20);
+      border-radius:999px;
+      border:3px solid rgba(255,255,255,.8);
+    }
+
+    .fcstCard{
+      width:250px;
+      flex:0 0 auto;
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:12px;
+      background:#fff;
+      cursor:pointer;
+      scroll-snap-align:start;
+      transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+
+    .fcstCard:hover{
+      transform:translateY(-2px);
+      border-color:rgba(15,76,92,.25);
+      box-shadow:0 14px 28px rgba(31,53,72,.10);
+    }
+
+    .fcstRow1{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+
+    .fcstTime{
+      color:#122c3c;
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .fcstBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 9px;
+      border-radius:999px;
+      border:1px solid var(--line-strong);
+      background:#fff;
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .fcstKv{
+      display:grid;
+      grid-template-columns:54px 1fr;
+      gap:6px 8px;
+      color:#374151;
+      font-size:12px;
+      line-height:1.35;
+    }
+
+    .fcstKv .k{
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .fcstKv .v{
+      color:#122c3c;
+      font-weight:900;
     }
 
     .analysisGrid{
@@ -1207,35 +1217,13 @@
         min-height:auto;
       }
 
-      .trackerBody{
+      .typhoonBottomGrid{
         grid-template-columns:1fr;
-      }
-
-      .sidePanel{
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        align-items:start;
-      }
-
-      .sourcePanel{
-        grid-column:1 / -1;
-      }
-
-      .fcstList{
-        max-height:none;
-        flex-direction:row;
-        overflow-x:auto;
-        overflow-y:hidden;
-        scroll-snap-type:x mandatory;
-      }
-
-      .fcstCard{
-        width:240px;
-        scroll-snap-align:start;
       }
 
       #map{
         height:620px;
+        min-height:480px;
       }
     }
 
@@ -1305,7 +1293,7 @@
         padding:14px;
       }
 
-      .sidePanel{
+      .infoGrid{
         grid-template-columns:1fr;
       }
 
@@ -1416,7 +1404,8 @@
         padding:0;
       }
 
-      .sidePanel{
+      .typhoonSummary,
+      .typhoonBottomGrid{
         display:none;
       }
 
@@ -1676,8 +1665,8 @@
       </div>
 
       <div class="trackerBody">
-        <aside class="sidePanel">
-          <div class="statusCard">
+        <div class="typhoonSummary">
+          <div class="statusCard typhoonStatusWide">
             <div class="statusTop">
               <div class="badge">
                 <span class="dot" id="levelDotObs"></span>
@@ -1691,24 +1680,43 @@
               <div class="infoGrid" aria-label="obs-info-grid">
                 <div class="ibox">
                   <div class="ival" id="obsCoord">—</div>
-                  <div class="ilabel">座標</div>
+                  <div class="ilabel">目前座標</div>
                 </div>
 
                 <div class="ibox">
                   <div class="ival" id="obsWind">—</div>
-                  <div class="ilabel">風速</div>
+                  <div class="ilabel">中心附近最大風速</div>
                 </div>
 
                 <div class="ibox">
                   <div class="ival" id="obsPres">—</div>
-                  <div class="ilabel">氣壓</div>
+                  <div class="ilabel">中心氣壓</div>
                 </div>
               </div>
 
               <div class="noteBox" id="infoNoteObs">—</div>
             </div>
           </div>
+        </div>
 
+        <div class="mapShell">
+          <div class="mapHeader">
+            <strong>
+              <span class="dot" style="background:#4f8cff;"></span>
+              Interactive Typhoon Track Map
+            </strong>
+
+            <div class="mapLegend" aria-label="map legend">
+              <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
+              <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
+              <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 預報不確定性</span>
+            </div>
+          </div>
+
+          <div id="map"></div>
+        </div>
+
+        <div class="typhoonBottomGrid">
           <div class="forecastPanel">
             <div class="fcstTop">
               <div class="fcstTitle">
@@ -1730,58 +1738,7 @@
 
             <p class="sub" id="sourceText"><b>來源：載入中...</b><br></p>
           </div>
-        </aside>
-
-        <div class="mapShell">
-          <div class="mapHeader">
-            <strong>
-              <span class="dot" style="background:#4f8cff;"></span>
-              Interactive Map
-            </strong>
-
-            <div class="mapLegend" aria-label="map legend">
-              <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
-              <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
-              <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 預報不確定性</span>
-            </div>
-          </div>
-
-          <div id="map"></div>
         </div>
-      </div>
-    </section>
-
-    <section class="section" id="analysis">
-      <div class="sectionHead">
-        <div>
-          <div class="sectionKicker">
-            <span class="dot" style="background:#7c5cff;"></span>
-            WEATHER MODULES
-          </div>
-
-          <h2 class="sectionTitle">其他天氣內容區塊</h2>
-
-          <p class="sectionDesc">
-            這裡可以加入一般天氣資訊、降雨預測、警戒資訊、觀測資料或歷史紀錄。颱風追蹤器已被整理為上方獨立 sector。
-          </p>
-        </div>
-      </div>
-
-      <div class="analysisGrid">
-        <article class="analysisCard">
-          <h3>風雨影響</h3>
-          <p>可放置各地風速、降雨量、警戒等級或簡短風險摘要，讓使用者先掌握重點。</p>
-        </article>
-
-        <article class="analysisCard">
-          <h3>預報說明</h3>
-          <p>可補充資料來源、預報誤差範圍、更新頻率與使用者閱讀地圖時需要注意的地方。</p>
-        </article>
-
-        <article class="analysisCard">
-          <h3>歷史比較</h3>
-          <p>可加入過往颱風路徑、強度變化或災害事件，讓 tracker 不只是單一地圖。</p>
-        </article>
       </div>
     </section>
   </main>
@@ -1801,7 +1758,7 @@
       TS:  { color: "#22c55e", label: "輕度颱風 TS" },
       STS: { color: "#f59e0b", label: "輕度颱風 STS" },
       TY:  { color: "#ef4444", label: "中度颱風 TY" },
-      STY: { color: "#7c3aed", label: "强烈颱風 STY" }
+      STY: { color: "#7c3aed", label: "強烈颱風 STY" }
     };
 
     function $(id){
@@ -1839,13 +1796,11 @@
     function fmtTime(s, mode="full"){
       const dt = parseLocalDateTime(s);
       if(!dt) return String(s ?? "—");
-
       const Y = dt.getFullYear();
       const M = dt.getMonth() + 1;
       const D = dt.getDate();
       const hh = pad2(dt.getHours());
       const mm = pad2(dt.getMinutes());
-
       if(mode === "short") return `${M}/${D} ${hh}:${mm}`;
       return `${Y}-${pad2(M)}-${pad2(D)} ${hh}:${mm}`;
     }
@@ -1915,7 +1870,6 @@
 
     function setObsTopInfo(p){
       const st = getStyle(p.level);
-
       $("levelDotObs").style.background = st.color;
       $("levelTextObs").textContent = st.label;
       $("infoTimeObs").textContent = `時間：${fmtTime(p.time,"full")}`;
@@ -1960,7 +1914,6 @@
       const by = Math.sin(toRad(b));
       const x = ax + bx;
       const y = ay + by;
-
       if(Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return a;
       return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
@@ -1995,10 +1948,8 @@
       function getHeading(i){
         if(i === 0) return bearingDegrees(path[0].lat, path[0].lon, path[1].lat, path[1].lon);
         if(i === path.length - 1) return bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
-
         const b1 = bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
         const b2 = bearingDegrees(path[i].lat, path[i].lon, path[i + 1].lat, path[i + 1].lon);
-
         return avgAngleDeg(b1, b2);
       }
 
@@ -2009,10 +1960,8 @@
         const p = path[i];
         const heading = getHeading(i);
         const rMeters = kmToMeters(p.rKm);
-
         const leftPt = destinationPoint(p.lat, p.lon, (heading - 90 + 360) % 360, rMeters);
         const rightPt = destinationPoint(p.lat, p.lon, (heading + 90) % 360, rMeters);
-
         leftSide.push([leftPt.lat, leftPt.lon]);
         rightSide.push([rightPt.lat, rightPt.lon]);
       }
@@ -2067,27 +2016,22 @@
         map.createPane("conePane");
         map.getPane("conePane").style.zIndex = 200;
       }
-
       if(!map.getPane("linePane")){
         map.createPane("linePane");
         map.getPane("linePane").style.zIndex = 350;
       }
-
       if(!map.getPane("ringPane")){
         map.createPane("ringPane");
         map.getPane("ringPane").style.zIndex = 360;
       }
-
       if(!map.getPane("markerPane2")){
         map.createPane("markerPane2");
         map.getPane("markerPane2").style.zIndex = 400;
       }
-
       if(!map.getPane("labelLinePane")){
         map.createPane("labelLinePane");
         map.getPane("labelLinePane").style.zIndex = 445;
       }
-
       if(!map.getPane("labelPane")){
         map.createPane("labelPane");
         map.getPane("labelPane").style.zIndex = 450;
@@ -2248,7 +2192,6 @@
     function getLabelAnchorPx(item){
       const stormPt = getStormContainerPoint(item);
       const topLeft = getLabelTopLeftPx(item);
-
       const left = topLeft.x;
       const top = topLeft.y;
       const right = left + item.w;
@@ -2653,7 +2596,7 @@
       if(!el) return;
 
       el.addEventListener("wheel", (e) => {
-        if(window.matchMedia("(max-width: 1100px)").matches && Math.abs(e.deltaY) > Math.abs(e.deltaX)){
+        if(Math.abs(e.deltaY) > Math.abs(e.deltaX)){
           el.scrollLeft += e.deltaY;
           e.preventDefault();
         }
@@ -2748,7 +2691,6 @@
       }
 
       setTimeout(safeFit, 200);
-
       $("fitAllBtn").addEventListener("click", safeFit);
 
       function beforePrint(){
