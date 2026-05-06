@@ -755,7 +755,149 @@
       grid-template-columns:1fr;
       gap:18px;
     }
+/* ===== Typhoon tracker layout: source top right + forecast left ===== */
 
+.trackerHead{
+  align-items:flex-start;
+}
+
+.trackerHeadRight{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:12px;
+  max-width:520px;
+  flex:0 0 auto;
+}
+
+.trackerSourceTop{
+  width:100%;
+  max-width:520px;
+  padding:14px 16px;
+  border-radius:22px;
+  background:rgba(255,255,255,.86);
+}
+
+.trackerSourceTop .sub{
+  margin:0;
+  font-size:12px;
+  line-height:1.55;
+}
+
+.trackerBodyNew{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:18px;
+  padding:20px;
+}
+
+.typhoonSummary{
+  width:100%;
+}
+
+.infoGrid{
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
+.typhoonMainGrid{
+  display:grid;
+  grid-template-columns:320px minmax(0, 1fr);
+  gap:18px;
+  align-items:stretch;
+}
+
+.typhoonForecastSide{
+  height:100%;
+  min-height:720px;
+  display:flex;
+  flex-direction:column;
+}
+
+.typhoonForecastSide .fcstList{
+  flex:1;
+  max-height:none;
+  overflow-y:auto;
+  overflow-x:hidden;
+  flex-direction:column;
+}
+
+.typhoonForecastSide .fcstCard{
+  width:100%;
+}
+
+.mapShell{
+  min-width:0;
+}
+
+#map{
+  height:720px;
+  min-height:720px;
+}
+
+@media (max-width:1100px){
+  .trackerHead{
+    flex-direction:column;
+  }
+
+  .trackerHeadRight{
+    width:100%;
+    max-width:none;
+    align-items:flex-start;
+  }
+
+  .trackerSourceTop{
+    max-width:none;
+  }
+
+  .typhoonMainGrid{
+    grid-template-columns:1fr;
+  }
+
+  .typhoonForecastSide{
+    min-height:auto;
+  }
+
+  .typhoonForecastSide .fcstList{
+    flex-direction:row;
+    overflow-x:auto;
+    overflow-y:hidden;
+  }
+
+  .typhoonForecastSide .fcstCard{
+    width:240px;
+  }
+
+  #map{
+    height:620px;
+    min-height:480px;
+  }
+}
+
+@media (max-width:780px){
+  .infoGrid{
+    grid-template-columns:1fr;
+  }
+
+  .trackerBodyNew{
+    padding:14px;
+  }
+
+  #map{
+    height:560px;
+    min-height:440px;
+  }
+}
+
+@media (max-width:520px){
+  .typhoonForecastSide .fcstCard{
+    width:220px;
+  }
+
+  #map{
+    height:520px;
+    min-height:420px;
+  }
+}
     .typhoonSummary{
       width:100%;
     }
@@ -1627,118 +1769,121 @@
     </section>
 
     <section class="section" id="tracker">
-      <div class="sectionHead">
-        <div>
-          <div class="sectionKicker">
-            <span class="dot" style="background:#4f8cff;"></span>
-            TYPHOON TRACKER
-          </div>
+      <div class="sectionHead trackerHead">
+  <div>
+    <div class="sectionKicker">
+      <span class="dot" style="background:#4f8cff;"></span>
+      TYPHOON TRACKER
+    </div>
 
-          <h2 class="sectionTitle">
-            <span id="pageTitle">颱風路徑追蹤器</span>
-          </h2>
+    <h2 class="sectionTitle">
+      <span id="pageTitle">颱風路徑追蹤器</span>
+    </h2>
 
-          <p class="sectionDesc">
-            颱風路徑、目前強度、預報誤差範圍、暴風圈與預報列表集中顯示於此區塊。
-          </p>
+    <p class="sectionDesc">
+      颱風路徑、目前強度、預報誤差範圍、暴風圈與預報列表集中顯示於此區塊。
+    </p>
+  </div>
+
+  <div class="trackerHeadRight">
+    <div class="sourcePanel trackerSourceTop">
+      <div class="sourceLabel">
+        <span class="dot" style="background:#7c5cff;"></span>
+        DATA SOURCE
+      </div>
+      <p class="sub" id="sourceText"><b>來源：載入中...</b><br></p>
+    </div>
+
+    <div class="toolbar" aria-label="map controls">
+      <label class="toggle">
+        <input type="checkbox" id="toggleLabels" checked>
+        顯示時間
+      </label>
+
+      <label class="toggle">
+        <input type="checkbox" id="toggleCone" checked>
+        陰影帶
+      </label>
+
+      <label class="toggle">
+        <input type="checkbox" id="toggleRings" checked>
+        暴風圈
+      </label>
+
+      <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
+      <button class="btn" id="printBtn" type="button">列印 / PDF</button>
+    </div>
+  </div>
+</div>
+
+<div class="trackerBody trackerBodyNew">
+  <div class="typhoonSummary">
+    <div class="statusCard typhoonStatusWide">
+      <div class="statusTop">
+        <div class="badge">
+          <span class="dot" id="levelDotObs"></span>
+          <span id="levelTextObs">—</span>
         </div>
 
-        <div class="toolbar" aria-label="map controls">
-          <label class="toggle" title="顯示/隱藏地圖時間標籤">
-            <input type="checkbox" id="toggleLabels" checked>
-            顯示時間
-          </label>
+        <div class="miniMeta" id="infoTimeObs">時間：—</div>
+      </div>
 
-          <label class="toggle" title="顯示/隱藏預報不確定性陰影帶">
-            <input type="checkbox" id="toggleCone" checked>
-            陰影帶
-          </label>
+      <div class="statusBody">
+        <div class="infoGrid">
+          <div class="ibox">
+            <div class="ival" id="obsCoord">—</div>
+            <div class="ilabel">目前座標</div>
+          </div>
 
-          <label class="toggle" title="顯示/隱藏暴風圈">
-            <input type="checkbox" id="toggleRings" checked>
-            暴風圈
-          </label>
+          <div class="ibox">
+            <div class="ival" id="obsWind">—</div>
+            <div class="ilabel">中心附近最大風速</div>
+          </div>
 
-          <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
-          <button class="btn" id="printBtn" type="button">列印 / PDF</button>
+          <div class="ibox">
+            <div class="ival" id="obsPres">—</div>
+            <div class="ilabel">中心氣壓</div>
+          </div>
+        </div>
+
+        <div class="noteBox" id="infoNoteObs">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="typhoonMainGrid">
+    <div class="forecastPanel typhoonForecastSide">
+      <div class="fcstTop">
+        <div class="fcstTitle">
+          <span class="dot" style="background:#60a5fa;"></span>
+          <span>預報列表</span>
+        </div>
+
+        <span class="chip" id="fcstCount">0 筆</span>
+      </div>
+
+      <div class="fcstList" id="fcstList" aria-label="forecast-list"></div>
+    </div>
+
+    <div class="mapShell">
+      <div class="mapHeader">
+        <strong>
+          <span class="dot" style="background:#4f8cff;"></span>
+          Interactive Typhoon Track Map
+        </strong>
+
+        <div class="mapLegend" aria-label="map legend">
+          <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
+          <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
+          <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 預報不確定性</span>
         </div>
       </div>
 
-      <div class="trackerBody">
-        <div class="typhoonSummary">
-          <div class="statusCard typhoonStatusWide">
-            <div class="statusTop">
-              <div class="badge">
-                <span class="dot" id="levelDotObs"></span>
-                <span id="levelTextObs">—</span>
-              </div>
+      <div id="map"></div>
+    </div>
+  </div>
+</div>
 
-              <div class="miniMeta" id="infoTimeObs">時間：—</div>
-            </div>
-
-            <div class="statusBody">
-              <div class="infoGrid" aria-label="obs-info-grid">
-                <div class="ibox">
-                  <div class="ival" id="obsCoord">—</div>
-                  <div class="ilabel">目前座標</div>
-                </div>
-
-                <div class="ibox">
-                  <div class="ival" id="obsWind">—</div>
-                  <div class="ilabel">中心附近最大風速</div>
-                </div>
-
-                <div class="ibox">
-                  <div class="ival" id="obsPres">—</div>
-                  <div class="ilabel">中心氣壓</div>
-                </div>
-              </div>
-
-              <div class="noteBox" id="infoNoteObs">—</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="mapShell">
-          <div class="mapHeader">
-            <strong>
-              <span class="dot" style="background:#4f8cff;"></span>
-              Interactive Typhoon Track Map
-            </strong>
-
-            <div class="mapLegend" aria-label="map legend">
-              <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
-              <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
-              <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 預報不確定性</span>
-            </div>
-          </div>
-
-          <div id="map"></div>
-        </div>
-
-        <div class="typhoonBottomGrid">
-          <div class="forecastPanel">
-            <div class="fcstTop">
-              <div class="fcstTitle">
-                <span class="dot" style="background:#60a5fa;"></span>
-                <span>預報列表</span>
-              </div>
-
-              <span class="chip" id="fcstCount">0 筆</span>
-            </div>
-
-            <div class="fcstList" id="fcstList" aria-label="forecast-list"></div>
-          </div>
-
-          <div class="sourcePanel">
-            <div class="sourceLabel">
-              <span class="dot" style="background:#7c5cff;"></span>
-              DATA SOURCE
-            </div>
-
-            <p class="sub" id="sourceText"><b>來源：載入中...</b><br></p>
-          </div>
-        </div>
       </div>
     </section>
   </main>
