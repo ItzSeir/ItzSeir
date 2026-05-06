@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title> 筱風｜天氣情報</title>
+  <title>筱風｜天氣情報</title>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,8 +37,14 @@
     }
 
     *{ box-sizing:border-box; }
-    html{ scroll-behavior:smooth; }
-    html,body{ min-height:100%; }
+
+    html{
+      scroll-behavior:smooth;
+    }
+
+    html,body{
+      min-height:100%;
+    }
 
     body{
       margin:0;
@@ -64,8 +70,13 @@
       z-index:-1;
     }
 
-    button,input{ font:inherit; }
-    button{ -webkit-tap-highlight-color:transparent; }
+    button,input{
+      font:inherit;
+    }
+
+    button{
+      -webkit-tap-highlight-color:transparent;
+    }
 
     .page{
       width:min(var(--max), calc(100% - 32px));
@@ -95,6 +106,8 @@
       align-items:center;
       gap:10px;
       min-width:0;
+      text-decoration:none;
+      color:inherit;
     }
 
     .brandMark{
@@ -108,6 +121,12 @@
       background:linear-gradient(135deg, #0f4c5c, #2a9d8f);
       box-shadow:0 10px 22px rgba(15,76,92,.22);
       flex:0 0 auto;
+    }
+
+    .brandMark::before{
+      content:"天";
+      font-size:14px;
+      letter-spacing:-.04em;
     }
 
     .brandText{
@@ -157,28 +176,24 @@
       color:#0f4c5c;
     }
 
-    .hero{
-      display:grid;
-      grid-template-columns:minmax(0, 1.05fr) minmax(300px, .95fr);
-      gap:22px;
-      align-items:stretch;
+    .weatherHero{
       margin-bottom:22px;
     }
 
-    .heroCard{
+    .weatherHeroCard{
       position:relative;
       overflow:hidden;
       border:1px solid var(--line);
       border-radius:32px;
-      padding:32px;
+      padding:42px 38px;
       background:
         linear-gradient(135deg, rgba(255,255,255,.98), rgba(236,245,246,.90)),
-        radial-gradient(circle at 86% 12%, rgba(42,157,143,.15), transparent 34%);
+        radial-gradient(circle at 88% 20%, rgba(42,157,143,.14), transparent 34%);
       box-shadow:var(--shadow);
-      min-height:292px;
+      min-height:300px;
     }
 
-    .heroCard::after{
+    .weatherHeroCard::after{
       content:"";
       position:absolute;
       right:-120px;
@@ -191,6 +206,8 @@
     }
 
     .eyebrow{
+      position:relative;
+      z-index:1;
       display:inline-flex;
       align-items:center;
       gap:8px;
@@ -208,22 +225,22 @@
       width:8px;
       height:8px;
       border-radius:999px;
-      background:var(--danger);
-      box-shadow:0 0 0 6px rgba(214,40,40,.11);
+      background:var(--ok);
+      box-shadow:0 0 0 6px rgba(42,157,143,.11);
     }
 
-    .heroTitle{
+    .weatherTitle{
       position:relative;
       z-index:1;
       margin:18px 0 12px;
-      font-size:clamp(32px, 5vw, 58px);
+      font-size:clamp(42px, 6vw, 72px);
       letter-spacing:-.06em;
-      line-height:.96;
+      line-height:.95;
       font-weight:900;
       color:#122c3c;
     }
 
-    .heroTitle span{
+    .weatherTitle span{
       display:block;
       color:transparent;
       background:linear-gradient(135deg, #0f4c5c, #2a9d8f);
@@ -231,10 +248,10 @@
       background-clip:text;
     }
 
-    .heroDesc{
+    .weatherDesc{
       position:relative;
       z-index:1;
-      max-width:680px;
+      max-width:760px;
       margin:0;
       color:#5e717d;
       line-height:1.8;
@@ -265,76 +282,16 @@
       transition:transform .16s ease, box-shadow .16s ease;
     }
 
-    .actionBtn:hover{ transform:translateY(-2px); box-shadow:0 18px 34px rgba(15,76,92,.24); }
+    .actionBtn:hover{
+      transform:translateY(-2px);
+      box-shadow:0 18px 34px rgba(15,76,92,.24);
+    }
 
     .ghostBtn{
       color:#1d3a4a;
       background:#fff;
       border:1px solid var(--line-strong);
       box-shadow:0 10px 22px rgba(31,53,72,.07);
-    }
-
-    .heroSide{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px;
-    }
-
-    .metricCard{
-      border:1px solid var(--line);
-      border-radius:24px;
-      padding:18px;
-      background:rgba(255,255,255,.86);
-      backdrop-filter:blur(16px);
-      box-shadow:var(--shadow-soft);
-      min-height:136px;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-    }
-
-    .metricCard.wide{ grid-column:1 / -1; }
-
-    .metricTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:16px;
-    }
-
-    .metricLabel{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .metricIcon{
-      width:34px;
-      height:34px;
-      display:grid;
-      place-items:center;
-      border-radius:14px;
-      background:linear-gradient(135deg, rgba(15,76,92,.12), rgba(42,157,143,.12));
-      color:#0f4c5c;
-      font-weight:900;
-    }
-
-    .metricValue{
-      color:#122c3c;
-      font-size:clamp(20px, 3vw, 30px);
-      line-height:1.05;
-      letter-spacing:-.04em;
-      font-weight:900;
-      word-break:break-word;
-    }
-
-    .metricHint{
-      margin-top:8px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:700;
-      line-height:1.5;
     }
 
     .section{
@@ -416,8 +373,13 @@
       white-space:nowrap;
     }
 
-    .toggle:hover{ transform:translateY(-1px); }
-    .toggle input{ accent-color:#0f4c5c; }
+    .toggle:hover{
+      transform:translateY(-1px);
+    }
+
+    .toggle input{
+      accent-color:#0f4c5c;
+    }
 
     .btn{
       height:38px;
@@ -434,7 +396,10 @@
       white-space:nowrap;
     }
 
-    .btn:hover{ transform:translateY(-1px); box-shadow:0 14px 24px rgba(31,53,72,.10); }
+    .btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 14px 24px rgba(31,53,72,.10);
+    }
 
     .trackerBody{
       padding:20px;
@@ -460,7 +425,9 @@
       overflow:hidden;
     }
 
-    .sourcePanel{ padding:16px; }
+    .sourcePanel{
+      padding:16px;
+    }
 
     .sourceLabel{
       display:flex;
@@ -521,7 +488,9 @@
       line-height:1.5;
     }
 
-    .statusBody{ padding:16px; }
+    .statusBody{
+      padding:16px;
+    }
 
     .infoGrid{
       display:grid;
@@ -567,7 +536,9 @@
       line-height:1.65;
     }
 
-    .forecastPanel{ min-height:0; }
+    .forecastPanel{
+      min-height:0;
+    }
 
     .fcstTop{
       display:flex;
@@ -612,8 +583,16 @@
       overscroll-behavior:contain;
     }
 
-    .fcstList::-webkit-scrollbar{ width:10px; height:10px; }
-    .fcstList::-webkit-scrollbar-thumb{ background:rgba(15,76,92,.20); border-radius:999px; border:3px solid rgba(255,255,255,.8); }
+    .fcstList::-webkit-scrollbar{
+      width:10px;
+      height:10px;
+    }
+
+    .fcstList::-webkit-scrollbar-thumb{
+      background:rgba(15,76,92,.20);
+      border-radius:999px;
+      border:3px solid rgba(255,255,255,.8);
+    }
 
     .fcstCard{
       width:100%;
@@ -669,8 +648,15 @@
       line-height:1.35;
     }
 
-    .fcstKv .k{ color:var(--muted); font-weight:900; }
-    .fcstKv .v{ color:#122c3c; font-weight:900; }
+    .fcstKv .k{
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .fcstKv .v{
+      color:#122c3c;
+      font-weight:900;
+    }
 
     .mapShell{
       min-width:0;
@@ -768,9 +754,23 @@
       font-weight:600;
     }
 
-    .popup-card{ min-width:240px; }
-    .popup-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; }
-    .popup-title{ font-weight:900; color:#122c3c; }
+    .popup-card{
+      min-width:240px;
+    }
+
+    .popup-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:8px;
+    }
+
+    .popup-title{
+      font-weight:900;
+      color:#122c3c;
+    }
+
     .popup-badge{
       display:inline-flex;
       align-items:center;
@@ -783,8 +783,20 @@
       background:#fff;
       white-space:nowrap;
     }
-    .popup-kv{ display:grid; grid-template-columns:70px 1fr; gap:6px 10px; font-size:12px; color:#374151; font-weight:700; }
-    .popup-kv div:nth-child(odd){ color:#6a7d89; font-weight:900; }
+
+    .popup-kv{
+      display:grid;
+      grid-template-columns:70px 1fr;
+      gap:6px 10px;
+      font-size:12px;
+      color:#374151;
+      font-weight:700;
+    }
+
+    .popup-kv div:nth-child(odd){
+      color:#6a7d89;
+      font-weight:900;
+    }
 
     .tlabel{
       display:inline-flex;
@@ -804,11 +816,33 @@
       user-select:none;
       touch-action:none;
     }
-    .tlabel.dragging{ cursor:grabbing; box-shadow:0 16px 32px rgba(31,53,72,.18); }
-    .tlabel .miniDot{ width:9px; height:9px; border-radius:999px; display:inline-block; background:#111; flex:0 0 auto; }
-    .tlabel-wrap{ transform:translateY(-4px); }
-    .tlabel.current{ border:2px solid rgba(15,76,92,.42); }
-    .leaflet-div-icon.ty-label-icon{ background:transparent; border:none; }
+
+    .tlabel.dragging{
+      cursor:grabbing;
+      box-shadow:0 16px 32px rgba(31,53,72,.18);
+    }
+
+    .tlabel .miniDot{
+      width:9px;
+      height:9px;
+      border-radius:999px;
+      display:inline-block;
+      background:#111;
+      flex:0 0 auto;
+    }
+
+    .tlabel-wrap{
+      transform:translateY(-4px);
+    }
+
+    .tlabel.current{
+      border:2px solid rgba(15,76,92,.42);
+    }
+
+    .leaflet-div-icon.ty-label-icon{
+      background:transparent;
+      border:none;
+    }
 
     .leaflet-popup-content-wrapper{
       border-radius:18px;
@@ -826,58 +860,219 @@
     }
 
     @media (max-width:1100px){
-      .hero{ grid-template-columns:1fr; }
-      .trackerBody{ grid-template-columns:1fr; }
-      .sidePanel{ display:grid; grid-template-columns:1fr 1fr; align-items:start; }
-      .sourcePanel{ grid-column:1 / -1; }
-      .fcstList{ max-height:none; flex-direction:row; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; }
-      .fcstCard{ width:240px; scroll-snap-align:start; }
-      #map{ height:620px; }
+      .trackerBody{
+        grid-template-columns:1fr;
+      }
+
+      .sidePanel{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        align-items:start;
+      }
+
+      .sourcePanel{
+        grid-column:1 / -1;
+      }
+
+      .fcstList{
+        max-height:none;
+        flex-direction:row;
+        overflow-x:auto;
+        overflow-y:hidden;
+        scroll-snap-type:x mandatory;
+      }
+
+      .fcstCard{
+        width:240px;
+        scroll-snap-align:start;
+      }
+
+      #map{
+        height:620px;
+      }
     }
 
     @media (max-width:780px){
-      .page{ width:min(100% - 20px, var(--max)); padding-top:14px; }
-      .topbar{ top:8px; border-radius:22px; align-items:flex-start; flex-direction:column; }
-      .navPills{ width:100%; justify-content:flex-start; overflow:auto; flex-wrap:nowrap; padding-bottom:2px; }
-      .navPills a{ flex:0 0 auto; }
-      .heroCard{ padding:24px; border-radius:26px; min-height:auto; }
-      .heroSide{ grid-template-columns:1fr; }
-      .section{ border-radius:26px; }
-      .sectionHead{ align-items:flex-start; flex-direction:column; padding:20px; }
-      .toolbar{ justify-content:flex-start; }
-      .trackerBody{ padding:14px; }
-      .sidePanel{ grid-template-columns:1fr; }
-      .mapHeader{ align-items:flex-start; flex-direction:column; }
-      .mapLegend{ justify-content:flex-start; }
-      #map{ height:560px; min-height:440px; }
-      .analysisGrid{ grid-template-columns:1fr; padding:14px; }
+      .page{
+        width:min(100% - 20px, var(--max));
+        padding-top:14px;
+      }
+
+      .topbar{
+        top:8px;
+        border-radius:22px;
+        align-items:flex-start;
+        flex-direction:column;
+      }
+
+      .navPills{
+        width:100%;
+        justify-content:flex-start;
+        overflow:auto;
+        flex-wrap:nowrap;
+        padding-bottom:2px;
+      }
+
+      .navPills a{
+        flex:0 0 auto;
+      }
+
+      .weatherHeroCard{
+        padding:26px 24px;
+        border-radius:26px;
+        min-height:auto;
+      }
+
+      .weatherTitle{
+        font-size:42px;
+      }
+
+      .section{
+        border-radius:26px;
+      }
+
+      .sectionHead{
+        align-items:flex-start;
+        flex-direction:column;
+        padding:20px;
+      }
+
+      .toolbar{
+        justify-content:flex-start;
+      }
+
+      .trackerBody{
+        padding:14px;
+      }
+
+      .sidePanel{
+        grid-template-columns:1fr;
+      }
+
+      .mapHeader{
+        align-items:flex-start;
+        flex-direction:column;
+      }
+
+      .mapLegend{
+        justify-content:flex-start;
+      }
+
+      #map{
+        height:560px;
+        min-height:440px;
+      }
+
+      .analysisGrid{
+        grid-template-columns:1fr;
+        padding:14px;
+      }
     }
 
     @media (max-width:520px){
-      body{ background:#f7fbfc; }
-      .page{ width:100%; padding:10px 10px 28px; }
-      .heroCard,.section{ border-radius:22px; }
-      .heroTitle{ font-size:38px; }
-      .heroActions{ flex-direction:column; }
-      .actionBtn{ width:100%; }
-      .toolbar{ width:100%; gap:7px; }
-      .toggle,.btn{ flex:1 1 calc(50% - 7px); justify-content:center; padding:0 10px; }
-      .btn#printBtn{ flex-basis:100%; }
-      .fcstCard{ width:220px; }
-      #map{ height:520px; min-height:420px; }
+      body{
+        background:#f7fbfc;
+      }
+
+      .page{
+        width:100%;
+        padding:10px 10px 28px;
+      }
+
+      .weatherHeroCard,
+      .section{
+        border-radius:22px;
+      }
+
+      .weatherTitle{
+        font-size:38px;
+      }
+
+      .heroActions{
+        flex-direction:column;
+      }
+
+      .actionBtn{
+        width:100%;
+      }
+
+      .toolbar{
+        width:100%;
+        gap:7px;
+      }
+
+      .toggle,
+      .btn{
+        flex:1 1 calc(50% - 7px);
+        justify-content:center;
+        padding:0 10px;
+      }
+
+      .btn#printBtn{
+        flex-basis:100%;
+      }
+
+      .fcstCard{
+        width:220px;
+      }
+
+      #map{
+        height:520px;
+        min-height:420px;
+      }
     }
 
     @media print{
-      body{ background:#fff; }
-      body::before,.topbar,.hero,.analysisGrid,.btn,.toggle{ display:none !important; }
-      .page{ width:100%; padding:0; }
-      .section{ box-shadow:none; border:none; }
-      .sectionHead{ padding:12px; }
-      .trackerBody{ display:block; padding:0; }
-      .sidePanel{ display:none; }
-      .mapShell{ border:none; border-radius:0; box-shadow:none; }
-      .mapHeader{ display:none; }
-      #map{ height:520px; border-radius:0; }
+      body{
+        background:#fff;
+      }
+
+      body::before,
+      .topbar,
+      .weatherHero,
+      .analysisGrid,
+      .btn,
+      .toggle{
+        display:none !important;
+      }
+
+      .page{
+        width:100%;
+        padding:0;
+      }
+
+      .section{
+        box-shadow:none;
+        border:none;
+      }
+
+      .sectionHead{
+        padding:12px;
+      }
+
+      .trackerBody{
+        display:block;
+        padding:0;
+      }
+
+      .sidePanel{
+        display:none;
+      }
+
+      .mapShell{
+        border:none;
+        border-radius:0;
+        box-shadow:none;
+      }
+
+      .mapHeader{
+        display:none;
+      }
+
+      #map{
+        height:520px;
+        border-radius:0;
+      }
     }
   </style>
 </head>
@@ -901,56 +1096,47 @@
       </nav>
     </header>
 
-    <section class="hero" id="overview">
-      <div class="heroCard">
-        <div class="eyebrow"><span class="liveDot"></span> 即時颱風監測</div>
-        <h1 class="heroTitle">颱風預測<span id="pageTitle">載入中...</span></h1>
-        <p class="heroDesc">
-          將颱風路徑、目前強度、預報誤差範圍與暴風圈資料整合在同一個視覺化介面。下方的 Typhoon Tracker 是本頁其中一個核心 sector，可作為完整天氣資訊頁面中的互動模組。
+    <section class="weatherHero" id="overview">
+      <div class="weatherHeroCard">
+        <div class="eyebrow">
+          <span class="liveDot"></span>
+          即時天氣資訊
+        </div>
+
+        <h1 class="weatherTitle">
+          天氣情報
+          <span>Weather Intelligence</span>
+        </h1>
+
+        <p class="weatherDesc">
+          整合天氣觀測、颱風路徑、地震資訊與資料說明。颱風相關內容已獨立整理於下方的「颱風路徑追蹤器」區塊，避免主頁面資訊過度集中。
         </p>
+
         <div class="heroActions">
-          <button class="actionBtn" type="button" onclick="document.getElementById('tracker').scrollIntoView({behavior:'smooth'});">查看追蹤器</button>
-          <button class="actionBtn ghostBtn" type="button" id="heroFitBtn">聚焦完整路徑</button>
+          <button class="actionBtn" type="button" onclick="document.getElementById('tracker').scrollIntoView({behavior:'smooth'});">
+            查看颱風路徑
+          </button>
+          <button class="actionBtn ghostBtn" type="button" onclick="document.getElementById('analysis').scrollIntoView({behavior:'smooth'});">
+            查看天氣說明
+          </button>
         </div>
       </div>
-
-      <aside class="heroSide" aria-label="latest typhoon summary">
-        <div class="metricCard wide">
-          <div class="metricTop">
-            <span class="metricLabel">目前狀態</span>
-            <span class="metricIcon">●</span>
-          </div>
-          <div class="metricValue" id="heroLevel">—</div>
-          <div class="metricHint" id="heroTime">時間：—</div>
-        </div>
-
-        <div class="metricCard">
-          <div class="metricTop">
-            <span class="metricLabel">風速</span>
-            <span class="metricIcon">↗</span>
-          </div>
-          <div class="metricValue" id="heroWind">—</div>
-          <div class="metricHint">最新觀測</div>
-        </div>
-
-        <div class="metricCard">
-          <div class="metricTop">
-            <span class="metricLabel">氣壓</span>
-            <span class="metricIcon">↓</span>
-          </div>
-          <div class="metricValue" id="heroPres">—</div>
-          <div class="metricHint">中心氣壓</div>
-        </div>
-      </aside>
     </section>
 
     <section class="section" id="tracker">
       <div class="sectionHead">
         <div>
-          <div class="sectionKicker"><span class="dot" style="background:#4f8cff;"></span> TYHOON TRACKER SECTOR</div>
-          <h2 class="sectionTitle">颱風路徑追蹤器</h2>
+          <div class="sectionKicker">
+            <span class="dot" style="background:#4f8cff;"></span>
+            TYPHOON TRACKER
+          </div>
+
+          <h2 class="sectionTitle">
+            <span id="pageTitle">颱風路徑追蹤器</span>
+          </h2>
+
           <p class="sectionDesc">
-            此區塊保留原本的互動地圖、時間標籤、預報陰影帶、暴風圈開關與 forecast cards，但重新整理為更現代的 dashboard sector。
+            颱風路徑、目前強度、預報誤差範圍、暴風圈與預報列表集中顯示於此區塊。
           </p>
         </div>
 
@@ -959,14 +1145,17 @@
             <input type="checkbox" id="toggleLabels" checked>
             顯示時間
           </label>
+
           <label class="toggle" title="顯示/隱藏預報不確定性陰影帶">
             <input type="checkbox" id="toggleCone" checked>
             陰影帶
           </label>
+
           <label class="toggle" title="顯示/隱藏暴風圈">
             <input type="checkbox" id="toggleRings" checked>
             暴風圈
           </label>
+
           <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
           <button class="btn" id="printBtn" type="button">列印 / PDF</button>
         </div>
@@ -980,6 +1169,7 @@
                 <span class="dot" id="levelDotObs"></span>
                 <span id="levelTextObs">—</span>
               </div>
+
               <div class="miniMeta" id="infoTimeObs">時間：—</div>
             </div>
 
@@ -989,15 +1179,18 @@
                   <div class="ival" id="obsCoord">—</div>
                   <div class="ilabel">座標</div>
                 </div>
+
                 <div class="ibox">
                   <div class="ival" id="obsWind">—</div>
                   <div class="ilabel">風速</div>
                 </div>
+
                 <div class="ibox">
                   <div class="ival" id="obsPres">—</div>
                   <div class="ilabel">氣壓</div>
                 </div>
               </div>
+
               <div class="noteBox" id="infoNoteObs">—</div>
             </div>
           </div>
@@ -1008,26 +1201,37 @@
                 <span class="dot" style="background:#60a5fa;"></span>
                 <span>預報列表</span>
               </div>
+
               <span class="chip" id="fcstCount">0 筆</span>
             </div>
+
             <div class="fcstList" id="fcstList" aria-label="forecast-list"></div>
           </div>
 
           <div class="sourcePanel">
-            <div class="sourceLabel"><span class="dot" style="background:#7c5cff;"></span> DATA SOURCE</div>
+            <div class="sourceLabel">
+              <span class="dot" style="background:#7c5cff;"></span>
+              DATA SOURCE
+            </div>
+
             <p class="sub" id="sourceText"><b>來源：載入中...</b><br></p>
           </div>
         </aside>
 
         <div class="mapShell">
           <div class="mapHeader">
-            <strong><span class="dot" style="background:#4f8cff;"></span> Interactive Map</strong>
+            <strong>
+              <span class="dot" style="background:#4f8cff;"></span>
+              Interactive Map
+            </strong>
+
             <div class="mapLegend" aria-label="map legend">
               <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
               <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
               <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 預報不確定性</span>
             </div>
           </div>
+
           <div id="map"></div>
         </div>
       </div>
@@ -1036,9 +1240,16 @@
     <section class="section" id="analysis">
       <div class="sectionHead">
         <div>
-          <div class="sectionKicker"><span class="dot" style="background:#7c5cff;"></span> PAGE STRUCTURE</div>
-          <h2 class="sectionTitle">其他內容區塊</h2>
-          <p class="sectionDesc">颱風追蹤器現在只是頁面中的一個 sector，你可以在這裡加入風雨預測、警戒資訊、資料說明或歷史紀錄。</p>
+          <div class="sectionKicker">
+            <span class="dot" style="background:#7c5cff;"></span>
+            WEATHER MODULES
+          </div>
+
+          <h2 class="sectionTitle">其他天氣內容區塊</h2>
+
+          <p class="sectionDesc">
+            這裡可以加入一般天氣資訊、降雨預測、警戒資訊、觀測資料或歷史紀錄。颱風追蹤器已被整理為上方獨立 sector。
+          </p>
         </div>
       </div>
 
@@ -1047,10 +1258,12 @@
           <h3>風雨影響</h3>
           <p>可放置各地風速、降雨量、警戒等級或簡短風險摘要，讓使用者先掌握重點。</p>
         </article>
+
         <article class="analysisCard">
           <h3>預報說明</h3>
           <p>可補充資料來源、預報誤差範圍、更新頻率與使用者閱讀地圖時需要注意的地方。</p>
         </article>
+
         <article class="analysisCard">
           <h3>歷史比較</h3>
           <p>可加入過往颱風路徑、強度變化或災害事件，讓 tracker 不只是單一地圖。</p>
@@ -1060,11 +1273,12 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
     const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
     const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
 
-    let weatherMeta = { title: "颱風情報", source: "—" };
+    let weatherMeta = { title: "颱風路徑追蹤器", source: "—" };
     let points = [];
 
     const levelStyle = {
@@ -1076,7 +1290,9 @@
       STY: { color: "#7c3aed", label: "强烈颱風 STY" }
     };
 
-    function $(id){ return document.getElementById(id); }
+    function $(id){
+      return document.getElementById(id);
+    }
 
     function getStyle(level){
       return levelStyle[level] || { color:"#111827", label: level || "Unknown" };
@@ -1102,16 +1318,20 @@
       return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), 0, 0);
     }
 
-    function pad2(n){ return String(n).padStart(2, "0"); }
+    function pad2(n){
+      return String(n).padStart(2, "0");
+    }
 
     function fmtTime(s, mode="full"){
       const dt = parseLocalDateTime(s);
       if(!dt) return String(s ?? "—");
+
       const Y = dt.getFullYear();
       const M = dt.getMonth() + 1;
       const D = dt.getDate();
       const hh = pad2(dt.getHours());
       const mm = pad2(dt.getMinutes());
+
       if(mode === "short") return `${M}/${D} ${hh}:${mm}`;
       return `${Y}-${pad2(M)}-${pad2(D)} ${hh}:${mm}`;
     }
@@ -1124,9 +1344,10 @@
     async function loadWeatherData(){
       const res = await fetch("./weather.json");
       if(!res.ok) throw new Error(`Failed to load weather.json: ${res.status}`);
+
       const data = await res.json();
 
-      weatherMeta.title = data.title || "颱風情報";
+      weatherMeta.title = data.title || "颱風路徑追蹤器";
       weatherMeta.source = data.source || "—";
 
       points = (Array.isArray(data.points) ? data.points : []).map(p => ({
@@ -1149,6 +1370,7 @@
     function popupHtml(p){
       const st = getStyle(p.level);
       const sr = (typeof p.storm_radius_km === "number" && p.storm_radius_km > 0) ? `${p.storm_radius_km} km` : "—";
+
       return `
         <div class="popup-card">
           <div class="popup-head">
@@ -1179,6 +1401,7 @@
 
     function setObsTopInfo(p){
       const st = getStyle(p.level);
+
       $("levelDotObs").style.background = st.color;
       $("levelTextObs").textContent = st.label;
       $("infoTimeObs").textContent = `時間：${fmtTime(p.time,"full")}`;
@@ -1186,19 +1409,23 @@
       $("obsCoord").textContent = `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}`;
       $("obsWind").textContent = fmtWindMs(p.wind);
       $("obsPres").textContent = p.pressure ? `${p.pressure} hPa` : "—";
-
-      $("heroLevel").textContent = st.label;
-      $("heroTime").textContent = `時間：${fmtTime(p.time,"full")}`;
-      $("heroWind").textContent = fmtWindMs(p.wind);
-      $("heroPres").textContent = p.pressure ? `${p.pressure} hPa` : "—";
     }
 
-    function toRad(d){ return d * Math.PI / 180; }
-    function toDeg(r){ return r * 180 / Math.PI; }
-    function kmToMeters(km){ return km * 1000; }
+    function toRad(d){
+      return d * Math.PI / 180;
+    }
+
+    function toDeg(r){
+      return r * 180 / Math.PI;
+    }
+
+    function kmToMeters(km){
+      return km * 1000;
+    }
 
     function bearingDegrees(lat1, lon1, lat2, lon2){
-      const phi1 = toRad(lat1), phi2 = toRad(lat2);
+      const phi1 = toRad(lat1);
+      const phi2 = toRad(lat2);
       const deltaLambda = toRad(lon2 - lon1);
       const y = Math.sin(deltaLambda) * Math.cos(phi2);
       const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda);
@@ -1213,13 +1440,21 @@
       const lambda1 = toRad(lon);
       const phi2 = Math.asin(Math.sin(phi1) * Math.cos(delta) + Math.cos(phi1) * Math.sin(delta) * Math.cos(theta));
       const lambda2 = lambda1 + Math.atan2(Math.sin(theta) * Math.sin(delta) * Math.cos(phi1), Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2));
-      return { lat: toDeg(phi2), lon: ((toDeg(lambda2) + 540) % 360) - 180 };
+
+      return {
+        lat: toDeg(phi2),
+        lon: ((toDeg(lambda2) + 540) % 360) - 180
+      };
     }
 
     function avgAngleDeg(a, b){
-      const ax = Math.cos(toRad(a)), ay = Math.sin(toRad(a));
-      const bx = Math.cos(toRad(b)), by = Math.sin(toRad(b));
-      const x = ax + bx, y = ay + by;
+      const ax = Math.cos(toRad(a));
+      const ay = Math.sin(toRad(a));
+      const bx = Math.cos(toRad(b));
+      const by = Math.sin(toRad(b));
+      const x = ax + bx;
+      const y = ay + by;
+
       if(Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return a;
       return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
@@ -1248,14 +1483,16 @@
 
       const path = [
         { lat: obs.lat, lon: obs.lon, rKm: START_RADIUS },
-        ...fcst.map((p, i) => ({ lat: p.lat, lon: p.lon, rKm: smoothRadii[i] }))
+        ...fcst.map((p, i) => ({ lat:p.lat, lon:p.lon, rKm:smoothRadii[i] }))
       ];
 
       function getHeading(i){
         if(i === 0) return bearingDegrees(path[0].lat, path[0].lon, path[1].lat, path[1].lon);
         if(i === path.length - 1) return bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
+
         const b1 = bearingDegrees(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
         const b2 = bearingDegrees(path[i].lat, path[i].lon, path[i + 1].lat, path[i + 1].lon);
+
         return avgAngleDeg(b1, b2);
       }
 
@@ -1266,8 +1503,10 @@
         const p = path[i];
         const heading = getHeading(i);
         const rMeters = kmToMeters(p.rKm);
+
         const leftPt = destinationPoint(p.lat, p.lon, (heading - 90 + 360) % 360, rMeters);
         const rightPt = destinationPoint(p.lat, p.lon, (heading + 90) % 360, rMeters);
+
         leftSide.push([leftPt.lat, leftPt.lon]);
         rightSide.push([rightPt.lat, rightPt.lon]);
       }
@@ -1276,6 +1515,7 @@
       const startHeading = getHeading(0);
       const startRadius = kmToMeters(start.rKm);
       const startArc = [];
+
       for(let a = 90; a <= 270; a += 8){
         const pt = destinationPoint(start.lat, start.lon, (startHeading + a + 360) % 360, startRadius);
         startArc.push([pt.lat, pt.lon]);
@@ -1285,6 +1525,7 @@
       const endHeading = getHeading(path.length - 1);
       const endRadius = kmToMeters(end.rKm);
       const endArc = [];
+
       for(let a = -90; a <= 90; a += 4){
         const pt = destinationPoint(end.lat, end.lon, (endHeading + a + 360) % 360, endRadius);
         endArc.push([pt.lat, pt.lon]);
@@ -1299,7 +1540,8 @@
       ];
     }
 
-    let map, fullBounds;
+    let map;
+    let fullBounds;
     const segmentLines = [];
     const pointMarkers = [];
     const timeLabels = [];
@@ -1315,23 +1557,57 @@
     }
 
     function ensurePanes(){
-      if(!map.getPane("conePane")){ map.createPane("conePane"); map.getPane("conePane").style.zIndex = 200; }
-      if(!map.getPane("linePane")){ map.createPane("linePane"); map.getPane("linePane").style.zIndex = 350; }
-      if(!map.getPane("ringPane")){ map.createPane("ringPane"); map.getPane("ringPane").style.zIndex = 360; }
-      if(!map.getPane("markerPane2")){ map.createPane("markerPane2"); map.getPane("markerPane2").style.zIndex = 400; }
-      if(!map.getPane("labelLinePane")){ map.createPane("labelLinePane"); map.getPane("labelLinePane").style.zIndex = 445; }
-      if(!map.getPane("labelPane")){ map.createPane("labelPane"); map.getPane("labelPane").style.zIndex = 450; }
+      if(!map.getPane("conePane")){
+        map.createPane("conePane");
+        map.getPane("conePane").style.zIndex = 200;
+      }
+
+      if(!map.getPane("linePane")){
+        map.createPane("linePane");
+        map.getPane("linePane").style.zIndex = 350;
+      }
+
+      if(!map.getPane("ringPane")){
+        map.createPane("ringPane");
+        map.getPane("ringPane").style.zIndex = 360;
+      }
+
+      if(!map.getPane("markerPane2")){
+        map.createPane("markerPane2");
+        map.getPane("markerPane2").style.zIndex = 400;
+      }
+
+      if(!map.getPane("labelLinePane")){
+        map.createPane("labelLinePane");
+        map.getPane("labelLinePane").style.zIndex = 445;
+      }
+
+      if(!map.getPane("labelPane")){
+        map.createPane("labelPane");
+        map.getPane("labelPane").style.zIndex = 450;
+      }
     }
 
     function drawForecastCone(){
       const showCone = $("toggleCone")?.checked !== false;
+
       if(!showCone){
-        if(forecastCone){ forecastCone.remove(); forecastCone = null; }
+        if(forecastCone){
+          forecastCone.remove();
+          forecastCone = null;
+        }
         return;
       }
-      if(forecastCone){ forecastCone.remove(); forecastCone = null; }
+
+      if(forecastCone){
+        forecastCone.remove();
+        forecastCone = null;
+      }
+
       const poly = buildForecastConePolygonSmooth();
+
       if(!poly || poly.length < 4) return;
+
       forecastCone = L.polygon(poly, {
         pane:"conePane",
         stroke:true,
@@ -1343,7 +1619,10 @@
         smoothFactor:1.2,
         interactive:false
       }).addTo(map);
-      try{ forecastCone.bringToBack(); }catch(e){}
+
+      try{
+        forecastCone.bringToBack();
+      }catch(e){}
     }
 
     function getLineWeight(level){
@@ -1356,10 +1635,13 @@
 
     function drawSegments(){
       clearLayerArr(segmentLines);
+
       for(let i = 0; i < points.length - 1; i++){
-        const a = points[i], b = points[i + 1];
+        const a = points[i];
+        const b = points[i + 1];
         const st = getStyle(b.level);
         const isForecastSeg = (a.kind === "fcst" || b.kind === "fcst");
+
         const seg = L.polyline([[a.lat,a.lon],[b.lat,b.lon]], {
           pane:"linePane",
           weight:getLineWeight(b.level),
@@ -1367,13 +1649,16 @@
           dashArray:isForecastSeg ? "6 8" : null,
           opacity:isForecastSeg ? .92 : 1
         }).addTo(map);
+
         segmentLines.push(seg);
       }
+
       fullBounds = L.latLngBounds(points.map(p => [p.lat,p.lon]));
     }
 
     function drawPoints(highlightObsIdx){
       clearLayerArr(pointMarkers);
+
       if(currentPulse) currentPulse.remove();
 
       points.forEach((p, i) => {
@@ -1398,6 +1683,7 @@
 
       const cur = points[highlightObsIdx];
       const stCur = getStyle(cur.level);
+
       currentPulse = L.circleMarker([cur.lat, cur.lon], {
         pane:"markerPane2",
         radius:12,
@@ -1410,13 +1696,21 @@
 
     function drawStormRings(){
       const showRings = $("toggleRings")?.checked !== false;
-      if(!showRings){ clearLayerArr(stormRings); return; }
+
+      if(!showRings){
+        clearLayerArr(stormRings);
+        return;
+      }
 
       clearLayerArr(stormRings);
+
       points.forEach((p) => {
         const rKm = p.storm_radius_km;
+
         if(typeof rKm !== "number" || !isFinite(rKm) || rKm <= 0) return;
+
         const st = getStyle(p.level);
+
         const ring = L.circle([p.lat, p.lon], {
           pane:"ringPane",
           radius:kmToMeters(rKm),
@@ -1427,6 +1721,7 @@
           fillOpacity:.06,
           interactive:false
         }).addTo(map);
+
         stormRings.push(ring);
       });
     }
@@ -1438,12 +1733,16 @@
 
     function getLabelTopLeftPx(item){
       const stormPt = getStormContainerPoint(item);
-      return { x: stormPt.x + item.dx, y: stormPt.y + item.dyTop };
+      return {
+        x:stormPt.x + item.dx,
+        y:stormPt.y + item.dyTop
+      };
     }
 
     function getLabelAnchorPx(item){
       const stormPt = getStormContainerPoint(item);
       const topLeft = getLabelTopLeftPx(item);
+
       const left = topLeft.x;
       const top = topLeft.y;
       const right = left + item.w;
@@ -1460,12 +1759,18 @@
 
       let best = candidates[0];
       let bestD = Infinity;
+
       for(const c of candidates){
         const dx = stormPt.x - c.x;
         const dy = stormPt.y - c.y;
         const d = dx * dx + dy * dy;
-        if(d < bestD){ bestD = d; best = c; }
+
+        if(d < bestD){
+          bestD = d;
+          best = c;
+        }
       }
+
       return best;
     }
 
@@ -1477,16 +1782,21 @@
       const anchorPx = getLabelAnchorPx(item);
       const anchorLL = map.containerPointToLatLng(L.point(anchorPx.x, anchorPx.y));
       const p = points[item.idx];
+
       item.line.setLatLngs([[p.lat, p.lon], [anchorLL.lat, anchorLL.lng]]);
     }
 
     function updateLabelLines(){
-      for(const item of labelItems) updateSingleLabelGeometry(item);
+      for(const item of labelItems){
+        updateSingleLabelGeometry(item);
+      }
     }
 
     function scheduleUpdateLabelLines(){
       if(moveRaf) return;
+
       moveRaf = true;
+
       requestAnimationFrame(() => {
         moveRaf = false;
         updateLabelLines();
@@ -1506,6 +1816,7 @@
 
     function measureLabel(html){
       let measurer = document.getElementById("__label_measurer__");
+
       if(!measurer){
         measurer = document.createElement("div");
         measurer.id = "__label_measurer__";
@@ -1516,17 +1827,28 @@
         measurer.style.pointerEvents = "none";
         document.body.appendChild(measurer);
       }
+
       measurer.innerHTML = html;
+
       const node = measurer.querySelector(".tlabel");
+
       if(!node) return { w:160, h:32 };
+
       const r = node.getBoundingClientRect();
-      return { w:Math.ceil(r.width), h:Math.ceil(r.height) };
+
+      return {
+        w:Math.ceil(r.width),
+        h:Math.ceil(r.height)
+      };
     }
 
     function enableLabelDrag(item){
       const el = item.marker.getElement();
+
       if(!el) return;
+
       const labelEl = el.querySelector(".tlabel");
+
       if(!labelEl) return;
 
       let startMouse = null;
@@ -1535,15 +1857,19 @@
 
       function onPointerMove(ev){
         if(!dragging) return;
+
         item.dx = startOffset.x + (ev.clientX - startMouse.x);
         item.dyTop = startOffset.y + (ev.clientY - startMouse.y);
+
         updateSingleLabelGeometry(item);
       }
 
       function onPointerUp(){
         if(!dragging) return;
+
         dragging = false;
         labelEl.classList.remove("dragging");
+
         window.removeEventListener("pointermove", onPointerMove);
         window.removeEventListener("pointerup", onPointerUp);
       }
@@ -1551,10 +1877,13 @@
       labelEl.addEventListener("pointerdown", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+
         dragging = true;
         startMouse = { x:ev.clientX, y:ev.clientY };
         startOffset = { x:item.dx, y:item.dyTop };
+
         labelEl.classList.add("dragging");
+
         window.addEventListener("pointermove", onPointerMove);
         window.addEventListener("pointerup", onPointerUp);
       });
@@ -1566,7 +1895,17 @@
       const html = makeLabelHtml(p.time, st.color, isCurrent);
       const size = measureLabel(html);
 
-      const item = { idx, isCurrent, dx, dyTop, w:size.w, h:size.h, marker:null, line:null };
+      const item = {
+        idx,
+        isCurrent,
+        dx,
+        dyTop,
+        w:size.w,
+        h:size.h,
+        marker:null,
+        line:null
+      };
+
       const topLeft = getLabelTopLeftPx(item);
 
       const marker = L.marker(
@@ -1586,6 +1925,7 @@
 
       const anchorPx = getLabelAnchorPx(item);
       const anchorLL = map.containerPointToLatLng(L.point(anchorPx.x, anchorPx.y));
+
       const line = L.polyline([[p.lat, p.lon], [anchorLL.lat, anchorLL.lng]], {
         pane:"labelLinePane",
         color:isCurrent ? "rgba(17,24,39,.55)" : "rgba(17,24,39,.38)",
@@ -1595,8 +1935,10 @@
 
       item.marker = marker;
       item.line = line;
+
       timeLabels.push(marker, line);
       labelItems.push(item);
+
       setTimeout(() => enableLabelDrag(item), 0);
     }
 
@@ -1605,6 +1947,7 @@
       labelItems.length = 0;
 
       const show = $("toggleLabels")?.checked !== false;
+
       if(!show) return;
 
       const preferredOffsets = [
@@ -1628,7 +1971,13 @@
 
       function getRectForOffset(idx, dx, dyTop, w, h){
         const stormPt = map.latLngToContainerPoint([points[idx].lat, points[idx].lon]);
-        return { x:stormPt.x + dx, y:stormPt.y + dyTop, w, h };
+
+        return {
+          x:stormPt.x + dx,
+          y:stormPt.y + dyTop,
+          w,
+          h
+        };
       }
 
       function pickNonOverlapOffset(idx, w, h, usedRects, baseOffsets){
@@ -1636,14 +1985,24 @@
           const dx = raw.dx;
           const dyTop = raw.dy - h;
           const rect = getRectForOffset(idx, dx, dyTop, w, h);
+
           let bad = false;
+
           for(const r of usedRects){
-            if(rectOverlap(rect, r, 12)){ bad = true; break; }
+            if(rectOverlap(rect, r, 12)){
+              bad = true;
+              break;
+            }
           }
-          if(!bad){ usedRects.push(rect); return { dx, dyTop }; }
+
+          if(!bad){
+            usedRects.push(rect);
+            return { dx, dyTop };
+          }
         }
 
         const expandSteps = [40, 80, 120, 160];
+
         for(const step of expandSteps){
           for(const raw of baseOffsets){
             const variants = [
@@ -1652,22 +2011,36 @@
               { dx:raw.dx, dy:raw.dy + step },
               { dx:raw.dx, dy:raw.dy - step }
             ];
+
             for(const v of variants){
               const dx = v.dx;
               const dyTop = v.dy - h;
               const rect = getRectForOffset(idx, dx, dyTop, w, h);
+
               let bad = false;
+
               for(const r of usedRects){
-                if(rectOverlap(rect, r, 12)){ bad = true; break; }
+                if(rectOverlap(rect, r, 12)){
+                  bad = true;
+                  break;
+                }
               }
-              if(!bad){ usedRects.push(rect); return { dx, dyTop }; }
+
+              if(!bad){
+                usedRects.push(rect);
+                return { dx, dyTop };
+              }
             }
           }
         }
 
         const fallback = baseOffsets[0];
         usedRects.push(getRectForOffset(idx, fallback.dx, fallback.dy - h, w, h));
-        return { dx:fallback.dx, dyTop:fallback.dy - h };
+
+        return {
+          dx:fallback.dx,
+          dyTop:fallback.dy - h
+        };
       }
 
       function addAutoLabel(idx, isCurrent, usedRects, preferSet){
@@ -1676,6 +2049,7 @@
         const html = makeLabelHtml(p.time, st.color, isCurrent);
         const size = measureLabel(html);
         const picked = pickNonOverlapOffset(idx, size.w, size.h, usedRects, preferSet);
+
         createLabelItem(idx, isCurrent, picked.dx, picked.dyTop);
       }
 
@@ -1693,9 +2067,12 @@
 
       points.forEach((p, idx) => {
         if(p.kind !== "fcst") return;
+
         const shouldShow = (fcstCount % STEP === 0);
         fcstCount += 1;
+
         if(!shouldShow) return;
+
         addAutoLabel(idx, false, usedRects, preferredOffsets);
       });
 
@@ -1714,7 +2091,11 @@
     function renderForecastList(){
       const list = $("fcstList");
       list.innerHTML = "";
-      const fcst = points.map((p, idx) => ({...p, _idx:idx})).filter(p => p.kind === "fcst");
+
+      const fcst = points
+        .map((p, idx) => ({...p, _idx:idx}))
+        .filter(p => p.kind === "fcst");
+
       $("fcstCount").textContent = `${fcst.length} 筆`;
 
       if(fcst.length === 0){
@@ -1730,6 +2111,7 @@
         const st = getStyle(p.level);
         const card = document.createElement("div");
         card.className = "fcstCard";
+
         card.innerHTML = `
           <div class="fcstRow1">
             <div class="fcstTime">${escapeHtml(fmtTime(p.time,"short"))}</div>
@@ -1745,20 +2127,25 @@
             <div class="k">誤差</div><div class="v">${(typeof p.fcst_radius_km === "number") ? escapeHtml(p.fcst_radius_km + " km") : "—"}</div>
           </div>
         `;
+
         card.addEventListener("click", () => {
           const idx = p._idx;
+
           if(pointMarkers[idx]){
             map.setView([p.lat, p.lon], Math.max(map.getZoom(), 6), { animate:true });
             pointMarkers[idx].openPopup();
           }
         });
+
         list.appendChild(card);
       });
     }
 
     function enableHorizontalWheelScroll(){
       const el = $("fcstList");
+
       if(!el) return;
+
       el.addEventListener("wheel", (e) => {
         if(window.matchMedia("(max-width: 1100px)").matches && Math.abs(e.deltaY) > Math.abs(e.deltaX)){
           el.scrollLeft += e.deltaY;
@@ -1786,18 +2173,28 @@
         return;
       }
 
-      map = L.map("map", { zoomControl:true, scrollWheelZoom:true });
+      map = L.map("map", {
+        zoomControl:true,
+        scrollWheelZoom:true
+      });
+
       map.setView([points[0].lat, points[0].lon], 5);
       ensurePanes();
 
       if(MAPBOX_TOKEN !== "YOUR_MAPBOX_TOKEN" && MAPBOX_STYLE !== "YOUR_USERNAME/YOUR_STYLE_ID"){
         const mb = L.tileLayer(
           `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
-          { tileSize:512, zoomOffset:-1, maxZoom:18, attribution:"© Mapbox © OpenStreetMap" }
+          {
+            tileSize:512,
+            zoomOffset:-1,
+            maxZoom:18,
+            attribution:"© Mapbox © OpenStreetMap"
+          }
         );
 
         mb.on("tileerror", () => {
           if(map.hasLayer(mb)) map.removeLayer(mb);
+
           L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom:19,
             attribution:"© OpenStreetMap"
@@ -1816,6 +2213,7 @@
       drawSegments();
 
       const latestObsIdx = getLatestObsIndex();
+
       setObsTopInfo(points[latestObsIdx]);
       drawPoints(latestObsIdx);
       drawStormRings();
@@ -1844,23 +2242,24 @@
       }
 
       setTimeout(safeFit, 200);
+
       $("fitAllBtn").addEventListener("click", safeFit);
-      $("heroFitBtn").addEventListener("click", () => {
-        document.getElementById("tracker").scrollIntoView({ behavior:"smooth" });
-        setTimeout(safeFit, 420);
-      });
 
       function beforePrint(){
-        try{ map.invalidateSize(true); }catch(e){}
+        try{
+          map.invalidateSize(true);
+        }catch(e){}
       }
 
       window.addEventListener("beforeprint", beforePrint);
+
       $("printBtn").addEventListener("click", () => {
         beforePrint();
         setTimeout(() => window.print(), 30);
       });
 
       setTimeout(() => map.invalidateSize(), 300);
+
       window.addEventListener("resize", () => {
         try{
           map.invalidateSize();
