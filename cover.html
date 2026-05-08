@@ -859,13 +859,14 @@ button{ -webkit-tap-highlight-color:transparent; }
 .lyricsBox{
   margin-top:12px;
   border:1px solid var(--line);
-  border-radius:18px;
+  border-radius:22px;
   background:rgba(15,76,92,.025);
-  max-height:340px;
+  height:420px;
   overflow:auto;
-  padding:10px;
+  padding:120px 14px;
   min-width:0;
   overscroll-behavior:contain;
+  scroll-behavior:smooth;
 }
 
 .lyricsBox::-webkit-scrollbar{ width:10px; }
@@ -873,21 +874,34 @@ button{ -webkit-tap-highlight-color:transparent; }
 .lyricsBox::-webkit-scrollbar-track{ background:transparent; }
 
 .lyLine{
-  padding:10px 12px;
-  border-radius:14px;
-  color:#244150;
+  padding:14px 16px;
+  border-radius:18px;
+  color:rgba(36,65,80,.45);
   cursor:pointer;
   line-height:1.55;
   user-select:none;
   display:flex;
   align-items:flex-start;
-  font-size:14px;
-  font-weight:850;
+  font-size:18px;
+  font-weight:900;
   border:1px solid transparent;
+  transform:scale(.92);
+  transform-origin:left center;
+  transition:
+    transform .35s ease,
+    opacity .35s ease,
+    color .35s ease,
+    background .35s ease,
+    filter .35s ease,
+    box-shadow .35s ease;
+  opacity:.55;
+  filter:blur(.2px);
 }
 
 .lyLine:hover{
   background:rgba(15,76,92,.055);
+  opacity:.85;
+  color:#244150;
 }
 
 .lyLine .t{
@@ -901,8 +915,24 @@ button{ -webkit-tap-highlight-color:transparent; }
 
 .lyLine.active{
   color:var(--heading);
-  background:linear-gradient(135deg, rgba(15,76,92,.08), rgba(42,157,143,.07));
-  border-color:rgba(15,76,92,.15);
+  background:linear-gradient(135deg, rgba(15,76,92,.10), rgba(42,157,143,.10));
+  border-color:rgba(15,76,92,.16);
+  transform:scale(1.13);
+  opacity:1;
+  filter:none;
+  box-shadow:0 14px 30px rgba(31,53,72,.10);
+}
+
+.lyLine.active + .lyLine{
+  opacity:.82;
+  transform:scale(1);
+  color:rgba(36,65,80,.72);
+}
+
+.lyLine:has(+ .lyLine.active){
+  opacity:.82;
+  transform:scale(1);
+  color:rgba(36,65,80,.72);
 }
 
 .lyEmpty{
@@ -910,6 +940,28 @@ button{ -webkit-tap-highlight-color:transparent; }
   color:var(--muted);
   font-weight:900;
   font-size:13px;
+}
+
+@media (max-width:780px){
+  .lyricsBox{
+    height:360px;
+    padding:100px 12px;
+  }
+
+  .lyLine{
+    font-size:16px;
+  }
+
+  .lyLine.active{
+    transform:scale(1.08);
+  }
+}
+
+@media (max-width:520px){
+  .lyricsBox{
+    height:320px;
+    padding:90px 10px;
+  }
 }
 
 .toast{
@@ -1976,35 +2028,39 @@ function renderLyricsToolsState(){
 
 function syncLyricsActive(forceScroll){
   if(!lyrics.length) return;
+
   const box = $("lyricsBox");
   if(!box || lyricsCollapsed) return;
 
   const idx = findActiveLyIndex(audio.currentTime || 0);
   if(idx === activeLyIndex && !forceScroll) return;
+
   activeLyIndex = idx;
 
   const lines = box.querySelectorAll(".lyLine");
-  lines.forEach((el, i) => el.classList.toggle("active", i === activeLyIndex));
+
+  lines.forEach((el, i) => {
+    el.classList.toggle("active", i === activeLyIndex);
+  });
 
   if(activeLyIndex < 0 || !lines[activeLyIndex]) return;
 
   if(lyricsAutoScroll || forceScroll){
-    const el = lines[activeLyIndex];
-    const boxRect = box.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const elTopInBox = (elRect.top - boxRect.top) + box.scrollTop;
-    const elCenter = elTopInBox + el.offsetHeight / 2;
-    const targetTop = elCenter - box.clientHeight / 2;
+    const activeLine = lines[activeLyIndex];
+
+    const targetTop =
+      activeLine.offsetTop
+      - (box.clientHeight / 2)
+      + (activeLine.offsetHeight / 2);
+
     const maxTop = Math.max(0, box.scrollHeight - box.clientHeight);
-    const nextTop = Math.max(0, Math.min(targetTop, maxTop));
 
     box.scrollTo({
-      top:nextTop,
+      top:Math.max(0, Math.min(targetTop, maxTop)),
       behavior:forceScroll ? "auto" : "smooth"
     });
   }
 }
-
 function renderPlayer(){
   const s = currentSong();
   if(!s){
