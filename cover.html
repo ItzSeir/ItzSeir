@@ -863,20 +863,16 @@ button{ -webkit-tap-highlight-color:transparent; }
   background:rgba(15,76,92,.025);
   height:420px;
   overflow:auto;
-  padding:120px 14px;
+  padding:18px 14px;
   min-width:0;
   overscroll-behavior:contain;
   scroll-behavior:smooth;
 }
 
-.lyricsBox::-webkit-scrollbar{ width:10px; }
-.lyricsBox::-webkit-scrollbar-thumb{ background:rgba(15,76,92,.20); border-radius:999px; border:3px solid rgba(255,255,255,.8); }
-.lyricsBox::-webkit-scrollbar-track{ background:transparent; }
-
 .lyLine{
   padding:14px 16px;
   border-radius:18px;
-  color:rgba(36,65,80,.45);
+  color:rgba(36,65,80,.38);
   cursor:pointer;
   line-height:1.55;
   user-select:none;
@@ -885,17 +881,8 @@ button{ -webkit-tap-highlight-color:transparent; }
   font-size:18px;
   font-weight:900;
   border:1px solid transparent;
-  transform:scale(.92);
-  transform-origin:left center;
-  transition:
-    transform .35s ease,
-    opacity .35s ease,
-    color .35s ease,
-    background .35s ease,
-    filter .35s ease,
-    box-shadow .35s ease;
+  transition:.35s ease;
   opacity:.55;
-  filter:blur(.2px);
 }
 
 .lyLine:hover{
@@ -917,22 +904,15 @@ button{ -webkit-tap-highlight-color:transparent; }
   color:var(--heading);
   background:linear-gradient(135deg, rgba(15,76,92,.10), rgba(42,157,143,.10));
   border-color:rgba(15,76,92,.16);
-  transform:scale(1.13);
+  font-size:26px;
   opacity:1;
-  filter:none;
   box-shadow:0 14px 30px rgba(31,53,72,.10);
 }
 
-.lyLine.active + .lyLine{
-  opacity:.82;
-  transform:scale(1);
-  color:rgba(36,65,80,.72);
-}
-
+.lyLine.active + .lyLine,
 .lyLine:has(+ .lyLine.active){
-  opacity:.82;
-  transform:scale(1);
-  color:rgba(36,65,80,.72);
+  opacity:.78;
+  color:rgba(36,65,80,.68);
 }
 
 .lyEmpty{
@@ -945,7 +925,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 @media (max-width:780px){
   .lyricsBox{
     height:360px;
-    padding:100px 12px;
+    padding:16px 12px;
   }
 
   .lyLine{
@@ -953,14 +933,18 @@ button{ -webkit-tap-highlight-color:transparent; }
   }
 
   .lyLine.active{
-    transform:scale(1.08);
+    font-size:22px;
   }
 }
 
 @media (max-width:520px){
   .lyricsBox{
     height:320px;
-    padding:90px 10px;
+    padding:14px 10px;
+  }
+
+  .lyLine.active{
+    font-size:20px;
   }
 }
 
@@ -2048,10 +2032,12 @@ function syncLyricsActive(forceScroll){
   if(lyricsAutoScroll || forceScroll){
     const activeLine = lines[activeLyIndex];
 
-    const targetTop =
-      activeLine.offsetTop
-      - (box.clientHeight / 2)
-      + (activeLine.offsetHeight / 2);
+    const boxRect = box.getBoundingClientRect();
+    const lineRect = activeLine.getBoundingClientRect();
+
+    const currentScroll = box.scrollTop;
+    const lineCenter = lineRect.top - boxRect.top + currentScroll + lineRect.height / 2;
+    const targetTop = lineCenter - box.clientHeight / 2;
 
     const maxTop = Math.max(0, box.scrollHeight - box.clientHeight);
 
