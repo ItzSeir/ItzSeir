@@ -1234,9 +1234,12 @@
     }
 
     function magnitudeColor(mag){
+      /* 只用於左邊地震報告列表的 M pill，不影響地圖震央 */
       if(mag == null) return "#94a3b8";
       if(mag < 4.0) return "#94a3b8";
-      if(mag < 6.0) return "#f59e0b";
+      if(mag < 5.0) return "#16a34a";
+      if(mag <= 5.5) return "#facc15";
+      if(mag <= 6.4) return "#f97316";
       return "#dc2626";
     }
 
@@ -1257,9 +1260,6 @@
         el.innerHTML = `
           <div style="font-weight:900;font-size:12px;">圖例</div>
           ${[
-            ["M < 4.0", magnitudeColor(3.9)],
-            ["M 4.0 - 5.9", magnitudeColor(4.5)],
-            ["M ≥ 6.0", magnitudeColor(6.0)],
             ["震度 0", palette[0]],
             ["震度 1", palette[1]],
             ["震度 2", palette[2]],
@@ -1529,9 +1529,10 @@
       const depth = getDepth(eq);
 
       if(epi.lat != null && epi.lon != null){
-        const epiColor = magnitudeColor(mag);
-        const epiSize = mag == null ? 18 : Math.max(16, Math.min(34, 12 + mag * 3));
-        const html = `<div class="epi" style="width:${epiSize}px;height:${epiSize}px;background:${epiColor};box-shadow:0 12px 26px ${epiColor}55;" title="震央"></div>`;
+        /* 震央固定使用原本紅色樣式，不跟 M pill 顏色走 */
+        const epiColor = "#d62828";
+        const epiSize = mag == null ? 20 : Math.max(20, Math.min(34, 12 + mag * 3));
+        const html = `<div class="epi" style="width:${epiSize}px;height:${epiSize}px;background:${epiColor};box-shadow:0 0 0 10px rgba(214,40,40,.16), 0 0 0 22px rgba(214,40,40,.10), 0 12px 26px rgba(214,40,40,.30);" title="震央"></div>`;
         epicenterMarker = L.marker([epi.lat, epi.lon], {
           icon:L.divIcon({ className:"", html, iconSize:[epiSize,epiSize], iconAnchor:[epiSize/2,epiSize/2] })
         }).addTo(map);
@@ -1555,8 +1556,8 @@
       const showStations = $("toggleStations")?.checked !== false;
       if(showStations && stations.length){
         for(const s of stations){
-          const color = intensityColor(label, s.bucket);
           const label = s.label ?? (s.bucket != null ? String(s.bucket) : "—");
+          const color = intensityColor(label, s.bucket);
 
           const html = `
             <div class="stn" style="border-color:${color};" title="震度 ${escapeHtml(label)}">
