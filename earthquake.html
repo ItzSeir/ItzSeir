@@ -1784,14 +1784,22 @@
         map.invalidateSize();
         await new Promise(r => setTimeout(r, 450));
 
+        /* PNG 輸出時暫時隱藏 Leaflet 的 + / - 控制器與地圖 attribution */
+        const mapEl = $("map");
+        const hiddenEls = Array.from(mapEl.querySelectorAll(".leaflet-control-zoom, .leaflet-control-attribution"));
+        const oldDisplay = hiddenEls.map(el => el.style.display);
+        hiddenEls.forEach(el => el.style.display = "none");
+
         const html2canvasLib = await ensureHtml2Canvas();
-        const mapCanvas = await html2canvasLib($("map"), {
+        const mapCanvas = await html2canvasLib(mapEl, {
           useCORS:true,
           allowTaint:false,
           backgroundColor:'#f4fafb',
           scale:2,
           logging:false
         });
+
+        hiddenEls.forEach((el, i) => el.style.display = oldDisplay[i]);
 
         const W = 1600;
         const H = 900;
@@ -1811,20 +1819,45 @@
         fillRoundRect(ctx, leftX, topY, leftW, cardH, 24, 'rgba(255,255,255,.96)', 'rgba(25,42,58,.14)');
         fillRoundRect(ctx, rightX, topY, rightW, cardH, 24, 'rgba(255,255,255,.92)', 'rgba(25,42,58,.14)');
 
-        /* 左側：把原本格子的地名與時間拉到最上方，不再重複一格 */
+        /* 左側標題、地名與時間：把資訊拉到最上方並重新設計 */
         ctx.fillStyle = '#0f4c5c';
         ctx.font = '900 30px "Noto Sans TC", sans-serif';
         ctx.fillText(reportType, leftX + 26, topY + 48);
 
+        /* 地名卡片 */
+        fillRoundRect(ctx, leftX + 26, topY + 68, leftW - 52, 86, 20, 'rgba(15,76,92,.055)', 'rgba(15,76,92,.10)');
+        ctx.fillStyle = '#0f4c5c';
+        ctx.beginPath();
+        ctx.arc(leftX + 52, topY + 104, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(leftX + 52, topY + 104, 5, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.fillStyle = '#102f40';
-        ctx.font = '900 23px "Noto Sans TC", sans-serif';
-        const locEndY = wrapCanvasText(ctx, epi.location || '—', leftX + 26, topY + 86, leftW - 52, 27, 2);
+        ctx.font = '900 21px "Noto Sans TC", sans-serif';
+        wrapCanvasText(ctx, epi.location || '—', leftX + 78, topY + 96, leftW - 116, 25, 2);
 
-        ctx.fillStyle = '#6a7d89';
-        ctx.font = '800 15px "Noto Sans TC", sans-serif';
-        ctx.fillText(time, leftX + 26, Math.max(topY + 132, locEndY + 12));
+        /* 時間膠囊 */
+        fillRoundRect(ctx, leftX + 26, topY + 164, leftW - 52, 46, 23, 'rgba(42,157,143,.10)', 'rgba(42,157,143,.14)');
+        ctx.strokeStyle = '#0f4c5c';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(leftX + 50, topY + 187, 11, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(leftX + 50, topY + 187);
+        ctx.lineTo(leftX + 50, topY + 180);
+        ctx.moveTo(leftX + 50, topY + 187);
+        ctx.lineTo(leftX + 57, topY + 191);
+        ctx.stroke();
 
-        const magBoxY = topY + 160;
+        ctx.fillStyle = '#102f40';
+        ctx.font = '900 18px "Noto Sans TC", sans-serif';
+        ctx.fillText(time, leftX + 72, topY + 194);
+
+        const magBoxY = topY + 232;
         const magColor = magnitudeColor(mag);
         fillRoundRect(ctx, leftX + 26, magBoxY, leftW - 52, 82, 18, '#f7fbfc', 'rgba(25,42,58,.10)');
         ctx.fillStyle = magColor;
@@ -1845,7 +1878,7 @@
           ctx.fillText(value, x + 16, y + 50);
         }
 
-        let y = topY + 268;
+        let y = topY + 338;
         miniRow('深度', depth != null ? `${depth.toFixed(1)} km` : '—', leftX + 26, y);
         miniRow('座標', (epi.lat != null && epi.lon != null) ? `${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}` : '—', leftX + 36 + halfW, y);
         y += 90;
@@ -1893,17 +1926,29 @@
         ctx.drawImage(mapCanvas, sx, sy, sw, sh, mapX, mapY, mapW, mapH);
         ctx.restore();
 
-        /* 右下角署名與來源 */
-        const footW = 270, footH = 44;
-        const footX = rightX + rightW - footW - 30;
-        const footY = topY + cardH - footH - 24;
-        fillRoundRect(ctx, footX, footY, footW, footH, 22, 'rgba(255,255,255,.86)', 'rgba(25,42,58,.12)');
+        /* 右下角署名與來源：放在地圖外的卡片右下，不和地圖標記/圖例衝突 */
+        const footW = 250, footH = 52;
+        const footX = rightX + rightW - footW - 28;
+        const footY = topY + cardH - footH - 20;
+        fillRoundRect(ctx, footX, footY, footW, footH, 20, 'rgba(255,255,255,.92)', 'rgba(25,42,58,.14)');
+
+        const logoX = footX + 26;
+        const logoY = footY + 26;
+        ctx.strokeStyle = '#0f4c5c';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(logoX, logoY, 13, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(logoX, logoY, 6, 0, Math.PI * 2);
+        ctx.stroke();
+
         ctx.fillStyle = '#0f4c5c';
         ctx.font = '900 16px "Noto Sans TC", sans-serif';
-        ctx.fillText('筱風製作', footX + 20, footY + 28);
+        ctx.fillText('筱風製作', footX + 48, footY + 22);
         ctx.fillStyle = '#6a7d89';
         ctx.font = '800 13px "Noto Sans TC", sans-serif';
-        ctx.fillText('資料來源 CWA', footX + 118, footY + 28);
+        ctx.fillText('資料來源 CWA', footX + 48, footY + 40);
 
         const a = document.createElement('a');
         const safeTime = time.replace(/[^0-9]/g, '').slice(0, 12) || 'earthquake';
@@ -1911,6 +1956,10 @@
         a.href = canvas.toDataURL('image/png');
         a.click();
       }catch(err){
+        try{
+          const mapEl = $("map");
+          mapEl.querySelectorAll(".leaflet-control-zoom, .leaflet-control-attribution").forEach(el => el.style.display = "");
+        }catch(_){}
         console.error(err);
         alert('PNG 輸出失敗：' + (err?.message || err));
       }finally{
