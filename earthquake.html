@@ -1752,14 +1752,12 @@
       if(!eq){ alert('目前沒有選中的地震資料'); return; }
 
       const stations = getIntensityStations(eq);
-      const countyRows = buildCountyMax(stations).slice(0, 8);
+      const countyRows = buildCountyMax(stations).slice(0, 6);
       const epi = getEpicenter(eq);
       const mag = getMagnitude(eq);
       const depth = getDepth(eq);
       const time = getOriginTime(eq) || '—';
       const maxLabel = getMaxIntensityLabel(stations) || '—';
-      const type = eq?._kind === 'local' ? '小區域地震' : '顯著有感地震';
-
       const W = 1600;
       const H = 900;
       const canvas = document.createElement('canvas');
@@ -1773,14 +1771,7 @@
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
 
-      ctx.fillStyle = '#102f40';
-      ctx.font = '900 34px "Noto Sans TC", sans-serif';
-      ctx.fillText('台灣地震即時情報', 56, 58);
-      ctx.fillStyle = '#6a7d89';
-      ctx.font = '800 18px "Noto Sans TC", sans-serif';
-      ctx.fillText('CWA EARTHQUAKE MONITOR ｜ 選中地震 PNG 報告', 56, 90);
-
-      const leftX = 54, topY = 122, leftW = 480, cardH = 710;
+      const leftX = 54, topY = 42, leftW = 480, cardH = 805;
       const rightX = 570, rightW = 976;
       fillRoundRect(ctx, leftX, topY, leftW, cardH, 26, 'rgba(255,255,255,.94)', 'rgba(25,42,58,.14)');
       fillRoundRect(ctx, rightX, topY, rightW, cardH, 26, 'rgba(255,255,255,.90)', 'rgba(25,42,58,.14)');
@@ -1789,32 +1780,31 @@
       ctx.font = '900 26px "Noto Sans TC", sans-serif';
       ctx.fillText('地震資訊', leftX + 28, topY + 46);
 
-      function infoRow(label, value, y, rowH=58, maxLines=1){
+      function infoRow(label, value, y, rowH=56, maxLines=1){
         fillRoundRect(ctx, leftX + 26, y, leftW - 52, rowH, 15, '#ffffff', 'rgba(25,42,58,.12)');
+        const compact = label === '發震時間' || label === '震央座標';
         ctx.fillStyle = '#6a7d89';
-        ctx.font = '900 14px "Noto Sans TC", sans-serif';
-        ctx.fillText(label, leftX + 44, y + 24);
+        ctx.font = '900 13px "Noto Sans TC", sans-serif';
+        ctx.fillText(label, leftX + 44, y + 23);
         ctx.fillStyle = '#102f40';
-        ctx.font = '900 22px "Noto Sans TC", sans-serif';
-        wrapCanvasText(ctx, value, leftX + 160, y + 25, leftW - 210, 25, maxLines);
+        ctx.font = compact ? '900 17px "Noto Sans TC", sans-serif' : '900 22px "Noto Sans TC", sans-serif';
+        wrapCanvasText(ctx, value, leftX + 160, y + 24, leftW - 210, compact ? 21 : 25, maxLines);
       }
 
       let y = topY + 86;
-      infoRow('類型', type, y); y += 68;
-      infoRow('發震時間', time, y); y += 68;
-      infoRow('震央位置', epi.location || '—', y, 84, 2); y += 94;
-      infoRow('規模', mag != null ? `M${mag.toFixed(1)}` : '—', y); y += 68;
-      infoRow('深度', depth != null ? `${depth.toFixed(1)} km` : '—', y); y += 68;
-      infoRow('最大震度', maxLabel !== '—' ? `震度 ${maxLabel}` : '—', y); y += 68;
-      infoRow('震央座標', (epi.lat != null && epi.lon != null) ? `${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}` : '—', y); y += 68;
-      infoRow('測站數', `${stations.length} 個`, y); y += 74;
+      infoRow('發震時間', time, y, 52); y += 62;
+      infoRow('震央位置', epi.location || '—', y, 82, 2); y += 92;
+      infoRow('規模', mag != null ? `M${mag.toFixed(1)}` : '—', y, 56); y += 66;
+      infoRow('深度', depth != null ? `${depth.toFixed(1)} km` : '—', y, 56); y += 66;
+      infoRow('最大震度', maxLabel !== '—' ? `震度 ${maxLabel}` : '—', y, 56); y += 66;
+      infoRow('震央座標', (epi.lat != null && epi.lon != null) ? `${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}` : '—', y, 52); y += 66;
 
       ctx.fillStyle = '#102f40';
       ctx.font = '900 20px "Noto Sans TC", sans-serif';
       ctx.fillText('各縣市最大震度', leftX + 28, y);
       y += 18;
 
-      const chipW = 200, chipH = 34, gap = 10;
+      const chipW = 200, chipH = 34, gap = 9;
       let cx = leftX + 26, cy = y + 10;
       countyRows.forEach((r) => {
         if(cx + chipW > leftX + leftW - 26){ cx = leftX + 26; cy += chipH + gap; }
@@ -1838,7 +1828,7 @@
       ctx.font = '800 15px "Noto Sans TC", sans-serif';
       ctx.fillText('地圖範圍依震度測站與震央位置自動調整', rightX + 28, topY + 72);
 
-      const mapX = rightX + 42, mapY = topY + 100, mapW = rightW - 84, mapH = 560;
+      const mapX = rightX + 42, mapY = topY + 92, mapW = rightW - 84, mapH = 620;
       fillRoundRect(ctx, mapX, mapY, mapW, mapH, 24, '#e8f6f8', 'rgba(15,76,92,.16)');
       ctx.save();
       drawRoundRect(ctx, mapX, mapY, mapW, mapH, 24);
@@ -1907,11 +1897,6 @@
         ctx.fillStyle = '#102f40'; ctx.font = '800 12px "Noto Sans TC", sans-serif'; ctx.fillText(lab, lx + 12, legendY + 20);
         lx += 58;
       });
-
-      ctx.fillStyle = '#6a7d89';
-      ctx.font = '800 13px "Noto Sans TC", sans-serif';
-      const outTime = new Date().toLocaleString('zh-TW', { hour12:false });
-      ctx.fillText(`輸出時間：${outTime} ｜ 資料來源：中央氣象署 Open Data`, 56, 874);
 
       const a = document.createElement('a');
       const safeTime = time.replace(/[^0-9]/g, '').slice(0, 12) || 'earthquake';
