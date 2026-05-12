@@ -1097,6 +1097,7 @@
 
           <span class="chip" id="autoStatus">下次更新：—</span>
           <button class="btn btnGhost" id="refreshBtn" type="button">立即更新</button>
+          <button class="btn btnGhost" id="printPngBtn" type="button">列印 PNG</button>
         </div>
       </div>
 
@@ -1530,7 +1531,7 @@
       if(epi.lat != null && epi.lon != null){
         /* 震央固定使用原本紅色樣式，不跟 M pill 顏色走 */
         const epiColor = "#d62828";
-        const epiSize = mag == null ? 20 : Math.max(20, Math.min(34, 12 + mag * 3));
+        const epiSize = 20;
         const html = `<div class="epi" style="width:${epiSize}px;height:${epiSize}px;background:${epiColor};box-shadow:0 0 0 10px rgba(214,40,40,.16), 0 0 0 22px rgba(214,40,40,.10), 0 12px 26px rgba(214,40,40,.30);" title="震央"></div>`;
         epicenterMarker = L.marker([epi.lat, epi.lon], {
           icon:L.divIcon({ className:"", html, iconSize:[epiSize,epiSize], iconAnchor:[epiSize/2,epiSize/2] })
@@ -1692,6 +1693,294 @@
       setAutoStatusNext(null);
     }
 
+
+    function downloadCanvas(canvas, filename){
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function fitExportBounds(points){
+      let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+      for(const p of points){
+        if(p.lat == null || p.lon == null) continue;
+        minLat = Math.min(minLat, p.lat);
+        maxLat = Math.max(maxLat, p.lat);
+        minLon = Math.min(minLon, p.lon);
+        maxLon = Math.max(maxLon, p.lon);
+      }
+
+      if(!Number.isFinite(minLat)){
+        return { minLat:21.8, maxLat:25.6, minLon:119.4, maxLon:122.3 };
+      }
+
+      let latSpan = Math.max(maxLat - minLat, 0.55);
+      let lonSpan = Math.max(maxLon - minLon, 0.55);
+      const padLat = latSpan * 0.22;
+      const padLon = lonSpan * 0.22;
+
+      return {
+        minLat:minLat - padLat,
+        maxLat:maxLat + padLat,
+        minLon:minLon - padLon,
+        maxLon:maxLon + padLon
+      };
+    }
+
+    function roundedRect(ctx, x, y, w, h, r){
+      const rr = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rr);
+      ctx.arcTo(x + w, y + h, x, y + h, rr);
+      ctx.arcTo(x, y + h, x, y, rr);
+      ctx.arcTo(x, y, x + w, y, rr);
+      ctx.closePath();
+    }
+
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines=4){
+      const chars = String(text || "—").split("");
+      let line = "";
+      let lines = 0;
+      for(const ch of chars){
+        const test = line + ch;
+        if(ctx.measureText(test).width > maxWidth && line){
+          ctx.fillText(line, x, y);
+          y += lineHeight;
+          lines++;
+          line = ch;
+          if(lines >= maxLines - 1) break;
+        }else{
+          line = test;
+        }
+      }
+      if(line) ctx.fillText(line, x, y);
+      return y + lineHeight;
+    }
+
+    function drawPrintPng(){
+      const eq = cachedAll[currentIndex];
+      if(!eq){
+        alert("目前沒有可輸出的地震資料。");
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 1600;
+      canvas.height = 900;
+      const ctx = canvas.getContext("2d");
+      const dpr = 1;
+
+      const stations = getIntensityStations(eq);
+      const countyRows = buildCountyMax(stations);
+      const epi = getEpicenter(eq);
+      const mag = getMagnitude(eq);
+      const depth = getDepth(eq);
+      const time = getOriginTime(eq) || "—";
+      const maxLabel = getMaxIntensityLabel(stations) || "—";
+      const loc = epi.location || "—";
+      const type = eq?._kind === "local" ? "小區域地震" : "顯著有感地震";
+
+      ctx.fillStyle = "#eef4f7";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      grad.addColorStop(0, "rgba(42,157,143,.18)");
+      grad.addColorStop(1, "rgba(123,223,242,.10)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#122c3c";
+      ctx.font = "900 34px 'Noto Sans TC', sans-serif";
+      ctx.fillText("台灣地震即時情報", 54, 58);
+      ctx.font = "800 18px 'Noto Sans TC', sans-serif";
+      ctx.fillStyle = "#6a7d89";
+      ctx.fillText("CWA EARTHQUAKE MONITOR｜選中地震 PNG 報告", 54, 90);
+
+      const leftX = 54, leftY = 124, leftW = 480, leftH = 720;
+      roundedRect(ctx, leftX, leftY, leftW, leftH, 30);
+      ctx.fillStyle = "rgba(255,255,255,.92)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(25,42,58,.12)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = "#0f4c5c";
+      ctx.font = "900 24px 'Noto Sans TC', sans-serif";
+      ctx.fillText("地震資訊", leftX + 28, leftY + 46);
+
+      const info = [
+        ["類型", type],
+        ["發震時間", time],
+        ["震央位置", loc],
+        ["規模", mag != null ? `M${mag.toFixed(1)}` : "—"],
+        ["深度", depth != null ? `${depth.toFixed(1)} km` : "—"],
+        ["最大震度", maxLabel !== "—" ? `震度 ${maxLabel}` : "—"],
+        ["震央座標", epi.lat != null && epi.lon != null ? `${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}` : "—"],
+        ["測站數", `${stations.length} 個`]
+      ];
+
+      let yy = leftY + 86;
+      for(const [lab, val] of info){
+        roundedRect(ctx, leftX + 26, yy, leftW - 52, lab === "震央位置" ? 86 : 58, 16);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(25,42,58,.10)";
+        ctx.stroke();
+        ctx.fillStyle = "#6a7d89";
+        ctx.font = "900 15px 'Noto Sans TC', sans-serif";
+        ctx.fillText(lab, leftX + 44, yy + 23);
+        ctx.fillStyle = "#122c3c";
+        ctx.font = "900 21px 'Noto Sans TC', sans-serif";
+        if(lab === "震央位置"){
+          wrapText(ctx, val, leftX + 44, yy + 55, leftW - 88, 25, 2);
+          yy += 98;
+        }else{
+          ctx.fillText(val, leftX + 160, yy + 37);
+          yy += 70;
+        }
+      }
+
+      ctx.fillStyle = "#122c3c";
+      ctx.font = "900 19px 'Noto Sans TC', sans-serif";
+      ctx.fillText("各縣市最大震度", leftX + 28, yy + 6);
+      yy += 26;
+      const chipW = 128, chipH = 34;
+      countyRows.slice(0, 14).forEach((r, i) => {
+        const cx = leftX + 26 + (i % 3) * 140;
+        const cy = yy + Math.floor(i / 3) * 44;
+        roundedRect(ctx, cx, cy, chipW, chipH, 17);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(25,42,58,.10)";
+        ctx.stroke();
+        ctx.fillStyle = intensityColor(r.label, r.bucket);
+        ctx.beginPath();
+        ctx.arc(cx + 17, cy + 17, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#244150";
+        ctx.font = "900 13px 'Noto Sans TC', sans-serif";
+        ctx.fillText(`${r.county} ${r.label}`, cx + 30, cy + 22);
+      });
+
+      const mapX = 570, mapY = 124, mapW = 976, mapH = 720;
+      roundedRect(ctx, mapX, mapY, mapW, mapH, 30);
+      ctx.fillStyle = "#f4fafb";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(25,42,58,.12)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = "#122c3c";
+      ctx.font = "900 24px 'Noto Sans TC', sans-serif";
+      ctx.fillText("震央與測站震度位置", mapX + 28, mapY + 46);
+      ctx.fillStyle = "#6a7d89";
+      ctx.font = "800 15px 'Noto Sans TC', sans-serif";
+      ctx.fillText("地圖範圍會依震度測站與震央位置自動調整", mapX + 28, mapY + 73);
+
+      const plotX = mapX + 42, plotY = mapY + 100, plotW = mapW - 84, plotH = mapH - 150;
+      roundedRect(ctx, plotX, plotY, plotW, plotH, 22);
+      ctx.fillStyle = "#e8f3f6";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(15,76,92,.12)";
+      ctx.stroke();
+
+      const points = [...stations.map(s => ({ lat:s.lat, lon:s.lon })), epi];
+      const b = fitExportBounds(points);
+      const project = (lat, lon) => {
+        const x = plotX + ((lon - b.minLon) / (b.maxLon - b.minLon)) * plotW;
+        const y = plotY + ((b.maxLat - lat) / (b.maxLat - b.minLat)) * plotH;
+        return [x, y];
+      };
+
+      ctx.strokeStyle = "rgba(15,76,92,.08)";
+      ctx.lineWidth = 1;
+      for(let i=1;i<5;i++){
+        const gx = plotX + plotW * i / 5;
+        const gy = plotY + plotH * i / 5;
+        ctx.beginPath(); ctx.moveTo(gx, plotY); ctx.lineTo(gx, plotY + plotH); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(plotX, gy); ctx.lineTo(plotX + plotW, gy); ctx.stroke();
+      }
+
+      ctx.fillStyle = "rgba(42,157,143,.12)";
+      ctx.beginPath();
+      const island = [
+        [25.35,121.55],[24.60,121.75],[23.80,121.55],[22.90,121.10],
+        [21.95,120.75],[22.55,120.20],[23.45,120.05],[24.35,120.35],[25.15,121.00]
+      ];
+      island.forEach(([lat, lon], i) => {
+        const [x,y] = project(lat, lon);
+        if(i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "rgba(42,157,143,.22)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      for(const s of stations){
+        const [x, y] = project(s.lat, s.lon);
+        const label = s.label ?? (s.bucket != null ? String(s.bucket) : "—");
+        const color = intensityColor(label, s.bucket);
+        ctx.beginPath();
+        ctx.fillStyle = "#ffffff";
+        ctx.arc(x, y, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = color;
+        ctx.stroke();
+        ctx.fillStyle = "#122c3c";
+        ctx.font = "900 12px 'Noto Sans TC', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, x, y + 1);
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+      }
+
+      if(epi.lat != null && epi.lon != null){
+        const [x, y] = project(epi.lat, epi.lon);
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(214,40,40,.14)";
+        ctx.arc(x, y, 28, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.fillStyle = "#d62828";
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+        ctx.fillStyle = "#d62828";
+        ctx.font = "900 14px 'Noto Sans TC', sans-serif";
+        ctx.fillText("震央", x + 18, y + 5);
+      }
+
+      const legendX = plotX + 18, legendY = plotY + plotH - 48;
+      ctx.fillStyle = "rgba(255,255,255,.88)";
+      roundedRect(ctx, legendX, legendY, 430, 32, 16);
+      ctx.fill();
+      ctx.font = "900 13px 'Noto Sans TC', sans-serif";
+      let lx = legendX + 16;
+      [["震央", "#d62828"],["5-", palette["5-"]],["5+", palette["5+"]],["6-", palette["6-"]],["6+", palette["6+"]],["7-", palette["7-"]],["7+", palette["7+"]]].forEach(([t,c]) => {
+        ctx.fillStyle = c;
+        ctx.beginPath(); ctx.arc(lx + 7, legendY + 16, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#244150";
+        ctx.fillText(t, lx + 18, legendY + 21);
+        lx += 58;
+      });
+
+      ctx.fillStyle = "#6a7d89";
+      ctx.font = "800 13px 'Noto Sans TC', sans-serif";
+      ctx.fillText(`輸出時間：${new Date().toLocaleString("zh-TW", { hour12:false })}｜資料來源：中央氣象署 Open Data`, 54, 875);
+
+      const safeTime = String(time).replace(/[^0-9]/g, "").slice(0, 12) || "earthquake";
+      downloadCanvas(canvas, `earthquake_${safeTime}.png`);
+    }
+
     function init(){
       map = L.map("map", { zoomControl:true });
 
@@ -1714,6 +2003,7 @@
       buildLegend();
 
       $("refreshBtn").addEventListener("click", () => refresh({ silent:false }));
+      $("printPngBtn").addEventListener("click", drawPrintPng);
       $("heroRefreshBtn").addEventListener("click", () => refresh({ silent:false }));
 
       $("toggleStations").addEventListener("change", () => {
