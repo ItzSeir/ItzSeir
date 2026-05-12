@@ -1777,18 +1777,28 @@
       fillRoundRect(ctx, leftX, topY, leftW, cardH, 24, 'rgba(255,255,255,.96)', 'rgba(25,42,58,.14)');
       fillRoundRect(ctx, rightX, topY, rightW, cardH, 24, 'rgba(255,255,255,.92)', 'rgba(25,42,58,.14)');
 
+      const reportType = eq?._kind === 'local' ? '小區域地震報告' : '顯著有感地震報告';
+
       ctx.fillStyle = '#0f4c5c';
-      ctx.font = '900 26px "Noto Sans TC", sans-serif';
-      ctx.fillText('地震資訊', leftX + 26, topY + 48);
+      ctx.font = '900 32px "Noto Sans TC", sans-serif';
+      ctx.fillText(reportType, leftX + 26, topY + 48);
+
+      ctx.fillStyle = '#102f40';
+      ctx.font = '900 24px "Noto Sans TC", sans-serif';
+      wrapCanvasText(ctx, epi.location || '—', leftX + 26, topY + 86, leftW - 52, 28, 2);
+
+      ctx.fillStyle = '#6a7d89';
+      ctx.font = '800 15px "Noto Sans TC", sans-serif';
+      ctx.fillText(time, leftX + 26, topY + 132);
 
       const magColor = magnitudeColor(mag);
-      fillRoundRect(ctx, leftX + 26, topY + 74, leftW - 52, 82, 18, '#f7fbfc', 'rgba(25,42,58,.10)');
+      fillRoundRect(ctx, leftX + 26, topY + 158, leftW - 52, 82, 18, '#f7fbfc', 'rgba(25,42,58,.10)');
       ctx.fillStyle = magColor;
       ctx.font = '900 34px "Noto Sans TC", sans-serif';
-      ctx.fillText(mag != null ? `M${mag.toFixed(1)}` : 'M—', leftX + 48, topY + 124);
+      ctx.fillText(mag != null ? `M${mag.toFixed(1)}` : 'M—', leftX + 48, topY + 208);
       ctx.fillStyle = '#102f40';
       ctx.font = '900 22px "Noto Sans TC", sans-serif';
-      ctx.fillText(maxLabel !== '—' ? `最大震度 ${maxLabel}` : '最大震度 —', leftX + 178, topY + 122);
+      ctx.fillText(maxLabel !== '—' ? `最大震度 ${maxLabel}` : '最大震度 —', leftX + 178, topY + 206);
 
       function simpleRow(label, value, y, h=64, size=20, lines=1){
         fillRoundRect(ctx, leftX + 26, y, leftW - 52, h, 14, '#ffffff', 'rgba(25,42,58,.11)');
@@ -1800,7 +1810,7 @@
         wrapCanvasText(ctx, value, leftX + 44, y + 48, leftW - 88, size + 4, lines);
       }
 
-      let y = topY + 174;
+      let y = topY + 258;
       simpleRow('發震時間', time, y, 60, 18, 1); y += 72;
       simpleRow('震央位置', epi.location || '—', y, 92, 20, 2); y += 104;
 
@@ -1919,6 +1929,14 @@
         ctx.fillStyle = '#102f40'; ctx.font = '800 12px "Noto Sans TC", sans-serif'; ctx.fillText(lab, lx + 12, legendY + 20);
         lx += 58;
       });
+
+      ctx.fillStyle = '#6a7d89';
+      ctx.font = '800 16px "Noto Sans TC", sans-serif';
+      ctx.fillText('資料來源 CWA', rightX + rightW - 220, topY + cardH - 24);
+
+      ctx.fillStyle = '#0f4c5c';
+      ctx.font = '900 18px "Noto Sans TC", sans-serif';
+      ctx.fillText('筱風製作', rightX + rightW - 120, topY + cardH - 24);
 
       const a = document.createElement('a');
       const safeTime = time.replace(/[^0-9]/g, '').slice(0, 12) || 'earthquake';
