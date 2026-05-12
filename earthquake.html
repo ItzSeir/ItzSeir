@@ -1926,11 +1926,11 @@
         ctx.drawImage(mapCanvas, sx, sy, sw, sh, mapX, mapY, mapW, mapH);
         ctx.restore();
 
-        /* 右下角署名與來源：放在地圖外的卡片右下，不和地圖標記/圖例衝突 */
+        /* 右下角署名與來源：放進地圖右下角 */
         const footW = 250, footH = 52;
-        const footX = rightX + rightW - footW - 28;
-        const footY = topY + cardH - footH - 20;
-        fillRoundRect(ctx, footX, footY, footW, footH, 20, 'rgba(255,255,255,.92)', 'rgba(25,42,58,.14)');
+        const footX = mapX + mapW - footW - 18;
+        const footY = mapY + mapH - footH - 18;
+        fillRoundRect(ctx, footX, footY, footW, footH, 20, 'rgba(255,255,255,.90)', 'rgba(25,42,58,.14)');
 
         const logoX = footX + 26;
         const logoY = footY + 26;
