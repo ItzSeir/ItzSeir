@@ -1795,7 +1795,7 @@
           useCORS:true,
           allowTaint:false,
           backgroundColor:'#f4fafb',
-          scale:2,
+          scale:3,
           logging:false
         });
 
@@ -1803,10 +1803,14 @@
 
         const W = 1600;
         const H = 900;
+        const EXPORT_SCALE = 2;
         const canvas = document.createElement('canvas');
-        canvas.width = W;
-        canvas.height = H;
+        canvas.width = W * EXPORT_SCALE;
+        canvas.height = H * EXPORT_SCALE;
         const ctx = canvas.getContext('2d');
+        ctx.scale(EXPORT_SCALE, EXPORT_SCALE);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
 
         const bg = ctx.createLinearGradient(0, 0, W, H);
         bg.addColorStop(0, '#dff3f4');
