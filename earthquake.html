@@ -1752,12 +1752,13 @@
       if(!eq){ alert('目前沒有選中的地震資料'); return; }
 
       const stations = getIntensityStations(eq);
-      const countyRows = buildCountyMax(stations).slice(0, 6);
+      const countyRows = buildCountyMax(stations).slice(0, 8);
       const epi = getEpicenter(eq);
       const mag = getMagnitude(eq);
       const depth = getDepth(eq);
       const time = getOriginTime(eq) || '—';
       const maxLabel = getMaxIntensityLabel(stations) || '—';
+
       const W = 1600;
       const H = 900;
       const canvas = document.createElement('canvas');
@@ -1766,95 +1767,116 @@
       const ctx = canvas.getContext('2d');
 
       const bg = ctx.createLinearGradient(0, 0, W, H);
-      bg.addColorStop(0, '#d9f0f2');
+      bg.addColorStop(0, '#dff3f4');
       bg.addColorStop(1, '#f8fbfc');
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
 
-      const leftX = 54, topY = 42, leftW = 480, cardH = 805;
-      const rightX = 570, rightW = 976;
-      fillRoundRect(ctx, leftX, topY, leftW, cardH, 26, 'rgba(255,255,255,.94)', 'rgba(25,42,58,.14)');
-      fillRoundRect(ctx, rightX, topY, rightW, cardH, 26, 'rgba(255,255,255,.90)', 'rgba(25,42,58,.14)');
+      const leftX = 52, topY = 40, leftW = 430, cardH = 820;
+      const rightX = 520, rightW = 1028;
+      fillRoundRect(ctx, leftX, topY, leftW, cardH, 24, 'rgba(255,255,255,.96)', 'rgba(25,42,58,.14)');
+      fillRoundRect(ctx, rightX, topY, rightW, cardH, 24, 'rgba(255,255,255,.92)', 'rgba(25,42,58,.14)');
 
       ctx.fillStyle = '#0f4c5c';
       ctx.font = '900 26px "Noto Sans TC", sans-serif';
-      ctx.fillText('地震資訊', leftX + 28, topY + 46);
+      ctx.fillText('地震資訊', leftX + 26, topY + 48);
 
-      function infoRow(label, value, y, rowH=56, maxLines=1){
-        fillRoundRect(ctx, leftX + 26, y, leftW - 52, rowH, 15, '#ffffff', 'rgba(25,42,58,.12)');
-        const compact = label === '發震時間' || label === '震央座標';
+      const magColor = magnitudeColor(mag);
+      fillRoundRect(ctx, leftX + 26, topY + 74, leftW - 52, 82, 18, '#f7fbfc', 'rgba(25,42,58,.10)');
+      ctx.fillStyle = magColor;
+      ctx.font = '900 34px "Noto Sans TC", sans-serif';
+      ctx.fillText(mag != null ? `M${mag.toFixed(1)}` : 'M—', leftX + 48, topY + 124);
+      ctx.fillStyle = '#102f40';
+      ctx.font = '900 22px "Noto Sans TC", sans-serif';
+      ctx.fillText(maxLabel !== '—' ? `最大震度 ${maxLabel}` : '最大震度 —', leftX + 178, topY + 122);
+
+      function simpleRow(label, value, y, h=64, size=20, lines=1){
+        fillRoundRect(ctx, leftX + 26, y, leftW - 52, h, 14, '#ffffff', 'rgba(25,42,58,.11)');
         ctx.fillStyle = '#6a7d89';
         ctx.font = '900 13px "Noto Sans TC", sans-serif';
         ctx.fillText(label, leftX + 44, y + 23);
         ctx.fillStyle = '#102f40';
-        ctx.font = compact ? '900 17px "Noto Sans TC", sans-serif' : '900 22px "Noto Sans TC", sans-serif';
-        wrapCanvasText(ctx, value, leftX + 160, y + 24, leftW - 210, compact ? 21 : 25, maxLines);
+        ctx.font = `900 ${size}px "Noto Sans TC", sans-serif`;
+        wrapCanvasText(ctx, value, leftX + 44, y + 48, leftW - 88, size + 4, lines);
       }
 
-      let y = topY + 86;
-      infoRow('發震時間', time, y, 52); y += 62;
-      infoRow('震央位置', epi.location || '—', y, 82, 2); y += 92;
-      infoRow('規模', mag != null ? `M${mag.toFixed(1)}` : '—', y, 56); y += 66;
-      infoRow('深度', depth != null ? `${depth.toFixed(1)} km` : '—', y, 56); y += 66;
-      infoRow('最大震度', maxLabel !== '—' ? `震度 ${maxLabel}` : '—', y, 56); y += 66;
-      infoRow('震央座標', (epi.lat != null && epi.lon != null) ? `${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}` : '—', y, 52); y += 66;
+      let y = topY + 174;
+      simpleRow('發震時間', time, y, 60, 18, 1); y += 72;
+      simpleRow('震央位置', epi.location || '—', y, 92, 20, 2); y += 104;
+
+      const halfW = (leftW - 62) / 2;
+      function miniRow(label, value, x, y){
+        fillRoundRect(ctx, x, y, halfW, 64, 14, '#ffffff', 'rgba(25,42,58,.11)');
+        ctx.fillStyle = '#6a7d89';
+        ctx.font = '900 13px "Noto Sans TC", sans-serif';
+        ctx.fillText(label, x + 16, y + 23);
+        ctx.fillStyle = '#102f40';
+        ctx.font = '900 20px "Noto Sans TC", sans-serif';
+        ctx.fillText(value, x + 16, y + 50);
+      }
+      miniRow('深度', depth != null ? `${depth.toFixed(1)} km` : '—', leftX + 26, y);
+      miniRow('座標', (epi.lat != null && epi.lon != null) ? `${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}` : '—', leftX + 36 + halfW, y);
+      y += 88;
 
       ctx.fillStyle = '#102f40';
       ctx.font = '900 20px "Noto Sans TC", sans-serif';
-      ctx.fillText('各縣市最大震度', leftX + 28, y);
-      y += 18;
+      ctx.fillText('各縣市最大震度', leftX + 26, y);
+      y += 22;
 
-      const chipW = 200, chipH = 34, gap = 9;
-      let cx = leftX + 26, cy = y + 10;
+      const chipW = 180, chipH = 36, gap = 10;
+      let cx = leftX + 26, cy = y;
       countyRows.forEach((r) => {
         if(cx + chipW > leftX + leftW - 26){ cx = leftX + 26; cy += chipH + gap; }
         const c = intensityColor(r.label, r.bucket);
-        fillRoundRect(ctx, cx, cy, chipW, chipH, 17, '#ffffff', 'rgba(25,42,58,.12)');
+        fillRoundRect(ctx, cx, cy, chipW, chipH, 18, '#ffffff', 'rgba(25,42,58,.12)');
         ctx.fillStyle = c;
-        ctx.beginPath();
-        ctx.arc(cx + 18, cy + 17, 6, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + 18, cy + 18, 6, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#102f40';
-        ctx.font = '800 13px "Noto Sans TC", sans-serif';
-        const txt = `${r.county} 震度 ${r.label}`;
-        wrapCanvasText(ctx, txt, cx + 32, cy + 22, chipW - 44, 14, 1);
+        ctx.font = '800 12px "Noto Sans TC", sans-serif';
+        wrapCanvasText(ctx, `${r.county} 震度 ${r.label}`, cx + 32, cy + 23, chipW - 42, 14, 1);
         cx += chipW + gap;
       });
 
       ctx.fillStyle = '#102f40';
-      ctx.font = '900 26px "Noto Sans TC", sans-serif';
-      ctx.fillText('震央與測站震度位置', rightX + 28, topY + 46);
-      ctx.fillStyle = '#6a7d89';
-      ctx.font = '800 15px "Noto Sans TC", sans-serif';
-      ctx.fillText('地圖範圍依震度測站與震央位置自動調整', rightX + 28, topY + 72);
+      ctx.font = '900 25px "Noto Sans TC", sans-serif';
+      ctx.fillText('震央與測站震度位置', rightX + 28, topY + 48);
 
-      const mapX = rightX + 42, mapY = topY + 92, mapW = rightW - 84, mapH = 620;
-      fillRoundRect(ctx, mapX, mapY, mapW, mapH, 24, '#e8f6f8', 'rgba(15,76,92,.16)');
+      const mapX = rightX + 38, mapY = topY + 78, mapW = rightW - 76, mapH = 686;
+      fillRoundRect(ctx, mapX, mapY, mapW, mapH, 22, '#e8f6f8', 'rgba(15,76,92,.16)');
       ctx.save();
-      drawRoundRect(ctx, mapX, mapY, mapW, mapH, 24);
+      drawRoundRect(ctx, mapX, mapY, mapW, mapH, 22);
       ctx.clip();
 
-      ctx.strokeStyle = 'rgba(15,76,92,.08)';
+      ctx.strokeStyle = 'rgba(15,76,92,.075)';
       ctx.lineWidth = 1;
-      for(let gx = mapX + 90; gx < mapX + mapW; gx += 180){ ctx.beginPath(); ctx.moveTo(gx, mapY); ctx.lineTo(gx, mapY + mapH); ctx.stroke(); }
-      for(let gy = mapY + 88; gy < mapY + mapH; gy += 115){ ctx.beginPath(); ctx.moveTo(mapX, gy); ctx.lineTo(mapX + mapW, gy); ctx.stroke(); }
+      for(let gx = mapX + 100; gx < mapX + mapW; gx += 170){ ctx.beginPath(); ctx.moveTo(gx, mapY); ctx.lineTo(gx, mapY + mapH); ctx.stroke(); }
+      for(let gy = mapY + 100; gy < mapY + mapH; gy += 110){ ctx.beginPath(); ctx.moveTo(mapX, gy); ctx.lineTo(mapX + mapW, gy); ctx.stroke(); }
 
       const pts = [];
       if(epi.lat != null && epi.lon != null) pts.push({lat:epi.lat, lon:epi.lon});
       stations.forEach(s => pts.push({lat:s.lat, lon:s.lon}));
-      let minLat=21.7, maxLat=25.4, minLon=119.6, maxLon=122.4;
+      let minLat=21.7, maxLat=25.4, minLon=119.5, maxLon=122.5;
       if(pts.length){
         minLat = Math.min(...pts.map(p => p.lat));
         maxLat = Math.max(...pts.map(p => p.lat));
         minLon = Math.min(...pts.map(p => p.lon));
         maxLon = Math.max(...pts.map(p => p.lon));
-        const latPad = Math.max((maxLat - minLat) * .20, .20);
-        const lonPad = Math.max((maxLon - minLon) * .20, .20);
+        const latPad = Math.max((maxLat - minLat) * .18, .18);
+        const lonPad = Math.max((maxLon - minLon) * .18, .18);
         minLat -= latPad; maxLat += latPad; minLon -= lonPad; maxLon += lonPad;
       }
+
+      /* 固定北方朝上：用同一比例尺投影，不再分別拉伸 X/Y */
+      const midLat = (minLat + maxLat) / 2;
+      const cosLat = Math.cos(midLat * Math.PI / 180) || 1;
+      const centerLat = (minLat + maxLat) / 2;
+      const centerLon = (minLon + maxLon) / 2;
+      const rangeX = Math.max((maxLon - minLon) * cosLat, .01);
+      const rangeY = Math.max((maxLat - minLat), .01);
+      const scale = Math.min((mapW * .86) / rangeX, (mapH * .86) / rangeY);
       const project = (lat, lon) => {
-        const x = mapX + ((lon - minLon) / (maxLon - minLon || 1)) * mapW;
-        const yy = mapY + (1 - ((lat - minLat) / (maxLat - minLat || 1))) * mapH;
+        const x = mapX + mapW / 2 + ((lon - centerLon) * cosLat) * scale;
+        const yy = mapY + mapH / 2 - (lat - centerLat) * scale;
         return [x, yy];
       };
 
@@ -1872,9 +1894,9 @@
         const label = s.label ?? (s.bucket != null ? String(s.bucket) : '—');
         const color = intensityColor(label, s.bucket);
         const [px, py] = project(s.lat, s.lon);
-        ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+        ctx.beginPath(); ctx.arc(px, py, 13, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
         ctx.lineWidth = 4; ctx.strokeStyle = color; ctx.stroke();
-        ctx.fillStyle = '#102f40'; ctx.font = '900 13px "Noto Sans TC", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, px, py + 1);
+        ctx.fillStyle = '#102f40'; ctx.font = '900 12px "Noto Sans TC", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, px, py + 1);
         ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
       });
 
@@ -1882,14 +1904,14 @@
         const [ex, ey] = project(epi.lat, epi.lon);
         ctx.beginPath(); ctx.arc(ex, ey, 12, 0, Math.PI * 2); ctx.fillStyle = '#d62828'; ctx.fill();
         ctx.lineWidth = 4; ctx.strokeStyle = '#ffffff'; ctx.stroke();
-        ctx.beginPath(); ctx.arc(ex, ey, 26, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(214,40,40,.34)'; ctx.lineWidth = 3; ctx.stroke();
-        ctx.beginPath(); ctx.arc(ex, ey, 40, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(214,40,40,.20)'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath(); ctx.arc(ex, ey, 27, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(214,40,40,.34)'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath(); ctx.arc(ex, ey, 42, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(214,40,40,.18)'; ctx.lineWidth = 3; ctx.stroke();
         ctx.fillStyle = '#d62828'; ctx.font = '900 14px "Noto Sans TC", sans-serif'; ctx.fillText('震央', ex + 22, ey + 5);
       }
       ctx.restore();
 
-      const legendY = mapY + mapH - 46;
-      fillRoundRect(ctx, mapX + 18, legendY, 620, 30, 15, 'rgba(255,255,255,.88)', null);
+      const legendY = mapY + mapH - 42;
+      fillRoundRect(ctx, mapX + 18, legendY, 622, 30, 15, 'rgba(255,255,255,.88)', null);
       const legendItems = [['震央','#d62828'], ['0', palette[0]], ['1', palette[1]], ['2', palette[2]], ['3', palette[3]], ['4', palette[4]], ['5-', palette['5-']], ['5+', palette['5+']], ['6-', palette['6-']], ['6+', palette['6+']]];
       let lx = mapX + 36;
       legendItems.forEach(([lab, color]) => {
