@@ -515,11 +515,12 @@
     }
 
     .quakeBody{
+      --tracker-h:680px;
       display:grid;
       grid-template-columns:330px minmax(0, 1fr);
       gap:18px;
       padding:20px;
-      align-items:start;
+      align-items:stretch;
     }
 
     .sideStack{
@@ -527,6 +528,7 @@
       flex-direction:column;
       gap:14px;
       min-width:0;
+      height:var(--tracker-h);
     }
 
     .panelBox{
@@ -586,7 +588,8 @@
       display:flex;
       flex-direction:column;
       gap:10px;
-      max-height:420px;
+      height:calc(var(--tracker-h) - 164px);
+      max-height:none;
       overflow-y:auto;
       padding-right:3px;
       overscroll-behavior:contain;
@@ -655,7 +658,7 @@
 
     .infoGrid{
       display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
+      grid-template-columns:repeat(4, minmax(0, 1fr));
       gap:10px;
     }
 
@@ -695,9 +698,9 @@
 
     .countyGrid{
       display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
+      grid-template-columns:repeat(4, minmax(0, 1fr));
       gap:8px;
-      max-height:260px;
+      max-height:220px;
       overflow-y:auto;
       padding-right:3px;
     }
@@ -758,11 +761,20 @@
 
     .mapShell{
       min-width:0;
+      height:var(--tracker-h);
       border:1px solid var(--line);
       border-radius:26px;
       background:#fff;
       box-shadow:0 12px 28px rgba(31,53,72,.08);
       overflow:hidden;
+    }
+
+    .reportPanel{
+      height:100%;
+    }
+
+    .infoPanel{
+      grid-column:1 / -1;
     }
 
     .mapHeader{
@@ -824,8 +836,8 @@
 
     #map{
       width:100%;
-      height:clamp(580px, 70vh, 760px);
-      min-height:540px;
+      height:calc(var(--tracker-h) - 74px);
+      min-height:0;
       background:#f4fafb;
     }
 
@@ -887,19 +899,22 @@
         grid-template-columns:1fr;
       }
 
-      .sideStack{
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        align-items:start;
+      .quakeBody{
+        --tracker-h:620px;
       }
 
-      .panelBox.infoPanel{
-        min-height:100%;
+      .sideStack{
+        height:auto;
+      }
+
+      .infoGrid,
+      .countyGrid{
+        grid-template-columns:repeat(2, minmax(0, 1fr));
       }
 
       #map{
-        height:620px;
-        min-height:500px;
+        height:calc(var(--tracker-h) - 74px);
+        min-height:0;
       }
     }
 
@@ -954,8 +969,8 @@
         gap:14px;
       }
 
-      .sideStack{
-        grid-template-columns:1fr;
+      .quakeBody{
+        --tracker-h:560px;
       }
 
       .infoGrid,
@@ -968,8 +983,8 @@
       }
 
       #map{
-        height:560px;
-        min-height:460px;
+        height:calc(var(--tracker-h) - 74px);
+        min-height:0;
       }
     }
 
@@ -999,9 +1014,13 @@
         grid-template-columns:1fr;
       }
 
+      .quakeBody{
+        --tracker-h:520px;
+      }
+
       #map{
-        height:520px;
-        min-height:420px;
+        height:calc(var(--tracker-h) - 74px);
+        min-height:0;
       }
     }
   </style>
@@ -1083,7 +1102,7 @@
 
       <div class="quakeBody">
         <aside class="sideStack">
-          <div class="panelBox" aria-label="地震報告列表">
+          <div class="panelBox reportPanel" aria-label="地震報告列表">
             <div class="pbHead">
               <div class="pbTitle"><span class="dot"></span>地震報告</div>
               <span class="chip" id="eqCountChip">0 筆</span>
@@ -1094,6 +1113,17 @@
               <div class="hint" id="hintText"></div>
             </div>
           </div>
+        </aside>
+
+        <div class="mapShell">
+          <div class="mapHeader">
+            <div>
+              <strong>震央與測站震度地圖</strong>
+              <span></span>
+            </div>
+          </div>
+          <div id="map" aria-label="地震地圖"></div>
+        </div>
 
           <div class="panelBox infoPanel" aria-label="地震資訊與縣市震度">
             <div class="pbHead">
@@ -1117,16 +1147,6 @@
               <div class="hint"></div>
             </div>
           </div>
-        </aside>
-
-        <div class="mapShell">
-          <div class="mapHeader">
-            <div>
-              <strong>震央與測站震度地圖</strong>
-              <span></span>
-            </div>
-          <div id="map" aria-label="地震地圖"></div>
-        </div>
       </div>
     </section>
   </main>
@@ -1175,6 +1195,9 @@
       const s = String(raw ?? "").trim();
       if(!s) return { label:null, bucket:null };
 
+      if(/7\s*(強|\+)/.test(s) || /7\+/.test(s)) return { label:"7+", bucket:7 };
+      if(/7\s*(弱|\-)/.test(s) || /7\-/.test(s)) return { label:"7-", bucket:7 };
+      if(/^7$/.test(s) || /震度\s*7/.test(s)) return { label:"7", bucket:7 };
       if(/6\s*(強|\+)/.test(s) || /6\+/.test(s)) return { label:"6+", bucket:6 };
       if(/6\s*(弱|\-)/.test(s) || /6\-/.test(s)) return { label:"6-", bucket:6 };
       if(/5\s*(強|\+)/.test(s) || /5\+/.test(s)) return { label:"5+", bucket:5 };
@@ -1192,14 +1215,29 @@
       2:"#34d399",
       3:"#fbbf24",
       4:"#fb923c",
+      "5-":"#f87171",
+      "5+":"#dc2626",
       5:"#ef4444",
+      "6-":"#c084fc",
+      "6+":"#7e22ce",
       6:"#a855f7",
-      7:"#111827"
+      "7-":"#4b5563",
+      "7+":"#111827",
+      7:"#1f2937"
     };
 
-    function intensityColor(bucket){
-      const b = Math.max(0, Math.min(7, (bucket ?? 0)|0));
+    function intensityColor(labelOrBucket, fallbackBucket=null){
+      const key = String(labelOrBucket ?? "").trim();
+      if(key && palette[key]) return palette[key];
+      const b = Math.max(0, Math.min(7, (fallbackBucket ?? labelOrBucket ?? 0)|0));
       return palette[b] || "#111827";
+    }
+
+    function magnitudeColor(mag){
+      if(mag == null) return "#94a3b8";
+      if(mag < 4.0) return "#94a3b8";
+      if(mag < 6.0) return "#f59e0b";
+      return "#dc2626";
     }
 
     let map;
@@ -1217,11 +1255,26 @@
       legendCtrl.onAdd = () => {
         const el = L.DomUtil.create("div", "legend");
         el.innerHTML = `
-          <div style="font-weight:900;font-size:12px;">震度圖例</div>
-          ${[0,1,2,3,4,5,6,7].map(i => `
+          <div style="font-weight:900;font-size:12px;">圖例</div>
+          ${[
+            ["M < 4.0", magnitudeColor(3.9)],
+            ["M 4.0 - 5.9", magnitudeColor(4.5)],
+            ["M ≥ 6.0", magnitudeColor(6.0)],
+            ["震度 0", palette[0]],
+            ["震度 1", palette[1]],
+            ["震度 2", palette[2]],
+            ["震度 3", palette[3]],
+            ["震度 4", palette[4]],
+            ["震度 5-", palette["5-"]],
+            ["震度 5+", palette["5+"]],
+            ["震度 6-", palette["6-"]],
+            ["震度 6+", palette["6+"]],
+            ["震度 7-", palette["7-"]],
+            ["震度 7+", palette["7+"]]
+          ].map(([label, color]) => `
             <div class="row">
-              <span class="swatch" style="background:${palette[i]};"></span>
-              <span>震度 ${i}${i===5 ? "（含 5- / 5+）" : i===6 ? "（含 6- / 6+）" : ""}</span>
+              <span class="swatch" style="background:${color};"></span>
+              <span>${label}</span>
             </div>
           `).join("")}
         `;
@@ -1307,6 +1360,8 @@
     }
 
     function rankLabel(lab){
+      if(lab === "7+") return 72;
+      if(lab === "7-") return 71;
       if(lab === "7") return 70;
       if(lab === "6+") return 62;
       if(lab === "6-") return 61;
@@ -1354,7 +1409,7 @@
       }
 
       for(const r of rows){
-        const color = intensityColor(r.bucket);
+        const color = intensityColor(r.label, r.bucket);
         const el = document.createElement("div");
         el.className = "countyItem";
         el.innerHTML = `
@@ -1422,10 +1477,11 @@
 
         const item = document.createElement("div");
         item.className = "item";
+        const magColor = magnitudeColor(mag);
         item.innerHTML = `
           <div class="itemTop">
             <div class="itemTime">${escapeHtml(tag + "｜" + time)}</div>
-            <div class="itemMag">M${mag != null ? mag.toFixed(1) : "—"}</div>
+            <div class="itemMag" style="color:${magColor};background:${magColor}14;border-color:${magColor}33;">M${mag != null ? mag.toFixed(1) : "—"}</div>
           </div>
           <div class="itemLoc">${escapeHtml(loc)}</div>
         `;
@@ -1473,9 +1529,11 @@
       const depth = getDepth(eq);
 
       if(epi.lat != null && epi.lon != null){
-        const html = `<div class="epi" title="震央"></div>`;
+        const epiColor = magnitudeColor(mag);
+        const epiSize = mag == null ? 18 : Math.max(16, Math.min(34, 12 + mag * 3));
+        const html = `<div class="epi" style="width:${epiSize}px;height:${epiSize}px;background:${epiColor};box-shadow:0 12px 26px ${epiColor}55;" title="震央"></div>`;
         epicenterMarker = L.marker([epi.lat, epi.lon], {
-          icon:L.divIcon({ className:"", html, iconSize:[20,20], iconAnchor:[10,10] })
+          icon:L.divIcon({ className:"", html, iconSize:[epiSize,epiSize], iconAnchor:[epiSize/2,epiSize/2] })
         }).addTo(map);
 
         const epiPopup = `
@@ -1497,7 +1555,7 @@
       const showStations = $("toggleStations")?.checked !== false;
       if(showStations && stations.length){
         for(const s of stations){
-          const color = intensityColor(s.bucket);
+          const color = intensityColor(label, s.bucket);
           const label = s.label ?? (s.bucket != null ? String(s.bucket) : "—");
 
           const html = `
