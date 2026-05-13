@@ -868,6 +868,8 @@
     }
 
     .epi{
+      position:relative;
+      z-index:9999;
       width:20px;
       height:20px;
       border-radius:999px;
@@ -1534,8 +1536,11 @@
         const epiSize = 20;
         const html = `<div class="epi" style="width:${epiSize}px;height:${epiSize}px;background:${epiColor};box-shadow:0 0 0 10px rgba(214,40,40,.16), 0 0 0 22px rgba(214,40,40,.10), 0 12px 26px rgba(214,40,40,.30);" title="震央"></div>`;
         epicenterMarker = L.marker([epi.lat, epi.lon], {
-          icon:L.divIcon({ className:"", html, iconSize:[epiSize,epiSize], iconAnchor:[epiSize/2,epiSize/2] })
+          icon:L.divIcon({ className:"", html, iconSize:[epiSize,epiSize], iconAnchor:[epiSize/2,epiSize/2] }),
+          zIndexOffset: 10000
         }).addTo(map);
+
+        epicenterMarker.setZIndexOffset(10000);
 
         const epiPopup = `
           <div style="min-width:260px;">
@@ -1571,7 +1576,8 @@
               html,
               iconSize:[26,26],
               iconAnchor:[13,13]
-            })
+            }),
+            zIndexOffset: 0
           }).addTo(map);
 
           const popup = `
@@ -1801,9 +1807,11 @@
 
         hiddenEls.forEach((el, i) => el.style.display = oldDisplay[i]);
 
-        const W = 1600;
-        const H = 900;
-        const EXPORT_SCALE = 2;
+        /* 手機避免超大比例導致 html2canvas 擠壓 */
+        const mobile = window.innerWidth < 900;
+        const W = mobile ? 1080 : 1600;
+        const H = mobile ? 1350 : 900;
+        const EXPORT_SCALE = mobile ? 1.6 : 2;
         const canvas = document.createElement('canvas');
         canvas.width = W * EXPORT_SCALE;
         canvas.height = H * EXPORT_SCALE;
@@ -1818,10 +1826,14 @@
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, W, H);
 
-        const leftX = 52, topY = 40, leftW = 430, cardH = 820;
-        const rightX = 520, rightW = 1028;
+        const leftX = 52, topY = 40;
+        const leftW = mobile ? (W - 104) : 430;
+        const rightX = mobile ? 52 : 520;
+        const rightW = mobile ? (W - 104) : 1028;
+        const cardH = mobile ? 560 : 820;
+        const rightY = mobile ? 630 : 40;
         fillRoundRect(ctx, leftX, topY, leftW, cardH, 24, 'rgba(255,255,255,.96)', 'rgba(25,42,58,.14)');
-        fillRoundRect(ctx, rightX, topY, rightW, cardH, 24, 'rgba(255,255,255,.92)', 'rgba(25,42,58,.14)');
+        fillRoundRect(ctx, rightX, rightY, rightW, mobile ? 660 : cardH, 24, 'rgba(255,255,255,.92)', 'rgba(25,42,58,.14)');
 
         /* 左側標題、地名與時間：把資訊拉到最上方並重新設計 */
         ctx.fillStyle = '#0f4c5c';
@@ -1908,9 +1920,9 @@
 
         ctx.fillStyle = '#102f40';
         ctx.font = '900 25px "Noto Sans TC", sans-serif';
-        ctx.fillText('震央與測站震度地圖', rightX + 28, topY + 48);
+        ctx.fillText('震央與測站震度地圖', rightX + 28, rightY + 48);
 
-        const mapX = rightX + 38, mapY = topY + 78, mapW = rightW - 76, mapH = 686;
+        const mapX = rightX + 38, mapY = rightY + 78, mapW = rightW - 76, mapH = mobile ? 520 : 686;
         fillRoundRect(ctx, mapX, mapY, mapW, mapH, 22, '#e8f6f8', 'rgba(15,76,92,.16)');
 
         ctx.save();
