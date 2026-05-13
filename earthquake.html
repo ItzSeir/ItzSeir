@@ -1796,14 +1796,48 @@
         const oldDisplay = hiddenEls.map(el => el.style.display);
         hiddenEls.forEach(el => el.style.display = "none");
 
+        /*
+          手機輸出時，不直接擷取手機版小地圖。
+          先暫時把 Leaflet 地圖容器固定成桌面尺寸，再截圖，
+          這樣震度點、圖例、文字不會因為手機畫面比例被放大。
+        */
+        const oldMapStyle = {
+          width: mapEl.style.width,
+          height: mapEl.style.height,
+          minHeight: mapEl.style.minHeight,
+          maxHeight: mapEl.style.maxHeight
+        };
+
+        if(mobile){
+          mapEl.style.width = "1000px";
+          mapEl.style.height = "686px";
+          mapEl.style.minHeight = "686px";
+          mapEl.style.maxHeight = "686px";
+          map.invalidateSize();
+          lastRenderedKey = "";
+          renderCurrent({ keepViewIfSame:false });
+          await new Promise(r => setTimeout(r, 650));
+          hiddenEls.forEach(el => el.style.display = "none");
+        }
+
         const html2canvasLib = await ensureHtml2Canvas();
         const mapCanvas = await html2canvasLib(mapEl, {
           useCORS:true,
           allowTaint:false,
           backgroundColor:'#f4fafb',
-          scale:3,
+          scale: mobile ? 2 : 3,
           logging:false
         });
+
+        if(mobile){
+          mapEl.style.width = oldMapStyle.width;
+          mapEl.style.height = oldMapStyle.height;
+          mapEl.style.minHeight = oldMapStyle.minHeight;
+          mapEl.style.maxHeight = oldMapStyle.maxHeight;
+          map.invalidateSize();
+          lastRenderedKey = "";
+          renderCurrent({ keepViewIfSame:false });
+        }
 
         hiddenEls.forEach((el, i) => el.style.display = oldDisplay[i]);
 
