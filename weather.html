@@ -2440,6 +2440,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
     let weatherMeta = { title: "颱風路徑追蹤器", source: "—" };
     let points = [];
+    let baseTileLayer = null;
 
     const levelStyle = {
       LOW: { color: "#6b7280", label: "低壓/殘餘 LOW" },
@@ -3615,7 +3616,37 @@ button{ -webkit-tap-highlight-color:transparent; }
         downloadDataUrl(`${safeTitle}_地圖.png`, canvas.toDataURL("image/png"));
       }catch(e){
         console.error(e);
-        alert("PNG 產生失敗：地圖圖磚可能被瀏覽器跨域限制。請重新整理後等地圖完全載入再試。");
+
+        /* 保底方案：如果瀏覽器仍然阻擋第三方地圖圖磚，就暫時隱藏底圖，只保留路徑線、點位、不確定範圍與標記生成 PNG。 */
+        try{
+          const tilePane = mapEl.querySelector(".leaflet-tile-pane");
+          const oldTileDisplay = tilePane ? tilePane.style.display : "";
+          if(tilePane) tilePane.style.display = "none";
+
+          await wait(160);
+          const rect2 = mapShell.getBoundingClientRect();
+          const canvas2 = await html2canvas(mapShell, {
+            backgroundColor:"#f4fafb",
+            useCORS:true,
+            allowTaint:false,
+            imageTimeout:8000,
+            scale:2,
+            width:Math.ceil(rect2.width),
+            height:Math.ceil(rect2.height),
+            windowWidth:Math.ceil(document.documentElement.clientWidth),
+            windowHeight:Math.ceil(document.documentElement.clientHeight),
+            scrollX:0,
+            scrollY:0,
+            logging:false
+          });
+
+          if(tilePane) tilePane.style.display = oldTileDisplay;
+          const safeTitle2 = String(weatherMeta.title || "typhoon-map").replace(/[\\/:*?"<>|]/g, "_");
+          downloadDataUrl(`${safeTitle2}_地圖.png`, canvas2.toDataURL("image/png"));
+        }catch(e2){
+          console.error(e2);
+          alert("PNG 產生失敗：瀏覽器仍然阻擋地圖圖磚。請用 Chrome 重新整理一次，等地圖載入完成後再按產生 PNG。");
+        }
       }finally{
         document.body.classList.remove("map-png-capture-mode");
 
@@ -3665,35 +3696,13 @@ button{ -webkit-tap-highlight-color:transparent; }
       map.setView([points[0].lat, points[0].lon], 5);
       ensurePanes();
 
-      if(MAPBOX_TOKEN !== "YOUR_MAPBOX_TOKEN" && MAPBOX_STYLE !== "YOUR_USERNAME/YOUR_STYLE_ID"){
-        const mb = L.tileLayer(
-          `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
-          {
-            tileSize:512,
-            zoomOffset:-1,
-            maxZoom:18,
-            crossOrigin:"anonymous",
-            attribution:"© Mapbox © OpenStreetMap"
-          }
-        );
-
-        mb.on("tileerror", () => {
-          if(map.hasLayer(mb)) map.removeLayer(mb);
-
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            maxZoom:19,
-            crossOrigin:"anonymous",
-            attribution:"© OpenStreetMap"
-          }).addTo(map);
-        });
-
-        mb.addTo(map);
-      }else{
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom:19,
-          attribution:"© OpenStreetMap"
-        }).addTo(map);
-      }
+      /* 使用 CORS 友善的 CARTO 底圖，避免 html2canvas 截圖時因 Mapbox / OSM 圖磚跨域而失敗。 */
+      baseTileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        subdomains:"abcd",
+        maxZoom:20,
+        crossOrigin:true,
+        attribution:"© OpenStreetMap © CARTO"
+      }).addTo(map);
 
       drawForecastCone();
       drawSegments();
