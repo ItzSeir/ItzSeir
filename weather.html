@@ -1740,6 +1740,19 @@ button{ -webkit-tap-highlight-color:transparent; }
   display:block;
 }
 
+.pngMapOverlaySvg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  z-index:4;
+}
+
+.pngMapOverlaySvg text{
+  font-family:"Noto Sans TC","Segoe UI",Arial,sans-serif;
+}
+
 .pngMapFallback{
   width:100%;
   height:100%;
@@ -3077,7 +3090,56 @@ button{ -webkit-tap-highlight-color:transparent; }
       `;
     }
 
-    function buildPngReport(mapDataUrl){
+
+    function buildExportMapOverlaySvg(width=1096, height=622){
+      if(!map || !points || !points.length) return "";
+
+      const esc = escapeHtml;
+      const visiblePoints = points.map(p => {
+        const cp = map.latLngToContainerPoint([p.lat, p.lon]);
+        return { ...p, x: cp.x, y: cp.y };
+      });
+
+      function clampPt(v, min, max){
+        return Math.max(min, Math.min(max, v));
+      }
+
+      const lineParts = [];
+      for(let i = 0; i < visiblePoints.length - 1; i++){
+        const a = visiblePoints[i];
+        const b = visiblePoints[i + 1];
+        const st = getStyle(b.level);
+        const isForecastSeg = (a.kind === "fcst" || b.kind === "fcst");
+        lineParts.push(`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${st.color}" stroke-width="${getLineWeight(b.level) + 1.5}" stroke-linecap="round" stroke-linejoin="round" ${isForecastSeg ? 'stroke-dasharray="10 10"' : ''} opacity="0.98"/>`);
+      }
+
+      const circles = visiblePoints.map((p, i) => {
+        const st = getStyle(p.level);
+        const latestObsIdx = getLatestObsIndex();
+        const r = i === latestObsIdx ? 7.5 : (p.kind === "fcst" ? 5.5 : 4.8);
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="#fff" stroke="${st.color}" stroke-width="3"/>`;
+      }).join("");
+
+      const labelPoints = visiblePoints.filter((p, i) => i === getLatestObsIndex() || p.kind === "fcst");
+      const labels = labelPoints.map((p, idx) => {
+        const label = esc(fmtTime(p.time,"full"));
+        let lx = p.x + 34;
+        let ly = p.y - 14 + (idx % 2) * 18;
+        lx = clampPt(lx, 16, width - 210);
+        ly = clampPt(ly, 22, height - 38);
+        const st = getStyle(p.level);
+        return `
+          <line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${(lx+8).toFixed(1)}" y2="${ly.toFixed(1)}" stroke="#78909c" stroke-width="1.5" opacity="0.58"/>
+          <rect x="${lx.toFixed(1)}" y="${(ly-18).toFixed(1)}" width="184" height="34" rx="17" fill="rgba(255,255,255,.94)" stroke="${idx===0 ? '#c59cff' : '#d7e3ea'}" stroke-width="${idx===0 ? 2.2 : 1}"/>
+          <circle cx="${(lx+18).toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="${st.color}" opacity="0.95"/>
+          <text x="${(lx+32).toFixed(1)}" y="${(ly+5).toFixed(1)}" font-size="13" font-weight="900" fill="#102d40">${label}</text>
+        `;
+      }).join("");
+
+      return `<svg class="pngMapOverlaySvg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${lineParts.join("")}${circles}${labels}</svg>`;
+    }
+
+    function buildPngReport(mapDataUrl, mapOverlaySvg=""){
       const latestObsIdx = getLatestObsIndex();
       const obs = points[latestObsIdx] || points[0] || {};
       const st = getStyle(obs.level);
@@ -3124,6 +3186,7 @@ button{ -webkit-tap-highlight-color:transparent; }
               </div>
               <div class="pngMapImageWrap">
                 ${mapDataUrl ? `<img class="pngMapImage" src="${mapDataUrl}" alt="typhoon map">` : `<div class="pngMapFallback">地圖截圖產生失敗，請稍後再試</div>`}
+                ${mapOverlaySvg || ""}
                 <div class="pngFootnote"><span>本圖為固定版面 PNG，避免直接截取網頁導致跑位。</span><span>筱風製作｜資料來源：${escapeHtml(weatherMeta.source || "—")}</span></div>
               </div>
             </div>
@@ -3252,6 +3315,13 @@ button{ -webkit-tap-highlight-color:transparent; }
 
         await prepareStableMapCapture();
 
+        let mapOverlaySvg = "";
+        try{
+          mapOverlaySvg = buildExportMapOverlaySvg(1096, 622);
+        }catch(e){
+          console.warn("Overlay build failed:", e);
+        }
+
         let mapDataUrl = "";
         try{
           const mapCanvas = await html2canvas($("map"), {
@@ -3277,7 +3347,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         const oldRoot = document.getElementById("pngReportRoot");
         if(oldRoot) oldRoot.remove();
 
-        const report = buildPngReport(mapDataUrl);
+        const report = buildPngReport(mapDataUrl, mapOverlaySvg);
         document.body.appendChild(report);
 
         await wait(160);
