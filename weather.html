@@ -1736,6 +1736,338 @@ button{ -webkit-tap-highlight-color:transparent; }
   }
 }
 
+
+/* ===== Final Tracker Redesign + PNG Export Board ===== */
+.trackerBodyNew{
+  gap:20px;
+}
+
+#tracker .statusCard,
+#tracker .forecastPanel,
+#tracker .mapShell,
+#tracker .sourcePanel{
+  border-color:rgba(22,48,66,.12);
+  box-shadow:0 14px 36px rgba(31,53,72,.08);
+}
+
+#tracker .statusTop,
+#tracker .fcstTop,
+#tracker .mapHeader{
+  background:
+    radial-gradient(circle at 0% 0%, rgba(96,165,250,.12), transparent 40%),
+    linear-gradient(135deg, rgba(255,255,255,.98), rgba(235,246,248,.88));
+}
+
+#tracker .statusBody{
+  background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,252,253,.88));
+}
+
+#tracker .ibox{
+  border-color:rgba(22,48,66,.11);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+}
+
+.typhoonMainGrid{
+  grid-template-columns:340px minmax(0, 1fr);
+}
+
+.typhoonForecastSide .fcstList{
+  gap:12px;
+  padding:16px;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-gutter:stable;
+  touch-action:pan-y;
+}
+
+.typhoonForecastSide .fcstCard{
+  border-radius:22px;
+  padding:16px;
+  border-color:rgba(22,48,66,.10);
+  background:linear-gradient(180deg, #fff, rgba(252,254,255,.94));
+}
+
+.fcstRow1{ margin-bottom:13px; }
+.fcstTime{ font-size:16px; letter-spacing:-.02em; }
+.fcstBadge{ padding:6px 11px; }
+.fcstKv{ grid-template-columns:64px minmax(0, 1fr); gap:9px 12px; font-size:13px; line-height:1.45; }
+.fcstKv .k{ color:#728592; }
+.fcstKv .v{ word-break:break-word; }
+
+@media (max-width:1100px){
+  .typhoonForecastSide .fcstList{
+    flex-direction:row !important;
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+    touch-action:pan-x;
+  }
+  .typhoonForecastSide .fcstCard{
+    width:260px;
+  }
+}
+
+@media (max-width:520px){
+  .typhoonForecastSide .fcstList{
+    padding:12px;
+    gap:10px;
+  }
+  .typhoonForecastSide .fcstCard{
+    width:260px;
+  }
+  .fcstCard{ padding:14px; }
+}
+
+body.exportingPng{
+  width:1600px !important;
+  min-width:1600px !important;
+  overflow:hidden !important;
+  background:#ffffff !important;
+}
+
+body.exportingPng::before,
+body.exportingPng .topbar,
+body.exportingPng .weatherHero,
+body.exportingPng #warnings,
+body.exportingPng .analysisGrid,
+body.exportingPng #tracker .toolbar,
+body.exportingPng .leaflet-control-container{
+  display:none !important;
+}
+
+body.exportingPng .page{
+  width:1600px !important;
+  max-width:1600px !important;
+  margin:0 !important;
+  padding:0 !important;
+}
+
+body.exportingPng #tracker{
+  position:relative !important;
+  width:1600px !important;
+  height:1000px !important;
+  margin:0 !important;
+  border:1px solid rgba(22,48,66,.18) !important;
+  border-radius:30px !important;
+  overflow:hidden !important;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(96,165,250,.14), transparent 30%),
+    radial-gradient(circle at 92% 8%, rgba(124,58,237,.10), transparent 26%),
+    linear-gradient(180deg, #ffffff 0%, #f7fbfc 100%) !important;
+  box-shadow:none !important;
+}
+
+body.exportingPng #tracker::after{
+  content:"本圖為示意圖｜實際路徑與強度請以中央氣象署及各國官方最新資訊為準｜筱風製作";
+  position:absolute;
+  left:34px;
+  right:34px;
+  bottom:12px;
+  color:#5f7280;
+  font-size:14px;
+  font-weight:800;
+  text-align:center;
+  z-index:20;
+}
+
+body.exportingPng #tracker .sectionHead{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) 560px !important;
+  gap:30px !important;
+  align-items:start !important;
+  padding:26px 30px 22px !important;
+  min-height:164px !important;
+  border-bottom:1px solid rgba(22,48,66,.12) !important;
+  background:transparent !important;
+}
+
+body.exportingPng #tracker .sectionKicker{
+  font-size:15px !important;
+  margin-bottom:8px !important;
+}
+
+body.exportingPng #tracker .sectionTitle{
+  font-size:52px !important;
+  line-height:1 !important;
+  letter-spacing:-.055em !important;
+}
+
+body.exportingPng #tracker .sectionDesc{
+  font-size:16px !important;
+  max-width:760px !important;
+  margin-top:14px !important;
+  line-height:1.55 !important;
+}
+
+body.exportingPng #tracker .trackerHeadRight{
+  width:560px !important;
+  max-width:560px !important;
+  align-items:stretch !important;
+}
+
+body.exportingPng #tracker .trackerSourceTop{
+  max-width:none !important;
+  padding:18px 22px !important;
+  border-radius:26px !important;
+  background:rgba(255,255,255,.88) !important;
+}
+
+body.exportingPng #tracker .sourceLabel{
+  font-size:15px !important;
+}
+
+body.exportingPng #tracker .sub{
+  font-size:15px !important;
+}
+
+body.exportingPng #tracker .trackerBodyNew{
+  display:grid !important;
+  grid-template-rows:210px 590px !important;
+  gap:16px !important;
+  padding:20px 30px 38px !important;
+}
+
+body.exportingPng #tracker .typhoonSummary{
+  margin:0 !important;
+}
+
+body.exportingPng #tracker .statusCard{
+  height:210px !important;
+  border-radius:26px !important;
+  box-shadow:none !important;
+  background:rgba(255,255,255,.94) !important;
+}
+
+body.exportingPng #tracker .statusTop{
+  min-height:56px !important;
+  padding:14px 20px !important;
+}
+
+body.exportingPng #tracker .badge,
+body.exportingPng #tracker .miniMeta{
+  font-size:16px !important;
+}
+
+body.exportingPng #tracker .statusBody{
+  padding:16px 20px !important;
+}
+
+body.exportingPng #tracker .infoGrid{
+  grid-template-columns:repeat(3, 1fr) !important;
+  gap:14px !important;
+}
+
+body.exportingPng #tracker .ibox{
+  min-height:104px !important;
+  border-radius:18px !important;
+  padding:18px 20px !important;
+}
+
+body.exportingPng #tracker .ival{
+  font-size:36px !important;
+}
+
+body.exportingPng #tracker .ilabel{
+  font-size:14px !important;
+}
+
+body.exportingPng #tracker .noteBox{
+  margin-top:12px !important;
+  padding:12px 16px !important;
+  border-radius:16px !important;
+  font-size:14px !important;
+}
+
+body.exportingPng #tracker .typhoonMainGrid{
+  display:grid !important;
+  grid-template-columns:470px minmax(0, 1fr) !important;
+  gap:18px !important;
+  height:590px !important;
+}
+
+body.exportingPng #tracker .typhoonForecastSide,
+body.exportingPng #tracker .mapShell{
+  height:590px !important;
+  min-height:590px !important;
+  border-radius:24px !important;
+  box-shadow:none !important;
+}
+
+body.exportingPng #tracker .fcstTop,
+body.exportingPng #tracker .mapHeader{
+  min-height:58px !important;
+  padding:16px 18px !important;
+}
+
+body.exportingPng #tracker .fcstTitle,
+body.exportingPng #tracker .mapHeader strong,
+body.exportingPng #tracker .chip{
+  font-size:15px !important;
+}
+
+body.exportingPng #tracker .mapLegend .legendItem{
+  font-size:13px !important;
+}
+
+body.exportingPng #tracker .typhoonForecastSide .fcstList{
+  height:532px !important;
+  max-height:532px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  gap:10px !important;
+  padding:14px 16px !important;
+}
+
+body.exportingPng #tracker .typhoonForecastSide .fcstCard{
+  width:100% !important;
+  flex:0 0 auto !important;
+  padding:14px 16px !important;
+  border-radius:17px !important;
+}
+
+body.exportingPng #tracker .fcstCard:nth-child(n+6){
+  display:none !important;
+}
+
+body.exportingPng #tracker .fcstRow1{
+  margin-bottom:8px !important;
+}
+
+body.exportingPng #tracker .fcstTime{
+  font-size:19px !important;
+}
+
+body.exportingPng #tracker .fcstBadge{
+  font-size:13px !important;
+  padding:5px 10px !important;
+}
+
+body.exportingPng #tracker .fcstKv{
+  grid-template-columns:48px 1fr 48px 1fr 48px 1fr !important;
+  gap:5px 10px !important;
+  font-size:13px !important;
+  line-height:1.35 !important;
+}
+
+body.exportingPng #tracker .fcstKv div:nth-child(5),
+body.exportingPng #tracker .fcstKv div:nth-child(6){
+  grid-column:auto !important;
+}
+
+body.exportingPng #tracker .typhoonMainGrid > .mapShell #map{
+  height:532px !important;
+  min-height:532px !important;
+  width:100% !important;
+  background:#eaf7fb !important;
+}
+
+body.exportingPng #tracker .tlabel{
+  font-size:15px !important;
+  padding:9px 14px !important;
+}
+
 </style>
 </head>
 
@@ -2913,12 +3245,19 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       el.addEventListener("wheel", (e) => {
         const style = window.getComputedStyle(el);
-        const isHorizontalList = style.flexDirection === "row" || el.scrollWidth > el.clientWidth + 12;
+        const isRowList = style.flexDirection === "row";
+        const canScrollX = el.scrollWidth > el.clientWidth + 8;
+        const canScrollY = el.scrollHeight > el.clientHeight + 8;
 
-        if(!isHorizontalList) return;
+        if(isRowList && canScrollX){
+          const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          el.scrollLeft += delta;
+          e.preventDefault();
+          return;
+        }
 
-        if(Math.abs(e.deltaY) > Math.abs(e.deltaX)){
-          el.scrollLeft += e.deltaY;
+        if(!isRowList && canScrollY){
+          el.scrollTop += e.deltaY;
           e.preventDefault();
         }
       }, { passive:false });
@@ -3040,15 +3379,23 @@ button{ -webkit-tap-highlight-color:transparent; }
 
           document.body.classList.add("exportingPng");
           window.scrollTo(0, 0);
-          await new Promise(r => setTimeout(r, 220));
+          await new Promise(r => setTimeout(r, 260));
 
           try{
             map.invalidateSize(true);
-            fitAll();
+            if(fullBounds && fullBounds.isValid()){
+              map.fitBounds(fullBounds, {
+                paddingTopLeft:[70, 60],
+                paddingBottomRight:[280, 90],
+                animate:false
+              });
+            }else{
+              fitAll();
+            }
             updateLabelLines();
           }catch(e){}
 
-          await new Promise(r => setTimeout(r, 450));
+          await new Promise(r => setTimeout(r, 650));
 
           const canvas = await html2canvas(target, {
             backgroundColor:"#ffffff",
@@ -3058,8 +3405,9 @@ button{ -webkit-tap-highlight-color:transparent; }
             logging:false,
             scrollX:0,
             scrollY:0,
-            windowWidth:1280,
-            windowHeight:target.scrollHeight
+            windowWidth:1600,
+            windowHeight:1000,
+            removeContainer:true
           });
 
           const link = document.createElement("a");
@@ -3069,9 +3417,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           link.click();
         }catch(err){
           console.error(err);
-          alert("PNG 產生失敗，可能是地圖圖磚的跨域限制。將改用瀏覽器列印。你也可以在列印視窗選擇另存為 PDF。 ");
-          beforePrint();
-          setTimeout(() => window.print(), 30);
+          alert("PNG 產生失敗，可能是地圖圖磚的跨域限制。請稍後重試，或暫時使用瀏覽器截圖。 ");
         }finally{
           document.body.classList.remove("exportingPng");
           try{
