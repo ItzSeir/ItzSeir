@@ -3095,13 +3095,37 @@ button{ -webkit-tap-highlight-color:transparent; }
       if(!map || !points || !points.length) return "";
 
       const esc = escapeHtml;
+
+      function toScreenPoint(lat, lon){
+        const cp = map.latLngToContainerPoint([lat, lon]);
+        return { x: cp.x, y: cp.y };
+      }
+
       const visiblePoints = points.map(p => {
-        const cp = map.latLngToContainerPoint([p.lat, p.lon]);
+        const cp = toScreenPoint(p.lat, p.lon);
         return { ...p, x: cp.x, y: cp.y };
       });
 
       function clampPt(v, min, max){
         return Math.max(min, Math.min(max, v));
+      }
+
+      /* PNG 專用：把預報不確定範圍直接畫在匯出圖內，避免 Leaflet layer 截圖時消失 */
+      let coneShape = "";
+      try{
+        const coneLatLngs = buildForecastConePolygonSmooth();
+        if(coneLatLngs && coneLatLngs.length > 3){
+          const pts = coneLatLngs.map(ll => {
+            const p = toScreenPoint(ll[0], ll[1]);
+            return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+          }).join(" ");
+
+          coneShape = `
+            <polygon points="${pts}" fill="#8b5cf6" fill-opacity="0.16" stroke="#8b5cf6" stroke-opacity="0.22" stroke-width="1.5"/>
+          `;
+        }
+      }catch(e){
+        coneShape = "";
       }
 
       const lineParts = [];
@@ -3113,30 +3137,75 @@ button{ -webkit-tap-highlight-color:transparent; }
         lineParts.push(`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${st.color}" stroke-width="${getLineWeight(b.level) + 1.5}" stroke-linecap="round" stroke-linejoin="round" ${isForecastSeg ? 'stroke-dasharray="10 10"' : ''} opacity="0.98"/>`);
       }
 
+      const latestObsIdx = getLatestObsIndex();
       const circles = visiblePoints.map((p, i) => {
         const st = getStyle(p.level);
-        const latestObsIdx = getLatestObsIndex();
         const r = i === latestObsIdx ? 7.5 : (p.kind === "fcst" ? 5.5 : 4.8);
         return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="#fff" stroke="${st.color}" stroke-width="3"/>`;
       }).join("");
 
-      const labelPoints = visiblePoints.filter((p, i) => i === getLatestObsIndex() || p.kind === "fcst");
-      const labels = labelPoints.map((p, idx) => {
+      /* PNG 專用：時間標記減少，避免重疊。只標目前點、第一個預報、中段預報、最後預報。 */
+      const fcstVisible = visiblePoints.filter(p => p.kind === "fcst");
+      const labelCandidates = [];
+
+      if(visiblePoints[latestObsIdx]) labelCandidates.push({ p:visiblePoints[latestObsIdx], kind:"current" });
+      if(fcstVisible.length){
+        labelCandidates.push({ p:fcstVisible[0], kind:"first" });
+        const mid = fcstVisible[Math.floor(fcstVisible.length / 2)];
+        const last = fcstVisible[fcstVisible.length - 1];
+        if(mid && mid.time !== fcstVisible[0].time && mid.time !== last.time) labelCandidates.push({ p:mid, kind:"mid" });
+        if(last && last.time !== fcstVisible[0].time) labelCandidates.push({ p:last, kind:"last" });
+      }
+
+      const usedBoxes = [];
+      function intersects(a, b){
+        return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+      }
+
+      const labels = labelCandidates.map((item, idx) => {
+        const p = item.p;
         const label = esc(fmtTime(p.time,"full"));
-        let lx = p.x + 34;
-        let ly = p.y - 14 + (idx % 2) * 18;
-        lx = clampPt(lx, 16, width - 210);
-        ly = clampPt(ly, 22, height - 38);
         const st = getStyle(p.level);
+        const labelW = 184;
+        const labelH = 34;
+        const positions = [
+          { x:p.x + 34, y:p.y - 14 },
+          { x:p.x + 34, y:p.y + 26 },
+          { x:p.x - labelW - 34, y:p.y - 14 },
+          { x:p.x - labelW - 34, y:p.y + 26 },
+          { x:p.x + 20, y:p.y - 56 },
+          { x:p.x - labelW - 20, y:p.y - 56 }
+        ];
+
+        let chosen = positions[0];
+        for(const pos of positions){
+          const box = {
+            x:clampPt(pos.x, 16, width - labelW - 16),
+            y:clampPt(pos.y, 22, height - labelH - 18),
+            w:labelW,
+            h:labelH
+          };
+          if(!usedBoxes.some(b => intersects(box, b))){
+            chosen = box;
+            break;
+          }
+          chosen = box;
+        }
+        usedBoxes.push(chosen);
+
+        const lx = chosen.x;
+        const ly = chosen.y + labelH / 2;
+        const isCurrent = item.kind === "current";
+
         return `
-          <line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${(lx+8).toFixed(1)}" y2="${ly.toFixed(1)}" stroke="#78909c" stroke-width="1.5" opacity="0.58"/>
-          <rect x="${lx.toFixed(1)}" y="${(ly-18).toFixed(1)}" width="184" height="34" rx="17" fill="rgba(255,255,255,.94)" stroke="${idx===0 ? '#c59cff' : '#d7e3ea'}" stroke-width="${idx===0 ? 2.2 : 1}"/>
+          <line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${(lx+10).toFixed(1)}" y2="${ly.toFixed(1)}" stroke="#78909c" stroke-width="1.5" opacity="0.45"/>
+          <rect x="${lx.toFixed(1)}" y="${chosen.y.toFixed(1)}" width="${labelW}" height="${labelH}" rx="17" fill="rgba(255,255,255,.94)" stroke="${isCurrent ? '#c59cff' : '#d7e3ea'}" stroke-width="${isCurrent ? 2.2 : 1}"/>
           <circle cx="${(lx+18).toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="${st.color}" opacity="0.95"/>
           <text x="${(lx+32).toFixed(1)}" y="${(ly+5).toFixed(1)}" font-size="13" font-weight="900" fill="#102d40">${label}</text>
         `;
       }).join("");
 
-      return `<svg class="pngMapOverlaySvg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${lineParts.join("")}${circles}${labels}</svg>`;
+      return `<svg class="pngMapOverlaySvg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${coneShape}${lineParts.join("")}${circles}${labels}</svg>`;
     }
 
     function buildPngReport(mapDataUrl, mapOverlaySvg=""){
