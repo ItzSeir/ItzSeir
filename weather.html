@@ -3543,97 +3543,575 @@ button{ -webkit-tap-highlight-color:transparent; }
       const oldText = btn ? btn.textContent : "";
       const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-      const mapShell = document.querySelector(".typhoonMainGrid > .mapShell");
-      const mapEl = $("map");
-      const oldRingState = $("toggleRings") ? $("toggleRings").checked : true;
-      const oldConeState = $("toggleCone") ? $("toggleCone").checked : true;
-      const oldLabelState = $("toggleLabels") ? $("toggleLabels").checked : true;
-
-      if(!mapShell || !mapEl || !map){
-        alert("地圖尚未載入完成，請稍後再試。");
+      if(!points || !points.length){
+        alert("颱風資料尚未載入完成，請稍後再試。");
         return;
       }
 
       try{
         if(btn){
           btn.disabled = true;
-          btn.textContent = "地圖 PNG 產生中...";
+          btn.textContent = "PNG 產生中...";
         }
 
-        /* 匯出時像地震頁一樣：直接截取地圖畫面，不再重新排版整張頁面。
-           這樣 Leaflet 底圖、路徑線、點位會保持同一個座標系，不會再位移。 */
-        document.body.classList.add("map-png-capture-mode");
+        /* 
+          重要修正：
+          不再用 html2canvas 直接截 Leaflet 圖磚，因為 Mapbox/Leaflet tile 在部分瀏覽器會觸發 CORS。
+          這裡改用「同一個 Mapbox Style」的 Static Images API 作為底圖，再用 Canvas 畫颱風路徑。
+          所以：
+          1. 地圖底層仍然是你的 Mapbox 自訂底圖
+          2. 不會再因為 Leaflet tile CORS 失敗
+          3. 不會有暴風圈
+          4. 路徑、點位、不確定範圍、時間標記都會跟底圖對齊
+        */
 
-        /* PNG 不要暴風圈：暫時關閉暴風圈，再重畫。 */
-        if($("toggleRings")) $("toggleRings").checked = false;
-        drawStormRings();
+        await wait(120);
 
-        /* 保留不確定範圍與時間標記；如果你手動關閉 checkbox，會跟隨目前畫面狀態。 */
-        if($("toggleCone")) $("toggleCone").checked = oldConeState;
-        if($("toggleLabels")) $("toggleLabels").checked = oldLabelState;
-        drawForecastCone();
-        drawLabels();
+        const W = 1600;
+        const H = 1000;
+        const DPR = 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = W * DPR;
+        canvas.height = H * DPR;
 
-        await wait(160);
+        const ctx = canvas.getContext("2d");
+        ctx.scale(DPR, DPR);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
 
-        map.invalidateSize(true);
-        if(fullBounds && fullBounds.isValid && fullBounds.isValid()){
-          map.fitBounds(fullBounds, {
-            paddingTopLeft:[70, 58],
-            paddingBottomRight:[240, 58],
-            animate:false
+        const latestObsIdx = getLatestObsIndex();
+        const latestObs = points[latestObsIdx] || points[0];
+        const latestStyle = getStyle(latestObs.level);
+
+        function clamp(v, min, max){
+          return Math.max(min, Math.min(max, v));
+        }
+
+        function roundRect(ctx, x, y, w, h, r){
+          const rr = Math.min(r, w / 2, h / 2);
+          ctx.beginPath();
+          ctx.moveTo(x + rr, y);
+          ctx.arcTo(x + w, y, x + w, y + h, rr);
+          ctx.arcTo(x + w, y + h, x, y + h, rr);
+          ctx.arcTo(x, y + h, x, y, rr);
+          ctx.arcTo(x, y, x + w, y, rr);
+          ctx.closePath();
+        }
+
+        function fillRound(ctx, x, y, w, h, r, fill, stroke){
+          roundRect(ctx, x, y, w, h, r);
+          if(fill){
+            ctx.fillStyle = fill;
+            ctx.fill();
+          }
+          if(stroke){
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+
+        function drawText(text, x, y, opts = {}){
+          const {
+            size = 16,
+            weight = 700,
+            color = "#123044",
+            align = "left",
+            baseline = "alphabetic",
+            maxWidth = undefined
+          } = opts;
+
+          ctx.font = `${weight} ${size}px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+          ctx.fillStyle = color;
+          ctx.textAlign = align;
+          ctx.textBaseline = baseline;
+          ctx.fillText(String(text ?? ""), x, y, maxWidth);
+        }
+
+        function wrapText(text, x, y, maxWidth, lineHeight, opts = {}){
+          const words = String(text ?? "").split("");
+          let line = "";
+          let yy = y;
+          const maxLines = opts.maxLines || 3;
+          let lines = 0;
+
+          ctx.font = `${opts.weight || 700} ${opts.size || 14}px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+          ctx.fillStyle = opts.color || "#647983";
+
+          for(let i = 0; i < words.length; i++){
+            const test = line + words[i];
+            if(ctx.measureText(test).width > maxWidth && line){
+              ctx.fillText(line, x, yy);
+              line = words[i];
+              yy += lineHeight;
+              lines++;
+
+              if(lines >= maxLines - 1){
+                let remain = words.slice(i + 1).join("");
+                while(ctx.measureText(line + remain + "…").width > maxWidth && line.length > 1){
+                  line = line.slice(0, -1);
+                }
+                ctx.fillText(line + "…", x, yy);
+                return yy + lineHeight;
+              }
+            }else{
+              line = test;
+            }
+          }
+
+          if(line){
+            ctx.fillText(line, x, yy);
+            yy += lineHeight;
+          }
+
+          return yy;
+        }
+
+        function loadImage(src){
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.referrerPolicy = "no-referrer";
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error("Mapbox static image load failed"));
+            img.src = src;
           });
         }
 
-        await wait(900);
+        function mercatorX(lon){
+          return (lon + 180) / 360;
+        }
 
-        map.invalidateSize(true);
-        updateLabelLines();
-        drawForecastCone();
-        drawStormRings();
+        function mercatorY(lat){
+          const sin = Math.sin(lat * Math.PI / 180);
+          return 0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI);
+        }
 
-        await wait(260);
-        await waitForMapTiles(5000);
+        function inverseMercatorY(y){
+          const n = Math.PI - 2 * Math.PI * y;
+          return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+        }
 
-        const rect = mapShell.getBoundingClientRect();
-        const canvas = await html2canvas(mapShell, {
-          backgroundColor:"#ffffff",
-          useCORS:true,
-          allowTaint:false,
-          imageTimeout:15000,
-          scale:2,
-          width:Math.ceil(rect.width),
-          height:Math.ceil(rect.height),
-          windowWidth:Math.ceil(document.documentElement.clientWidth),
-          windowHeight:Math.ceil(document.documentElement.clientHeight),
-          scrollX:0,
-          scrollY:0,
-          logging:false
+        function buildView(mapW, mapH, pad){
+          const lats = points.map(p => p.lat);
+          const lons = points.map(p => p.lon);
+          const minLat = Math.min(...lats);
+          const maxLat = Math.max(...lats);
+          const minLon = Math.min(...lons);
+          const maxLon = Math.max(...lons);
+
+          const minX = mercatorX(minLon);
+          const maxX = mercatorX(maxLon);
+          const minY = mercatorY(maxLat);
+          const maxY = mercatorY(minLat);
+
+          const dx = Math.max(0.00001, maxX - minX);
+          const dy = Math.max(0.00001, maxY - minY);
+
+          const zoomX = Math.log2((mapW - pad * 2) / (512 * dx));
+          const zoomY = Math.log2((mapH - pad * 2) / (512 * dy));
+          const zoom = clamp(Math.min(zoomX, zoomY), 1, 12);
+
+          const cx = (minX + maxX) / 2;
+          const cy = (minY + maxY) / 2;
+
+          return {
+            lon: cx * 360 - 180,
+            lat: inverseMercatorY(cy),
+            zoom
+          };
+        }
+
+        function makeProjector(view, mapX, mapY, mapW, mapH){
+          const scale = 512 * Math.pow(2, view.zoom);
+          const cx = mercatorX(view.lon) * scale;
+          const cy = mercatorY(view.lat) * scale;
+
+          return (lat, lon) => {
+            const x = mercatorX(lon) * scale;
+            const y = mercatorY(lat) * scale;
+            return {
+              x: mapX + mapW / 2 + (x - cx),
+              y: mapY + mapH / 2 + (y - cy)
+            };
+          };
+        }
+
+        function drawDot(x, y, color, radius = 6, highlight = false){
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(x, y, highlight ? radius + 7 : radius + 3, 0, Math.PI * 2);
+          ctx.fillStyle = highlight ? `${color}22` : "rgba(255,255,255,.82)";
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = "#fff";
+          ctx.fill();
+          ctx.lineWidth = highlight ? 4 : 3;
+          ctx.strokeStyle = color;
+          ctx.stroke();
+
+          if(highlight){
+            ctx.beginPath();
+            ctx.arc(x, y, 3.4, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        function drawLabel(x, y, text, color, align = "left"){
+          ctx.save();
+          ctx.font = `900 14px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+          const padX = 12;
+          const padY = 7;
+          const tw = ctx.measureText(text).width;
+          const w = tw + padX * 2 + 14;
+          const h = 32;
+          const bx = align === "right" ? x - w : x;
+          const by = y - h / 2;
+
+          fillRound(ctx, bx, by, w, h, 999, "rgba(255,255,255,.94)", "rgba(25,42,58,.14)");
+
+          ctx.beginPath();
+          ctx.arc(bx + 13, by + h / 2, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+
+          drawText(text, bx + 24, by + h / 2 + 1, {
+            size:14,
+            weight:900,
+            color:"#123044",
+            baseline:"middle"
+          });
+
+          ctx.restore();
+        }
+
+        function getSmartLabelIndexes(){
+          const fcstIndexes = [];
+          points.forEach((p, i) => {
+            if(p.kind === "fcst") fcstIndexes.push(i);
+          });
+
+          const picked = new Set();
+          picked.add(latestObsIdx);
+
+          if(fcstIndexes.length){
+            picked.add(fcstIndexes[0]);
+            picked.add(fcstIndexes[Math.floor(fcstIndexes.length / 2)]);
+            picked.add(fcstIndexes[fcstIndexes.length - 1]);
+          }
+
+          return Array.from(picked).filter(i => i >= 0 && i < points.length).sort((a,b) => a - b);
+        }
+
+        /* Background */
+        const grad = ctx.createLinearGradient(0, 0, 0, H);
+        grad.addColorStop(0, "#fbfdff");
+        grad.addColorStop(1, "#edf7fa");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        const glow1 = ctx.createRadialGradient(1380, -80, 20, 1380, -80, 520);
+        glow1.addColorStop(0, "rgba(124,58,237,.16)");
+        glow1.addColorStop(1, "rgba(124,58,237,0)");
+        ctx.fillStyle = glow1;
+        ctx.fillRect(0, 0, W, H);
+
+        const glow2 = ctx.createRadialGradient(220, 20, 20, 220, 20, 520);
+        glow2.addColorStop(0, "rgba(96,165,250,.16)");
+        glow2.addColorStop(1, "rgba(96,165,250,0)");
+        ctx.fillStyle = glow2;
+        ctx.fillRect(0, 0, W, H);
+
+        /* Header */
+        ctx.beginPath();
+        ctx.arc(44, 42, 5, 0, Math.PI * 2);
+        ctx.fillStyle = "#4f8cff";
+        ctx.fill();
+        drawText("TYPHOON TRACKER", 58, 47, {
+          size:14,
+          weight:900,
+          color:"#0f4c5c"
+        });
+
+        drawText(weatherMeta.title || "颱風路徑追蹤器", 34, 104, {
+          size:52,
+          weight:900,
+          color:"#102d40"
+        });
+
+        drawText("颱風路徑、預報不確定範圍與未來移動趨勢", 36, 139, {
+          size:16,
+          weight:800,
+          color:"#617785"
+        });
+
+        fillRound(ctx, 1010, 28, 556, 120, 26, "rgba(255,255,255,.88)", "rgba(25,42,58,.11)");
+        drawText("DATA SOURCE", 1032, 58, {
+          size:13,
+          weight:900,
+          color:"#0f4c5c"
+        });
+        wrapText(weatherMeta.source || "—", 1032, 88, 508, 24, {
+          size:18,
+          weight:900,
+          color:"#123044",
+          maxLines:2
+        });
+
+        /* Summary */
+        fillRound(ctx, 34, 164, 1532, 160, 26, "rgba(255,255,255,.88)", "rgba(25,42,58,.11)");
+        fillRound(ctx, 54, 184, 260, 42, 999, "#fff", `${latestStyle.color}55`);
+        ctx.beginPath();
+        ctx.arc(74, 205, 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = latestStyle.color;
+        ctx.fill();
+        drawText(getStyle(latestObs.level).label, 88, 210, {
+          size:15,
+          weight:900,
+          color:"#123044"
+        });
+
+        drawText(`時間：${fmtTime(latestObs.time, "full")}`, 1310, 210, {
+          size:15,
+          weight:900,
+          color:"#617785"
+        });
+
+        const summaryCards = [
+          { label:"目前座標", value:`${latestObs.lat.toFixed(2)}, ${latestObs.lon.toFixed(2)}` },
+          { label:"中心附近最大風速", value:fmtWindMs(latestObs.wind) },
+          { label:"中心氣壓", value:latestObs.pressure ? `${latestObs.pressure} hPa` : "—" }
+        ];
+
+        summaryCards.forEach((c, i) => {
+          const x = 54 + i * 500;
+          fillRound(ctx, x, 240, 480, 64, 18, "#fff", "rgba(25,42,58,.10)");
+          drawText(c.value, x + 22, 269, {
+            size:25,
+            weight:900,
+            color:"#102d40"
+          });
+          drawText(c.label, x + 22, 292, {
+            size:13,
+            weight:900,
+            color:"#718692"
+          });
+        });
+
+        /* Layout */
+        const panelY = 344;
+        const panelH = 622;
+        const forecastX = 34;
+        const forecastW = 410;
+        const mapX = 464;
+        const mapW = 1102;
+        const mapH = panelH;
+
+        fillRound(ctx, forecastX, panelY, forecastW, panelH, 26, "rgba(255,255,255,.9)", "rgba(25,42,58,.11)");
+        fillRound(ctx, mapX, panelY, mapW, mapH, 26, "rgba(255,255,255,.9)", "rgba(25,42,58,.11)");
+
+        drawText("預報列表", forecastX + 20, panelY + 37, {
+          size:16,
+          weight:900,
+          color:"#123044"
+        });
+
+        const fcst = points.filter(p => p.kind === "fcst");
+        drawText(`${fcst.length} 筆`, forecastX + forecastW - 22, panelY + 37, {
+          size:13,
+          weight:900,
+          color:"#0f4c5c",
+          align:"right"
+        });
+
+        drawText("颱風路徑圖", mapX + 22, panelY + 37, {
+          size:16,
+          weight:900,
+          color:"#123044"
+        });
+
+        drawText("歷史路徑 / 預報路徑 / 預報不確定性", mapX + mapW - 22, panelY + 37, {
+          size:13,
+          weight:900,
+          color:"#617785",
+          align:"right"
+        });
+
+        /* Forecast Cards */
+        const maxCards = 5;
+        const shown = fcst.slice(0, maxCards);
+        const cardX = forecastX + 16;
+        const cardW = forecastW - 32;
+        const cardY0 = panelY + 62;
+        const cardGap = 12;
+        const cardH = Math.floor((panelH - 82 - cardGap * (maxCards - 1)) / maxCards);
+
+        shown.forEach((p, i) => {
+          const st = getStyle(p.level);
+          const y = cardY0 + i * (cardH + cardGap);
+          fillRound(ctx, cardX, y, cardW, cardH, 18, "#fff", "rgba(25,42,58,.10)");
+
+          drawText(fmtTime(p.time, "short"), cardX + 16, y + 31, {
+            size:19,
+            weight:900,
+            color:"#102d40"
+          });
+
+          fillRound(ctx, cardX + cardW - 108, y + 13, 92, 28, 999, "#fff", `${st.color}55`);
+          ctx.beginPath();
+          ctx.arc(cardX + cardW - 92, y + 27, 4, 0, Math.PI * 2);
+          ctx.fillStyle = st.color;
+          ctx.fill();
+          drawText(p.level || "—", cardX + cardW - 82, y + 31, {
+            size:12,
+            weight:900,
+            color:"#123044"
+          });
+
+          const kvY = y + 60;
+          drawText("座標", cardX + 16, kvY, { size:12, weight:900, color:"#718692" });
+          drawText(`${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}`, cardX + 62, kvY, { size:12, weight:900, color:"#102d40" });
+          drawText("風速", cardX + 16, kvY + 24, { size:12, weight:900, color:"#718692" });
+          drawText(fmtWindMs(p.wind), cardX + 62, kvY + 24, { size:12, weight:900, color:"#102d40" });
+          drawText("氣壓", cardX + 190, kvY + 24, { size:12, weight:900, color:"#718692" });
+          drawText(p.pressure ? `${p.pressure} hPa` : "—", cardX + 236, kvY + 24, { size:12, weight:900, color:"#102d40" });
+        });
+
+        if(fcst.length > maxCards){
+          drawText(`+${fcst.length - maxCards} 筆更多預報資料`, forecastX + forecastW / 2, panelY + panelH - 14, {
+            size:12,
+            weight:900,
+            color:"#718692",
+            align:"center"
+          });
+        }
+
+        /* Mapbox static base map */
+        const innerMapX = mapX + 16;
+        const innerMapY = panelY + 62;
+        const innerMapW = mapW - 32;
+        const innerMapH = panelH - 82;
+        const view = buildView(innerMapW, innerMapH, 92);
+        const zoomStr = view.zoom.toFixed(2);
+        const staticUrl = `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${view.lon.toFixed(6)},${view.lat.toFixed(6)},${zoomStr},0/${innerMapW}x${innerMapH}@2x?access_token=${MAPBOX_TOKEN}&logo=false&attribution=false`;
+
+        const mapImg = await loadImage(staticUrl);
+
+        ctx.save();
+        roundRect(ctx, innerMapX, innerMapY, innerMapW, innerMapH, 20);
+        ctx.clip();
+        ctx.drawImage(mapImg, innerMapX, innerMapY, innerMapW, innerMapH);
+
+        const project = makeProjector(view, innerMapX, innerMapY, innerMapW, innerMapH);
+
+        /* Forecast uncertainty cone */
+        const cone = buildForecastConePolygonSmooth();
+        if(cone && cone.length > 3){
+          ctx.beginPath();
+          cone.forEach((ll, i) => {
+            const pt = project(ll[0], ll[1]);
+            if(i === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          });
+          ctx.closePath();
+          ctx.fillStyle = "rgba(96,165,250,.20)";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "rgba(96,165,250,.48)";
+          ctx.stroke();
+        }
+
+        /* Route lines */
+        for(let i = 0; i < points.length - 1; i++){
+          const a = points[i];
+          const b = points[i + 1];
+          const pa = project(a.lat, a.lon);
+          const pb = project(b.lat, b.lon);
+          const st = getStyle(b.level);
+          const isForecast = a.kind === "fcst" || b.kind === "fcst";
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.lineWidth = b.level === "TY" || b.level === "STY" ? 5 : 4;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = st.color;
+          if(isForecast) ctx.setLineDash([10, 10]);
+          ctx.shadowColor = "rgba(255,255,255,.9)";
+          ctx.shadowBlur = 3;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        /* Points */
+        points.forEach((p, i) => {
+          const st = getStyle(p.level);
+          const pt = project(p.lat, p.lon);
+          drawDot(pt.x, pt.y, st.color, i === latestObsIdx ? 8 : (p.kind === "fcst" ? 5.5 : 5), i === latestObsIdx);
+        });
+
+        /* Fewer labels */
+        getSmartLabelIndexes().forEach((idx, n) => {
+          const p = points[idx];
+          const st = getStyle(p.level);
+          const pt = project(p.lat, p.lon);
+          const text = fmtTime(p.time, "short");
+          const rightSide = pt.x > innerMapX + innerMapW * 0.63;
+          const x = rightSide ? pt.x - 18 : pt.x + 18;
+          const y = pt.y + (n % 2 === 0 ? -34 : 34);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(pt.x, pt.y);
+          ctx.lineTo(x, y);
+          ctx.strokeStyle = "rgba(25,42,58,.28)";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          ctx.restore();
+
+          drawLabel(x, y, text, st.color, rightSide ? "right" : "left");
+        });
+
+        /* Map credit inside image */
+        fillRound(ctx, innerMapX + innerMapW - 210, innerMapY + innerMapH - 38, 190, 24, 999, "rgba(255,255,255,.82)", "rgba(25,42,58,.10)");
+        drawText("Mapbox / OpenStreetMap", innerMapX + innerMapW - 115, innerMapY + innerMapH - 22, {
+          size:11,
+          weight:900,
+          color:"#617785",
+          align:"center"
+        });
+
+        ctx.restore();
+
+        /* Footer */
+        drawText("筱風製作", 36, 988, {
+          size:13,
+          weight:900,
+          color:"#617785"
+        });
+
+        drawText(`生成時間：${new Date().toLocaleString()}`, W - 36, 988, {
+          size:13,
+          weight:900,
+          color:"#617785",
+          align:"right"
         });
 
         const safeTitle = String(weatherMeta.title || "typhoon-map").replace(/[\\/:*?"<>|]/g, "_");
-        downloadDataUrl(`${safeTitle}_地圖.png`, canvas.toDataURL("image/png"));
+        downloadDataUrl(`${safeTitle}_颱風路徑圖.png`, canvas.toDataURL("image/png"));
       }catch(e){
         console.error(e);
-        alert("PNG 產生失敗：地圖圖磚可能被瀏覽器跨域限制。請重新整理後等地圖完全載入再試。");
+        alert("PNG 產生失敗：Mapbox Static 圖片載入失敗。請確認 Token / Style ID 可以公開讀取，或稍後重新整理再試。");
       }finally{
-        document.body.classList.remove("map-png-capture-mode");
-
-        if($("toggleRings")) $("toggleRings").checked = oldRingState;
-        if($("toggleCone")) $("toggleCone").checked = oldConeState;
-        if($("toggleLabels")) $("toggleLabels").checked = oldLabelState;
-
-        try{
-          drawForecastCone();
-          drawStormRings();
-          drawLabels();
-          map.invalidateSize(true);
-          updateLabelLines();
-        }catch(e){}
-
         if(btn){
           btn.disabled = false;
-          btn.textContent = oldText || "產生 PNG 圖片";
+          btn.textContent = oldText || "產生地圖 PNG";
         }
       }
     }
@@ -3741,7 +4219,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           if($("toggleRings")) $("toggleRings").checked = false;
           drawStormRings();
           drawForecastCone();
-          drawLabels();
+          drawTimeLabels(latestObsIdx);
 
           map.invalidateSize(true);
           if(fullBounds && fullBounds.isValid && fullBounds.isValid()){
@@ -3771,7 +4249,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
           drawForecastCone();
           drawStormRings();
-          drawLabels();
+          drawTimeLabels(latestObsIdx);
           map.invalidateSize(true);
           updateLabelLines();
         }catch(e){}
