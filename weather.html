@@ -1493,77 +1493,315 @@ button{ -webkit-tap-highlight-color:transparent; }
 }
 
 
+/* ===== Stable PNG Export + Forecast Scroll Fix ===== */
+#pngReportRoot{
+  position:absolute;
+  left:-20000px;
+  top:0;
+  width:1600px;
+  background:#f7fbfc;
+  color:#123044;
+  font-family:"Noto Sans TC","Segoe UI",Arial,sans-serif;
+  z-index:999999;
+}
 
-/* ===== Forecast List Spacing Improved ===== */
+.pngReport{
+  width:1600px;
+  height:1000px;
+  padding:28px;
+  background:
+    radial-gradient(circle at 86% -10%, rgba(124,58,237,.12), transparent 32%),
+    radial-gradient(circle at 20% 4%, rgba(96,165,250,.13), transparent 34%),
+    linear-gradient(180deg,#fbfdff 0%,#edf7fa 100%);
+  overflow:hidden;
+}
 
+.pngReport *{ box-sizing:border-box; }
+
+.pngReportTop{
+  display:grid;
+  grid-template-columns:1fr 560px;
+  gap:24px;
+  align-items:start;
+  margin-bottom:18px;
+}
+
+.pngKicker{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  color:#0f4c5c;
+  font-size:14px;
+  font-weight:900;
+  letter-spacing:.02em;
+}
+
+.pngReportTitle{
+  margin:8px 0 6px;
+  color:#102d40;
+  font-size:52px;
+  line-height:1.03;
+  font-weight:900;
+  letter-spacing:-.055em;
+}
+
+.pngReportSub{
+  margin:0;
+  color:#617785;
+  font-size:15px;
+  font-weight:800;
+}
+
+.pngSourceBox{
+  border:1px solid rgba(25,42,58,.11);
+  border-radius:24px;
+  background:rgba(255,255,255,.88);
+  padding:18px 20px;
+  box-shadow:0 12px 34px rgba(31,53,72,.08);
+}
+
+.pngSourceBox b{
+  display:block;
+  margin-bottom:8px;
+  color:#0f4c5c;
+  font-size:13px;
+  font-weight:900;
+}
+
+.pngSourceBox span{
+  color:#123044;
+  font-size:15px;
+  font-weight:900;
+}
+
+.pngSummary{
+  border:1px solid rgba(25,42,58,.11);
+  border-radius:26px;
+  background:rgba(255,255,255,.86);
+  box-shadow:0 12px 34px rgba(31,53,72,.08);
+  overflow:hidden;
+  margin-bottom:18px;
+}
+
+.pngSummaryHead{
+  height:60px;
+  padding:0 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:linear-gradient(135deg,rgba(240,250,251,.95),rgba(255,255,255,.78));
+  border-bottom:1px solid rgba(25,42,58,.08);
+  font-weight:900;
+}
+
+.pngLevel{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 13px;
+  border-radius:999px;
+  border:1px solid rgba(25,42,58,.12);
+  background:#fff;
+  color:#123044;
+  font-size:14px;
+}
+
+.pngTime{ color:#617785; font-size:14px; }
+
+.pngSummaryGrid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+  padding:16px 18px 18px;
+}
+
+.pngInfoCard{
+  min-height:108px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:18px;
+  border:1px solid rgba(25,42,58,.10);
+  border-radius:20px;
+  background:#fff;
+}
+
+.pngInfoVal{
+  color:#102d40;
+  font-size:38px;
+  line-height:1.05;
+  font-weight:900;
+  letter-spacing:-.04em;
+}
+
+.pngInfoLab{
+  margin-top:9px;
+  color:#6c808d;
+  font-size:13px;
+  font-weight:900;
+}
+
+.pngMain{
+  display:grid;
+  grid-template-columns:430px 1fr;
+  gap:18px;
+  height:680px;
+}
+
+.pngForecast,
+.pngMapBox{
+  border:1px solid rgba(25,42,58,.11);
+  border-radius:26px;
+  background:rgba(255,255,255,.88);
+  box-shadow:0 12px 34px rgba(31,53,72,.08);
+  overflow:hidden;
+}
+
+.pngPanelHead{
+  height:58px;
+  padding:0 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:linear-gradient(135deg,rgba(240,250,251,.95),rgba(255,255,255,.78));
+  border-bottom:1px solid rgba(25,42,58,.08);
+  color:#123044;
+  font-size:15px;
+  font-weight:900;
+}
+
+.pngForecastList{
+  height:622px;
+  padding:14px 16px;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  overflow:hidden;
+}
+
+.pngFcstCard{
+  min-height:104px;
+  border:1px solid rgba(25,42,58,.10);
+  border-radius:18px;
+  background:#fff;
+  padding:13px 14px;
+}
+
+.pngFcstTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:9px;
+}
+
+.pngFcstTime{
+  color:#102d40;
+  font-size:19px;
+  font-weight:900;
+  letter-spacing:-.03em;
+}
+
+.pngFcstBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 10px;
+  border-radius:999px;
+  border:1px solid rgba(124,58,237,.22);
+  color:#102d40;
+  background:#fff;
+  font-size:12px;
+  font-weight:900;
+}
+
+.pngFcstKv{
+  display:grid;
+  grid-template-columns:48px 1fr 48px 1fr;
+  gap:5px 9px;
+  font-size:12px;
+  line-height:1.35;
+}
+
+.pngFcstKv .k{ color:#718692; font-weight:900; }
+.pngFcstKv .v{ color:#102d40; font-weight:900; }
+
+.pngMapImageWrap{
+  height:622px;
+  background:#e9f8fb;
+  position:relative;
+  overflow:hidden;
+}
+
+.pngMapImage{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+.pngMapFallback{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  color:#617785;
+  font-weight:900;
+  font-size:18px;
+  background:linear-gradient(135deg,#e8f7fb,#f6fbfd);
+}
+
+.pngFootnote{
+  position:absolute;
+  left:18px;
+  bottom:14px;
+  right:18px;
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  color:#617785;
+  font-size:12px;
+  font-weight:900;
+  text-shadow:0 1px 0 rgba(255,255,255,.8);
+}
+
+/* Better normal forecast spacing and real scroll */
 .typhoonForecastSide .fcstList{
   gap:12px;
-  padding:16px;
+  scrollbar-gutter:stable;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
 }
 
-.fcstCard{
-  padding:16px;
-  border-radius:22px;
-}
+.fcstCard{ padding:15px; border-radius:22px; }
+.fcstRow1{ margin-bottom:13px; }
+.fcstTime{ font-size:16px; }
+.fcstKv{ grid-template-columns:60px 1fr; gap:8px 10px; font-size:13px; }
+.fcstKv .v{ word-break:break-word; }
 
-.fcstRow1{
-  margin-bottom:14px;
-}
-
-.fcstTime{
-  font-size:16px;
-  letter-spacing:-.02em;
-}
-
-.fcstBadge{
-  padding:6px 11px;
-}
-
-.fcstKv{
-  grid-template-columns:64px minmax(0, 1fr);
-  gap:9px 12px;
-  font-size:13px;
-  line-height:1.45;
-}
-
-.fcstKv .k{
-  color:#728592;
-}
-
-.fcstKv .v{
-  word-break:break-word;
-}
-
-@media (max-width:520px){
+@media (max-width:1100px){
   .typhoonForecastSide .fcstList{
-    padding:12px;
-    gap:10px;
+    gap:12px;
+    padding:14px;
+    cursor:grab;
   }
 
   .typhoonForecastSide .fcstCard{
     width:260px;
   }
+}
 
-  .fcstCard{
-    padding:14px;
+@media (max-width:520px){
+  .typhoonForecastSide .fcstCard{
+    width:270px;
   }
 }
 
 /* ===== Print ===== */
 
 @media print{
-  @page{
-    size:A4 landscape;
-    margin:8mm;
-  }
-
-  *{
-    -webkit-print-color-adjust:exact !important;
-    print-color-adjust:exact !important;
-  }
-
   body{
-    background:#fff !important;
+    background:#fff;
   }
 
   body::before,
@@ -1571,503 +1809,51 @@ button{ -webkit-tap-highlight-color:transparent; }
   .weatherHero,
   #warnings,
   .analysisGrid,
-  .toolbar,
   .btn,
-  .toggle,
-  .leaflet-control-container{
+  .toggle{
     display:none !important;
   }
 
   .page{
-    width:100% !important;
-    max-width:none !important;
-    padding:0 !important;
-    margin:0 !important;
+    width:100%;
+    padding:0;
   }
 
   .section{
-    box-shadow:none !important;
-    border:none !important;
-    border-radius:0 !important;
-    background:#fff !important;
-    overflow:visible !important;
-    margin:0 !important;
+    box-shadow:none;
+    border:none;
   }
 
   .sectionHead{
-    padding:0 0 8px !important;
-    border-bottom:1px solid #d7e1e7 !important;
-    background:#fff !important;
+    padding:12px;
   }
 
-  .sectionTitle{
-    font-size:24px !important;
+  .trackerBody{
+    display:block;
+    padding:0;
   }
 
-  .sectionDesc{
-    font-size:11px !important;
-    line-height:1.5 !important;
-  }
-
-  .trackerBody,
-  .trackerBodyNew{
-    padding:10px 0 0 !important;
-    display:block !important;
-  }
-
-  .typhoonSummary{
-    display:block !important;
-    margin-bottom:10px !important;
-  }
-
-  .statusCard{
-    box-shadow:none !important;
-    border:1px solid #d7e1e7 !important;
-    border-radius:16px !important;
-  }
-
-  .statusTop,
-  .statusBody{
-    padding:10px 12px !important;
-  }
-
-  .infoGrid{
-    grid-template-columns:repeat(3, 1fr) !important;
-    gap:8px !important;
-  }
-
-  .ibox{
-    min-height:64px !important;
-    padding:10px !important;
-    border-radius:12px !important;
-  }
-
-  .ival{
-    font-size:18px !important;
-  }
-
-  .ilabel{
-    font-size:10px !important;
-  }
-
-  .noteBox{
-    display:none !important;
-  }
-
-  .typhoonMainGrid{
-    display:grid !important;
-    grid-template-columns:250px 1fr !important;
-    gap:10px !important;
-    align-items:stretch !important;
-  }
-
-  .typhoonForecastSide{
-    height:500px !important;
-    min-height:500px !important;
-    border-radius:16px !important;
-    box-shadow:none !important;
-    break-inside:avoid !important;
-  }
-
-  .fcstTop{
-    padding:10px 12px !important;
-  }
-
-  .typhoonForecastSide .fcstList{
-    display:flex !important;
-    flex-direction:column !important;
-    overflow:hidden !important;
-    gap:7px !important;
-    padding:10px !important;
-  }
-
-  .typhoonForecastSide .fcstCard{
-    width:100% !important;
-    padding:9px 10px !important;
-    border-radius:13px !important;
-    box-shadow:none !important;
-    break-inside:avoid !important;
-  }
-
-  .fcstRow1{
-    margin-bottom:6px !important;
-  }
-
-  .fcstTime{
-    font-size:12px !important;
-  }
-
-  .fcstBadge{
-    font-size:10px !important;
-    padding:3px 7px !important;
-  }
-
-  .fcstKv{
-    grid-template-columns:42px 1fr !important;
-    gap:3px 6px !important;
-    font-size:10px !important;
-    line-height:1.25 !important;
+  .typhoonSummary,
+  .typhoonBottomGrid{
+    display:none;
   }
 
   .mapShell{
-    height:500px !important;
-    min-height:500px !important;
-    border:1px solid #d7e1e7 !important;
-    border-radius:16px !important;
-    box-shadow:none !important;
-    overflow:hidden !important;
-    break-inside:avoid !important;
+    border:none;
+    border-radius:0;
+    box-shadow:none;
   }
 
   .mapHeader{
-    display:flex !important;
-    min-height:38px !important;
-    padding:8px 10px !important;
-  }
-
-  .mapLegend{
-    font-size:9px !important;
+    display:none;
   }
 
   .typhoonMainGrid > .mapShell #map{
-    height:462px !important;
-    min-height:462px !important;
-    border-radius:0 !important;
+    height:520px;
+    min-height:520px;
+    border-radius:0;
   }
 }
-
-
-/* ===== Final Tracker Redesign + PNG Export Board ===== */
-.trackerBodyNew{
-  gap:20px;
-}
-
-#tracker .statusCard,
-#tracker .forecastPanel,
-#tracker .mapShell,
-#tracker .sourcePanel{
-  border-color:rgba(22,48,66,.12);
-  box-shadow:0 14px 36px rgba(31,53,72,.08);
-}
-
-#tracker .statusTop,
-#tracker .fcstTop,
-#tracker .mapHeader{
-  background:
-    radial-gradient(circle at 0% 0%, rgba(96,165,250,.12), transparent 40%),
-    linear-gradient(135deg, rgba(255,255,255,.98), rgba(235,246,248,.88));
-}
-
-#tracker .statusBody{
-  background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,252,253,.88));
-}
-
-#tracker .ibox{
-  border-color:rgba(22,48,66,.11);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
-}
-
-.typhoonMainGrid{
-  grid-template-columns:340px minmax(0, 1fr);
-}
-
-.typhoonForecastSide .fcstList{
-  gap:12px;
-  padding:16px;
-  overflow-y:auto !important;
-  overflow-x:hidden !important;
-  overscroll-behavior:contain;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-gutter:stable;
-  touch-action:pan-y;
-}
-
-.typhoonForecastSide .fcstCard{
-  border-radius:22px;
-  padding:16px;
-  border-color:rgba(22,48,66,.10);
-  background:linear-gradient(180deg, #fff, rgba(252,254,255,.94));
-}
-
-.fcstRow1{ margin-bottom:13px; }
-.fcstTime{ font-size:16px; letter-spacing:-.02em; }
-.fcstBadge{ padding:6px 11px; }
-.fcstKv{ grid-template-columns:64px minmax(0, 1fr); gap:9px 12px; font-size:13px; line-height:1.45; }
-.fcstKv .k{ color:#728592; }
-.fcstKv .v{ word-break:break-word; }
-
-@media (max-width:1100px){
-  .typhoonForecastSide .fcstList{
-    flex-direction:row !important;
-    overflow-x:auto !important;
-    overflow-y:hidden !important;
-    touch-action:pan-x;
-  }
-  .typhoonForecastSide .fcstCard{
-    width:260px;
-  }
-}
-
-@media (max-width:520px){
-  .typhoonForecastSide .fcstList{
-    padding:12px;
-    gap:10px;
-  }
-  .typhoonForecastSide .fcstCard{
-    width:260px;
-  }
-  .fcstCard{ padding:14px; }
-}
-
-body.exportingPng{
-  width:1600px !important;
-  min-width:1600px !important;
-  overflow:hidden !important;
-  background:#ffffff !important;
-}
-
-body.exportingPng::before,
-body.exportingPng .topbar,
-body.exportingPng .weatherHero,
-body.exportingPng #warnings,
-body.exportingPng .analysisGrid,
-body.exportingPng #tracker .toolbar,
-body.exportingPng .leaflet-control-container{
-  display:none !important;
-}
-
-body.exportingPng .page{
-  width:1600px !important;
-  max-width:1600px !important;
-  margin:0 !important;
-  padding:0 !important;
-}
-
-body.exportingPng #tracker{
-  position:relative !important;
-  width:1600px !important;
-  height:1000px !important;
-  margin:0 !important;
-  border:1px solid rgba(22,48,66,.18) !important;
-  border-radius:30px !important;
-  overflow:hidden !important;
-  background:
-    radial-gradient(circle at 8% 0%, rgba(96,165,250,.14), transparent 30%),
-    radial-gradient(circle at 92% 8%, rgba(124,58,237,.10), transparent 26%),
-    linear-gradient(180deg, #ffffff 0%, #f7fbfc 100%) !important;
-  box-shadow:none !important;
-}
-
-body.exportingPng #tracker::after{
-  content:"本圖為示意圖｜實際路徑與強度請以中央氣象署及各國官方最新資訊為準｜筱風製作";
-  position:absolute;
-  left:34px;
-  right:34px;
-  bottom:12px;
-  color:#5f7280;
-  font-size:14px;
-  font-weight:800;
-  text-align:center;
-  z-index:20;
-}
-
-body.exportingPng #tracker .sectionHead{
-  display:grid !important;
-  grid-template-columns:minmax(0,1fr) 560px !important;
-  gap:30px !important;
-  align-items:start !important;
-  padding:26px 30px 22px !important;
-  min-height:164px !important;
-  border-bottom:1px solid rgba(22,48,66,.12) !important;
-  background:transparent !important;
-}
-
-body.exportingPng #tracker .sectionKicker{
-  font-size:15px !important;
-  margin-bottom:8px !important;
-}
-
-body.exportingPng #tracker .sectionTitle{
-  font-size:52px !important;
-  line-height:1 !important;
-  letter-spacing:-.055em !important;
-}
-
-body.exportingPng #tracker .sectionDesc{
-  font-size:16px !important;
-  max-width:760px !important;
-  margin-top:14px !important;
-  line-height:1.55 !important;
-}
-
-body.exportingPng #tracker .trackerHeadRight{
-  width:560px !important;
-  max-width:560px !important;
-  align-items:stretch !important;
-}
-
-body.exportingPng #tracker .trackerSourceTop{
-  max-width:none !important;
-  padding:18px 22px !important;
-  border-radius:26px !important;
-  background:rgba(255,255,255,.88) !important;
-}
-
-body.exportingPng #tracker .sourceLabel{
-  font-size:15px !important;
-}
-
-body.exportingPng #tracker .sub{
-  font-size:15px !important;
-}
-
-body.exportingPng #tracker .trackerBodyNew{
-  display:grid !important;
-  grid-template-rows:210px 590px !important;
-  gap:16px !important;
-  padding:20px 30px 38px !important;
-}
-
-body.exportingPng #tracker .typhoonSummary{
-  margin:0 !important;
-}
-
-body.exportingPng #tracker .statusCard{
-  height:210px !important;
-  border-radius:26px !important;
-  box-shadow:none !important;
-  background:rgba(255,255,255,.94) !important;
-}
-
-body.exportingPng #tracker .statusTop{
-  min-height:56px !important;
-  padding:14px 20px !important;
-}
-
-body.exportingPng #tracker .badge,
-body.exportingPng #tracker .miniMeta{
-  font-size:16px !important;
-}
-
-body.exportingPng #tracker .statusBody{
-  padding:16px 20px !important;
-}
-
-body.exportingPng #tracker .infoGrid{
-  grid-template-columns:repeat(3, 1fr) !important;
-  gap:14px !important;
-}
-
-body.exportingPng #tracker .ibox{
-  min-height:104px !important;
-  border-radius:18px !important;
-  padding:18px 20px !important;
-}
-
-body.exportingPng #tracker .ival{
-  font-size:36px !important;
-}
-
-body.exportingPng #tracker .ilabel{
-  font-size:14px !important;
-}
-
-body.exportingPng #tracker .noteBox{
-  margin-top:12px !important;
-  padding:12px 16px !important;
-  border-radius:16px !important;
-  font-size:14px !important;
-}
-
-body.exportingPng #tracker .typhoonMainGrid{
-  display:grid !important;
-  grid-template-columns:470px minmax(0, 1fr) !important;
-  gap:18px !important;
-  height:590px !important;
-}
-
-body.exportingPng #tracker .typhoonForecastSide,
-body.exportingPng #tracker .mapShell{
-  height:590px !important;
-  min-height:590px !important;
-  border-radius:24px !important;
-  box-shadow:none !important;
-}
-
-body.exportingPng #tracker .fcstTop,
-body.exportingPng #tracker .mapHeader{
-  min-height:58px !important;
-  padding:16px 18px !important;
-}
-
-body.exportingPng #tracker .fcstTitle,
-body.exportingPng #tracker .mapHeader strong,
-body.exportingPng #tracker .chip{
-  font-size:15px !important;
-}
-
-body.exportingPng #tracker .mapLegend .legendItem{
-  font-size:13px !important;
-}
-
-body.exportingPng #tracker .typhoonForecastSide .fcstList{
-  height:532px !important;
-  max-height:532px !important;
-  display:flex !important;
-  flex-direction:column !important;
-  overflow:hidden !important;
-  gap:10px !important;
-  padding:14px 16px !important;
-}
-
-body.exportingPng #tracker .typhoonForecastSide .fcstCard{
-  width:100% !important;
-  flex:0 0 auto !important;
-  padding:14px 16px !important;
-  border-radius:17px !important;
-}
-
-body.exportingPng #tracker .fcstCard:nth-child(n+6){
-  display:none !important;
-}
-
-body.exportingPng #tracker .fcstRow1{
-  margin-bottom:8px !important;
-}
-
-body.exportingPng #tracker .fcstTime{
-  font-size:19px !important;
-}
-
-body.exportingPng #tracker .fcstBadge{
-  font-size:13px !important;
-  padding:5px 10px !important;
-}
-
-body.exportingPng #tracker .fcstKv{
-  grid-template-columns:48px 1fr 48px 1fr 48px 1fr !important;
-  gap:5px 10px !important;
-  font-size:13px !important;
-  line-height:1.35 !important;
-}
-
-body.exportingPng #tracker .fcstKv div:nth-child(5),
-body.exportingPng #tracker .fcstKv div:nth-child(6){
-  grid-column:auto !important;
-}
-
-body.exportingPng #tracker .typhoonMainGrid > .mapShell #map{
-  height:532px !important;
-  min-height:532px !important;
-  width:100% !important;
-  background:#eaf7fb !important;
-}
-
-body.exportingPng #tracker .tlabel{
-  font-size:15px !important;
-  padding:9px 14px !important;
-}
-
 </style>
 </head>
 
@@ -2313,7 +2099,7 @@ body.exportingPng #tracker .tlabel{
       </label>
 
       <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
-      <button class="btn" id="printBtn" type="button">匯出 PNG</button>
+      <button class="btn" id="printBtn" type="button">產生 PNG 圖片</button>
     </div>
   </div>
 </div>
@@ -2390,8 +2176,8 @@ body.exportingPng #tracker .tlabel{
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <script>
     const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
@@ -3244,23 +3030,172 @@ body.exportingPng #tracker .tlabel{
       if(!el) return;
 
       el.addEventListener("wheel", (e) => {
-        const style = window.getComputedStyle(el);
-        const isRowList = style.flexDirection === "row";
-        const canScrollX = el.scrollWidth > el.clientWidth + 8;
-        const canScrollY = el.scrollHeight > el.clientHeight + 8;
+        const canScrollX = el.scrollWidth > el.clientWidth + 4;
+        const canScrollY = el.scrollHeight > el.clientHeight + 4;
 
-        if(isRowList && canScrollX){
-          const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-          el.scrollLeft += delta;
-          e.preventDefault();
-          return;
-        }
-
-        if(!isRowList && canScrollY){
-          el.scrollTop += e.deltaY;
+        /* Desktop layout uses vertical scrolling. Narrow layout uses horizontal cards. */
+        if(canScrollX && !canScrollY && Math.abs(e.deltaY) > Math.abs(e.deltaX)){
+          el.scrollLeft += e.deltaY;
           e.preventDefault();
         }
       }, { passive:false });
+    }
+
+    function downloadDataUrl(filename, dataUrl){
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function getForecastPoints(){
+      return points
+        .filter(p => p.kind === "fcst")
+        .slice(0, 5);
+    }
+
+    function makePngForecastCard(p){
+      const st = getStyle(p.level);
+      return `
+        <div class="pngFcstCard">
+          <div class="pngFcstTop">
+            <div class="pngFcstTime">${escapeHtml(fmtTime(p.time,"short"))}</div>
+            <span class="pngFcstBadge">
+              <span style="width:8px;height:8px;border-radius:999px;background:${st.color};display:inline-block;"></span>
+              ${escapeHtml(p.level || "—")}
+            </span>
+          </div>
+          <div class="pngFcstKv">
+            <div class="k">風速</div><div class="v">${escapeHtml(fmtWindMs(p.wind))}</div>
+            <div class="k">氣壓</div><div class="v">${p.pressure ? escapeHtml(p.pressure + " hPa") : "—"}</div>
+            <div class="k">座標</div><div class="v">${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}</div>
+            <div class="k">誤差</div><div class="v">${(typeof p.fcst_radius_km === "number") ? escapeHtml(p.fcst_radius_km + " km") : "—"}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function buildPngReport(mapDataUrl){
+      const latestObsIdx = getLatestObsIndex();
+      const obs = points[latestObsIdx] || points[0] || {};
+      const st = getStyle(obs.level);
+      const fcst = getForecastPoints();
+      const root = document.createElement("div");
+      root.id = "pngReportRoot";
+      root.innerHTML = `
+        <div class="pngReport">
+          <div class="pngReportTop">
+            <div>
+              <div class="pngKicker"><span class="dot" style="background:#60a5fa;"></span> TYPHOON TRACKER</div>
+              <h1 class="pngReportTitle">${escapeHtml(weatherMeta.title || "颱風情報")}</h1>
+              <p class="pngReportSub">颱風路徑、目前強度、預報誤差範圍與預報列表集中顯示於此圖。</p>
+            </div>
+            <div class="pngSourceBox">
+              <b><span class="dot" style="background:#7c3aed;margin-right:8px;"></span>DATA SOURCE</b>
+              <span>來源：${escapeHtml(weatherMeta.source || "—")}</span>
+            </div>
+          </div>
+
+          <div class="pngSummary">
+            <div class="pngSummaryHead">
+              <span class="pngLevel"><span class="dot" style="background:${st.color};"></span>${escapeHtml(st.label || obs.level || "—")}</span>
+              <span class="pngTime">時間：${escapeHtml(fmtTime(obs.time,"full"))}</span>
+            </div>
+            <div class="pngSummaryGrid">
+              <div class="pngInfoCard"><div class="pngInfoVal">${obs.lat ? obs.lat.toFixed(2) : "—"}, ${obs.lon ? obs.lon.toFixed(2) : "—"}</div><div class="pngInfoLab">目前座標</div></div>
+              <div class="pngInfoCard"><div class="pngInfoVal">${escapeHtml(fmtWindMs(obs.wind))}</div><div class="pngInfoLab">中心附近最大風速</div></div>
+              <div class="pngInfoCard"><div class="pngInfoVal">${obs.pressure ? escapeHtml(obs.pressure + " hPa") : "—"}</div><div class="pngInfoLab">中心氣壓</div></div>
+            </div>
+          </div>
+
+          <div class="pngMain">
+            <div class="pngForecast">
+              <div class="pngPanelHead"><span><span class="dot" style="background:#60a5fa;margin-right:8px;"></span>預報列表</span><span>${points.filter(p => p.kind === "fcst").length} 筆</span></div>
+              <div class="pngForecastList">
+                ${fcst.map(makePngForecastCard).join("") || `<div class="pngFcstCard">沒有預報資料</div>`}
+              </div>
+            </div>
+            <div class="pngMapBox">
+              <div class="pngPanelHead">
+                <span><span class="dot" style="background:#7c3aed;margin-right:8px;"></span>颱風路徑圖</span>
+                <span style="display:flex;gap:14px;font-size:12px;color:#617785;"><b>歷史路徑</b><b>預報路徑</b><b>預報不確定性</b></span>
+              </div>
+              <div class="pngMapImageWrap">
+                ${mapDataUrl ? `<img class="pngMapImage" src="${mapDataUrl}" alt="typhoon map">` : `<div class="pngMapFallback">地圖截圖產生失敗，請稍後再試</div>`}
+                <div class="pngFootnote"><span>本圖為固定版面 PNG，避免直接截取網頁導致跑位。</span><span>筱風製作｜資料來源：${escapeHtml(weatherMeta.source || "—")}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      return root;
+    }
+
+    async function exportTyphoonPng(){
+      const btn = $("printBtn");
+      const oldText = btn ? btn.textContent : "";
+
+      try{
+        if(btn){
+          btn.disabled = true;
+          btn.textContent = "PNG 產生中...";
+        }
+
+        try{
+          map.invalidateSize(true);
+          updateLabelLines();
+        }catch(e){}
+
+        await new Promise(r => setTimeout(r, 350));
+
+        let mapDataUrl = "";
+        try{
+          const mapCanvas = await html2canvas($("map"), {
+            backgroundColor:"#e8f7fb",
+            useCORS:true,
+            allowTaint:true,
+            scale:2,
+            logging:false
+          });
+          mapDataUrl = mapCanvas.toDataURL("image/png");
+        }catch(e){
+          console.warn("Map capture failed:", e);
+        }
+
+        const oldRoot = document.getElementById("pngReportRoot");
+        if(oldRoot) oldRoot.remove();
+
+        const report = buildPngReport(mapDataUrl);
+        document.body.appendChild(report);
+
+        await new Promise(r => setTimeout(r, 100));
+
+        const canvas = await html2canvas(report.querySelector(".pngReport"), {
+          backgroundColor:"#f7fbfc",
+          useCORS:true,
+          allowTaint:true,
+          scale:2,
+          width:1600,
+          height:1000,
+          windowWidth:1600,
+          windowHeight:1000,
+          logging:false
+        });
+
+        const safeTitle = String(weatherMeta.title || "typhoon-report").replace(/[\\/:*?"<>|]/g, "_");
+        downloadDataUrl(`${safeTitle}.png`, canvas.toDataURL("image/png"));
+        report.remove();
+      }catch(e){
+        console.error(e);
+        alert("PNG 產生失敗，請重新整理後再試。");
+      }finally{
+        if(btn){
+          btn.disabled = false;
+          btn.textContent = oldText || "產生 PNG 圖片";
+        }
+      }
     }
 
     async function initTyphoonTracker(){
@@ -3356,86 +3291,15 @@ body.exportingPng #tracker .tlabel{
       function beforePrint(){
         try{
           map.invalidateSize(true);
+          updateLabelLines();
         }catch(e){}
-      }
-
-      async function exportTrackerPng(){
-        const btn = $("printBtn");
-        const target = $("tracker");
-
-        if(!target || typeof html2canvas === "undefined"){
-          beforePrint();
-          setTimeout(() => window.print(), 30);
-          return;
-        }
-
-        const oldText = btn ? btn.textContent : "";
-
-        try{
-          if(btn){
-            btn.disabled = true;
-            btn.textContent = "產生 PNG 中…";
-          }
-
-          document.body.classList.add("exportingPng");
-          window.scrollTo(0, 0);
-          await new Promise(r => setTimeout(r, 260));
-
-          try{
-            map.invalidateSize(true);
-            if(fullBounds && fullBounds.isValid()){
-              map.fitBounds(fullBounds, {
-                paddingTopLeft:[70, 60],
-                paddingBottomRight:[280, 90],
-                animate:false
-              });
-            }else{
-              fitAll();
-            }
-            updateLabelLines();
-          }catch(e){}
-
-          await new Promise(r => setTimeout(r, 650));
-
-          const canvas = await html2canvas(target, {
-            backgroundColor:"#ffffff",
-            scale:Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
-            useCORS:true,
-            allowTaint:false,
-            logging:false,
-            scrollX:0,
-            scrollY:0,
-            windowWidth:1600,
-            windowHeight:1000,
-            removeContainer:true
-          });
-
-          const link = document.createElement("a");
-          const safeTitle = String(weatherMeta.title || "typhoon-tracker").replace(/[\/:*?"<>|]+/g, "-");
-          link.download = `${safeTitle}.png`;
-          link.href = canvas.toDataURL("image/png");
-          link.click();
-        }catch(err){
-          console.error(err);
-          alert("PNG 產生失敗，可能是地圖圖磚的跨域限制。請稍後重試，或暫時使用瀏覽器截圖。 ");
-        }finally{
-          document.body.classList.remove("exportingPng");
-          try{
-            map.invalidateSize(true);
-            fitAll();
-            updateLabelLines();
-          }catch(e){}
-
-          if(btn){
-            btn.disabled = false;
-            btn.textContent = oldText || "匯出 PNG";
-          }
-        }
       }
 
       window.addEventListener("beforeprint", beforePrint);
 
-      $("printBtn").addEventListener("click", exportTrackerPng);
+      $("printBtn").addEventListener("click", () => {
+        exportTyphoonPng();
+      });
 
       setTimeout(() => map.invalidateSize(), 300);
 
