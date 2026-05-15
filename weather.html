@@ -1810,11 +1810,24 @@ button{ -webkit-tap-highlight-color:transparent; }
   }
 }
 
-/* ===== Print ===== */
+/* ===== Print / Save as PDF Fix ===== */
 
 @media print{
-  body{
-    background:#fff;
+  @page{
+    size:A4 landscape;
+    margin:8mm;
+  }
+
+  *{
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+
+  html,body{
+    width:100% !important;
+    min-height:auto !important;
+    background:#fff !important;
+    overflow:visible !important;
   }
 
   body::before,
@@ -1822,52 +1835,262 @@ button{ -webkit-tap-highlight-color:transparent; }
   .weatherHero,
   #warnings,
   .analysisGrid,
+  .toolbar,
   .btn,
-  .toggle{
+  .toggle,
+  .leaflet-control-container{
     display:none !important;
   }
 
   .page{
-    width:100%;
-    padding:0;
+    width:100% !important;
+    max-width:none !important;
+    margin:0 !important;
+    padding:0 !important;
   }
 
   .section{
-    box-shadow:none;
-    border:none;
+    display:block !important;
+    margin:0 !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:#fff !important;
+    box-shadow:none !important;
+    overflow:visible !important;
+    backdrop-filter:none !important;
+    break-inside:avoid !important;
   }
 
   .sectionHead{
-    padding:12px;
+    display:flex !important;
+    align-items:flex-start !important;
+    justify-content:space-between !important;
+    gap:10px !important;
+    padding:0 0 7mm !important;
+    border-bottom:1px solid #d8e5ea !important;
+    background:#fff !important;
+    break-inside:avoid !important;
   }
 
-  .trackerBody{
-    display:block;
-    padding:0;
+  .sectionKicker{
+    font-size:9pt !important;
+    margin-bottom:3mm !important;
   }
 
-  .typhoonSummary,
-  .typhoonBottomGrid{
-    display:none;
+  .sectionTitle{
+    font-size:21pt !important;
+    line-height:1.05 !important;
+    letter-spacing:-.04em !important;
+  }
+
+  .sectionDesc{
+    max-width:170mm !important;
+    margin-top:2mm !important;
+    font-size:8.5pt !important;
+    line-height:1.45 !important;
+  }
+
+  .trackerHeadRight,
+  .trackerSourceTop{
+    max-width:82mm !important;
+    width:82mm !important;
+  }
+
+  .sourcePanel,
+  .trackerSourceTop{
+    padding:3mm 4mm !important;
+    border-radius:5mm !important;
+    box-shadow:none !important;
+    border:1px solid #d8e5ea !important;
+    background:#fff !important;
+  }
+
+  .sourceLabel,
+  .sub{
+    font-size:7.5pt !important;
+    line-height:1.35 !important;
+  }
+
+  .trackerBody,
+  .trackerBodyNew{
+    display:block !important;
+    padding:6mm 0 0 !important;
+    gap:0 !important;
+    overflow:visible !important;
+  }
+
+  .typhoonSummary{
+    display:block !important;
+    margin:0 0 5mm !important;
+    break-inside:avoid !important;
+  }
+
+  .statusCard,
+  .forecastPanel,
+  .mapShell{
+    box-shadow:none !important;
+    border:1px solid #d8e5ea !important;
+    background:#fff !important;
+  }
+
+  .statusCard{
+    border-radius:5mm !important;
+    overflow:hidden !important;
+  }
+
+  .statusTop{
+    min-height:10mm !important;
+    padding:3mm 4mm !important;
+  }
+
+  .statusBody{
+    padding:3mm 4mm !important;
+  }
+
+  .infoGrid{
+    grid-template-columns:repeat(3, 1fr) !important;
+    gap:3mm !important;
+  }
+
+  .ibox{
+    min-height:20mm !important;
+    padding:3mm !important;
+    border-radius:4mm !important;
+  }
+
+  .ival{
+    font-size:16pt !important;
+  }
+
+  .ilabel{
+    margin-top:2mm !important;
+    font-size:7.5pt !important;
+  }
+
+  .noteBox{
+    display:none !important;
+  }
+
+  .typhoonMainGrid{
+    display:grid !important;
+    grid-template-columns:74mm minmax(0, 1fr) !important;
+    gap:5mm !important;
+    align-items:stretch !important;
+    height:122mm !important;
+    min-height:122mm !important;
+    overflow:hidden !important;
+    break-inside:avoid !important;
+  }
+
+  .typhoonForecastSide{
+    height:122mm !important;
+    min-height:122mm !important;
+    border-radius:5mm !important;
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+  }
+
+  .fcstTop{
+    height:11mm !important;
+    min-height:11mm !important;
+    padding:0 4mm !important;
+  }
+
+  .typhoonForecastSide .fcstList{
+    display:flex !important;
+    flex-direction:column !important;
+    gap:2mm !important;
+    padding:3mm !important;
+    overflow:hidden !important;
+    height:111mm !important;
+    max-height:111mm !important;
+  }
+
+  .typhoonForecastSide .fcstCard{
+    width:100% !important;
+    flex:0 0 auto !important;
+    padding:2.2mm 2.6mm !important;
+    border-radius:3.5mm !important;
+    box-shadow:none !important;
+    break-inside:avoid !important;
+  }
+
+  .fcstCard:nth-child(n+7){
+    display:none !important;
+  }
+
+  .fcstRow1{
+    margin-bottom:1.5mm !important;
+    gap:2mm !important;
+  }
+
+  .fcstTime{
+    font-size:8.5pt !important;
+  }
+
+  .fcstBadge{
+    font-size:7pt !important;
+    padding:1mm 2mm !important;
+  }
+
+  .fcstKv{
+    grid-template-columns:12mm 1fr !important;
+    gap:1mm 2mm !important;
+    font-size:7.2pt !important;
+    line-height:1.18 !important;
   }
 
   .mapShell{
-    border:none;
-    border-radius:0;
-    box-shadow:none;
+    height:122mm !important;
+    min-height:122mm !important;
+    border-radius:5mm !important;
+    overflow:hidden !important;
+    break-inside:avoid !important;
   }
 
   .mapHeader{
-    display:none;
+    display:flex !important;
+    height:11mm !important;
+    min-height:11mm !important;
+    padding:0 4mm !important;
+  }
+
+  .mapHeader strong{
+    font-size:8.5pt !important;
+  }
+
+  .mapLegend{
+    gap:2mm !important;
+  }
+
+  .legendItem{
+    font-size:7pt !important;
   }
 
   .typhoonMainGrid > .mapShell #map{
-    height:520px;
-    min-height:520px;
-    border-radius:0;
+    display:block !important;
+    width:100% !important;
+    height:111mm !important;
+    min-height:111mm !important;
+    border-radius:0 !important;
+    background:#f4fafb !important;
+  }
+
+  .tlabel{
+    padding:1.6mm 2.6mm !important;
+    font-size:7pt !important;
+    box-shadow:0 2mm 5mm rgba(31,53,72,.12) !important;
+  }
+
+  .leaflet-tile,
+  .leaflet-marker-icon,
+  .leaflet-marker-shadow,
+  .leaflet-pane svg{
+    print-color-adjust:exact !important;
+    -webkit-print-color-adjust:exact !important;
   }
 }
-
 
 /* ===== Map PNG Capture Mode ===== */
 .map-png-capture-mode .leaflet-control-attribution{
@@ -3507,14 +3730,55 @@ button{ -webkit-tap-highlight-color:transparent; }
       setTimeout(safeFit, 200);
       $("fitAllBtn").addEventListener("click", safeFit);
 
+      let __printOldRingState = null;
+
       function beforePrint(){
         try{
+          __printOldRingState = $("toggleRings") ? $("toggleRings").checked : null;
+
+          /* Print / Save as PDF uses a fixed A4 layout. Recalculate Leaflet after
+             CSS changes so the base map and typhoon route stay aligned. */
+          if($("toggleRings")) $("toggleRings").checked = false;
+          drawStormRings();
+          drawForecastCone();
+          drawLabels();
+
+          map.invalidateSize(true);
+          if(fullBounds && fullBounds.isValid && fullBounds.isValid()){
+            map.fitBounds(fullBounds, {
+              paddingTopLeft:[45, 36],
+              paddingBottomRight:[130, 36],
+              animate:false
+            });
+          }
+
+          setTimeout(() => {
+            try{
+              map.invalidateSize(true);
+              updateLabelLines();
+              drawForecastCone();
+              drawStormRings();
+            }catch(e){}
+          }, 250);
+        }catch(e){}
+      }
+
+      function afterPrint(){
+        try{
+          if(__printOldRingState !== null && $("toggleRings")){
+            $("toggleRings").checked = __printOldRingState;
+          }
+
+          drawForecastCone();
+          drawStormRings();
+          drawLabels();
           map.invalidateSize(true);
           updateLabelLines();
         }catch(e){}
       }
 
       window.addEventListener("beforeprint", beforePrint);
+      window.addEventListener("afterprint", afterPrint);
 
       $("printBtn").addEventListener("click", () => {
         exportTyphoonPng();
