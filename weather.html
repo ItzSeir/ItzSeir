@@ -1867,6 +1867,25 @@ button{ -webkit-tap-highlight-color:transparent; }
     border-radius:0;
   }
 }
+
+
+/* ===== Map PNG Capture Mode ===== */
+.map-png-capture-mode .leaflet-control-attribution{
+  display:none !important;
+}
+
+.map-png-capture-mode .leaflet-control-zoom{
+  display:none !important;
+}
+
+.map-png-capture-mode .mapShell{
+  background:#fff !important;
+}
+
+.map-png-capture-mode .mapHeader{
+  background:linear-gradient(135deg, rgba(249,252,252,.98), rgba(231,242,243,.86)) !important;
+}
+
 </style>
 </head>
 
@@ -2112,7 +2131,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       </label>
 
       <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
-      <button class="btn" id="printBtn" type="button">產生 PNG 圖片</button>
+      <button class="btn" id="printBtn" type="button">產生地圖 PNG</button>
     </div>
   </div>
 </div>
@@ -3268,205 +3287,94 @@ button{ -webkit-tap-highlight-color:transparent; }
     async function exportTyphoonPng(){
       const btn = $("printBtn");
       const oldText = btn ? btn.textContent : "";
-
       const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-      let mapShell = null;
-      let mapParent = null;
-      let mapNext = null;
-      let exportHolder = null;
-      let oldShellStyle = "";
-      let oldMapStyle = "";
-      let oldLabelPaneDisplay = "";
-      let oldLabelLinePaneDisplay = "";
+      const mapShell = document.querySelector(".typhoonMainGrid > .mapShell");
+      const mapEl = $("map");
+      const oldRingState = $("toggleRings") ? $("toggleRings").checked : true;
+      const oldConeState = $("toggleCone") ? $("toggleCone").checked : true;
+      const oldLabelState = $("toggleLabels") ? $("toggleLabels").checked : true;
 
-      async function prepareStableMapCapture(){
-        mapShell = document.querySelector(".typhoonMainGrid > .mapShell");
-        const mapEl = $("map");
-        if(!mapShell || !mapEl) return;
-
-        /* PNG 匯出時不要截取原本 Leaflet 的時間標籤，
-           否則再疊加 PNG 專用標籤後會出現「背景重複時間」。 */
-        try{
-          const lp = map.getPane("labelPane");
-          const llp = map.getPane("labelLinePane");
-          if(lp){
-            oldLabelPaneDisplay = lp.style.display || "";
-            lp.style.display = "none";
-          }
-          if(llp){
-            oldLabelLinePaneDisplay = llp.style.display || "";
-            llp.style.display = "none";
-          }
-        }catch(e){}
-
-        mapParent = mapShell.parentNode;
-        mapNext = mapShell.nextSibling;
-        oldShellStyle = mapShell.getAttribute("style") || "";
-        oldMapStyle = mapEl.getAttribute("style") || "";
-
-        exportHolder = document.createElement("div");
-        exportHolder.id = "__map_capture_holder__";
-        exportHolder.style.cssText = [
-          "position:absolute",
-          "left:-20000px",
-          "top:0",
-          "width:1096px",
-          "height:680px",
-          "overflow:hidden",
-          "background:#e8f7fb",
-          "z-index:-1"
-        ].join(";");
-
-        document.body.appendChild(exportHolder);
-        exportHolder.appendChild(mapShell);
-
-        mapShell.style.width = "1096px";
-        mapShell.style.height = "680px";
-        mapShell.style.minHeight = "680px";
-        mapShell.style.borderRadius = "0";
-        mapShell.style.boxShadow = "none";
-
-        mapEl.style.width = "1096px";
-        mapEl.style.height = "622px";
-        mapEl.style.minHeight = "622px";
-        mapEl.style.borderRadius = "0";
-
-        try{
-          map.invalidateSize(true);
-          if(fullBounds){
-            map.fitBounds(fullBounds, {
-              padding:[88, 88],
-              animate:false
-            });
-          }
-          updateLabelLines();
-          drawForecastCone();
-          drawStormRings();
-        }catch(e){}
-
-        await wait(850);
-
-        try{
-          map.invalidateSize(true);
-          updateLabelLines();
-        }catch(e){}
-
-        await wait(250);
-      }
-
-      function restoreMapAfterCapture(){
-        try{
-          if(mapShell && mapParent){
-            if(mapNext) mapParent.insertBefore(mapShell, mapNext);
-            else mapParent.appendChild(mapShell);
-          }
-
-          const mapEl = $("map");
-          if(mapShell){
-            if(oldShellStyle) mapShell.setAttribute("style", oldShellStyle);
-            else mapShell.removeAttribute("style");
-          }
-          if(mapEl){
-            if(oldMapStyle) mapEl.setAttribute("style", oldMapStyle);
-            else mapEl.removeAttribute("style");
-          }
-
-          if(exportHolder) exportHolder.remove();
-
-          try{
-            const lp = map.getPane("labelPane");
-            const llp = map.getPane("labelLinePane");
-            if(lp) lp.style.display = oldLabelPaneDisplay;
-            if(llp) llp.style.display = oldLabelLinePaneDisplay;
-          }catch(e){}
-
-          setTimeout(() => {
-            try{
-              map.invalidateSize(true);
-              if(fullBounds){
-                map.fitBounds(fullBounds, {
-                  padding:[60, 60],
-                  animate:false
-                });
-              }
-              updateLabelLines();
-              drawForecastCone();
-              drawStormRings();
-            }catch(e){}
-          }, 120);
-        }catch(e){
-          console.warn("Map restore failed:", e);
-        }
+      if(!mapShell || !mapEl || !map){
+        alert("地圖尚未載入完成，請稍後再試。");
+        return;
       }
 
       try{
         if(btn){
           btn.disabled = true;
-          btn.textContent = "PNG 產生中...";
+          btn.textContent = "地圖 PNG 產生中...";
         }
 
-        await prepareStableMapCapture();
+        /* 匯出時像地震頁一樣：直接截取地圖畫面，不再重新排版整張頁面。
+           這樣 Leaflet 底圖、路徑線、點位會保持同一個座標系，不會再位移。 */
+        document.body.classList.add("map-png-capture-mode");
 
-        let mapOverlaySvg = "";
-        try{
-          mapOverlaySvg = buildExportMapOverlaySvg(1096, 622);
-        }catch(e){
-          console.warn("Overlay build failed:", e);
-        }
+        /* PNG 不要暴風圈：暫時關閉暴風圈，再重畫。 */
+        if($("toggleRings")) $("toggleRings").checked = false;
+        drawStormRings();
 
-        let mapDataUrl = "";
-        try{
-          const mapCanvas = await html2canvas($("map"), {
-            backgroundColor:"#e8f7fb",
-            useCORS:true,
-            allowTaint:true,
-            scale:2,
-            width:1096,
-            height:622,
-            windowWidth:1096,
-            windowHeight:622,
-            scrollX:0,
-            scrollY:0,
-            logging:false
-          });
-          mapDataUrl = mapCanvas.toDataURL("image/png");
-        }catch(e){
-          console.warn("Map capture failed:", e);
-        }finally{
-          restoreMapAfterCapture();
-        }
-
-        const oldRoot = document.getElementById("pngReportRoot");
-        if(oldRoot) oldRoot.remove();
-
-        const report = buildPngReport(mapDataUrl, mapOverlaySvg);
-        document.body.appendChild(report);
+        /* 保留不確定範圍與時間標記；如果你手動關閉 checkbox，會跟隨目前畫面狀態。 */
+        if($("toggleCone")) $("toggleCone").checked = oldConeState;
+        if($("toggleLabels")) $("toggleLabels").checked = oldLabelState;
+        drawForecastCone();
+        drawLabels();
 
         await wait(160);
 
-        const canvas = await html2canvas(report.querySelector(".pngReport"), {
-          backgroundColor:"#f7fbfc",
+        map.invalidateSize(true);
+        if(fullBounds && fullBounds.isValid && fullBounds.isValid()){
+          map.fitBounds(fullBounds, {
+            paddingTopLeft:[70, 58],
+            paddingBottomRight:[240, 58],
+            animate:false
+          });
+        }
+
+        await wait(900);
+
+        map.invalidateSize(true);
+        updateLabelLines();
+        drawForecastCone();
+        drawStormRings();
+
+        await wait(260);
+
+        const rect = mapShell.getBoundingClientRect();
+        const canvas = await html2canvas(mapShell, {
+          backgroundColor:"#ffffff",
           useCORS:true,
           allowTaint:true,
           scale:2,
-          width:1600,
-          height:1000,
-          windowWidth:1600,
-          windowHeight:1000,
+          width:Math.ceil(rect.width),
+          height:Math.ceil(rect.height),
+          windowWidth:Math.ceil(document.documentElement.clientWidth),
+          windowHeight:Math.ceil(document.documentElement.clientHeight),
           scrollX:0,
           scrollY:0,
           logging:false
         });
 
-        const safeTitle = String(weatherMeta.title || "typhoon-report").replace(/[\\/:*?"<>|]/g, "_");
-        downloadDataUrl(`${safeTitle}.png`, canvas.toDataURL("image/png"));
-        report.remove();
+        const safeTitle = String(weatherMeta.title || "typhoon-map").replace(/[\\/:*?"<>|]/g, "_");
+        downloadDataUrl(`${safeTitle}_地圖.png`, canvas.toDataURL("image/png"));
       }catch(e){
         console.error(e);
         alert("PNG 產生失敗，請重新整理後再試。");
-        restoreMapAfterCapture();
       }finally{
+        document.body.classList.remove("map-png-capture-mode");
+
+        if($("toggleRings")) $("toggleRings").checked = oldRingState;
+        if($("toggleCone")) $("toggleCone").checked = oldConeState;
+        if($("toggleLabels")) $("toggleLabels").checked = oldLabelState;
+
+        try{
+          drawForecastCone();
+          drawStormRings();
+          drawLabels();
+          map.invalidateSize(true);
+          updateLabelLines();
+        }catch(e){}
+
         if(btn){
           btn.disabled = false;
           btn.textContent = oldText || "產生 PNG 圖片";
