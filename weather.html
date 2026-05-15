@@ -1981,7 +1981,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       </label>
 
       <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
-      <button class="btn" id="printBtn" type="button">列印 / PDF</button>
+      <button class="btn" id="printBtn" type="button">匯出 PNG</button>
     </div>
   </div>
 </div>
@@ -2058,6 +2058,7 @@ button{ -webkit-tap-highlight-color:transparent; }
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
@@ -2911,6 +2912,11 @@ button{ -webkit-tap-highlight-color:transparent; }
       if(!el) return;
 
       el.addEventListener("wheel", (e) => {
+        const style = window.getComputedStyle(el);
+        const isHorizontalList = style.flexDirection === "row" || el.scrollWidth > el.clientWidth + 12;
+
+        if(!isHorizontalList) return;
+
         if(Math.abs(e.deltaY) > Math.abs(e.deltaX)){
           el.scrollLeft += e.deltaY;
           e.preventDefault();
@@ -3014,12 +3020,76 @@ button{ -webkit-tap-highlight-color:transparent; }
         }catch(e){}
       }
 
+      async function exportTrackerPng(){
+        const btn = $("printBtn");
+        const target = $("tracker");
+
+        if(!target || typeof html2canvas === "undefined"){
+          beforePrint();
+          setTimeout(() => window.print(), 30);
+          return;
+        }
+
+        const oldText = btn ? btn.textContent : "";
+
+        try{
+          if(btn){
+            btn.disabled = true;
+            btn.textContent = "產生 PNG 中…";
+          }
+
+          document.body.classList.add("exportingPng");
+          window.scrollTo(0, 0);
+          await new Promise(r => setTimeout(r, 220));
+
+          try{
+            map.invalidateSize(true);
+            fitAll();
+            updateLabelLines();
+          }catch(e){}
+
+          await new Promise(r => setTimeout(r, 450));
+
+          const canvas = await html2canvas(target, {
+            backgroundColor:"#ffffff",
+            scale:Math.min(3, Math.max(2, window.devicePixelRatio || 1)),
+            useCORS:true,
+            allowTaint:false,
+            logging:false,
+            scrollX:0,
+            scrollY:0,
+            windowWidth:1280,
+            windowHeight:target.scrollHeight
+          });
+
+          const link = document.createElement("a");
+          const safeTitle = String(weatherMeta.title || "typhoon-tracker").replace(/[\/:*?"<>|]+/g, "-");
+          link.download = `${safeTitle}.png`;
+          link.href = canvas.toDataURL("image/png");
+          link.click();
+        }catch(err){
+          console.error(err);
+          alert("PNG 產生失敗，可能是地圖圖磚的跨域限制。將改用瀏覽器列印。你也可以在列印視窗選擇另存為 PDF。 ");
+          beforePrint();
+          setTimeout(() => window.print(), 30);
+        }finally{
+          document.body.classList.remove("exportingPng");
+          try{
+            map.invalidateSize(true);
+            fitAll();
+            updateLabelLines();
+          }catch(e){}
+
+          if(btn){
+            btn.disabled = false;
+            btn.textContent = oldText || "匯出 PNG";
+          }
+        }
+      }
+
       window.addEventListener("beforeprint", beforePrint);
 
-      $("printBtn").addEventListener("click", () => {
-        beforePrint();
-        setTimeout(() => window.print(), 30);
-      });
+      $("printBtn").addEventListener("click", exportTrackerPng);
 
       setTimeout(() => map.invalidateSize(), 300);
 
