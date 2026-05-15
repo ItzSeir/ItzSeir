@@ -1492,11 +1492,78 @@ button{ -webkit-tap-highlight-color:transparent; }
   }
 }
 
+
+
+/* ===== Forecast List Spacing Improved ===== */
+
+.typhoonForecastSide .fcstList{
+  gap:12px;
+  padding:16px;
+}
+
+.fcstCard{
+  padding:16px;
+  border-radius:22px;
+}
+
+.fcstRow1{
+  margin-bottom:14px;
+}
+
+.fcstTime{
+  font-size:16px;
+  letter-spacing:-.02em;
+}
+
+.fcstBadge{
+  padding:6px 11px;
+}
+
+.fcstKv{
+  grid-template-columns:64px minmax(0, 1fr);
+  gap:9px 12px;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.fcstKv .k{
+  color:#728592;
+}
+
+.fcstKv .v{
+  word-break:break-word;
+}
+
+@media (max-width:520px){
+  .typhoonForecastSide .fcstList{
+    padding:12px;
+    gap:10px;
+  }
+
+  .typhoonForecastSide .fcstCard{
+    width:260px;
+  }
+
+  .fcstCard{
+    padding:14px;
+  }
+}
+
 /* ===== Print ===== */
 
 @media print{
+  @page{
+    size:A4 landscape;
+    margin:8mm;
+  }
+
+  *{
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+  }
+
   body{
-    background:#fff;
+    background:#fff !important;
   }
 
   body::before,
@@ -1504,51 +1571,171 @@ button{ -webkit-tap-highlight-color:transparent; }
   .weatherHero,
   #warnings,
   .analysisGrid,
+  .toolbar,
   .btn,
-  .toggle{
+  .toggle,
+  .leaflet-control-container{
     display:none !important;
   }
 
   .page{
-    width:100%;
-    padding:0;
+    width:100% !important;
+    max-width:none !important;
+    padding:0 !important;
+    margin:0 !important;
   }
 
   .section{
-    box-shadow:none;
-    border:none;
+    box-shadow:none !important;
+    border:none !important;
+    border-radius:0 !important;
+    background:#fff !important;
+    overflow:visible !important;
+    margin:0 !important;
   }
 
   .sectionHead{
-    padding:12px;
+    padding:0 0 8px !important;
+    border-bottom:1px solid #d7e1e7 !important;
+    background:#fff !important;
   }
 
-  .trackerBody{
-    display:block;
-    padding:0;
+  .sectionTitle{
+    font-size:24px !important;
   }
 
-  .typhoonSummary,
-  .typhoonBottomGrid{
-    display:none;
+  .sectionDesc{
+    font-size:11px !important;
+    line-height:1.5 !important;
+  }
+
+  .trackerBody,
+  .trackerBodyNew{
+    padding:10px 0 0 !important;
+    display:block !important;
+  }
+
+  .typhoonSummary{
+    display:block !important;
+    margin-bottom:10px !important;
+  }
+
+  .statusCard{
+    box-shadow:none !important;
+    border:1px solid #d7e1e7 !important;
+    border-radius:16px !important;
+  }
+
+  .statusTop,
+  .statusBody{
+    padding:10px 12px !important;
+  }
+
+  .infoGrid{
+    grid-template-columns:repeat(3, 1fr) !important;
+    gap:8px !important;
+  }
+
+  .ibox{
+    min-height:64px !important;
+    padding:10px !important;
+    border-radius:12px !important;
+  }
+
+  .ival{
+    font-size:18px !important;
+  }
+
+  .ilabel{
+    font-size:10px !important;
+  }
+
+  .noteBox{
+    display:none !important;
+  }
+
+  .typhoonMainGrid{
+    display:grid !important;
+    grid-template-columns:250px 1fr !important;
+    gap:10px !important;
+    align-items:stretch !important;
+  }
+
+  .typhoonForecastSide{
+    height:500px !important;
+    min-height:500px !important;
+    border-radius:16px !important;
+    box-shadow:none !important;
+    break-inside:avoid !important;
+  }
+
+  .fcstTop{
+    padding:10px 12px !important;
+  }
+
+  .typhoonForecastSide .fcstList{
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+    gap:7px !important;
+    padding:10px !important;
+  }
+
+  .typhoonForecastSide .fcstCard{
+    width:100% !important;
+    padding:9px 10px !important;
+    border-radius:13px !important;
+    box-shadow:none !important;
+    break-inside:avoid !important;
+  }
+
+  .fcstRow1{
+    margin-bottom:6px !important;
+  }
+
+  .fcstTime{
+    font-size:12px !important;
+  }
+
+  .fcstBadge{
+    font-size:10px !important;
+    padding:3px 7px !important;
+  }
+
+  .fcstKv{
+    grid-template-columns:42px 1fr !important;
+    gap:3px 6px !important;
+    font-size:10px !important;
+    line-height:1.25 !important;
   }
 
   .mapShell{
-    border:none;
-    border-radius:0;
-    box-shadow:none;
+    height:500px !important;
+    min-height:500px !important;
+    border:1px solid #d7e1e7 !important;
+    border-radius:16px !important;
+    box-shadow:none !important;
+    overflow:hidden !important;
+    break-inside:avoid !important;
   }
 
   .mapHeader{
-    display:none;
+    display:flex !important;
+    min-height:38px !important;
+    padding:8px 10px !important;
+  }
+
+  .mapLegend{
+    font-size:9px !important;
   }
 
   .typhoonMainGrid > .mapShell #map{
-    height:520px;
-    min-height:520px;
-    border-radius:0;
+    height:462px !important;
+    min-height:462px !important;
+    border-radius:0 !important;
   }
 }
+
 </style>
 </head>
 
