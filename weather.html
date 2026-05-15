@@ -3277,11 +3277,28 @@ button{ -webkit-tap-highlight-color:transparent; }
       let exportHolder = null;
       let oldShellStyle = "";
       let oldMapStyle = "";
+      let oldLabelPaneDisplay = "";
+      let oldLabelLinePaneDisplay = "";
 
       async function prepareStableMapCapture(){
         mapShell = document.querySelector(".typhoonMainGrid > .mapShell");
         const mapEl = $("map");
         if(!mapShell || !mapEl) return;
+
+        /* PNG 匯出時不要截取原本 Leaflet 的時間標籤，
+           否則再疊加 PNG 專用標籤後會出現「背景重複時間」。 */
+        try{
+          const lp = map.getPane("labelPane");
+          const llp = map.getPane("labelLinePane");
+          if(lp){
+            oldLabelPaneDisplay = lp.style.display || "";
+            lp.style.display = "none";
+          }
+          if(llp){
+            oldLabelLinePaneDisplay = llp.style.display || "";
+            llp.style.display = "none";
+          }
+        }catch(e){}
 
         mapParent = mapShell.parentNode;
         mapNext = mapShell.nextSibling;
@@ -3356,6 +3373,13 @@ button{ -webkit-tap-highlight-color:transparent; }
           }
 
           if(exportHolder) exportHolder.remove();
+
+          try{
+            const lp = map.getPane("labelPane");
+            const llp = map.getPane("labelLinePane");
+            if(lp) lp.style.display = oldLabelPaneDisplay;
+            if(llp) llp.style.display = oldLabelLinePaneDisplay;
+          }catch(e){}
 
           setTimeout(() => {
             try{
