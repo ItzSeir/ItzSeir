@@ -1736,7 +1736,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 .pngMapImage{
   width:100%;
   height:100%;
-  object-fit:cover;
+  object-fit:fill;
   display:block;
 }
 
@@ -3137,18 +3137,120 @@ button{ -webkit-tap-highlight-color:transparent; }
       const btn = $("printBtn");
       const oldText = btn ? btn.textContent : "";
 
-      try{
-        if(btn){
-          btn.disabled = true;
-          btn.textContent = "PNG 產生中...";
-        }
+      const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+      let mapShell = null;
+      let mapParent = null;
+      let mapNext = null;
+      let exportHolder = null;
+      let oldShellStyle = "";
+      let oldMapStyle = "";
+
+      async function prepareStableMapCapture(){
+        mapShell = document.querySelector(".typhoonMainGrid > .mapShell");
+        const mapEl = $("map");
+        if(!mapShell || !mapEl) return;
+
+        mapParent = mapShell.parentNode;
+        mapNext = mapShell.nextSibling;
+        oldShellStyle = mapShell.getAttribute("style") || "";
+        oldMapStyle = mapEl.getAttribute("style") || "";
+
+        exportHolder = document.createElement("div");
+        exportHolder.id = "__map_capture_holder__";
+        exportHolder.style.cssText = [
+          "position:absolute",
+          "left:-20000px",
+          "top:0",
+          "width:1096px",
+          "height:680px",
+          "overflow:hidden",
+          "background:#e8f7fb",
+          "z-index:-1"
+        ].join(";");
+
+        document.body.appendChild(exportHolder);
+        exportHolder.appendChild(mapShell);
+
+        mapShell.style.width = "1096px";
+        mapShell.style.height = "680px";
+        mapShell.style.minHeight = "680px";
+        mapShell.style.borderRadius = "0";
+        mapShell.style.boxShadow = "none";
+
+        mapEl.style.width = "1096px";
+        mapEl.style.height = "622px";
+        mapEl.style.minHeight = "622px";
+        mapEl.style.borderRadius = "0";
+
+        try{
+          map.invalidateSize(true);
+          if(fullBounds){
+            map.fitBounds(fullBounds, {
+              padding:[88, 88],
+              animate:false
+            });
+          }
+          updateLabelLines();
+          drawForecastCone();
+          drawStormRings();
+        }catch(e){}
+
+        await wait(850);
 
         try{
           map.invalidateSize(true);
           updateLabelLines();
         }catch(e){}
 
-        await new Promise(r => setTimeout(r, 350));
+        await wait(250);
+      }
+
+      function restoreMapAfterCapture(){
+        try{
+          if(mapShell && mapParent){
+            if(mapNext) mapParent.insertBefore(mapShell, mapNext);
+            else mapParent.appendChild(mapShell);
+          }
+
+          const mapEl = $("map");
+          if(mapShell){
+            if(oldShellStyle) mapShell.setAttribute("style", oldShellStyle);
+            else mapShell.removeAttribute("style");
+          }
+          if(mapEl){
+            if(oldMapStyle) mapEl.setAttribute("style", oldMapStyle);
+            else mapEl.removeAttribute("style");
+          }
+
+          if(exportHolder) exportHolder.remove();
+
+          setTimeout(() => {
+            try{
+              map.invalidateSize(true);
+              if(fullBounds){
+                map.fitBounds(fullBounds, {
+                  padding:[60, 60],
+                  animate:false
+                });
+              }
+              updateLabelLines();
+              drawForecastCone();
+              drawStormRings();
+            }catch(e){}
+          }, 120);
+        }catch(e){
+          console.warn("Map restore failed:", e);
+        }
+      }
+
+      try{
+        if(btn){
+          btn.disabled = true;
+          btn.textContent = "PNG 產生中...";
+        }
+
+        await prepareStableMapCapture();
 
         let mapDataUrl = "";
         try{
@@ -3157,11 +3259,19 @@ button{ -webkit-tap-highlight-color:transparent; }
             useCORS:true,
             allowTaint:true,
             scale:2,
+            width:1096,
+            height:622,
+            windowWidth:1096,
+            windowHeight:622,
+            scrollX:0,
+            scrollY:0,
             logging:false
           });
           mapDataUrl = mapCanvas.toDataURL("image/png");
         }catch(e){
           console.warn("Map capture failed:", e);
+        }finally{
+          restoreMapAfterCapture();
         }
 
         const oldRoot = document.getElementById("pngReportRoot");
@@ -3170,7 +3280,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         const report = buildPngReport(mapDataUrl);
         document.body.appendChild(report);
 
-        await new Promise(r => setTimeout(r, 100));
+        await wait(160);
 
         const canvas = await html2canvas(report.querySelector(".pngReport"), {
           backgroundColor:"#f7fbfc",
@@ -3181,6 +3291,8 @@ button{ -webkit-tap-highlight-color:transparent; }
           height:1000,
           windowWidth:1600,
           windowHeight:1000,
+          scrollX:0,
+          scrollY:0,
           logging:false
         });
 
@@ -3190,6 +3302,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       }catch(e){
         console.error(e);
         alert("PNG 產生失敗，請重新整理後再試。");
+        restoreMapAfterCapture();
       }finally{
         if(btn){
           btn.disabled = false;
