@@ -3284,19 +3284,158 @@ button{ -webkit-tap-highlight-color:transparent; }
       return root;
     }
 
+    function loadImageForCanvas(src){
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    function mercatorWorld(lon, lat){
+      const sin = Math.sin(lat * Math.PI / 180);
+      const x = (lon + 180) / 360 * 512;
+      const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * 512;
+      return { x, y };
+    }
+
+    function mercatorToLonLat(x, y){
+      const lon = x / 512 * 360 - 180;
+      const n = Math.PI - 2 * Math.PI * y / 512;
+      const lat = 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+      return { lon, lat };
+    }
+
+    function getStaticMapView(mapW, mapH){
+      const valid = points.filter(p => isFinite(p.lat) && isFinite(p.lon));
+      if(!valid.length){
+        return { centerLon:145, centerLat:15, zoom:4.5 };
+      }
+
+      const lats = valid.map(p => p.lat);
+      const lons = valid.map(p => p.lon);
+      const latPad = Math.max(1.6, (Math.max(...lats) - Math.min(...lats)) * 0.28);
+      const lonPad = Math.max(2.2, (Math.max(...lons) - Math.min(...lons)) * 0.38);
+      const minLat = Math.min(...lats) - latPad;
+      const maxLat = Math.max(...lats) + latPad;
+      const minLon = Math.min(...lons) - lonPad;
+      const maxLon = Math.max(...lons) + lonPad;
+
+      const nw = mercatorWorld(minLon, maxLat);
+      const se = mercatorWorld(maxLon, minLat);
+      const dx = Math.max(1, Math.abs(se.x - nw.x));
+      const dy = Math.max(1, Math.abs(se.y - nw.y));
+      const scale = Math.min(mapW / dx, mapH / dy);
+      const zoom = Math.max(2, Math.min(7.2, Math.log2(scale)));
+      const centerWorld = { x:(nw.x + se.x) / 2, y:(nw.y + se.y) / 2 };
+      const centerLL = mercatorToLonLat(centerWorld.x, centerWorld.y);
+
+      return {
+        centerLon:centerLL.lon,
+        centerLat:centerLL.lat,
+        zoom:Number(zoom.toFixed(2))
+      };
+    }
+
+    function projectStaticPoint(lon, lat, view, x0, y0, w, h){
+      const c = mercatorWorld(view.centerLon, view.centerLat);
+      const p = mercatorWorld(lon, lat);
+      const scale = Math.pow(2, view.zoom);
+      return {
+        x:x0 + w / 2 + (p.x - c.x) * scale,
+        y:y0 + h / 2 + (p.y - c.y) * scale
+      };
+    }
+
+    function roundRectPath(ctx, x, y, w, h, r){
+      const rr = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.lineTo(x + w - rr, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+      ctx.lineTo(x + w, y + h - rr);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+      ctx.lineTo(x + rr, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+      ctx.lineTo(x, y + rr);
+      ctx.quadraticCurveTo(x, y, x + rr, y);
+      ctx.closePath();
+    }
+
+    function drawRoundedFill(ctx, x, y, w, h, r, fill, stroke){
+      roundRectPath(ctx, x, y, w, h, r);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if(stroke){
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    function drawCanvasLabel(ctx, text, x, y, color, align="right"){
+      ctx.save();
+      ctx.font = "800 18px 'Noto Sans TC', Arial, sans-serif";
+      const padX = 18;
+      const h = 42;
+      const tw = ctx.measureText(text).width;
+      const w = tw + padX * 2 + 14;
+      let lx = align === "left" ? x - w - 18 : x + 18;
+      let ly = y - h / 2;
+      lx = Math.max(18, Math.min(ctx.canvas.width - w - 18, lx));
+      ly = Math.max(18, Math.min(ctx.canvas.height - h - 18, ly));
+
+      ctx.shadowColor = "rgba(31,53,72,.13)";
+      ctx.shadowBlur = 18;
+      ctx.shadowOffsetY = 6;
+      drawRoundedFill(ctx, lx, ly, w, h, 20, "rgba(255,255,255,.96)", "rgba(25,42,58,.13)");
+      ctx.shadowColor = "transparent";
+      ctx.beginPath();
+      ctx.arc(lx + 18, ly + h / 2, 5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.fillStyle = "#0f2535";
+      ctx.fillText(text, lx + 32, ly + 27);
+      ctx.restore();
+    }
+
+    function drawCompassAndScale(ctx, x, y){
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.strokeStyle = "#0f2535";
+      ctx.fillStyle = "#0f2535";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, -44); ctx.lineTo(9, -9); ctx.lineTo(44, 0); ctx.lineTo(9, 9); ctx.lineTo(0, 44); ctx.lineTo(-9, 9); ctx.lineTo(-44, 0); ctx.lineTo(-9, -9); ctx.closePath();
+      ctx.stroke();
+      ctx.font = "800 16px Arial";
+      ctx.fillText("N", -6, -55);
+      ctx.restore();
+
+      const sx = x - 180;
+      const sy = y + 92;
+      ctx.save();
+      ctx.fillStyle = "#0f2535";
+      ctx.font = "700 14px Arial";
+      ctx.fillText("0", sx, sy - 10);
+      ctx.fillText("250", sx + 82, sy - 10);
+      ctx.fillText("500", sx + 170, sy - 10);
+      ctx.fillText("750 km", sx + 260, sy - 10);
+      ctx.fillStyle = "#111827"; ctx.fillRect(sx, sy, 90, 13);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(sx + 90, sy, 90, 13);
+      ctx.fillStyle = "#111827"; ctx.fillRect(sx + 180, sy, 90, 13);
+      ctx.strokeStyle = "#111827"; ctx.strokeRect(sx, sy, 270, 13);
+      ctx.restore();
+    }
+
     async function exportTyphoonPng(){
       const btn = $("printBtn");
       const oldText = btn ? btn.textContent : "";
-      const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-      const mapShell = document.querySelector(".typhoonMainGrid > .mapShell");
-      const mapEl = $("map");
-      const oldRingState = $("toggleRings") ? $("toggleRings").checked : true;
-      const oldConeState = $("toggleCone") ? $("toggleCone").checked : true;
-      const oldLabelState = $("toggleLabels") ? $("toggleLabels").checked : true;
-
-      if(!mapShell || !mapEl || !map){
-        alert("地圖尚未載入完成，請稍後再試。");
+      if(!points || !points.length){
+        alert("颱風資料尚未載入完成，請稍後再試。");
         return;
       }
 
@@ -3306,78 +3445,173 @@ button{ -webkit-tap-highlight-color:transparent; }
           btn.textContent = "地圖 PNG 產生中...";
         }
 
-        /* 匯出時像地震頁一樣：直接截取地圖畫面，不再重新排版整張頁面。
-           這樣 Leaflet 底圖、路徑線、點位會保持同一個座標系，不會再位移。 */
-        document.body.classList.add("map-png-capture-mode");
+        const W = 1600;
+        const H = 1000;
+        const pad = 30;
+        const headerH = 92;
+        const mapX = pad;
+        const mapY = headerH + 20;
+        const mapW = W - pad * 2;
+        const mapH = H - mapY - 70;
 
-        /* PNG 不要暴風圈：暫時關閉暴風圈，再重畫。 */
-        if($("toggleRings")) $("toggleRings").checked = false;
-        drawStormRings();
+        const canvas = document.createElement("canvas");
+        canvas.width = W * 2;
+        canvas.height = H * 2;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(2, 2);
 
-        /* 保留不確定範圍與時間標記；如果你手動關閉 checkbox，會跟隨目前畫面狀態。 */
-        if($("toggleCone")) $("toggleCone").checked = oldConeState;
-        if($("toggleLabels")) $("toggleLabels").checked = oldLabelState;
-        drawForecastCone();
-        drawLabels();
+        const bg = ctx.createLinearGradient(0, 0, W, H);
+        bg.addColorStop(0, "#f8fbfd");
+        bg.addColorStop(0.55, "#eef7fa");
+        bg.addColorStop(1, "#ffffff");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
 
-        await wait(160);
+        ctx.fillStyle = "#0f2535";
+        ctx.font = "900 40px 'Noto Sans TC', Arial, sans-serif";
+        ctx.fillText(weatherMeta.title || "颱風路徑圖", pad, 58);
+        ctx.fillStyle = "#617785";
+        ctx.font = "800 16px 'Noto Sans TC', Arial, sans-serif";
+        ctx.fillText(`來源：${weatherMeta.source || "—"}`, pad, 86);
 
-        map.invalidateSize(true);
-        if(fullBounds && fullBounds.isValid && fullBounds.isValid()){
-          map.fitBounds(fullBounds, {
-            paddingTopLeft:[70, 58],
-            paddingBottomRight:[240, 58],
-            animate:false
-          });
+        const latestObs = points[getLatestObsIndex()] || points[0];
+        ctx.textAlign = "right";
+        ctx.fillText(`時間：${fmtTime(latestObs.time, "full")}`, W - pad, 58);
+        ctx.textAlign = "left";
+
+        drawRoundedFill(ctx, mapX, mapY, mapW, mapH, 28, "#e8f7fb", "rgba(25,42,58,.12)");
+        ctx.save();
+        roundRectPath(ctx, mapX, mapY, mapW, mapH, 28);
+        ctx.clip();
+
+        const view = getStaticMapView(mapW, mapH);
+        const staticW = 1280;
+        const staticH = 760;
+        const styleUser = "itzseir";
+        const styleId = MAPBOX_STYLE;
+        const mapUrl = `https://api.mapbox.com/styles/v1/${styleUser}/${styleId}/static/${view.centerLon.toFixed(5)},${view.centerLat.toFixed(5)},${view.zoom},0/${staticW}x${staticH}@2x?access_token=${MAPBOX_TOKEN}`;
+
+        try{
+          const img = await loadImageForCanvas(mapUrl);
+          ctx.drawImage(img, mapX, mapY, mapW, mapH);
+        }catch(e){
+          const sea = ctx.createLinearGradient(mapX, mapY, mapX, mapY + mapH);
+          sea.addColorStop(0, "#e5f7fb");
+          sea.addColorStop(1, "#d9f0f7");
+          ctx.fillStyle = sea;
+          ctx.fillRect(mapX, mapY, mapW, mapH);
         }
 
-        await wait(900);
+        const cone = buildForecastConePolygonSmooth();
+        if(cone && cone.length > 3){
+          ctx.beginPath();
+          cone.forEach((ll, i) => {
+            const p = projectStaticPoint(ll[1], ll[0], view, mapX, mapY, mapW, mapH);
+            if(i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          ctx.closePath();
+          ctx.fillStyle = "rgba(124,58,237,.18)";
+          ctx.strokeStyle = "rgba(124,58,237,.24)";
+          ctx.lineWidth = 2;
+          ctx.fill();
+          ctx.stroke();
+        }
 
-        map.invalidateSize(true);
-        updateLabelLines();
-        drawForecastCone();
-        drawStormRings();
+        const obsPts = points.filter(p => p.kind === "obs");
+        const fcstPts = points.filter(p => p.kind === "fcst");
 
-        await wait(260);
+        function drawPath(arr, color, dashed){
+          if(arr.length < 2) return;
+          ctx.save();
+          ctx.beginPath();
+          arr.forEach((pt, i) => {
+            const p = projectStaticPoint(pt.lon, pt.lat, view, mapX, mapY, mapW, mapH);
+            if(i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 5;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          if(dashed) ctx.setLineDash([14, 12]);
+          ctx.stroke();
+          ctx.restore();
+        }
 
-        const rect = mapShell.getBoundingClientRect();
-        const canvas = await html2canvas(mapShell, {
-          backgroundColor:"#ffffff",
-          useCORS:true,
-          allowTaint:true,
-          scale:2,
-          width:Math.ceil(rect.width),
-          height:Math.ceil(rect.height),
-          windowWidth:Math.ceil(document.documentElement.clientWidth),
-          windowHeight:Math.ceil(document.documentElement.clientHeight),
-          scrollX:0,
-          scrollY:0,
-          logging:false
+        drawPath(obsPts, "#0f2535", false);
+        if(obsPts.length && fcstPts.length){
+          drawPath([obsPts[obsPts.length - 1], fcstPts[0]], "#ef4444", true);
+        }
+        drawPath(fcstPts, "#ef4444", true);
+
+        points.forEach((pt) => {
+          const st = getStyle(pt.level);
+          const p = projectStaticPoint(pt.lon, pt.lat, view, mapX, mapY, mapW, mapH);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, pt.kind === "fcst" ? 7 : 6, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+          ctx.strokeStyle = pt.kind === "fcst" ? "#ef4444" : st.color;
+          ctx.lineWidth = 4;
+          ctx.stroke();
         });
+
+        const latest = points[getLatestObsIndex()] || points[0];
+        const labelPts = [];
+        if(latest) labelPts.push(latest);
+        if(fcstPts[0]) labelPts.push(fcstPts[0]);
+        if(fcstPts.length > 2) labelPts.push(fcstPts[Math.floor(fcstPts.length / 2)]);
+        if(fcstPts.length > 1) labelPts.push(fcstPts[fcstPts.length - 1]);
+
+        const seen = new Set();
+        labelPts.forEach((pt, idx) => {
+          const key = `${pt.time}-${pt.lat}-${pt.lon}`;
+          if(seen.has(key)) return;
+          seen.add(key);
+          const p = projectStaticPoint(pt.lon, pt.lat, view, mapX, mapY, mapW, mapH);
+          const color = pt.kind === "fcst" ? "#ef4444" : getStyle(pt.level).color;
+          drawCanvasLabel(ctx, fmtTime(pt.time, "full"), p.x, p.y, color, idx % 2 ? "right" : "left");
+        });
+
+        ctx.restore();
+
+        drawRoundedFill(ctx, pad, 16, 170, 34, 17, "rgba(255,255,255,.92)", "rgba(25,42,58,.12)");
+        ctx.fillStyle = "#7c3aed";
+        ctx.beginPath(); ctx.arc(pad + 20, 33, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#0f2535";
+        ctx.font = "900 15px 'Noto Sans TC', Arial, sans-serif";
+        ctx.fillText(getStyle(latestObs.level).label.replace("強烈颱風 ", "強烈颱風 "), pad + 34, 39);
+
+        /* Legend */
+        const lx = W - 470;
+        const ly = mapY - 42;
+        ctx.font = "800 14px 'Noto Sans TC', Arial, sans-serif";
+        ctx.strokeStyle = "#0f2535"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 34, ly); ctx.stroke();
+        ctx.fillStyle = "#617785"; ctx.fillText("歷史路徑", lx + 45, ly + 5);
+        ctx.strokeStyle = "#ef4444"; ctx.setLineDash([10,8]); ctx.beginPath(); ctx.moveTo(lx + 150, ly); ctx.lineTo(lx + 184, ly); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillText("預報路徑", lx + 195, ly + 5);
+        ctx.fillStyle = "rgba(124,58,237,.20)"; ctx.fillRect(lx + 300, ly - 8, 28, 16);
+        ctx.fillStyle = "#617785"; ctx.fillText("預報不確定性", lx + 338, ly + 5);
+
+        drawCompassAndScale(ctx, W - 120, H - 180);
+
+        ctx.fillStyle = "#617785";
+        ctx.font = "800 14px 'Noto Sans TC', Arial, sans-serif";
+        ctx.fillText("本圖為示意圖，實際路徑與強度請以中央氣象署及各國官方最新資訊為準。", pad, H - 30);
+        ctx.textAlign = "right";
+        ctx.fillText("筱風製作", W - pad, H - 30);
+        ctx.textAlign = "left";
 
         const safeTitle = String(weatherMeta.title || "typhoon-map").replace(/[\\/:*?"<>|]/g, "_");
         downloadDataUrl(`${safeTitle}_地圖.png`, canvas.toDataURL("image/png"));
       }catch(e){
         console.error(e);
-        alert("PNG 產生失敗，請重新整理後再試。");
+        alert("PNG 產生失敗，請重新整理後再試。可能是地圖圖磚暫時無法跨域載入。");
       }finally{
-        document.body.classList.remove("map-png-capture-mode");
-
-        if($("toggleRings")) $("toggleRings").checked = oldRingState;
-        if($("toggleCone")) $("toggleCone").checked = oldConeState;
-        if($("toggleLabels")) $("toggleLabels").checked = oldLabelState;
-
-        try{
-          drawForecastCone();
-          drawStormRings();
-          drawLabels();
-          map.invalidateSize(true);
-          updateLabelLines();
-        }catch(e){}
-
         if(btn){
           btn.disabled = false;
-          btn.textContent = oldText || "產生 PNG 圖片";
+          btn.textContent = oldText || "產生地圖 PNG";
         }
       }
     }
