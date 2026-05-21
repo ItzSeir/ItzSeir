@@ -99,14 +99,18 @@
     .brandMark{
       width:36px;
       height:36px;
-      display:grid;
-      place-items:center;
       flex:0 0 auto;
       border-radius:14px;
-      color:#fff;
-      font-weight:900;
+      overflow:hidden;
       background:linear-gradient(135deg, var(--sea), var(--teal));
       box-shadow:0 10px 22px rgba(15,76,92,.22);
+    }
+    
+    .brandMark img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
     }
 
     .brandText{
@@ -710,7 +714,8 @@
   <main class="page">
     <header class="topbar">
       <a class="brand" href="https://itzseir.github.io/ItzSeir/" aria-label="筱風首頁">
-        <div class="brandMark"href="https://raw.githubusercontent.com/ItzSeir/ItzSeir/6e11844bbbe5bee145b1f21804d7f1f289abec1d/Profile%20Pitcure/ItzSeirProfile.png">
+        <div class="brandMark">
+    <img src="https://raw.githubusercontent.com/ItzSeir/ItzSeir/6e11844bbbe5bee145b1f21804d7f1f289abec1d/Profile%20Pitcure/ItzSeirProfile.png" alt="筱風頭像"></div>
         <div class="brandText">
           <strong>筱風</strong>
           <span>個人網頁</span>
