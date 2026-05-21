@@ -2144,7 +2144,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         </h1>
 
         <p class="weatherDesc">
-          整合天氣觀測、天氣警報、颱風路徑、地震資訊與資料說明。颱風相關內容已獨立整理於下方的「颱風路徑追蹤器」區塊，避免主頁面資訊過度集中。
+          整合天氣觀測、天氣警報、颱風路徑、地震資訊與資料說明。
         </p>
 
         <div class="heroActions">
@@ -2251,7 +2251,6 @@ button{ -webkit-tap-highlight-color:transparent; }
                     <strong>📄 內容</strong>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                       <button class="btn" id="twCopy" type="button">複製內容</button>
-                      <button class="btn" id="twRawBtn" type="button">顯示 Raw CAP</button>
                     </div>
                   </div>
 
@@ -4477,8 +4476,6 @@ button{ -webkit-tap-highlight-color:transparent; }
           q("twHint").textContent = "你可以改篩選條件，或按「立即更新」。";
           return;
         }
-
-        q("twHint").textContent = "點選左側任一筆，右側顯示詳細內容。";
 
         filteredAlerts.forEach((a, idx) => {
           const el = document.createElement("div");
