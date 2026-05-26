@@ -1608,9 +1608,10 @@ button{ -webkit-tap-highlight-color:transparent; }
 
 .pngSummaryGrid{
   display:grid;
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns:320px 300px 300px;
   gap:14px;
   padding:16px 18px 18px;
+  justify-content:start;
 }
 
 .pngInfoCard{
@@ -1641,7 +1642,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
 .pngMain{
   display:grid;
-  grid-template-columns:430px 1fr;
+  grid-template-columns:minmax(0, 1fr) 360px;
   gap:18px;
   height:680px;
 }
@@ -1670,19 +1671,19 @@ button{ -webkit-tap-highlight-color:transparent; }
 
 .pngForecastList{
   height:622px;
-  padding:14px 16px;
+  padding:12px;
   display:grid;
   grid-template-columns:1fr;
-  gap:10px;
+  gap:9px;
   overflow:hidden;
 }
 
 .pngFcstCard{
-  min-height:104px;
+  min-height:92px;
   border:1px solid rgba(25,42,58,.10);
   border-radius:18px;
   background:#fff;
-  padding:13px 14px;
+  padding:11px 12px;
 }
 
 .pngFcstTop{
@@ -1695,7 +1696,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
 .pngFcstTime{
   color:#102d40;
-  font-size:19px;
+  font-size:18px;
   font-weight:900;
   letter-spacing:-.03em;
 }
@@ -1715,10 +1716,10 @@ button{ -webkit-tap-highlight-color:transparent; }
 
 .pngFcstKv{
   display:grid;
-  grid-template-columns:48px 1fr 48px 1fr;
-  gap:5px 9px;
-  font-size:12px;
-  line-height:1.35;
+  grid-template-columns:42px 1fr 42px 1fr;
+  gap:5px 7px;
+  font-size:11px;
+  line-height:1.32;
 }
 
 .pngFcstKv .k{ color:#718692; font-weight:900; }
@@ -2535,6 +2536,24 @@ button{ -webkit-tap-highlight-color:transparent; }
       return levelStyle[level] || { color:"#111827", label: level || "Unknown" };
     }
 
+    function getLevelZh(level){
+      const map = {
+        LOW: "低壓",
+        TD: "熱帶低壓",
+        TS: "輕度颱風",
+        STS: "輕度颱風",
+        TY: "中度颱風",
+        STY: "強烈颱風"
+      };
+      return map[level] || level || "—";
+    }
+
+    function fmtClock(s){
+      const dt = parseLocalDateTime(s);
+      if(!dt) return "—";
+      return `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+    }
+
     function escapeHtml(s){
       return String(s ?? "").replace(/[&<>"']/g, m => ({
         "&":"&amp;",
@@ -3332,7 +3351,7 @@ button{ -webkit-tap-highlight-color:transparent; }
             <div class="fcstTime">${escapeHtml(fmtTime(p.time,"short"))}</div>
             <span class="fcstBadge" style="border-color:${st.color}33;">
               <span style="width:8px;height:8px;border-radius:999px;background:${st.color};display:inline-block;"></span>
-              ${escapeHtml(p.level || "—")}
+              ${escapeHtml(getLevelZh(p.level))}
             </span>
           </div>
           <div class="fcstKv">
@@ -3385,7 +3404,7 @@ button{ -webkit-tap-highlight-color:transparent; }
     function getForecastPoints(){
       return points
         .filter(p => p.kind === "fcst")
-        .slice(0, 5);
+        .slice(0, 6);
     }
 
     function makePngForecastCard(p){
@@ -3396,7 +3415,7 @@ button{ -webkit-tap-highlight-color:transparent; }
             <div class="pngFcstTime">${escapeHtml(fmtTime(p.time,"short"))}</div>
             <span class="pngFcstBadge">
               <span style="width:8px;height:8px;border-radius:999px;background:${st.color};display:inline-block;"></span>
-              ${escapeHtml(p.level || "—")}
+              ${escapeHtml(getLevelZh(p.level))}
             </span>
           </div>
           <div class="pngFcstKv">
@@ -3463,17 +3482,29 @@ button{ -webkit-tap-highlight-color:transparent; }
         return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="#fff" stroke="${st.color}" stroke-width="3"/>`;
       }).join("");
 
-      /* PNG 專用：時間標記減少，避免重疊。只標目前點、第一個預報、中段預報、最後預報。 */
+      /* PNG 專用：時間標記每 24 小時一個，從第 3 個預報點開始，避免密集重疊。 */
       const fcstVisible = visiblePoints.filter(p => p.kind === "fcst");
       const labelCandidates = [];
 
-      if(visiblePoints[latestObsIdx]) labelCandidates.push({ p:visiblePoints[latestObsIdx], kind:"current" });
-      if(fcstVisible.length){
-        labelCandidates.push({ p:fcstVisible[0], kind:"first" });
-        const mid = fcstVisible[Math.floor(fcstVisible.length / 2)];
-        const last = fcstVisible[fcstVisible.length - 1];
-        if(mid && mid.time !== fcstVisible[0].time && mid.time !== last.time) labelCandidates.push({ p:mid, kind:"mid" });
-        if(last && last.time !== fcstVisible[0].time) labelCandidates.push({ p:last, kind:"last" });
+      function getDateValue(p){
+        const d = parseLocalDateTime(p.time);
+        return d ? d.getTime() : NaN;
+      }
+
+      if(fcstVisible.length >= 3){
+        let lastLabelTime = getDateValue(fcstVisible[2]);
+        labelCandidates.push({ p:fcstVisible[2], kind:"fcst24" });
+
+        for(let i = 3; i < fcstVisible.length; i++){
+          const t = getDateValue(fcstVisible[i]);
+          if(!isFinite(t) || !isFinite(lastLabelTime)) continue;
+          if(t - lastLabelTime >= 23 * 60 * 60 * 1000){
+            labelCandidates.push({ p:fcstVisible[i], kind:"fcst24" });
+            lastLabelTime = t;
+          }
+        }
+      }else{
+        fcstVisible.forEach(p => labelCandidates.push({ p, kind:"fcst24" }));
       }
 
       const usedBoxes = [];
@@ -3483,10 +3514,10 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       const labels = labelCandidates.map((item, idx) => {
         const p = item.p;
-        const label = esc(fmtTime(p.time,"full"));
+        const label = esc(fmtTime(p.time,"short"));
         const st = getStyle(p.level);
-        const labelW = 184;
-        const labelH = 34;
+        const labelW = 112;
+        const labelH = 30;
         const positions = [
           { x:p.x + 34, y:p.y - 14 },
           { x:p.x + 34, y:p.y + 26 },
@@ -3518,9 +3549,9 @@ button{ -webkit-tap-highlight-color:transparent; }
 
         return `
           <line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${(lx+10).toFixed(1)}" y2="${ly.toFixed(1)}" stroke="#78909c" stroke-width="1.5" opacity="0.45"/>
-          <rect x="${lx.toFixed(1)}" y="${chosen.y.toFixed(1)}" width="${labelW}" height="${labelH}" rx="17" fill="rgba(255,255,255,.94)" stroke="${isCurrent ? '#c59cff' : '#d7e3ea'}" stroke-width="${isCurrent ? 2.2 : 1}"/>
-          <circle cx="${(lx+18).toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="${st.color}" opacity="0.95"/>
-          <text x="${(lx+32).toFixed(1)}" y="${(ly+5).toFixed(1)}" font-size="13" font-weight="900" fill="#102d40">${label}</text>
+          <rect x="${lx.toFixed(1)}" y="${chosen.y.toFixed(1)}" width="${labelW}" height="${labelH}" rx="15" fill="rgba(255,255,255,.94)" stroke="#d7e3ea" stroke-width="1"/>
+          <circle cx="${(lx+15).toFixed(1)}" cy="${ly.toFixed(1)}" r="3.8" fill="${st.color}" opacity="0.95"/>
+          <text x="${(lx+26).toFixed(1)}" y="${(ly+4.5).toFixed(1)}" font-size="12" font-weight="900" fill="#102d40">${label}</text>
         `;
       }).join("");
 
@@ -3561,12 +3592,6 @@ button{ -webkit-tap-highlight-color:transparent; }
           </div>
 
           <div class="pngMain">
-            <div class="pngForecast">
-              <div class="pngPanelHead"><span><span class="dot" style="background:#60a5fa;margin-right:8px;"></span>預報列表</span><span>${points.filter(p => p.kind === "fcst").length} 筆</span></div>
-              <div class="pngForecastList">
-                ${fcst.map(makePngForecastCard).join("") || `<div class="pngFcstCard">沒有預報資料</div>`}
-              </div>
-            </div>
             <div class="pngMapBox">
               <div class="pngPanelHead">
                 <span><span class="dot" style="background:#7c3aed;margin-right:8px;"></span>颱風路徑圖</span>
@@ -3575,7 +3600,13 @@ button{ -webkit-tap-highlight-color:transparent; }
               <div class="pngMapImageWrap">
                 ${mapDataUrl ? `<img class="pngMapImage" src="${mapDataUrl}" alt="typhoon map">` : `<div class="pngMapFallback">地圖截圖產生失敗，請稍後再試</div>`}
                 ${mapOverlaySvg || ""}
-                <div class="pngFootnote"><span>本圖為固定版面 PNG，避免直接截取網頁導致跑位。</span><span>筱風製作｜資料來源：${escapeHtml(weatherMeta.source || "—")}</span></div>
+                <div class="pngFootnote"><span>更新時間：${escapeHtml(fmtClock(obs.time))}</span><span>資料來源：${escapeHtml(weatherMeta.source || "—")}</span></div>
+              </div>
+            </div>
+            <div class="pngForecast">
+              <div class="pngPanelHead"><span><span class="dot" style="background:#60a5fa;margin-right:8px;"></span>預報列表</span><span>${points.filter(p => p.kind === "fcst").length} 筆</span></div>
+              <div class="pngForecastList">
+                ${fcst.map(makePngForecastCard).join("") || `<div class="pngFcstCard">沒有預報資料</div>`}
               </div>
             </div>
           </div>
