@@ -2337,7 +2337,7 @@ button{ -webkit-tap-highlight-color:transparent; }
                   </div>
                   <div id="twAreaMap"></div>
                   <div class="twAreaMapFoot">
-                    會依照目前選取的 CWA CAP 警報，自動把影響行政區上色。GeoJSON 檔案請放在同一層並命名為 <b>tw-town.geojson</b>。
+                    會依照目前選取的 CWA CAP 警報，自動把影響行政區上色。支援鄉鎮與縣市兩種 CAP 區域。請放 <b>tw-town.geojson</b>，若有縣市級資料也放 <b>tw-county.geojson</b>。
                   </div>
                 </div>
               </div>
@@ -4085,7 +4085,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           ctx.arc(cardX + cardW - 92, y + 25.5, 4, 0, Math.PI * 2);
           ctx.fillStyle = st.color;
           ctx.fill();
-          drawText(p.level || "—", cardX + cardW - 82, y + 30, {
+          drawText(getLevelZh(p.level), cardX + cardW - 82, y + 30, {
             size:12,
             weight:900,
             color:"#123044"
@@ -4227,7 +4227,34 @@ button{ -webkit-tap-highlight-color:transparent; }
           drawLabel(anchorX, anchorY, text, color, best.align);
         }
 
-        getSmartLabelIndexes().forEach((idx) => {
+        /* PNG 時間標記：從第 3 個預報點開始，每約 24 小時標記一次，避免整條路徑太擠。 */
+        function getPng24hLabelIndexes(){
+          const fcstIndexes = [];
+          points.forEach((p, i) => {
+            if(p.kind === "fcst") fcstIndexes.push(i);
+          });
+
+          if(fcstIndexes.length < 3) return fcstIndexes;
+
+          const picked = [];
+          const firstIdx = fcstIndexes[2];
+          picked.push(firstIdx);
+
+          let lastTime = parseLocalDateTime(points[firstIdx].time)?.getTime();
+          for(let n = 3; n < fcstIndexes.length; n++){
+            const idx = fcstIndexes[n];
+            const t = parseLocalDateTime(points[idx].time)?.getTime();
+            if(!isFinite(t) || !isFinite(lastTime)) continue;
+            if(t - lastTime >= 23 * 60 * 60 * 1000){
+              picked.push(idx);
+              lastTime = t;
+            }
+          }
+
+          return picked;
+        }
+
+        getPng24hLabelIndexes().forEach((idx) => {
           const p = points[idx];
           const st = getStyle(p.level);
           const pt = project(p.lat, p.lon);
@@ -4235,8 +4262,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         });
 
         /* Map credit inside image */
-        fillRound(ctx, innerMapX + innerMapW - 210, innerMapY + innerMapH - 38, 190, 24, 999, "rgba(255,255,255,.82)", "rgba(25,42,58,.10)");
-        drawText("筱風製作", innerMapX + innerMapW - 115, innerMapY + innerMapH - 22, {
+        fillRound(ctx, innerMapX + innerMapW - 230, innerMapY + innerMapH - 38, 210, 24, 999, "rgba(255,255,255,.82)", "rgba(25,42,58,.10)");
+        drawText(`更新時間 ${fmtClock(latestObs.time)}`, innerMapX + innerMapW - 125, innerMapY + innerMapH - 22, {
           size:11,
           weight:900,
           color:"#617785",
@@ -4246,13 +4273,13 @@ button{ -webkit-tap-highlight-color:transparent; }
         ctx.restore();
 
         /* Footer */
-        drawText("筱風製作", 36, 988, {
+        drawText(`更新時間：${fmtClock(latestObs.time)}`, 36, 988, {
           size:13,
           weight:900,
           color:"#617785"
         });
 
-        drawText(`生成時間：${new Date().toLocaleString()}`, W - 36, 988, {
+        drawText(`資料來源：${weatherMeta.source || "—"}`, W - 36, 988, {
           size:13,
           weight:900,
           color:"#617785",
@@ -5038,9 +5065,19 @@ button{ -webkit-tap-highlight-color:transparent; }
 
     /* ===== Taiwan CAP Area Map Add-on: isolated, will not affect typhoon tracker ===== */
     let twAreaLeafletMap = null;
-    let twAreaGeoJsonLayer = null;
-    let twAreaGeoJsonData = null;
-    let twAreaSelectedNames = new Set();
+    let twAreaTownLayer = null;
+    let twAreaCountyLayer = null;
+    let twAreaTownData = null;
+    let twAreaCountyData = null;
+    let twAreaSelectedTownNames = new Set();
+    let twAreaSelectedCountyNames = new Set();
+
+    const twCountyNameList = [
+      "基隆市","臺北市","新北市","桃園市","新竹市","新竹縣","苗栗縣",
+      "臺中市","彰化縣","南投縣","雲林縣","嘉義市","嘉義縣","臺南市",
+      "高雄市","屏東縣","宜蘭縣","花蓮縣","臺東縣","澎湖縣","金門縣","連江縣"
+    ];
+    const twCountyNameSet = new Set(twCountyNameList.map(n => twAreaNormalizeName(n)));
 
     function twAreaNormalizeName(v){
       return String(v || "")
@@ -5061,24 +5098,30 @@ button{ -webkit-tap-highlight-color:transparent; }
     function twAreaFeatureNames(feature){
       const p = (feature && feature.properties) ? feature.properties : {};
       const county = twAreaGetProp(p, [
-        "COUNTYNAME", "COUNTY_NAME", "COUNTY_NA", "COUNTY", "county", "CountyName", "name1", "COUNTYCH"
+        "COUNTYNAME", "COUNTY_NAME", "COUNTY_NA", "COUNTY", "county", "CountyName", "COUNTYCH", "COUNTYID", "COUNTYCODE"
       ]);
       const town = twAreaGetProp(p, [
-        "TOWNNAME", "TOWN_NAME", "TOWN_NA", "TOWN", "town", "TownName", "name2", "TOWNCH"
+        "TOWNNAME", "TOWN_NAME", "TOWN_NA", "TOWN", "town", "TownName", "TOWNCH", "TOWNID", "TOWNCODE"
       ]);
       const fullDirect = twAreaGetProp(p, [
         "FULLNAME", "FULL_NAME", "NAME", "name", "Name", "VILLNAME", "AREA", "area"
       ]);
-      const full = (county && town) ? `${county}${town}` : fullDirect;
+      const full = (county && town) ? `${county}${town}` : (fullDirect || county || town);
+      const countyNorm = twAreaNormalizeName(county || fullDirect);
+      const townNorm = twAreaNormalizeName(town);
       return {
         county,
         town,
         full,
+        countyNorm,
+        townNorm,
+        fullNorm: twAreaNormalizeName(full),
         keys: [
           twAreaNormalizeName(full),
           twAreaNormalizeName(county + town),
           twAreaNormalizeName(town),
-          twAreaNormalizeName(fullDirect)
+          twAreaNormalizeName(fullDirect),
+          countyNorm
         ].filter(Boolean)
       };
     }
@@ -5100,6 +5143,19 @@ button{ -webkit-tap-highlight-color:transparent; }
         .map(s => twAreaNormalizeName(s));
     }
 
+    function twAreaSplitSelectedNames(areaText){
+      const all = twAreaExtractAreaNames(areaText);
+      const towns = new Set();
+      const counties = new Set();
+
+      all.forEach(name => {
+        if(twCountyNameSet.has(name)) counties.add(name);
+        else towns.add(name);
+      });
+
+      return { all, towns, counties };
+    }
+
     function twAreaColorByType(typeText){
       const t = String(typeText || "");
       if(/高溫|熱/.test(t)) return "#f97316";
@@ -5110,50 +5166,91 @@ button{ -webkit-tap-highlight-color:transparent; }
       return "#8b5cf6";
     }
 
-    function twAreaStyle(feature){
+    function twAreaIsCountyHit(feature){
+      const names = twAreaFeatureNames(feature);
+      return names.keys.some(k => twAreaSelectedCountyNames.has(k)) || twAreaSelectedCountyNames.has(names.countyNorm);
+    }
+
+    function twAreaIsTownHit(feature){
+      const names = twAreaFeatureNames(feature);
+      const townHit = names.keys.some(k => twAreaSelectedTownNames.has(k));
+      const countyFallbackHit = !twAreaCountyLayer && names.countyNorm && twAreaSelectedCountyNames.has(names.countyNorm);
+      return townHit || countyFallbackHit;
+    }
+
+    function twAreaTownStyle(feature){
       const { type } = twAreaGetSelectedText();
       const color = twAreaColorByType(type);
-      const names = twAreaFeatureNames(feature);
-      const hit = names.keys.some(k => twAreaSelectedNames.has(k));
+      const hit = twAreaIsTownHit(feature);
       return {
         color: hit ? color : "rgba(15,76,92,.22)",
-        weight: hit ? 1.4 : .6,
+        weight: hit ? 1.4 : .55,
         fillColor: hit ? color : "transparent",
-        fillOpacity: hit ? .42 : 0,
-        opacity: hit ? .95 : .35
+        fillOpacity: hit ? .46 : 0,
+        opacity: hit ? .95 : .32
+      };
+    }
+
+    function twAreaCountyStyle(feature){
+      const { type } = twAreaGetSelectedText();
+      const color = twAreaColorByType(type);
+      const hit = twAreaIsCountyHit(feature);
+      return {
+        color: hit ? color : "rgba(15,76,92,.18)",
+        weight: hit ? 2.2 : .8,
+        fillColor: hit ? color : "transparent",
+        fillOpacity: hit ? .26 : 0,
+        opacity: hit ? .95 : .26
       };
     }
 
     function twAreaRefreshHighlight(){
       const status = document.getElementById("twAreaMapStatus");
       const { area } = twAreaGetSelectedText();
-      twAreaSelectedNames = new Set(twAreaExtractAreaNames(area));
+      const selected = twAreaSplitSelectedNames(area);
+      twAreaSelectedTownNames = selected.towns;
+      twAreaSelectedCountyNames = selected.counties;
 
-      if(twAreaGeoJsonLayer){
-        twAreaGeoJsonLayer.setStyle(twAreaStyle);
+      const hitLayers = [];
 
-        const hitLayers = [];
-        twAreaGeoJsonLayer.eachLayer(layer => {
-          const names = twAreaFeatureNames(layer.feature);
-          const hit = names.keys.some(k => twAreaSelectedNames.has(k));
-          if(hit) hitLayers.push(layer);
+      if(twAreaCountyLayer){
+        twAreaCountyLayer.setStyle(twAreaCountyStyle);
+        twAreaCountyLayer.eachLayer(layer => {
+          if(twAreaIsCountyHit(layer.feature)) hitLayers.push(layer);
         });
-
-        if(status){
-          status.textContent = twAreaSelectedNames.size
-            ? `已標示 ${hitLayers.length} 個分區`
-            : "等待選取警報";
-        }
-
-        if(hitLayers.length && twAreaLeafletMap){
-          try{
-            const group = L.featureGroup(hitLayers);
-            twAreaLeafletMap.fitBounds(group.getBounds(), { padding:[22,22], maxZoom:10 });
-          }catch(e){}
-        }
-      }else if(status){
-        status.textContent = "分區尚未載入";
       }
+
+      if(twAreaTownLayer){
+        twAreaTownLayer.setStyle(twAreaTownStyle);
+        twAreaTownLayer.eachLayer(layer => {
+          if(twAreaIsTownHit(layer.feature)) hitLayers.push(layer);
+        });
+      }
+
+      if(status){
+        if(!selected.all.length){
+          status.textContent = "等待選取警報";
+        }else if(!twAreaTownLayer && !twAreaCountyLayer){
+          status.textContent = "分區尚未載入";
+        }else{
+          const countyCount = twAreaSelectedCountyNames.size;
+          const townCount = twAreaSelectedTownNames.size;
+          status.textContent = `已標示 ${hitLayers.length} 個分區（縣市 ${countyCount} / 鄉鎮 ${townCount}）`;
+        }
+      }
+
+      if(hitLayers.length && twAreaLeafletMap){
+        try{
+          const group = L.featureGroup(hitLayers);
+          twAreaLeafletMap.fitBounds(group.getBounds(), { padding:[22,22], maxZoom:10 });
+        }catch(e){}
+      }
+    }
+
+    async function twAreaLoadGeoJson(url){
+      const res = await fetch(url, { cache:"no-store" });
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
     }
 
     async function initTwAreaWarningMap(){
@@ -5188,29 +5285,57 @@ button{ -webkit-tap-highlight-color:transparent; }
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19 }).addTo(twAreaLeafletMap);
       }
 
-      try{
-        if(status) status.textContent = "載入分區中…";
-        const res = await fetch("./tw-town.geojson", { cache:"no-store" });
-        if(!res.ok) throw new Error(`HTTP ${res.status}`);
-        twAreaGeoJsonData = await res.json();
+      if(status) status.textContent = "載入分區中…";
 
-        twAreaGeoJsonLayer = L.geoJSON(twAreaGeoJsonData, {
-          style: twAreaStyle,
+      let loadedTown = false;
+      let loadedCounty = false;
+
+      try{
+        twAreaCountyData = await twAreaLoadGeoJson("./tw-county.geojson");
+        twAreaCountyLayer = L.geoJSON(twAreaCountyData, {
+          style: twAreaCountyStyle,
+          onEachFeature(feature, layer){
+            const names = twAreaFeatureNames(feature);
+            layer.bindTooltip(names.full || names.county || "—", { sticky:true, direction:"top", className:"tw-area-popup" });
+          }
+        }).addTo(twAreaLeafletMap);
+        loadedCounty = true;
+      }catch(err){
+        console.warn("tw-county.geojson optional load failed", err);
+      }
+
+      try{
+        twAreaTownData = await twAreaLoadGeoJson("./tw-town.geojson");
+        twAreaTownLayer = L.geoJSON(twAreaTownData, {
+          style: twAreaTownStyle,
           onEachFeature(feature, layer){
             const names = twAreaFeatureNames(feature);
             layer.bindTooltip(names.full || "—", { sticky:true, direction:"top", className:"tw-area-popup" });
           }
         }).addTo(twAreaLeafletMap);
-
-        if(status) status.textContent = "分區已載入";
-        try{
-          twAreaLeafletMap.fitBounds(twAreaGeoJsonLayer.getBounds(), { padding:[18,18] });
-        }catch(e){}
-        twAreaRefreshHighlight();
+        loadedTown = true;
       }catch(err){
         console.error("tw-town.geojson load failed", err);
-        if(status) status.textContent = "tw-town.geojson 讀取失敗";
       }
+
+      if(status){
+        if(loadedTown && loadedCounty) status.textContent = "鄉鎮 + 縣市分區已載入";
+        else if(loadedTown) status.textContent = "鄉鎮分區已載入（縣市檔未載入）";
+        else if(loadedCounty) status.textContent = "縣市分區已載入（鄉鎮檔未載入）";
+        else status.textContent = "GeoJSON 讀取失敗";
+      }
+
+      try{
+        const fitLayers = [];
+        if(twAreaCountyLayer) fitLayers.push(twAreaCountyLayer);
+        if(twAreaTownLayer) fitLayers.push(twAreaTownLayer);
+        if(fitLayers.length){
+          const group = L.featureGroup(fitLayers);
+          twAreaLeafletMap.fitBounds(group.getBounds(), { padding:[18,18] });
+        }
+      }catch(e){}
+
+      twAreaRefreshHighlight();
 
       const watchTargets = ["twArea", "twDetailType", "twEvent"].map(id => document.getElementById(id)).filter(Boolean);
       const observer = new MutationObserver(() => twAreaRefreshHighlight());
