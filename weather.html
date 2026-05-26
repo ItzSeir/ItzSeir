@@ -3939,23 +3939,30 @@ button{ -webkit-tap-highlight-color:transparent; }
           maxLines:2
         });
 
-        /* Summary */
-        fillRound(ctx, 34, 164, 1532, 160, 26, "rgba(255,255,255,.88)", "rgba(25,42,58,.11)");
-        fillRound(ctx, 54, 184, 260, 42, 999, "#fff", `${latestStyle.color}55`);
+        /* Compact left summary + right forecast layout */
+        const leftX = 34;
+        const leftW = 1030;
+        const rightX = 1084;
+        const rightW = 482;
+
+        /* Summary: kept same width as the map below, so the top blocks no longer feel too wide */
+        fillRound(ctx, leftX, 164, leftW, 150, 26, "rgba(255,255,255,.88)", "rgba(25,42,58,.11)");
+        fillRound(ctx, leftX + 20, 184, 270, 40, 999, "#fff", `${latestStyle.color}55`);
         ctx.beginPath();
-        ctx.arc(74, 205, 5.5, 0, Math.PI * 2);
+        ctx.arc(leftX + 40, 204, 5.5, 0, Math.PI * 2);
         ctx.fillStyle = latestStyle.color;
         ctx.fill();
-        drawText(getStyle(latestObs.level).label, 88, 210, {
+        drawText(getStyle(latestObs.level).label, leftX + 55, 209, {
           size:15,
           weight:900,
           color:"#123044"
         });
 
-        drawText(`時間：${fmtTime(latestObs.time, "full")}`, 1310, 210, {
-          size:15,
+        drawText(`時間：${fmtTime(latestObs.time, "full")}`, leftX + leftW - 24, 208, {
+          size:14,
           weight:900,
-          color:"#617785"
+          color:"#617785",
+          align:"right"
         });
 
         const summaryCards = [
@@ -3964,46 +3971,35 @@ button{ -webkit-tap-highlight-color:transparent; }
           { label:"中心氣壓", value:latestObs.pressure ? `${latestObs.pressure} hPa` : "—" }
         ];
 
+        const sGap = 12;
+        const sCardW = Math.floor((leftW - 40 - sGap * 2) / 3);
         summaryCards.forEach((c, i) => {
-          const x = 54 + i * 500;
-          fillRound(ctx, x, 240, 480, 64, 18, "#fff", "rgba(25,42,58,.10)");
-          drawText(c.value, x + 22, 269, {
-            size:25,
+          const x = leftX + 20 + i * (sCardW + sGap);
+          fillRound(ctx, x, 238, sCardW, 58, 17, "#fff", "rgba(25,42,58,.10)");
+          drawText(c.value, x + 18, 263, {
+            size:i === 0 ? 23 : 24,
             weight:900,
-            color:"#102d40"
+            color:"#102d40",
+            maxWidth:sCardW - 36
           });
-          drawText(c.label, x + 22, 292, {
-            size:13,
+          drawText(c.label, x + 18, 286, {
+            size:12,
             weight:900,
             color:"#718692"
           });
         });
 
-        /* Layout */
-        const panelY = 344;
-        const panelH = 622;
-        const forecastX = 34;
-        const forecastW = 410;
-        const mapX = 464;
-        const mapW = 1102;
+        /* Layout: map moves to the left and forecast list moves to the right */
+        const panelY = 330;
+        const panelH = 636;
+        const mapX = leftX;
+        const mapW = leftW;
         const mapH = panelH;
+        const forecastX = rightX;
+        const forecastW = rightW;
 
-        fillRound(ctx, forecastX, panelY, forecastW, panelH, 26, "rgba(255,255,255,.9)", "rgba(25,42,58,.11)");
         fillRound(ctx, mapX, panelY, mapW, mapH, 26, "rgba(255,255,255,.9)", "rgba(25,42,58,.11)");
-
-        drawText("預報列表", forecastX + 20, panelY + 37, {
-          size:16,
-          weight:900,
-          color:"#123044"
-        });
-
-        const fcst = points.filter(p => p.kind === "fcst");
-        drawText(`${fcst.length} 筆`, forecastX + forecastW - 22, panelY + 37, {
-          size:13,
-          weight:900,
-          color:"#0f4c5c",
-          align:"right"
-        });
+        fillRound(ctx, forecastX, 164, forecastW, 802, 26, "rgba(255,255,255,.9)", "rgba(25,42,58,.11)");
 
         drawText("颱風路徑圖", mapX + 22, panelY + 37, {
           size:16,
@@ -4012,54 +4008,69 @@ button{ -webkit-tap-highlight-color:transparent; }
         });
 
         drawText("歷史路徑 / 預報路徑 / 預報不確定性", mapX + mapW - 22, panelY + 37, {
-          size:13,
+          size:12,
           weight:900,
           color:"#617785",
           align:"right"
         });
 
+        drawText("預報列表", forecastX + 20, 201, {
+          size:16,
+          weight:900,
+          color:"#123044"
+        });
+
+        const fcst = points.filter(p => p.kind === "fcst");
+        drawText(`${fcst.length} 筆`, forecastX + forecastW - 22, 201, {
+          size:13,
+          weight:900,
+          color:"#0f4c5c",
+          align:"right"
+        });
+
         /* Forecast Cards */
-        const maxCards = 5;
+        const maxCards = 6;
         const shown = fcst.slice(0, maxCards);
         const cardX = forecastX + 16;
         const cardW = forecastW - 32;
-        const cardY0 = panelY + 62;
-        const cardGap = 12;
-        const cardH = Math.floor((panelH - 82 - cardGap * (maxCards - 1)) / maxCards);
+        const cardY0 = 226;
+        const cardGap = 10;
+        const forecastPanelH = 802;
+        const cardH = Math.floor((forecastPanelH - 82 - cardGap * (maxCards - 1)) / maxCards);
 
         shown.forEach((p, i) => {
           const st = getStyle(p.level);
           const y = cardY0 + i * (cardH + cardGap);
           fillRound(ctx, cardX, y, cardW, cardH, 18, "#fff", "rgba(25,42,58,.10)");
 
-          drawText(fmtTime(p.time, "short"), cardX + 16, y + 31, {
-            size:19,
+          drawText(fmtTime(p.time, "short"), cardX + 16, y + 29, {
+            size:18,
             weight:900,
             color:"#102d40"
           });
 
-          fillRound(ctx, cardX + cardW - 108, y + 13, 92, 28, 999, "#fff", `${st.color}55`);
+          fillRound(ctx, cardX + cardW - 108, y + 12, 92, 27, 999, "#fff", `${st.color}55`);
           ctx.beginPath();
-          ctx.arc(cardX + cardW - 92, y + 27, 4, 0, Math.PI * 2);
+          ctx.arc(cardX + cardW - 92, y + 25.5, 4, 0, Math.PI * 2);
           ctx.fillStyle = st.color;
           ctx.fill();
-          drawText(p.level || "—", cardX + cardW - 82, y + 31, {
+          drawText(p.level || "—", cardX + cardW - 82, y + 30, {
             size:12,
             weight:900,
             color:"#123044"
           });
 
-          const kvY = y + 60;
+          const kvY = y + 58;
           drawText("座標", cardX + 16, kvY, { size:12, weight:900, color:"#718692" });
           drawText(`${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}`, cardX + 62, kvY, { size:12, weight:900, color:"#102d40" });
-          drawText("風速", cardX + 16, kvY + 24, { size:12, weight:900, color:"#718692" });
-          drawText(fmtWindMs(p.wind), cardX + 62, kvY + 24, { size:12, weight:900, color:"#102d40" });
-          drawText("氣壓", cardX + 190, kvY + 24, { size:12, weight:900, color:"#718692" });
-          drawText(p.pressure ? `${p.pressure} hPa` : "—", cardX + 236, kvY + 24, { size:12, weight:900, color:"#102d40" });
+          drawText("風速", cardX + 16, kvY + 23, { size:12, weight:900, color:"#718692" });
+          drawText(fmtWindMs(p.wind), cardX + 62, kvY + 23, { size:12, weight:900, color:"#102d40" });
+          drawText("氣壓", cardX + 210, kvY + 23, { size:12, weight:900, color:"#718692" });
+          drawText(p.pressure ? `${p.pressure} hPa` : "—", cardX + 256, kvY + 23, { size:12, weight:900, color:"#102d40" });
         });
 
         if(fcst.length > maxCards){
-          drawText(`+${fcst.length - maxCards} 筆更多預報資料`, forecastX + forecastW / 2, panelY + panelH - 14, {
+          drawText(`+${fcst.length - maxCards} 筆更多預報資料`, forecastX + forecastW / 2, 164 + forecastPanelH - 16, {
             size:12,
             weight:900,
             color:"#718692",
@@ -4133,26 +4144,63 @@ button{ -webkit-tap-highlight-color:transparent; }
           drawDot(pt.x, pt.y, st.color, i === latestObsIdx ? 8 : (p.kind === "fcst" ? 5.5 : 5), i === latestObsIdx);
         });
 
-        /* Fewer labels */
-        getSmartLabelIndexes().forEach((idx, n) => {
-          const p = points[idx];
-          const st = getStyle(p.level);
-          const pt = project(p.lat, p.lon);
-          const text = fmtTime(p.time, "short");
-          const rightSide = pt.x > innerMapX + innerMapW * 0.63;
-          const x = rightSide ? pt.x - 18 : pt.x + 18;
-          const y = pt.y + (n % 2 === 0 ? -34 : 34);
+        /* Smarter time labels: fewer, smaller and collision-aware */
+        const usedLabelBoxes = [];
+        function boxHit(a, b){
+          return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+        }
+        function placeMapLabel(pt, text, color){
+          ctx.font = `900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+          const w = Math.ceil(ctx.measureText(text).width) + 42;
+          const h = 30;
+          const candidates = [
+            { x:pt.x + 20, y:pt.y - 36, align:"left" },
+            { x:pt.x + 20, y:pt.y + 36, align:"left" },
+            { x:pt.x - 20, y:pt.y - 36, align:"right" },
+            { x:pt.x - 20, y:pt.y + 36, align:"right" },
+            { x:pt.x + 18, y:pt.y, align:"left" },
+            { x:pt.x - 18, y:pt.y, align:"right" }
+          ];
+
+          let best = null;
+          for(const c of candidates){
+            const bx = c.align === "right" ? c.x - w : c.x;
+            const by = c.y - h / 2;
+            const box = {
+              x:clamp(bx, innerMapX + 12, innerMapX + innerMapW - w - 12),
+              y:clamp(by, innerMapY + 12, innerMapY + innerMapH - h - 12),
+              w,
+              h,
+              align:c.align
+            };
+            if(!usedLabelBoxes.some(b => boxHit(box, b))){
+              best = box;
+              break;
+            }
+            best = box;
+          }
+
+          usedLabelBoxes.push(best);
+          const anchorX = best.align === "right" ? best.x + best.w : best.x;
+          const anchorY = best.y + best.h / 2;
 
           ctx.save();
           ctx.beginPath();
           ctx.moveTo(pt.x, pt.y);
-          ctx.lineTo(x, y);
-          ctx.strokeStyle = "rgba(25,42,58,.28)";
-          ctx.lineWidth = 1.4;
+          ctx.lineTo(anchorX, anchorY);
+          ctx.strokeStyle = "rgba(25,42,58,.22)";
+          ctx.lineWidth = 1.2;
           ctx.stroke();
           ctx.restore();
 
-          drawLabel(x, y, text, st.color, rightSide ? "right" : "left");
+          drawLabel(anchorX, anchorY, text, color, best.align);
+        }
+
+        getSmartLabelIndexes().forEach((idx) => {
+          const p = points[idx];
+          const st = getStyle(p.level);
+          const pt = project(p.lat, p.lon);
+          placeMapLabel(pt, fmtTime(p.time, "short"), st.color);
         });
 
         /* Map credit inside image */
