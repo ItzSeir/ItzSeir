@@ -782,6 +782,84 @@ button{ -webkit-tap-highlight-color:transparent; }
   white-space:pre-wrap;
 }
 
+
+
+/* ===== Taiwan Warning Area Map ===== */
+.twAreaMapBox{
+  margin-top:12px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:#fff;
+  overflow:hidden;
+}
+
+.twAreaMapHead{
+  min-height:48px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  background:linear-gradient(135deg, rgba(249,252,252,.96), rgba(231,242,243,.78));
+}
+
+.twAreaMapHead strong{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#122c3c;
+  font-size:13px;
+  font-weight:900;
+}
+
+.twAreaMapLegend{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#647983;
+  font-size:12px;
+  font-weight:900;
+}
+
+.twAreaMapLegend span{
+  width:12px;
+  height:12px;
+  border-radius:4px;
+  display:inline-block;
+  background:#f97316;
+  box-shadow:0 0 0 4px rgba(249,115,22,.12);
+}
+
+#twAreaMap{
+  width:100%;
+  height:380px;
+  min-height:300px;
+  background:#f4fafb;
+}
+
+.twMapNote{
+  padding:10px 14px;
+  border-top:1px solid var(--line);
+  color:#647983;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.6;
+}
+
+.twAreaPopup{
+  min-width:180px;
+  color:#122c3c;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.6;
+}
+
+@media (max-width:780px){
+  #twAreaMap{ height:340px; }
+}
+
 /* ===== Typhoon Tracker Header ===== */
 
 .trackerHead{
@@ -2262,6 +2340,15 @@ button{ -webkit-tap-highlight-color:transparent; }
 
                   <div class="warningMono" id="twText">（請在左側點選一筆警報）</div>
                   <div class="warningMono" id="twRaw" style="display:none;"></div>
+                </div>
+
+                <div class="twAreaMapBox">
+                  <div class="twAreaMapHead">
+                    <strong>🗺️ 警報分區地圖</strong>
+                    <div class="twAreaMapLegend"><span id="twAreaLegendColor"></span><em id="twAreaMapCount" style="font-style:normal;">尚未載入分區</em></div>
+                  </div>
+                  <div id="twAreaMap"></div>
+                  <div class="twMapNote" id="twAreaMapNote">會依照目前選取的 CWA CAP 警報，自動把影響區域上色。若沒有顯示，請確認 tw-town.geojson 或外部 GeoJSON 是否可讀取。</div>
                 </div>
               </div>
             </div>
@@ -4290,6 +4377,10 @@ button{ -webkit-tap-highlight-color:transparent; }
 
           document.querySelectorAll(".warningPanel").forEach(panel => panel.classList.remove("active"));
           document.getElementById(panelId).classList.add("active");
+
+          if(tab === "tw" && window.__twAreaMapInvalidate){
+            setTimeout(window.__twAreaMapInvalidate, 180);
+          }
         });
       });
     }
@@ -4312,6 +4403,13 @@ button{ -webkit-tap-highlight-color:transparent; }
       let selectedIndex = -1;
       let autoTimer = null;
       let tickTimer = null;
+
+      let twAreaMap = null;
+      let twAreaBaseLayer = null;
+      let twAreaGeoLayer = null;
+      let twAreaGeoJson = null;
+      let twCurrentAlert = null;
+      let twMapReady = false;
 
       const q = (id) => document.getElementById(id);
 
@@ -4410,6 +4508,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         return await res.text();
       }
 
+\n\n      function normTwName(s){\n        return String(s || "")\n          .replace(/台/g, "臺")\n          .replace(/[\s,，、；;。\.\-＿_()（）]/g, "")\n          .trim();\n      }\n\n      function splitTwAreas(areaText){\n        const raw = String(areaText || "");\n        return raw\n          .split(/[；;,、\n]+/)\n          .map(x => normTwName(x))\n          .filter(Boolean);\n      }\n\n      function getFeatureNames(feature){\n        const p = feature?.properties || {};\n        const county = p.COUNTYNAME || p.COUNTY || p.county || p.COUNTY_NAME || p.name_1 || p.city || p.CityName || p.COUNTY_NAM || "";\n        const town = p.TOWNNAME || p.TOWN || p.town || p.TOWN_NAME || p.name_2 || p.TownName || p.VILLNAME || p.name || "";\n        const full = normTwName(`${county}${town}`);\n        const onlyTown = normTwName(town);\n        const onlyCounty = normTwName(county);\n        const name = normTwName(p.name || p.NAME || p.NL_NAME_2 || p.NL_NAME_1 || "");\n        return Array.from(new Set([full, onlyTown, onlyCounty, name].filter(Boolean)));\n      }\n\n      function featureMatchesAreas(feature, areaList){\n        if(!areaList.length) return false;\n        const names = getFeatureNames(feature);\n        return names.some(n => areaList.some(a => a === n || a.includes(n) || n.includes(a)));\n      }\n\n      function getFeatureDisplayName(feature){\n        const p = feature?.properties || {};\n        const county = p.COUNTYNAME || p.COUNTY || p.county || p.COUNTY_NAME || p.name_1 || p.city || p.CityName || "";\n        const town = p.TOWNNAME || p.TOWN || p.town || p.TOWN_NAME || p.name_2 || p.TownName || p.name || "";\n        return `${county || ""}${town || ""}` || p.NAME || "行政區";\n      }\n\n      function setTwMapNote(text){\n        if(q("twAreaMapNote")) q("twAreaMapNote").textContent = text;\n      }\n\n      async function fetchFirstGeoJson(urls){\n        let lastErr = null;\n        for(const url of urls){\n          try{\n            const res = await fetch(url, { cache:"force-cache" });\n            if(!res.ok) throw new Error(`${res.status} ${url}`);\n            const data = await res.json();\n            if(data && (data.type === "FeatureCollection" || data.type === "Feature")) return data;\n          }catch(err){\n            lastErr = err;\n            console.warn("Taiwan GeoJSON load failed:", url, err);\n          }\n        }\n        throw lastErr || new Error("GeoJSON load failed");\n      }\n\n      async function initTwAreaMap(){\n        if(twMapReady || !q("twAreaMap") || typeof L === "undefined") return;\n\n        twAreaMap = L.map("twAreaMap", {\n          zoomControl:true,\n          scrollWheelZoom:true,\n          attributionControl:false\n        }).setView([23.7, 121.0], 7);\n\n        twAreaBaseLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {\n          maxZoom:18,\n          crossOrigin:"anonymous"\n        }).addTo(twAreaMap);\n\n        try{\n          twAreaGeoJson = await fetchFirstGeoJson([\n            "./tw-town.geojson",\n            "./tw-town.geo.json",\n            "https://raw.githubusercontent.com/g0v/twgeojson/master/json/twTown1982.geo.json"\n          ]);\n          twMapReady = true;\n          setTwMapNote("分區地圖已載入。點選左側 CAP 警報後，影響區域會自動上色。建議正式部署時把 tw-town.geojson 放在同一個資料夾，避免外部連結失效。");\n          updateTwAreaMap(twCurrentAlert);\n        }catch(err){\n          twMapReady = true;\n          console.error(err);\n          setTwMapNote("分區 GeoJSON 載入失敗。請把台灣鄉鎮市區 GeoJSON 命名為 tw-town.geojson，放在此 HTML 同一個資料夾。警報清單仍可正常使用。");\n        }\n\n        setTimeout(() => {\n          try{ twAreaMap.invalidateSize(); }catch(e){}\n        }, 250);\n      }\n\n      function updateTwAreaMap(alert){\n        twCurrentAlert = alert || null;\n\n        if(q("twAreaLegendColor")){\n          q("twAreaLegendColor").style.background = alert?.color || "#94a3b8";\n          q("twAreaLegendColor").style.boxShadow = `0 0 0 4px ${(alert?.color || "#94a3b8")}22`;\n        }\n\n        if(!twAreaMap || !twAreaGeoJson){\n          if(q("twAreaMapCount")) q("twAreaMapCount").textContent = alert ? "等待地圖載入" : "尚未選取警報";\n          return;\n        }\n\n        if(twAreaGeoLayer){\n          twAreaGeoLayer.remove();\n          twAreaGeoLayer = null;\n        }\n\n        const areas = splitTwAreas(alert?.area || "");\n        const color = alert?.color || "#64748b";\n        let hitCount = 0;\n        const bounds = [];\n\n        twAreaGeoLayer = L.geoJSON(twAreaGeoJson, {\n          style(feature){\n            const hit = featureMatchesAreas(feature, areas);\n            if(hit) hitCount += 1;\n            return {\n              color: hit ? color : "#94a3b8",\n              weight: hit ? 1.8 : 0.55,\n              opacity: hit ? 0.95 : 0.34,\n              fillColor: hit ? color : "#e2e8f0",\n              fillOpacity: hit ? 0.48 : 0.08\n            };\n          },\n          onEachFeature(feature, layer){\n            const hit = featureMatchesAreas(feature, areas);\n            const name = getFeatureDisplayName(feature);\n\n            if(hit){\n              try{ bounds.push(layer.getBounds()); }catch(e){}\n            }\n\n            layer.bindPopup(`\n              <div class="twAreaPopup">\n                <b>${twEscape(name)}</b><br>\n                ${hit ? twEscape(alert?.datasetName || "警報影響區域") : "未列入目前選取警報"}\n              </div>\n            `);\n          }\n        }).addTo(twAreaMap);\n\n        if(q("twAreaMapCount")){\n          q("twAreaMapCount").textContent = alert ? `已上色 ${hitCount} 區` : "尚未選取警報";\n        }\n\n        if(alert && areas.length && hitCount > 0){\n          let merged = null;\n          bounds.forEach(b => {\n            merged = merged ? merged.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast());\n          });\n          if(merged && merged.isValid()){\n            twAreaMap.fitBounds(merged, { padding:[24,24], maxZoom:10, animate:true });\n          }\n          setTwMapNote(`目前顯示：${alert.datasetName || "CAP 警報"}，CAP 區域 ${areas.length} 筆，地圖成功比對 ${hitCount} 區。`);\n        }else if(alert && areas.length){\n          twAreaMap.setView([23.7, 121.0], 7);\n          setTwMapNote(`CAP 有 ${areas.length} 筆區域，但 GeoJSON 名稱沒有完全對上。可檢查 GeoJSON 的 COUNTYNAME / TOWNNAME 是否使用臺/台或行政區名稱格式。`);\n        }else{\n          twAreaMap.setView([23.7, 121.0], 7);\n          setTwMapNote("請在左側選取一筆台灣 CAP 警報，地圖會自動顯示影響分區。");\n        }\n\n        setTimeout(() => {\n          try{ twAreaMap.invalidateSize(); }catch(e){}\n        }, 80);\n      }\n
       function buildFilters(){
         const typeSel = q("twTypeFilter");
         typeSel.innerHTML = "";
@@ -4441,6 +4540,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           q("twRaw").style.display = "none";
           q("twText").style.display = "block";
           q("twRawBtn").textContent = "顯示 Raw CAP";
+          updateTwAreaMap(null);
           return;
         }
 
@@ -4451,6 +4551,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         q("twValid").textContent = `${fmtCapTime(a.effective)} → ${fmtCapTime(a.expires)}`;
         q("twDetailType").textContent = a.datasetName || "—";
         q("twArea").textContent = a.area || "—";
+        updateTwAreaMap(a);
 
         const text = [
           a.description ? `【說明】\n${a.description}` : "",
@@ -4646,6 +4747,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       buildFilters();
+      initTwAreaMap();
 
       q("twRefresh").addEventListener("click", () => refreshTaiwan({ silent:false }));
 
