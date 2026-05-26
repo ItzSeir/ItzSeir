@@ -143,7 +143,7 @@
       "lon": 128.9,
       "time": "2026-05-31 20:00",
       "kind": "fcst",
-      "level": "STY",
+      "level": "TY",
       "wind": 43,
       "gust": 53,
       "pressure": 945,
