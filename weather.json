@@ -1,5 +1,5 @@
 {
-  "title": "熱帶性低氣壓TD06情報",
+  "title": "薔蜜颱風情報",
   "source": "CWA 資料",
   "points": [
     {
@@ -24,133 +24,149 @@
       "pressure": 1004,
       "move_dir": "西",
       "move_speed_kmh": 9,
+      "note": ""
+    },
+    {
+      "lat": 14.8,
+      "lon": 134.7,
+      "time": "2026-05-29 02:00",
+      "kind": "obs",
+      "level": "TS",
+      "wind": 20,
+      "gust": 28,
+      "pressure": 995,
+      "move_dir": "西北",
+      "move_speed_kmh": 25,
+      "storm_radius_km": 100,
+      "storm_radius_quadrant_km": {
+        "NW": 110,
+        "NE": 150,
+        "SW": 60,
+        "SE": 60
+      },
       "note": "最新觀測位置"
     },
     {
-      "lat": 8.7,
-      "lon": 138.8,
-      "time": "2026-05-27 02:00",
-      "kind": "fcst",
-      "level": "TD",
-      "wind": 15,
-      "gust": 23,
-      "pressure": 1004,
-      "note": "",
-      "fcst_radius_km": 70
-    },
-
-    {
-      "lat": 9.5,
-      "lon": 138.1,
-      "time": "2026-05-27 08:00",
-      "kind": "fcst",
-      "level": "TD",
-      "wind": 15,
-      "gust": 23,
-      "pressure": 1004,
-      "note": "",
-      "fcst_radius_km": 100
-    },
-
-    {
-      "lat": 10.4,
-      "lon": 137.4,
-      "time": "2026-05-27 14:00",
-      "kind": "fcst",
-      "level": "TS",
-      "wind": 18,
-      "gust": 25,
-      "pressure": 998,
-      "note": "18 小時內有發展為輕度颱風的趨勢",
-      "fcst_radius_km": 120,
-      "storm_radius_km": 100
-    },
-
-    {
-      "lat": 11.1,
-      "lon": 136.9,
-      "time": "2026-05-27 20:00",
+      "lat": 15.5,
+      "lon": 133.7,
+      "time": "2026-05-29 08:00",
       "kind": "fcst",
       "level": "TS",
       "wind": 20,
       "gust": 28,
       "pressure": 995,
       "note": "",
-      "fcst_radius_km": 140,
+      "fcst_radius_km": 40,
+      "storm_radius_km": 100
+    },
+    {
+      "lat": 16.0,
+      "lon": 132.8,
+      "time": "2026-05-29 14:00",
+      "kind": "fcst",
+      "level": "TS",
+      "wind": 23,
+      "gust": 30,
+      "pressure": 990,
+      "note": "",
+      "fcst_radius_km": 50,
       "storm_radius_km": 120
     },
-
     {
-      "lat": 12.4,
-      "lon": 136.2,
-      "time": "2026-05-28 08:00",
+      "lat": 16.3,
+      "lon": 131.9,
+      "time": "2026-05-29 20:00",
       "kind": "fcst",
       "level": "TS",
       "wind": 25,
       "gust": 33,
       "pressure": 985,
       "note": "",
-      "fcst_radius_km": 150,
-      "storm_radius_km": 150
+      "fcst_radius_km": 80,
+      "storm_radius_km": 120
     },
-
     {
-      "lat": 13.9,
-      "lon": 135.4,
-      "time": "2026-05-28 20:00",
+      "lat": 16.9,
+      "lon": 131.0,
+      "time": "2026-05-30 02:00",
       "kind": "fcst",
       "level": "STS",
       "wind": 28,
       "gust": 35,
       "pressure": 980,
       "note": "",
-      "fcst_radius_km": 180,
+      "fcst_radius_km": 90,
       "storm_radius_km": 150
     },
-
     {
-      "lat": 16.2,
-      "lon": 132.8,
-      "time": "2026-05-29 20:00",
+      "lat": 18.0,
+      "lon": 129.4,
+      "time": "2026-05-30 14:00",
       "kind": "fcst",
       "level": "TY",
-      "wind": 38,
-      "gust": 48,
-      "pressure": 960,
+      "wind": 33,
+      "gust": 43,
+      "pressure": 970,
       "note": "",
-      "fcst_radius_km": 330,
+      "fcst_radius_km": 100,
       "storm_radius_km": 180,
       "storm_radius_10_km": 60
     },
-
     {
-      "lat": 18.9,
-      "lon": 130.3,
-      "time": "2026-05-30 20:00",
+      "lat": 19.6,
+      "lon": 128.3,
+      "time": "2026-05-31 02:00",
       "kind": "fcst",
       "level": "TY",
       "wind": 40,
       "gust": 50,
       "pressure": 950,
       "note": "",
-      "fcst_radius_km": 350,
+      "fcst_radius_km": 130,
       "storm_radius_km": 200,
       "storm_radius_10_km": 70
     },
-
     {
-      "lat": 22.0,
-      "lon": 128.9,
-      "time": "2026-05-31 20:00",
+      "lat": 23.3,
+      "lon": 127.2,
+      "time": "2026-06-01 02:00",
       "kind": "fcst",
       "level": "TY",
       "wind": 43,
       "gust": 53,
       "pressure": 945,
       "note": "",
-      "fcst_radius_km": 540,
+      "fcst_radius_km": 210,
       "storm_radius_km": 220,
       "storm_radius_10_km": 70
+    },
+    {
+      "lat": 27.9,
+      "lon": 128.1,
+      "time": "2026-06-02 02:00",
+      "kind": "fcst",
+      "level": "TY",
+      "wind": 38,
+      "gust": 48,
+      "pressure": 960,
+      "note": "",
+      "fcst_radius_km": 360,
+      "storm_radius_km": 220,
+      "storm_radius_10_km": 70
+    },
+    {
+      "lat": 33.1,
+      "lon": 134.4,
+      "time": "2026-06-03 02:00",
+      "kind": "fcst",
+      "level": "STS",
+      "wind": 30,
+      "gust": 38,
+      "pressure": 975,
+      "note": "",
+      "fcst_radius_km": 410,
+      "storm_radius_km": 180,
+      "storm_radius_10_km": 60
     }
   ]
 }
