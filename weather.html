@@ -2444,7 +2444,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         暴風圈
       </label>
 
-      <button class="btn refreshJsonBtn" id="refreshTyphoonBtn" data-refresh-typhoon type="button">刷新 JSON</button>
+      <button class="btn refreshJsonBtn" id="refreshTyphoonBtn" data-refresh-typhoon type="button">刷新</button>
       <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
       <button class="btn" id="printBtn" type="button">產生地圖 PNG</button>
     </div>
@@ -2494,7 +2494,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           <span>預報列表</span>
         </div>
 
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"><button class="btn refreshJsonBtn" data-refresh-typhoon type="button">刷新 JSON</button><span class="chip" id="fcstCount">0 筆</span></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"><button class="btn refreshJsonBtn" data-refresh-typhoon type="button">刷新</button><span class="chip" id="fcstCount">0 筆</span></div>
       </div>
 
       <div class="fcstList" id="fcstList" aria-label="forecast-list"></div>
@@ -3399,7 +3399,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       }finally{
         btns.forEach((btn, i) => {
           btn.disabled = false;
-          btn.textContent = oldTexts[i] || "刷新 JSON";
+          btn.textContent = oldTexts[i] || "刷新";
         });
       }
     }
@@ -4120,7 +4120,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           color:"#123044"
         });
 
-        drawText("顏色代表颱風級別，虛線為預報路徑", mapX + mapW - 22, panelY + 37, {
+        drawText("顏色代表颱風級別，圖例置於地圖下方", mapX + mapW - 22, panelY + 37, {
           size:12,
           weight:900,
           color:"#617785",
@@ -4192,42 +4192,47 @@ button{ -webkit-tap-highlight-color:transparent; }
         }
 
         function drawPngLegendBox(){
-          const lx = innerMapX + 16;
-          const ly = innerMapY + innerMapH - 92;
-          const lw = 560;
-          const lh = 74;
+          const lx = innerMapX;
+          const ly = innerMapY + innerMapH + 10;
+          const lw = innerMapW;
+          const lh = 52;
 
           ctx.save();
-          fillRound(ctx, lx, ly, lw, lh, 18, "rgba(255,255,255,.92)", "rgba(25,42,58,.13)");
-          drawText("圖例", lx + 16, ly + 25, { size:13, weight:900, color:"#0f4c5c" });
+          fillRound(ctx, lx, ly, lw, lh, 16, "rgba(255,255,255,.94)", "rgba(25,42,58,.13)");
+          drawText("圖例", lx + 16, ly + 31, { size:13, weight:900, color:"#0f4c5c" });
 
-          // route legend
+          let x = lx + 74;
+          const y = ly + 27;
+
           ctx.lineCap = "round";
           ctx.lineWidth = 4;
           ctx.strokeStyle = "#6b7280";
           ctx.setLineDash([]);
           ctx.beginPath();
-          ctx.moveTo(lx + 66, ly + 22);
-          ctx.lineTo(lx + 98, ly + 22);
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + 34, y);
           ctx.stroke();
-          drawText("歷史", lx + 106, ly + 27, { size:12, weight:900, color:"#617785" });
+          drawText("歷史", x + 44, y + 5, { size:12, weight:900, color:"#617785" });
+          x += 98;
 
           ctx.strokeStyle = "#22c55e";
           ctx.setLineDash([8, 7]);
           ctx.beginPath();
-          ctx.moveTo(lx + 158, ly + 22);
-          ctx.lineTo(lx + 190, ly + 22);
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + 34, y);
           ctx.stroke();
           ctx.setLineDash([]);
-          drawText("預報", lx + 198, ly + 27, { size:12, weight:900, color:"#617785" });
+          drawText("預報", x + 44, y + 5, { size:12, weight:900, color:"#617785" });
+          x += 104;
 
           ctx.fillStyle = "rgba(96,165,250,.22)";
           ctx.strokeStyle = "rgba(96,165,250,.48)";
           ctx.lineWidth = 1.5;
-          roundRect(ctx, lx + 250, ly + 13, 30, 18, 9);
+          roundRect(ctx, x, y - 10, 30, 18, 9);
           ctx.fill();
           ctx.stroke();
-          drawText("不確定範圍", lx + 288, ly + 27, { size:12, weight:900, color:"#617785" });
+          drawText("不確定範圍", x + 40, y + 5, { size:12, weight:900, color:"#617785" });
+          x += 140;
 
           const levels = [
             ["LOW", "低壓"],
@@ -4236,15 +4241,14 @@ button{ -webkit-tap-highlight-color:transparent; }
             ["TY", "中颱"],
             ["STY", "強颱"]
           ];
-          let x = lx + 66;
           levels.forEach(([key, label]) => {
             const st = getStyle(key);
             ctx.beginPath();
-            ctx.arc(x, ly + 52, 5, 0, Math.PI * 2);
+            ctx.arc(x, y, 5, 0, Math.PI * 2);
             ctx.fillStyle = st.color;
             ctx.fill();
-            drawText(label, x + 11, ly + 56, { size:12, weight:900, color:"#123044" });
-            x += label === "低壓" ? 70 : 66;
+            drawText(label, x + 12, y + 5, { size:12, weight:900, color:"#123044" });
+            x += 66;
           });
 
           ctx.restore();
@@ -4254,7 +4258,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         const innerMapX = mapX + 16;
         const innerMapY = panelY + 62;
         const innerMapW = mapW - 32;
-        const innerMapH = panelH - 82;
+        const innerMapH = panelH - 146;
         const view = buildView(innerMapW, innerMapH, 92);
         const zoomStr = view.zoom.toFixed(2);
         const staticUrl = `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${view.lon.toFixed(6)},${view.lat.toFixed(6)},${zoomStr},0/${innerMapW}x${innerMapH}@2x?access_token=${MAPBOX_TOKEN}&logo=false&attribution=false`;
@@ -4391,9 +4395,10 @@ button{ -webkit-tap-highlight-color:transparent; }
           placeMapLabel(pt, fmtTime(p.time, "short"), st.color);
         });
 
-        drawPngLegendBox();
-
         ctx.restore();
+
+        /* Draw PNG legend outside the clipped map area so it stays below the map instead of covering the route. */
+        drawPngLegendBox();
 
         /* Footer */
         drawText(`資料來源：${weatherMeta.source || "—"}`, W - 36, 988, {
