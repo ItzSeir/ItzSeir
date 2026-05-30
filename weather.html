@@ -1532,8 +1532,8 @@ button{ -webkit-tap-highlight-color:transparent; }
 
 .pngReportTop{
   display:grid;
-  grid-template-columns:1fr 560px;
-  gap:24px;
+  grid-template-columns:1fr;
+  gap:0;
   align-items:start;
   margin-bottom:18px;
 }
@@ -3655,10 +3655,6 @@ button{ -webkit-tap-highlight-color:transparent; }
               <h1 class="pngReportTitle">${escapeHtml(weatherMeta.title || "颱風情報")}</h1>
               <p class="pngReportSub">颱風路徑、目前強度、預報誤差範圍與預報列表集中顯示於此圖。</p>
             </div>
-            <div class="pngSourceBox">
-              <b><span class="dot" style="background:#7c3aed;margin-right:8px;"></span>DATA SOURCE</b>
-              <span>來源：${escapeHtml(weatherMeta.source || "—")}</span>
-            </div>
           </div>
 
           <div class="pngSummary">
@@ -4039,18 +4035,21 @@ button{ -webkit-tap-highlight-color:transparent; }
           color:"#617785"
         });
 
-        fillRound(ctx, 1010, 28, 556, 120, 26, "rgba(255,255,255,.88)", "rgba(25,42,58,.11)");
-        drawText("DATA SOURCE", 1032, 58, {
+        drawText(`資料來源：${weatherMeta.source || "—"}`, 1566, 47, {
           size:13,
           weight:900,
-          color:"#0f4c5c"
+          color:"#617785",
+          align:"right"
         });
-        wrapText(weatherMeta.source || "—", 1032, 88, 508, 24, {
-          size:18,
-          weight:900,
-          color:"#123044",
-          maxLines:2
-        });
+        ctx.save();
+        ctx.strokeStyle = "rgba(25,42,58,.10)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(34, 152);
+        ctx.lineTo(1566, 152);
+        ctx.stroke();
+        ctx.restore();
+
 
         /* Compact left summary + right forecast layout */
         const leftX = 34;
@@ -4112,7 +4111,9 @@ button{ -webkit-tap-highlight-color:transparent; }
         const forecastW = rightW;
 
         fillRound(ctx, mapX, panelY, mapW, mapH, 26, "rgba(255,255,255,.9)", "rgba(25,42,58,.11)");
-        fillRound(ctx, forecastX, 164, forecastW, 802, 26, "rgba(255,255,255,.9)", "rgba(25,42,58,.11)");
+        const forecastY = 28;
+        const forecastH = 938;
+        fillRound(ctx, forecastX, forecastY, forecastW, forecastH, 26, "rgba(255,255,255,.9)", "rgba(25,42,58,.11)");
 
         drawText("颱風路徑圖", mapX + 22, panelY + 37, {
           size:16,
@@ -4127,14 +4128,14 @@ button{ -webkit-tap-highlight-color:transparent; }
           align:"right"
         });
 
-        drawText("預報列表", forecastX + 20, 201, {
+        drawText("預報列表", forecastX + 20, forecastY + 38, {
           size:16,
           weight:900,
           color:"#123044"
         });
 
         const fcst = points.filter(p => p.kind === "fcst");
-        drawText(`${fcst.length} 筆`, forecastX + forecastW - 22, 201, {
+        drawText(`${fcst.length} 筆`, forecastX + forecastW - 22, forecastY + 38, {
           size:13,
           weight:900,
           color:"#0f4c5c",
@@ -4146,9 +4147,9 @@ button{ -webkit-tap-highlight-color:transparent; }
         const shown = fcst.slice(0, maxCards);
         const cardX = forecastX + 16;
         const cardW = forecastW - 32;
-        const cardY0 = 226;
+        const cardY0 = forecastY + 62;
         const cardGap = 10;
-        const forecastPanelH = 802;
+        const forecastPanelH = forecastH;
         const cardH = Math.floor((forecastPanelH - 82 - cardGap * (maxCards - 1)) / maxCards);
 
         shown.forEach((p, i) => {
@@ -4183,7 +4184,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         });
 
         if(fcst.length > maxCards){
-          drawText(`+${fcst.length - maxCards} 筆更多預報資料`, forecastX + forecastW / 2, 164 + forecastPanelH - 16, {
+          drawText(`+${fcst.length - maxCards} 筆更多預報資料`, forecastX + forecastW / 2, forecastY + forecastPanelH - 16, {
             size:12,
             weight:900,
             color:"#718692",
