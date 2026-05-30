@@ -3601,12 +3601,12 @@ button{ -webkit-tap-highlight-color:transparent; }
         const labelW = 112;
         const labelH = 30;
         const positions = [
-          { x:p.x + 34, y:p.y - 14 },
-          { x:p.x + 34, y:p.y + 26 },
-          { x:p.x - labelW - 34, y:p.y - 14 },
-          { x:p.x - labelW - 34, y:p.y + 26 },
-          { x:p.x + 20, y:p.y - 56 },
-          { x:p.x - labelW - 20, y:p.y - 56 }
+          { x:p.x + 64, y:p.y - 60 },
+          { x:p.x + 72, y:p.y + 52 },
+          { x:p.x - labelW - 64, y:p.y - 60 },
+          { x:p.x - labelW - 72, y:p.y + 52 },
+          { x:p.x + 92, y:p.y - 12 },
+          { x:p.x - labelW - 92, y:p.y - 12 }
         ];
 
         let chosen = positions[0];
@@ -4326,17 +4326,25 @@ button{ -webkit-tap-highlight-color:transparent; }
           return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
         }
         function placeMapLabel(pt, text, color){
-          ctx.font = `900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
-          const w = Math.ceil(ctx.measureText(text).width) + 42;
-          const h = 30;
+          ctx.font = `900 12px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+          const w = Math.ceil(ctx.measureText(text).width) + 38;
+          const h = 28;
+
+          // Export PNG only: keep time tags away from the route line and storm dots.
+          // Wider offsets are used first, so labels no longer sit directly on the track.
           const candidates = [
-            { x:pt.x + 20, y:pt.y - 36, align:"left" },
-            { x:pt.x + 20, y:pt.y + 36, align:"left" },
-            { x:pt.x - 20, y:pt.y - 36, align:"right" },
-            { x:pt.x - 20, y:pt.y + 36, align:"right" },
-            { x:pt.x + 18, y:pt.y, align:"left" },
-            { x:pt.x - 18, y:pt.y, align:"right" }
+            { x:pt.x + 64, y:pt.y - 58, align:"left" },
+            { x:pt.x + 72, y:pt.y + 54, align:"left" },
+            { x:pt.x - 64, y:pt.y - 58, align:"right" },
+            { x:pt.x - 72, y:pt.y + 54, align:"right" },
+            { x:pt.x + 92, y:pt.y - 8, align:"left" },
+            { x:pt.x - 92, y:pt.y - 8, align:"right" }
           ];
+
+          const routeBlocks = points.map(p => {
+            const q = project(p.lat, p.lon);
+            return { x:q.x - 24, y:q.y - 24, w:48, h:48 };
+          });
 
           let best = null;
           for(const c of candidates){
@@ -4349,11 +4357,13 @@ button{ -webkit-tap-highlight-color:transparent; }
               h,
               align:c.align
             };
-            if(!usedLabelBoxes.some(b => boxHit(box, b))){
+            const hitLabel = usedLabelBoxes.some(b => boxHit(box, b));
+            const hitRoute = routeBlocks.some(b => boxHit(box, b));
+            if(!hitLabel && !hitRoute){
               best = box;
               break;
             }
-            best = box;
+            if(!best || (!hitLabel && hitRoute)) best = box;
           }
 
           usedLabelBoxes.push(best);
