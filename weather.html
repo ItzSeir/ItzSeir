@@ -1139,6 +1139,19 @@ button{ -webkit-tap-highlight-color:transparent; }
   font-weight:900;
 }
 
+
+.refreshJsonBtn{
+  color:#fff;
+  border-color:transparent;
+  background:linear-gradient(135deg,#0f4c5c,#2a9d8f);
+  box-shadow:0 10px 22px rgba(15,76,92,.16);
+}
+.refreshJsonBtn:disabled{
+  opacity:.62;
+  cursor:not-allowed;
+  transform:none;
+}
+
 /* ===== Scrollbar ===== */
 
 .fcstList::-webkit-scrollbar,
@@ -2431,6 +2444,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         暴風圈
       </label>
 
+      <button class="btn refreshJsonBtn" id="refreshTyphoonBtn" data-refresh-typhoon type="button">刷新 JSON</button>
       <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
       <button class="btn" id="printBtn" type="button">產生地圖 PNG</button>
     </div>
@@ -2480,7 +2494,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           <span>預報列表</span>
         </div>
 
-        <span class="chip" id="fcstCount">0 筆</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;"><button class="btn refreshJsonBtn" data-refresh-typhoon type="button">刷新 JSON</button><span class="chip" id="fcstCount">0 筆</span></div>
       </div>
 
       <div class="fcstList" id="fcstList" aria-label="forecast-list"></div>
@@ -2602,7 +2616,7 @@ button{ -webkit-tap-highlight-color:transparent; }
     }
 
     async function loadWeatherData(){
-      const res = await fetch("./weather.json");
+      const res = await fetch(`./weather.json?_=${Date.now()}`, { cache:"no-store" });
       if(!res.ok) throw new Error(`Failed to load weather.json: ${res.status}`);
 
       const data = await res.json();
@@ -2794,6 +2808,7 @@ button{ -webkit-tap-highlight-color:transparent; }
     const stormRings = [];
     let forecastCone = null;
     let currentPulse = null;
+    let latestObsIdxCurrent = 0;
     const labelItems = [];
     let moveRaf = false;
 
@@ -3226,7 +3241,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           const dyTop = raw.dy - h;
           const rect = getRectForOffset(idx, dx, dyTop, w, h);
 
-          let bad = (rect.x < 8 || rect.y < 8 || rect.x + rect.w > map.getSize().x - 8 || rect.y + rect.h > map.getSize().y - 8);
+          let bad = false;
 
           for(const r of usedRects){
             if(rectOverlap(rect, r, 12)){
@@ -3257,7 +3272,7 @@ button{ -webkit-tap-highlight-color:transparent; }
               const dyTop = v.dy - h;
               const rect = getRectForOffset(idx, dx, dyTop, w, h);
 
-              let bad = (rect.x < 8 || rect.y < 8 || rect.x + rect.w > map.getSize().x - 8 || rect.y + rect.h > map.getSize().y - 8);
+              let bad = false;
 
               for(const r of usedRects){
                 if(rectOverlap(rect, r, 12)){
@@ -3302,36 +3317,17 @@ button{ -webkit-tap-highlight-color:transparent; }
         { dx:145, dy:46 }
       ]);
 
-      const fcstIndexes = [];
+      let fcstCount = 1;
+      const STEP = 2;
+
       points.forEach((p, idx) => {
-        if(p.kind === "fcst") fcstIndexes.push(idx);
-      });
+        if(p.kind !== "fcst") return;
 
-      const pickedFcst = [];
-      let lastShownTime = null;
+        const shouldShow = (fcstCount % STEP === 0);
+        fcstCount += 1;
 
-      fcstIndexes.forEach((idx, order) => {
-        const t = parseLocalDateTime(points[idx].time)?.getTime();
-        const isLast = order === fcstIndexes.length - 1;
+        if(!shouldShow) return;
 
-        if(!pickedFcst.length){
-          pickedFcst.push(idx);
-          lastShownTime = t;
-          return;
-        }
-
-        if(isLast && !pickedFcst.includes(idx)){
-          pickedFcst.push(idx);
-          return;
-        }
-
-        if(isFinite(t) && isFinite(lastShownTime) && t - lastShownTime >= 23 * 60 * 60 * 1000){
-          pickedFcst.push(idx);
-          lastShownTime = t;
-        }
-      });
-
-      pickedFcst.slice(0, 4).forEach(idx => {
         addAutoLabel(idx, false, usedRects, preferredOffsets);
       });
 
@@ -3343,6 +3339,67 @@ button{ -webkit-tap-highlight-color:transparent; }
         map.fitBounds(fullBounds, {
           paddingTopLeft:[30, 30],
           paddingBottomRight:[220, 40]
+        });
+      }
+    }
+
+    function renderTyphoonLayers(options = {}){
+      if(!map || !points || !points.length) return;
+
+      drawForecastCone();
+      drawSegments();
+
+      latestObsIdxCurrent = getLatestObsIndex();
+
+      setObsTopInfo(points[latestObsIdxCurrent]);
+      drawPoints(latestObsIdxCurrent);
+      drawStormRings();
+      drawTimeLabels(latestObsIdxCurrent);
+      renderForecastList();
+
+      if(options.fit){
+        setTimeout(() => {
+          try{
+            map.invalidateSize(true);
+            fitAll();
+            updateLabelLines();
+          }catch(e){}
+        }, 80);
+      }else{
+        setTimeout(() => {
+          try{
+            map.invalidateSize(true);
+            updateLabelLines();
+          }catch(e){}
+        }, 80);
+      }
+    }
+
+    async function refreshTyphoonData(){
+      const btns = Array.from(document.querySelectorAll("[data-refresh-typhoon]"));
+      const oldTexts = btns.map(btn => btn.textContent);
+
+      try{
+        btns.forEach(btn => {
+          btn.disabled = true;
+          btn.textContent = "刷新中…";
+        });
+
+        await loadWeatherData();
+
+        if(!points || points.length < 2){
+          alert("weather.json 至少需要 2 個點。");
+          return;
+        }
+
+        renderTyphoonLayers({ fit:false });
+      }catch(err){
+        console.error(err);
+        alert("weather.json 刷新失敗，請確認 JSON 路徑或格式是否正確。");
+      }finally{
+        btns.forEach((btn, i) => {
+          btn.disabled = false;
+          btn.textContent = oldTexts[i] || "刷新 JSON";
         });
       }
     }
@@ -4063,7 +4120,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           color:"#123044"
         });
 
-        drawText("歷史路徑 / 預報路徑 / 預報不確定性", mapX + mapW - 22, panelY + 37, {
+        drawText("顏色代表颱風級別，虛線為預報路徑", mapX + mapW - 22, panelY + 37, {
           size:12,
           weight:900,
           color:"#617785",
@@ -4132,6 +4189,65 @@ button{ -webkit-tap-highlight-color:transparent; }
             color:"#718692",
             align:"center"
           });
+        }
+
+        function drawPngLegendBox(){
+          const lx = innerMapX + 16;
+          const ly = innerMapY + innerMapH - 92;
+          const lw = 560;
+          const lh = 74;
+
+          ctx.save();
+          fillRound(ctx, lx, ly, lw, lh, 18, "rgba(255,255,255,.92)", "rgba(25,42,58,.13)");
+          drawText("圖例", lx + 16, ly + 25, { size:13, weight:900, color:"#0f4c5c" });
+
+          // route legend
+          ctx.lineCap = "round";
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "#6b7280";
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(lx + 66, ly + 22);
+          ctx.lineTo(lx + 98, ly + 22);
+          ctx.stroke();
+          drawText("歷史", lx + 106, ly + 27, { size:12, weight:900, color:"#617785" });
+
+          ctx.strokeStyle = "#22c55e";
+          ctx.setLineDash([8, 7]);
+          ctx.beginPath();
+          ctx.moveTo(lx + 158, ly + 22);
+          ctx.lineTo(lx + 190, ly + 22);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          drawText("預報", lx + 198, ly + 27, { size:12, weight:900, color:"#617785" });
+
+          ctx.fillStyle = "rgba(96,165,250,.22)";
+          ctx.strokeStyle = "rgba(96,165,250,.48)";
+          ctx.lineWidth = 1.5;
+          roundRect(ctx, lx + 250, ly + 13, 30, 18, 9);
+          ctx.fill();
+          ctx.stroke();
+          drawText("不確定範圍", lx + 288, ly + 27, { size:12, weight:900, color:"#617785" });
+
+          const levels = [
+            ["LOW", "低壓"],
+            ["TD", "熱低"],
+            ["TS", "輕颱"],
+            ["TY", "中颱"],
+            ["STY", "強颱"]
+          ];
+          let x = lx + 66;
+          levels.forEach(([key, label]) => {
+            const st = getStyle(key);
+            ctx.beginPath();
+            ctx.arc(x, ly + 52, 5, 0, Math.PI * 2);
+            ctx.fillStyle = st.color;
+            ctx.fill();
+            drawText(label, x + 11, ly + 56, { size:12, weight:900, color:"#123044" });
+            x += label === "低壓" ? 70 : 66;
+          });
+
+          ctx.restore();
         }
 
         /* Mapbox static base map */
@@ -4259,24 +4375,13 @@ button{ -webkit-tap-highlight-color:transparent; }
             if(p.kind === "fcst") fcstIndexes.push(i);
           });
 
-          if(fcstIndexes.length < 3) return fcstIndexes;
+          if(fcstIndexes.length <= 3) return fcstIndexes;
 
-          const picked = [];
-          const firstIdx = fcstIndexes[2];
-          picked.push(firstIdx);
-
-          let lastTime = parseLocalDateTime(points[firstIdx].time)?.getTime();
-          for(let n = 3; n < fcstIndexes.length; n++){
-            const idx = fcstIndexes[n];
-            const t = parseLocalDateTime(points[idx].time)?.getTime();
-            if(!isFinite(t) || !isFinite(lastTime)) continue;
-            if(t - lastTime >= 23 * 60 * 60 * 1000){
-              picked.push(idx);
-              lastTime = t;
-            }
-          }
-
-          return picked;
+          // PNG only: keep exported map clean, maximum 3 time markers.
+          const first = fcstIndexes[0];
+          const middle = fcstIndexes[Math.floor(fcstIndexes.length / 2)];
+          const last = fcstIndexes[fcstIndexes.length - 1];
+          return Array.from(new Set([first, middle, last])).sort((a,b) => a - b);
         }
 
         getPng24hLabelIndexes().forEach((idx) => {
@@ -4285,6 +4390,8 @@ button{ -webkit-tap-highlight-color:transparent; }
           const pt = project(p.lat, p.lon);
           placeMapLabel(pt, fmtTime(p.time, "short"), st.color);
         });
+
+        drawPngLegendBox();
 
         ctx.restore();
 
@@ -4366,21 +4473,15 @@ button{ -webkit-tap-highlight-color:transparent; }
         }).addTo(map);
       }
 
-      drawForecastCone();
-      drawSegments();
-
-      const latestObsIdx = getLatestObsIndex();
-
-      setObsTopInfo(points[latestObsIdx]);
-      drawPoints(latestObsIdx);
-      drawStormRings();
-      drawTimeLabels(latestObsIdx);
-      renderForecastList();
+      renderTyphoonLayers({ fit:true });
       enableHorizontalWheelScroll();
 
-      $("toggleLabels").addEventListener("change", () => drawTimeLabels(latestObsIdx));
+      $("toggleLabels").addEventListener("change", () => drawTimeLabels(latestObsIdxCurrent));
       $("toggleCone").addEventListener("change", drawForecastCone);
       $("toggleRings").addEventListener("change", drawStormRings);
+      document.querySelectorAll("[data-refresh-typhoon]").forEach(btn => {
+        btn.addEventListener("click", refreshTyphoonData);
+      });
 
       map.on("move", scheduleUpdateLabelLines);
       map.on("zoom", scheduleUpdateLabelLines);
@@ -4412,7 +4513,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           if($("toggleRings")) $("toggleRings").checked = false;
           drawStormRings();
           drawForecastCone();
-          drawTimeLabels(latestObsIdx);
+          drawTimeLabels(latestObsIdxCurrent);
 
           map.invalidateSize(true);
           if(fullBounds && fullBounds.isValid && fullBounds.isValid()){
@@ -4442,7 +4543,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
           drawForecastCone();
           drawStormRings();
-          drawTimeLabels(latestObsIdx);
+          drawTimeLabels(latestObsIdxCurrent);
           map.invalidateSize(true);
           updateLabelLines();
         }catch(e){}
