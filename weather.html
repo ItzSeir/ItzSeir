@@ -1023,9 +1023,10 @@ button{ -webkit-tap-highlight-color:transparent; }
 
 .mapLegend{
   display:flex;
-  gap:8px;
+  gap:7px 9px;
   flex-wrap:wrap;
   justify-content:flex-end;
+  max-width:720px;
 }
 
 .legendItem{
@@ -2496,6 +2497,11 @@ button{ -webkit-tap-highlight-color:transparent; }
           <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
           <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
           <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 預報不確定性</span>
+          <span class="legendItem"><span class="dot" style="background:#6b7280;"></span> 低壓</span>
+          <span class="legendItem"><span class="dot" style="background:#536ab8;"></span> 熱帶低壓</span>
+          <span class="legendItem"><span class="dot" style="background:#22c55e;"></span> 輕度颱風</span>
+          <span class="legendItem"><span class="dot" style="background:#f59e0b;"></span> 中度颱風</span>
+          <span class="legendItem"><span class="dot" style="background:#ef4444;"></span> 強烈颱風</span>
         </div>
       </div>
 
@@ -3220,7 +3226,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           const dyTop = raw.dy - h;
           const rect = getRectForOffset(idx, dx, dyTop, w, h);
 
-          let bad = false;
+          let bad = (rect.x < 8 || rect.y < 8 || rect.x + rect.w > map.getSize().x - 8 || rect.y + rect.h > map.getSize().y - 8);
 
           for(const r of usedRects){
             if(rectOverlap(rect, r, 12)){
@@ -3251,7 +3257,7 @@ button{ -webkit-tap-highlight-color:transparent; }
               const dyTop = v.dy - h;
               const rect = getRectForOffset(idx, dx, dyTop, w, h);
 
-              let bad = false;
+              let bad = (rect.x < 8 || rect.y < 8 || rect.x + rect.w > map.getSize().x - 8 || rect.y + rect.h > map.getSize().y - 8);
 
               for(const r of usedRects){
                 if(rectOverlap(rect, r, 12)){
@@ -3296,17 +3302,36 @@ button{ -webkit-tap-highlight-color:transparent; }
         { dx:145, dy:46 }
       ]);
 
-      let fcstCount = 1;
-      const STEP = 2;
-
+      const fcstIndexes = [];
       points.forEach((p, idx) => {
-        if(p.kind !== "fcst") return;
+        if(p.kind === "fcst") fcstIndexes.push(idx);
+      });
 
-        const shouldShow = (fcstCount % STEP === 0);
-        fcstCount += 1;
+      const pickedFcst = [];
+      let lastShownTime = null;
 
-        if(!shouldShow) return;
+      fcstIndexes.forEach((idx, order) => {
+        const t = parseLocalDateTime(points[idx].time)?.getTime();
+        const isLast = order === fcstIndexes.length - 1;
 
+        if(!pickedFcst.length){
+          pickedFcst.push(idx);
+          lastShownTime = t;
+          return;
+        }
+
+        if(isLast && !pickedFcst.includes(idx)){
+          pickedFcst.push(idx);
+          return;
+        }
+
+        if(isFinite(t) && isFinite(lastShownTime) && t - lastShownTime >= 23 * 60 * 60 * 1000){
+          pickedFcst.push(idx);
+          lastShownTime = t;
+        }
+      });
+
+      pickedFcst.slice(0, 4).forEach(idx => {
         addAutoLabel(idx, false, usedRects, preferredOffsets);
       });
 
@@ -3595,12 +3620,12 @@ button{ -webkit-tap-highlight-color:transparent; }
             <div class="pngMapBox">
               <div class="pngPanelHead">
                 <span><span class="dot" style="background:#7c3aed;margin-right:8px;"></span>颱風路徑圖</span>
-                <span style="display:flex;gap:14px;font-size:12px;color:#617785;"><b>歷史路徑</b><b>預報路徑</b><b>預報不確定性</b></span>
+                <span style="display:flex;gap:10px;font-size:11px;color:#617785;flex-wrap:wrap;justify-content:flex-end;"><b>歷史</b><b>預報</b><b style="color:#6b7280;">低壓</b><b style="color:#536ab8;">熱低</b><b style="color:#22c55e;">輕颱</b><b style="color:#f59e0b;">中颱</b><b style="color:#ef4444;">強颱</b></span>
               </div>
               <div class="pngMapImageWrap">
                 ${mapDataUrl ? `<img class="pngMapImage" src="${mapDataUrl}" alt="typhoon map">` : `<div class="pngMapFallback">地圖截圖產生失敗，請稍後再試</div>`}
                 ${mapOverlaySvg || ""}
-                <div class="pngFootnote"><span>更新時間：${escapeHtml(fmtClock(obs.time))}</span><span>資料來源：${escapeHtml(weatherMeta.source || "—")}</span></div>
+                <div class="pngFootnote"><span></span><span>資料來源：${escapeHtml(weatherMeta.source || "—")}</span></div>
               </div>
             </div>
             <div class="pngForecast">
@@ -4261,24 +4286,9 @@ button{ -webkit-tap-highlight-color:transparent; }
           placeMapLabel(pt, fmtTime(p.time, "short"), st.color);
         });
 
-        /* Map credit inside image */
-        fillRound(ctx, innerMapX + innerMapW - 230, innerMapY + innerMapH - 38, 210, 24, 999, "rgba(255,255,255,.82)", "rgba(25,42,58,.10)");
-        drawText(`更新時間 ${fmtClock(latestObs.time)}`, innerMapX + innerMapW - 125, innerMapY + innerMapH - 22, {
-          size:11,
-          weight:900,
-          color:"#617785",
-          align:"center"
-        });
-
         ctx.restore();
 
         /* Footer */
-        drawText(`更新時間：${fmtClock(latestObs.time)}`, 36, 988, {
-          size:13,
-          weight:900,
-          color:"#617785"
-        });
-
         drawText(`資料來源：${weatherMeta.source || "—"}`, W - 36, 988, {
           size:13,
           weight:900,
