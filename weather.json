@@ -13,9 +13,33 @@
       "pressure": null,
       "note": ""
     },
+      {
+      "lat": 11.1,
+      "lon": 111.4,
+      "time": "2026-05-31 20:00",
+      "kind": "obs",
+      "level": "LOW",
+      "wind": null,
+      "gust": null,
+      "pressure": null,
+      "note": ""
+    },
+     {
+      "lat": 13.3,
+      "lon": 113.5,
+      "time": "2026-06-02 20:00",
+      "kind": "fcst",
+      "level": "LOW",
+      "wind": null,
+      "gust": null,
+      "pressure": 1005,
+      "note": "",
+      "fcst_radius_km": 150,
+      "storm_radius_km": null
+    },
     {
-      "lat": 15.4,
-      "lon": 114.7,
+      "lat": 15.5,
+      "lon": 115.2,
       "time": "2026-06-03 20:00",
       "kind": "fcst",
       "level": "LOW",
@@ -23,7 +47,7 @@
       "gust": null,
       "pressure": 1005,
       "note": "",
-      "fcst_radius_km": 200,
+      "fcst_radius_km": 170,
       "storm_radius_km": null
     },
     {
@@ -36,12 +60,12 @@
       "gust": null,
       "pressure": 1005,
       "note": "",
-      "fcst_radius_km": 220,
+      "fcst_radius_km": 190,
       "storm_radius_km": null
     },
     {
-      "lat": 20.6,
-      "lon": 118.5,
+      "lat": 20.4,
+      "lon": 116.4,
       "time": "2026-06-05 20:00",
       "kind": "fcst",
       "level": "TD",
@@ -49,25 +73,25 @@
       "gust": null,
       "pressure": 1004,
       "note": "",
-      "fcst_radius_km": 240,
+      "fcst_radius_km": 210,
       "storm_radius_km": null
     },
     {
-      "lat": 21.4,
-      "lon": 119.4,
+      "lat": 22.1,
+      "lon": 120.5,
       "time": "2026-06-06 20:00",
       "kind": "fcst",
       "level": "TS",
       "wind": null,
       "gust": null,
-      "pressure": 1002,
+      "pressure": 1000,
       "note": "",
-      "fcst_radius_km": 260,
+      "fcst_radius_km": 230,
       "storm_radius_km": null
     },
     {
-      "lat": 23.4,
-      "lon": 123.1,
+      "lat": 25.3,
+      "lon": 124.3,
       "time": "2026-06-07 20:00",
       "kind": "fcst",
       "level": "TS",
@@ -75,7 +99,7 @@
       "gust": null,
       "pressure": 1000,
       "note": "",
-      "fcst_radius_km": 300,
+      "fcst_radius_km": 280,
       "storm_radius_km": null
     }
   ]
