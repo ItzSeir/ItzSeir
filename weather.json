@@ -1,6 +1,12 @@
 {
   "title": "91W擾動情報",
   "source": "AI模式",
+  "cwa_warning_areas": [
+    "臺灣東北部海面",
+    "臺灣東南部海面",
+    "巴士海峽"
+  ],
+
   "points": [
     {
       "lat": 11.1,
