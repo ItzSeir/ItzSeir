@@ -4462,14 +4462,11 @@ button{ -webkit-tap-highlight-color:transparent; }
         }
 
         const showTaiwanInset = shouldShowTaiwanInset();
-        const insetGap = 14;
-        const insetW = showTaiwanInset ? 320 : 0;
-        const insetH = showTaiwanInset ? 236 : 0;
         const mainMapX = innerMapX;
         const mainMapY = innerMapY;
-        const mainMapW = showTaiwanInset ? innerMapW - insetW - insetGap : innerMapW;
+        const mainMapW = innerMapW;
         const mainMapH = innerMapH;
-        const mainView = buildViewForPoints(points, mainMapW, mainMapH, showTaiwanInset ? 68 : 92);
+        const mainView = buildViewForPoints(points, mainMapW, mainMapH, 92);
         const mainMapImg = await loadStaticMapImage(mainView, mainMapW, mainMapH);
 
         ctx.save();
@@ -4481,34 +4478,27 @@ button{ -webkit-tap-highlight-color:transparent; }
         ctx.restore();
 
         if(showTaiwanInset){
-          const insetX = innerMapX + mainMapW + insetGap;
-          const insetY = innerMapY;
-          const insetMapH = insetH - 34;
+          const insetW = 300;
+          const insetH = 215;
+          const insetX = innerMapX + 18;
+          const insetY = innerMapY + 18;
           const taiwanBoxPoints = points.filter(p => p.lat >= 19.5 && p.lat <= 27.8 && p.lon >= 117.5 && p.lon <= 126.2);
           const baseTaiwanPoints = [
             { lat:20.5, lon:118.2 },
             { lat:26.5, lon:123.8 },
             ...taiwanBoxPoints
           ];
-          const insetView = buildViewForPoints(baseTaiwanPoints, insetW, insetMapH, 34, { lat:23.7, lon:121.0, zoom:5.4 });
-          const insetImg = await loadStaticMapImage(insetView, insetW, insetMapH);
+          const insetView = buildViewForPoints(baseTaiwanPoints, insetW, insetH, 30, { lat:23.7, lon:121.0, zoom:5.4 });
+          const insetImg = await loadStaticMapImage(insetView, insetW, insetH);
 
           ctx.save();
-          fillRound(ctx, insetX, insetY, insetW, insetH, 20, "rgba(255,255,255,.96)", "rgba(25,42,58,.16)");
-          drawText("台灣附近放大", insetX + 16, insetY + 23, { size:13, weight:900, color:"#0f4c5c" });
-          drawText("24小時接近時顯示", insetX + insetW - 14, insetY + 23, { size:10, weight:900, color:"#718692", align:"right" });
-
-          roundRect(ctx, insetX + 10, insetY + 34, insetW - 20, insetMapH - 10, 14);
+          fillRound(ctx, insetX, insetY, insetW, insetH, 18, "rgba(255,255,255,.96)", "rgba(25,42,58,.18)");
+          roundRect(ctx, insetX + 8, insetY + 8, insetW - 16, insetH - 16, 14);
           ctx.clip();
-          ctx.drawImage(insetImg, insetX + 10, insetY + 34, insetW - 20, insetMapH - 10);
-          const insetProject = makeProjector(insetView, insetX + 10, insetY + 34, insetW - 20, insetMapH - 10);
-          drawRouteOnMap(insetProject, { drawCone:true, drawLabels:false, small:true, clipBox:{ x:insetX + 10, y:insetY + 34, w:insetW - 20, h:insetMapH - 10 } });
+          ctx.drawImage(insetImg, insetX + 8, insetY + 8, insetW - 16, insetH - 16);
+          const insetProject = makeProjector(insetView, insetX + 8, insetY + 8, insetW - 16, insetH - 16);
+          drawRouteOnMap(insetProject, { drawCone:true, drawLabels:false, small:true, clipBox:{ x:insetX + 8, y:insetY + 8, w:insetW - 16, h:insetH - 16 } });
           ctx.restore();
-
-          const hintY = insetY + insetH + 12;
-          fillRound(ctx, insetX, hintY, insetW, 92, 18, "rgba(255,255,255,.88)", "rgba(25,42,58,.11)");
-          drawText("局部放大說明", insetX + 16, hintY + 27, { size:13, weight:900, color:"#102d40" });
-          wrapText("當目前位置或未來 24 小時預報路徑接近台灣，PNG 會自動加入此放大圖，主地圖會縮到左側避免被遮擋。", insetX + 16, hintY + 52, insetW - 32, 18, { size:12, weight:800, color:"#617785", maxLines:3 });
         }
 
         /* Draw PNG legend outside the clipped map area so it stays below the map instead of covering the route. */
