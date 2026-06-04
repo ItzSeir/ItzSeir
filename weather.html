@@ -4255,158 +4255,261 @@ button{ -webkit-tap-highlight-color:transparent; }
           ctx.restore();
         }
 
-        /* Mapbox static base map */
+        /* Mapbox static base map + optional Taiwan inset */
         const innerMapX = mapX + 16;
         const innerMapY = panelY + 62;
         const innerMapW = mapW - 32;
         const innerMapH = panelH - 146;
-        const view = buildView(innerMapW, innerMapH, 92);
-        const zoomStr = view.zoom.toFixed(2);
-        const staticUrl = `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${view.lon.toFixed(6)},${view.lat.toFixed(6)},${zoomStr},0/${innerMapW}x${innerMapH}@2x?access_token=${MAPBOX_TOKEN}&logo=false&attribution=false`;
 
-        const mapImg = await loadImage(staticUrl);
+        function pointInTaiwanBox(p, box){
+          return p &&
+            p.lat >= box.minLat && p.lat <= box.maxLat &&
+            p.lon >= box.minLon && p.lon <= box.maxLon;
+        }
 
-        ctx.save();
-        roundRect(ctx, innerMapX, innerMapY, innerMapW, innerMapH, 20);
-        ctx.clip();
-        ctx.drawImage(mapImg, innerMapX, innerMapY, innerMapW, innerMapH);
+        function shouldShowTaiwanInset(){
+          const nearTaiwan = { minLat:19.5, maxLat:27.5, minLon:117.5, maxLon:125.8 };
+          const latestTime = parseLocalDateTime(latestObs.time);
 
-        const project = makeProjector(view, innerMapX, innerMapY, innerMapW, innerMapH);
+          if(pointInTaiwanBox(latestObs, nearTaiwan)) return true;
 
-        /* Forecast uncertainty cone */
-        const cone = buildForecastConePolygonSmooth();
-        if(cone && cone.length > 3){
-          ctx.beginPath();
-          cone.forEach((ll, i) => {
-            const pt = project(ll[0], ll[1]);
-            if(i === 0) ctx.moveTo(pt.x, pt.y);
-            else ctx.lineTo(pt.x, pt.y);
+          return points.some(p => {
+            if(!pointInTaiwanBox(p, nearTaiwan)) return false;
+            if(p.kind !== "fcst") return true;
+
+            const t = parseLocalDateTime(p.time);
+            if(!latestTime || !t) return true;
+
+            const diffHour = (t.getTime() - latestTime.getTime()) / 36e5;
+            return diffHour >= 0 && diffHour <= 30;
           });
-          ctx.closePath();
-          ctx.fillStyle = "rgba(96,165,250,.20)";
-          ctx.fill();
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = "rgba(96,165,250,.48)";
-          ctx.stroke();
         }
 
-        /* Route lines */
-        for(let i = 0; i < points.length - 1; i++){
-          const a = points[i];
-          const b = points[i + 1];
-          const pa = project(a.lat, a.lon);
-          const pb = project(b.lat, b.lon);
-          const st = getStyle(b.level);
-          const isForecast = a.kind === "fcst" || b.kind === "fcst";
+        function buildViewForPoints(srcPoints, mapW, mapH, pad, fallback){
+          const arr = (srcPoints && srcPoints.length ? srcPoints : points).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+          if(!arr.length) return fallback || buildView(mapW, mapH, pad);
 
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(pa.x, pa.y);
-          ctx.lineTo(pb.x, pb.y);
-          ctx.lineWidth = b.level === "TY" || b.level === "STY" ? 5 : 4;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.strokeStyle = st.color;
-          if(isForecast) ctx.setLineDash([10, 10]);
-          ctx.shadowColor = "rgba(255,255,255,.9)";
-          ctx.shadowBlur = 3;
-          ctx.stroke();
-          ctx.restore();
+          const lats = arr.map(p => p.lat);
+          const lons = arr.map(p => p.lon);
+          let minLat = Math.min(...lats);
+          let maxLat = Math.max(...lats);
+          let minLon = Math.min(...lons);
+          let maxLon = Math.max(...lons);
+
+          if(Math.abs(maxLat - minLat) < 1.2){ minLat -= .6; maxLat += .6; }
+          if(Math.abs(maxLon - minLon) < 1.2){ minLon -= .6; maxLon += .6; }
+
+          const minX = mercatorX(minLon);
+          const maxX = mercatorX(maxLon);
+          const minY = mercatorY(maxLat);
+          const maxY = mercatorY(minLat);
+
+          const dx = Math.max(0.00001, maxX - minX);
+          const dy = Math.max(0.00001, maxY - minY);
+
+          const zoomX = Math.log2((mapW - pad * 2) / (512 * dx));
+          const zoomY = Math.log2((mapH - pad * 2) / (512 * dy));
+          const zoom = clamp(Math.min(zoomX, zoomY), 1, 12);
+
+          const cx = (minX + maxX) / 2;
+          const cy = (minY + maxY) / 2;
+
+          return { lon: cx * 360 - 180, lat: inverseMercatorY(cy), zoom };
         }
 
-        /* Points */
-        points.forEach((p, i) => {
-          const st = getStyle(p.level);
-          const pt = project(p.lat, p.lon);
-          drawDot(pt.x, pt.y, st.color, i === latestObsIdx ? 8 : (p.kind === "fcst" ? 5.5 : 5), i === latestObsIdx);
-        });
-
-        /* Smarter time labels: fewer, smaller and collision-aware */
-        const usedLabelBoxes = [];
-        function boxHit(a, b){
-          return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+        async function loadStaticMapImage(view, w, h){
+          const zoomStr = view.zoom.toFixed(2);
+          const url = `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${view.lon.toFixed(6)},${view.lat.toFixed(6)},${zoomStr},0/${Math.round(w)}x${Math.round(h)}@2x?access_token=${MAPBOX_TOKEN}&logo=false&attribution=false`;
+          return await loadImage(url);
         }
-        function placeMapLabel(pt, text, color){
-          ctx.font = `900 12px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
-          const w = Math.ceil(ctx.measureText(text).width) + 38;
-          const h = 28;
 
-          // Export PNG only: keep time tags away from the route line and storm dots.
-          // Wider offsets are used first, so labels no longer sit directly on the track.
-          const candidates = [
-            { x:pt.x + 64, y:pt.y - 58, align:"left" },
-            { x:pt.x + 72, y:pt.y + 54, align:"left" },
-            { x:pt.x - 64, y:pt.y - 58, align:"right" },
-            { x:pt.x - 72, y:pt.y + 54, align:"right" },
-            { x:pt.x + 92, y:pt.y - 8, align:"left" },
-            { x:pt.x - 92, y:pt.y - 8, align:"right" }
-          ];
+        function drawRouteOnMap(project, opts = {}){
+          const {
+            drawCone = true,
+            drawLabels = true,
+            small = false,
+            clipBox = null
+          } = opts;
 
-          const routeBlocks = points.map(p => {
-            const q = project(p.lat, p.lon);
-            return { x:q.x - 24, y:q.y - 24, w:48, h:48 };
-          });
-
-          let best = null;
-          for(const c of candidates){
-            const bx = c.align === "right" ? c.x - w : c.x;
-            const by = c.y - h / 2;
-            const box = {
-              x:clamp(bx, innerMapX + 12, innerMapX + innerMapW - w - 12),
-              y:clamp(by, innerMapY + 12, innerMapY + innerMapH - h - 12),
-              w,
-              h,
-              align:c.align
-            };
-            const hitLabel = usedLabelBoxes.some(b => boxHit(box, b));
-            const hitRoute = routeBlocks.some(b => boxHit(box, b));
-            if(!hitLabel && !hitRoute){
-              best = box;
-              break;
+          if(drawCone){
+            const cone = buildForecastConePolygonSmooth();
+            if(cone && cone.length > 3){
+              ctx.beginPath();
+              cone.forEach((ll, i) => {
+                const pt = project(ll[0], ll[1]);
+                if(i === 0) ctx.moveTo(pt.x, pt.y);
+                else ctx.lineTo(pt.x, pt.y);
+              });
+              ctx.closePath();
+              ctx.fillStyle = small ? "rgba(96,165,250,.16)" : "rgba(96,165,250,.20)";
+              ctx.fill();
+              ctx.lineWidth = small ? 1.4 : 2;
+              ctx.strokeStyle = small ? "rgba(96,165,250,.38)" : "rgba(96,165,250,.48)";
+              ctx.stroke();
             }
-            if(!best || (!hitLabel && hitRoute)) best = box;
           }
 
-          usedLabelBoxes.push(best);
-          const anchorX = best.align === "right" ? best.x + best.w : best.x;
-          const anchorY = best.y + best.h / 2;
+          for(let i = 0; i < points.length - 1; i++){
+            const a = points[i];
+            const b = points[i + 1];
+            const pa = project(a.lat, a.lon);
+            const pb = project(b.lat, b.lon);
+            const st = getStyle(b.level);
+            const isForecast = a.kind === "fcst" || b.kind === "fcst";
 
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(pt.x, pt.y);
-          ctx.lineTo(anchorX, anchorY);
-          ctx.strokeStyle = "rgba(25,42,58,.22)";
-          ctx.lineWidth = 1.2;
-          ctx.stroke();
-          ctx.restore();
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.lineWidth = small ? 2.8 : (b.level === "TY" || b.level === "STY" ? 5 : 4);
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.strokeStyle = st.color;
+            if(isForecast) ctx.setLineDash(small ? [7, 6] : [10, 10]);
+            ctx.shadowColor = "rgba(255,255,255,.9)";
+            ctx.shadowBlur = small ? 2 : 3;
+            ctx.stroke();
+            ctx.restore();
+          }
 
-          drawLabel(anchorX, anchorY, text, color, best.align);
-        }
-
-        /* PNG 時間標記：從第 3 個預報點開始，每約 24 小時標記一次，避免整條路徑太擠。 */
-        function getPng24hLabelIndexes(){
-          const fcstIndexes = [];
           points.forEach((p, i) => {
-            if(p.kind === "fcst") fcstIndexes.push(i);
+            const st = getStyle(p.level);
+            const pt = project(p.lat, p.lon);
+            drawDot(pt.x, pt.y, st.color, i === latestObsIdx ? (small ? 5.5 : 8) : (p.kind === "fcst" ? (small ? 4.2 : 5.5) : (small ? 4 : 5)), i === latestObsIdx && !small);
           });
 
-          if(fcstIndexes.length <= 3) return fcstIndexes;
+          if(!drawLabels) return;
 
-          // PNG only: keep exported map clean, maximum 3 time markers.
-          const first = fcstIndexes[0];
-          const middle = fcstIndexes[Math.floor(fcstIndexes.length / 2)];
-          const last = fcstIndexes[fcstIndexes.length - 1];
-          return Array.from(new Set([first, middle, last])).sort((a,b) => a - b);
+          const usedLabelBoxes = [];
+          function boxHit(a, b){
+            return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+          }
+          function placeMapLabel(pt, text, color){
+            ctx.font = `900 12px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+            const w = Math.ceil(ctx.measureText(text).width) + 38;
+            const h = 28;
+            const bounds = clipBox || { x:innerMapX, y:innerMapY, w:innerMapW, h:innerMapH };
+
+            const candidates = [
+              { x:pt.x + 64, y:pt.y - 58, align:"left" },
+              { x:pt.x + 72, y:pt.y + 54, align:"left" },
+              { x:pt.x - 64, y:pt.y - 58, align:"right" },
+              { x:pt.x - 72, y:pt.y + 54, align:"right" },
+              { x:pt.x + 92, y:pt.y - 8, align:"left" },
+              { x:pt.x - 92, y:pt.y - 8, align:"right" }
+            ];
+
+            const routeBlocks = points.map(p => {
+              const q = project(p.lat, p.lon);
+              return { x:q.x - 24, y:q.y - 24, w:48, h:48 };
+            });
+
+            let best = null;
+            for(const c of candidates){
+              const bx = c.align === "right" ? c.x - w : c.x;
+              const by = c.y - h / 2;
+              const box = {
+                x:clamp(bx, bounds.x + 12, bounds.x + bounds.w - w - 12),
+                y:clamp(by, bounds.y + 12, bounds.y + bounds.h - h - 12),
+                w,
+                h,
+                align:c.align
+              };
+              const hitLabel = usedLabelBoxes.some(b => boxHit(box, b));
+              const hitRoute = routeBlocks.some(b => boxHit(box, b));
+              if(!hitLabel && !hitRoute){
+                best = box;
+                break;
+              }
+              if(!best || (!hitLabel && hitRoute)) best = box;
+            }
+
+            usedLabelBoxes.push(best);
+            const anchorX = best.align === "right" ? best.x + best.w : best.x;
+            const anchorY = best.y + best.h / 2;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(pt.x, pt.y);
+            ctx.lineTo(anchorX, anchorY);
+            ctx.strokeStyle = "rgba(25,42,58,.22)";
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            ctx.restore();
+
+            drawLabel(anchorX, anchorY, text, color, best.align);
+          }
+
+          function getPng24hLabelIndexes(){
+            const fcstIndexes = [];
+            points.forEach((p, i) => {
+              if(p.kind === "fcst") fcstIndexes.push(i);
+            });
+
+            if(fcstIndexes.length <= 3) return fcstIndexes;
+            const first = fcstIndexes[0];
+            const middle = fcstIndexes[Math.floor(fcstIndexes.length / 2)];
+            const last = fcstIndexes[fcstIndexes.length - 1];
+            return Array.from(new Set([first, middle, last])).sort((a,b) => a - b);
+          }
+
+          getPng24hLabelIndexes().forEach((idx) => {
+            const p = points[idx];
+            const st = getStyle(p.level);
+            const pt = project(p.lat, p.lon);
+            placeMapLabel(pt, fmtTime(p.time, "short"), st.color);
+          });
         }
 
-        getPng24hLabelIndexes().forEach((idx) => {
-          const p = points[idx];
-          const st = getStyle(p.level);
-          const pt = project(p.lat, p.lon);
-          placeMapLabel(pt, fmtTime(p.time, "short"), st.color);
-        });
+        const showTaiwanInset = shouldShowTaiwanInset();
+        const insetGap = 14;
+        const insetW = showTaiwanInset ? 320 : 0;
+        const insetH = showTaiwanInset ? 236 : 0;
+        const mainMapX = innerMapX;
+        const mainMapY = innerMapY;
+        const mainMapW = showTaiwanInset ? innerMapW - insetW - insetGap : innerMapW;
+        const mainMapH = innerMapH;
+        const mainView = buildViewForPoints(points, mainMapW, mainMapH, showTaiwanInset ? 68 : 92);
+        const mainMapImg = await loadStaticMapImage(mainView, mainMapW, mainMapH);
 
+        ctx.save();
+        roundRect(ctx, mainMapX, mainMapY, mainMapW, mainMapH, 20);
+        ctx.clip();
+        ctx.drawImage(mainMapImg, mainMapX, mainMapY, mainMapW, mainMapH);
+        const mainProject = makeProjector(mainView, mainMapX, mainMapY, mainMapW, mainMapH);
+        drawRouteOnMap(mainProject, { drawCone:true, drawLabels:true, small:false, clipBox:{ x:mainMapX, y:mainMapY, w:mainMapW, h:mainMapH } });
         ctx.restore();
+
+        if(showTaiwanInset){
+          const insetX = innerMapX + mainMapW + insetGap;
+          const insetY = innerMapY;
+          const insetMapH = insetH - 34;
+          const taiwanBoxPoints = points.filter(p => p.lat >= 19.5 && p.lat <= 27.8 && p.lon >= 117.5 && p.lon <= 126.2);
+          const baseTaiwanPoints = [
+            { lat:20.5, lon:118.2 },
+            { lat:26.5, lon:123.8 },
+            ...taiwanBoxPoints
+          ];
+          const insetView = buildViewForPoints(baseTaiwanPoints, insetW, insetMapH, 34, { lat:23.7, lon:121.0, zoom:5.4 });
+          const insetImg = await loadStaticMapImage(insetView, insetW, insetMapH);
+
+          ctx.save();
+          fillRound(ctx, insetX, insetY, insetW, insetH, 20, "rgba(255,255,255,.96)", "rgba(25,42,58,.16)");
+          drawText("台灣附近放大", insetX + 16, insetY + 23, { size:13, weight:900, color:"#0f4c5c" });
+          drawText("24小時接近時顯示", insetX + insetW - 14, insetY + 23, { size:10, weight:900, color:"#718692", align:"right" });
+
+          roundRect(ctx, insetX + 10, insetY + 34, insetW - 20, insetMapH - 10, 14);
+          ctx.clip();
+          ctx.drawImage(insetImg, insetX + 10, insetY + 34, insetW - 20, insetMapH - 10);
+          const insetProject = makeProjector(insetView, insetX + 10, insetY + 34, insetW - 20, insetMapH - 10);
+          drawRouteOnMap(insetProject, { drawCone:true, drawLabels:false, small:true, clipBox:{ x:insetX + 10, y:insetY + 34, w:insetW - 20, h:insetMapH - 10 } });
+          ctx.restore();
+
+          const hintY = insetY + insetH + 12;
+          fillRound(ctx, insetX, hintY, insetW, 92, 18, "rgba(255,255,255,.88)", "rgba(25,42,58,.11)");
+          drawText("局部放大說明", insetX + 16, hintY + 27, { size:13, weight:900, color:"#102d40" });
+          wrapText("當目前位置或未來 24 小時預報路徑接近台灣，PNG 會自動加入此放大圖，主地圖會縮到左側避免被遮擋。", insetX + 16, hintY + 52, insetW - 32, 18, { size:12, weight:800, color:"#617785", maxLines:3 });
+        }
 
         /* Draw PNG legend outside the clipped map area so it stays below the map instead of covering the route. */
         drawPngLegendBox();
