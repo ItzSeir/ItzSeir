@@ -1,5 +1,5 @@
 {
-  "title": "熱帶低壓情報",
+  "title": "91W擾動情報",
   "source": "AI模式",
   "points": [
     {
@@ -55,6 +55,17 @@
       "wind": null,
       "gust": null,
       "pressure": 1008,
+      "note": ""
+    },
+    {
+      "lat": 18.4,
+      "lon": 118.2,
+      "time": "2026-06-04 14:00",
+      "kind": "obs",
+      "level": "TD",
+      "wind": null,
+      "gust": null,
+      "pressure": 1004,
       "note": ""
     },
     {
