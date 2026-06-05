@@ -130,8 +130,8 @@
       "note": ""
     },
     {
-      "lat": 23.4,
-      "lon": 122.3,
+      "lat": 24.5,
+      "lon": 122.9,
       "time": "2026-06-05 20:00",
       "kind": "fcst",
       "level": "TD",
@@ -142,9 +142,22 @@
       "fcst_radius_km": 150,
       "storm_radius_km": null
     },
+ {
+      "lat": 26.4,
+      "lon": 123.5,
+      "time": "2026-06-06 08:00",
+      "kind": "fcst",
+      "level": "TS",
+      "wind": null,
+      "gust": null,
+      "pressure": 1000,
+      "note": "",
+      "fcst_radius_km": 170,
+      "storm_radius_km": null
+    },
     {
-      "lat": 28.3,
-      "lon": 126.7,
+      "lat": 29.3,
+      "lon": 125.3,
       "time": "2026-06-06 20:00",
       "kind": "fcst",
       "level": "TS",
@@ -152,20 +165,20 @@
       "gust": null,
       "pressure": 998,
       "note": "",
-      "fcst_radius_km": 170,
+      "fcst_radius_km": 200,
       "storm_radius_km": null
     },
       {
-      "lat": 32.4,
-      "lon": 135.1,
+      "lat": 33.3,
+      "lon": 133.5,
       "time": "2026-06-07 20:00",
       "kind": "fcst",
       "level": "TS",
       "wind": null,
       "gust": null,
-      "pressure": 994,
+      "pressure": 998,
       "note": "",
-      "fcst_radius_km": 200,
+      "fcst_radius_km": 250,
       "storm_radius_km": null
     }
   ]
