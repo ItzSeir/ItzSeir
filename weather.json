@@ -85,6 +85,50 @@
       "pressure": 1004,
       "note": ""
     },
+  {
+      "lat": 21.9,
+      "lon": 120.1,
+      "time": "2026-06-05 02:00",
+      "kind": "obs",
+      "level": "TD",
+      "wind": null,
+      "gust": null,
+      "pressure": 1004,
+      "note": ""
+    },
+  {
+      "lat": 22.3,
+      "lon": 120.3,
+      "time": "2026-06-05 05:00",
+      "kind": "obs",
+      "level": "TD",
+      "wind": null,
+      "gust": null,
+      "pressure": 1004,
+      "note": ""
+    },
+    {
+      "lat": 22.5,
+      "lon": 120.5,
+      "time": "2026-06-05 08:00",
+      "kind": "obs",
+      "level": "TD",
+      "wind": null,
+      "gust": null,
+      "pressure": 1004,
+      "note": ""
+    },
+    {
+      "lat": 22.8,
+      "lon": 120.9,
+      "time": "2026-06-05 12:00",
+      "kind": "obs",
+      "level": "TD",
+      "wind": null,
+      "gust": null,
+      "pressure": 1004,
+      "note": ""
+    },
     {
       "lat": 23.4,
       "lon": 122.3,
