@@ -139,7 +139,7 @@
       "gust": null,
       "pressure": 1002,
       "note": "",
-      "fcst_radius_km": 150,
+      "fcst_radius_km": 80,
       "storm_radius_km": null
     },
  {
@@ -152,7 +152,7 @@
       "gust": null,
       "pressure": 1000,
       "note": "",
-      "fcst_radius_km": 170,
+      "fcst_radius_km": 100,
       "storm_radius_km": null
     },
     {
@@ -165,7 +165,7 @@
       "gust": null,
       "pressure": 998,
       "note": "",
-      "fcst_radius_km": 200,
+      "fcst_radius_km": 130,
       "storm_radius_km": null
     },
       {
@@ -178,7 +178,7 @@
       "gust": null,
       "pressure": 998,
       "note": "",
-      "fcst_radius_km": 250,
+      "fcst_radius_km": 180,
       "storm_radius_km": null
     }
   ]
