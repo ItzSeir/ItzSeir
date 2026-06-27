@@ -2412,6 +2412,176 @@ button{ -webkit-tap-highlight-color:transparent; }
 }
 
 
+
+/* ===== Xiaofeng CAP Map - Custom Weather Platform Style ===== */
+.twOfficialGrid{
+  grid-template-columns:minmax(360px,.95fr) minmax(480px,1.15fr);
+  gap:18px;
+}
+.twOfficialMapPanel,
+.twOfficialTablePanel,
+.twOfficialDetailPanel{
+  border:1px solid rgba(15,76,92,.12);
+  border-radius:30px;
+  background:rgba(255,255,255,.78);
+  backdrop-filter:blur(18px);
+  box-shadow:0 18px 44px rgba(31,53,72,.10);
+}
+.twOfficialMapPanel{
+  min-height:720px;
+  background:
+    radial-gradient(circle at 22% 8%, rgba(123,223,242,.18), transparent 32%),
+    linear-gradient(180deg, rgba(255,255,255,.92), rgba(239,248,250,.84));
+}
+.twOfficialMapHead,
+.twOfficialTableHead,
+.twOfficialDetailHead{
+  min-height:64px;
+  padding:16px 18px;
+  background:linear-gradient(135deg, rgba(15,76,92,.09), rgba(42,157,143,.075));
+  border-bottom:1px solid rgba(15,76,92,.10);
+}
+.twOfficialMapHead strong,
+.twOfficialTableHead strong,
+.twOfficialDetailHead strong{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  letter-spacing:-.02em;
+}
+.twOfficialLegend{
+  padding:15px 16px 10px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+}
+.twOfficialLegendItem{
+  grid-template-columns:12px 26px 1fr;
+  min-height:36px;
+  padding:8px 10px;
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:999px;
+  background:rgba(255,255,255,.76);
+  box-shadow:0 8px 18px rgba(31,53,72,.06);
+  font-size:11px;
+}
+.twOfficialColor{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  box-shadow:0 0 0 5px rgba(15,76,92,.045);
+}
+.twOfficialIcon{ font-size:17px; }
+#twAreaMap{
+  width:calc(100% - 28px);
+  height:560px;
+  margin:0 14px;
+  border-radius:26px;
+  overflow:hidden;
+  background:#dff3f8;
+  border:1px solid rgba(15,76,92,.12);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.50), 0 14px 30px rgba(31,53,72,.08);
+}
+.twOfficialMapFoot{
+  margin:10px 14px 14px;
+  padding:12px 14px;
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:18px;
+  background:rgba(255,255,255,.70);
+}
+.twOfficialFilters{
+  padding:14px 16px;
+  background:rgba(255,255,255,.62);
+}
+.twOfficialCountyTables{
+  gap:14px;
+  padding:14px 16px 18px;
+}
+.twOfficialTable{
+  border-collapse:separate;
+  border-spacing:0 8px;
+}
+.twOfficialTable th{
+  height:42px;
+  background:linear-gradient(135deg,#0f4c5c,#2a9d8f);
+  box-shadow:0 10px 20px rgba(15,76,92,.14);
+}
+.twOfficialTable th:first-child{ border-radius:16px 0 0 16px; }
+.twOfficialTable th:last-child{ border-radius:0 16px 16px 0; }
+.twOfficialTable td{
+  border-bottom:0;
+  background:rgba(255,255,255,.78);
+  border-top:1px solid rgba(15,76,92,.08);
+  border-bottom:1px solid rgba(15,76,92,.08);
+  min-height:54px;
+}
+.twOfficialTable td:first-child{
+  border-left:1px solid rgba(15,76,92,.08);
+  border-radius:18px 0 0 18px;
+}
+.twOfficialTable td:last-child{
+  border-right:1px solid rgba(15,76,92,.08);
+  border-radius:0 18px 18px 0;
+}
+.twOfficialTable tr:nth-child(even) td{ background:rgba(237,250,252,.78); }
+.twOfficialWarnBadge{
+  min-height:30px;
+  padding:5px 9px;
+  border-radius:999px;
+  border:1px solid rgba(15,76,92,.10);
+  background:#fff;
+  box-shadow:0 8px 16px rgba(31,53,72,.06);
+  transition:.16s ease;
+}
+.twOfficialWarnBadge:hover{
+  transform:translateY(-1px);
+  box-shadow:0 14px 24px rgba(31,53,72,.11);
+}
+.twOfficialWarnStrip{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  box-shadow:0 0 0 5px rgba(15,76,92,.055);
+}
+.twOfficialWarnIcon{ font-size:17px; }
+.twOfficialDetailBody{
+  background:linear-gradient(180deg, rgba(255,255,255,.72), rgba(245,251,252,.70));
+}
+.twOfficialDetailTitle{ font-size:20px; letter-spacing:-.03em; }
+.twOfficialDetailText{
+  border-radius:22px;
+  background:#fff;
+  box-shadow:inset 0 0 0 1px rgba(15,76,92,.04);
+}
+.twAreaStatus{
+  background:#fff;
+  border-color:rgba(15,76,92,.14);
+  box-shadow:0 8px 16px rgba(31,53,72,.06);
+}
+.tw-area-popup{
+  border-radius:999px;
+  padding:7px 10px;
+  background:rgba(255,255,255,.96);
+  border:1px solid rgba(15,76,92,.14);
+  box-shadow:0 10px 22px rgba(31,53,72,.12);
+}
+.twOfficialMapOnly .leaflet-container{ background:#dff3f8 !important; }
+.twOfficialMapOnly .leaflet-control-zoom{
+  border:0 !important;
+  box-shadow:0 10px 22px rgba(31,53,72,.12) !important;
+}
+.twOfficialMapOnly .leaflet-control-zoom a{
+  border-color:rgba(15,76,92,.12) !important;
+  color:#163042 !important;
+}
+.twOfficialMapOnly .leaflet-tile-pane{
+  filter:saturate(.96) contrast(.98) brightness(1.02);
+}
+@media (max-width:780px){
+  #twAreaMap{ width:calc(100% - 20px); margin:0 10px; }
+  .twOfficialLegend{ grid-template-columns:1fr; }
+}
+
 </style>
 </head>
 
@@ -2760,7 +2930,7 @@ button{ -webkit-tap-highlight-color:transparent; }
   <script>
 
     const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
-    const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
+    const MAPBOX_STYLE = "itzseir/cmjoiqmu000g401qqh40c87nx";
 
     let weatherMeta = { title: "颱風路徑追蹤器", source: "—" };
     let allTyphoons = [];
@@ -5029,11 +5199,12 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       if(MAPBOX_TOKEN !== "YOUR_MAPBOX_TOKEN" && MAPBOX_STYLE !== "YOUR_USERNAME/YOUR_STYLE_ID"){
         const mb = L.tileLayer(
-          `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+          `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
           {
             tileSize:512,
             zoomOffset:-1,
-            maxZoom:18,
+            maxZoom:22,
+            detectRetina:true,
             crossOrigin:"anonymous",
             attribution:"© Mapbox © OpenStreetMap"
           }
@@ -6001,22 +6172,23 @@ button{ -webkit-tap-highlight-color:transparent; }
     function twAreaOfficialCountyStyle(feature){
       const best = twAreaBestAlertForFeature(feature);
       return {
-        color:"#111827",
-        weight: best ? 1.7 : 1.35,
-        fillColor: best ? twAreaAlertColor(best) : "#ffffff",
-        fillOpacity: best ? .95 : 1,
-        opacity:1
+        color: best ? "rgba(15,76,92,.78)" : "rgba(15,76,92,.38)",
+        weight: best ? 1.9 : 1.1,
+        fillColor: best ? twAreaAlertColor(best) : "rgba(255,255,255,.72)",
+        fillOpacity: best ? .72 : .34,
+        opacity:1,
+        dashArray: best ? null : "3 5"
       };
     }
 
     function twAreaOfficialTownStyle(feature){
       const best = twAreaBestAlertForFeature(feature);
       return {
-        color: best ? "rgba(17,24,39,.42)" : "rgba(17,24,39,.16)",
-        weight: best ? .7 : .35,
+        color: best ? "rgba(15,76,92,.46)" : "rgba(15,76,92,.16)",
+        weight: best ? .75 : .35,
         fillColor: best ? twAreaAlertColor(best) : "transparent",
-        fillOpacity: best ? .82 : 0,
-        opacity: best ? .65 : .24
+        fillOpacity: best ? .58 : 0,
+        opacity: best ? .72 : .26
       };
     }
 
@@ -6074,7 +6246,28 @@ button{ -webkit-tap-highlight-color:transparent; }
         attributionControl:false
       }).setView([23.72, 121.0], 7);
 
-      // Official-like clean map: no base tiles, only Taiwan administrative boundaries.
+      // Custom Mapbox background layer + CAP GeoJSON overlay.
+      const twAreaBaseLayer = L.tileLayer(
+        `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+        {
+          tileSize:512,
+          zoomOffset:-1,
+          maxZoom:22,
+          detectRetina:true,
+          crossOrigin:"anonymous",
+          attribution:"© Mapbox © OpenStreetMap"
+        }
+      ).addTo(twAreaLeafletMap);
+
+      twAreaBaseLayer.on("tileerror", () => {
+        if(twAreaLeafletMap.hasLayer(twAreaBaseLayer)) twAreaLeafletMap.removeLayer(twAreaBaseLayer);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom:19,
+          crossOrigin:"anonymous",
+          attribution:"© OpenStreetMap"
+        }).addTo(twAreaLeafletMap);
+      });
+
       if(status) status.textContent = "載入分區中…";
 
       let loadedTown = false;
