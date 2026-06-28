@@ -3161,6 +3161,150 @@ button{ -webkit-tap-highlight-color:transparent; }
   .twAreaGroup{ grid-template-columns:1fr !important; }
 }
 
+
+
+/* ===== v14 CAP detail layout: important info first + wider area pills ===== */
+.twDetailV14{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:14px !important;
+}
+.twDetailTopBar{
+  display:flex !important;
+  align-items:flex-start !important;
+  justify-content:space-between !important;
+  gap:14px !important;
+  padding:16px 18px !important;
+  border:1px solid rgba(15,76,92,.10) !important;
+  border-radius:24px !important;
+  background:linear-gradient(135deg,rgba(232,249,251,.95),rgba(255,255,255,.92)) !important;
+  box-shadow:0 12px 26px rgba(31,53,72,.055) !important;
+}
+.twDetailSmallLabel,
+.twDetailLabel{
+  display:block !important;
+  color:#5f7480 !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+  letter-spacing:.01em !important;
+}
+.twDetailTopBar .twOfficialDetailTitle{
+  margin:6px 0 0 !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  font-size:24px !important;
+  color:#102d40 !important;
+}
+.twImportantGrid{
+  display:grid !important;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:12px !important;
+}
+.twImportantCard{
+  min-height:76px !important;
+  padding:14px 16px !important;
+  border:1px solid rgba(15,76,92,.095) !important;
+  border-radius:20px !important;
+  background:rgba(255,255,255,.90) !important;
+  box-shadow:0 10px 22px rgba(31,53,72,.045) !important;
+}
+.twImportantCard.wide{
+  grid-column:span 2 !important;
+}
+.twDetailValue{
+  display:block !important;
+  margin-top:7px !important;
+  color:#153447 !important;
+  font-size:13px !important;
+  font-weight:900 !important;
+  line-height:1.55 !important;
+  word-break:break-word !important;
+}
+.twAreaBlock{
+  border:1px solid rgba(15,76,92,.10) !important;
+  border-radius:24px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(240,250,251,.78)) !important;
+  box-shadow:0 12px 28px rgba(31,53,72,.052) !important;
+  overflow:hidden !important;
+}
+.twAreaBlockHead{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+  padding:13px 16px !important;
+  border-bottom:1px solid rgba(15,76,92,.08) !important;
+  background:rgba(255,255,255,.62) !important;
+}
+.twAreaHelp{
+  color:#7f95a1 !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+}
+.twAreaBlockBody{
+  padding:14px 16px 16px !important;
+}
+.twAreaGroups{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:repeat(auto-fit,minmax(520px,1fr)) !important;
+  gap:12px !important;
+}
+.twAreaGroup{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:150px minmax(0,1fr) !important;
+  gap:12px !important;
+  align-items:start !important;
+  padding:12px !important;
+  border-radius:20px !important;
+  background:rgba(255,255,255,.76) !important;
+  border:1px solid rgba(15,76,92,.075) !important;
+}
+.twCountyPill{
+  min-height:34px !important;
+  width:100% !important;
+  justify-content:center !important;
+  white-space:nowrap !important;
+}
+.twTownLine{
+  min-width:0 !important;
+  margin-top:0 !important;
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:8px !important;
+  align-content:flex-start !important;
+}
+.twTownPill,
+.twWholeCounty,
+.twAreaMuted{
+  min-height:32px !important;
+  padding:0 12px !important;
+  white-space:nowrap !important;
+}
+.twOfficialDetailText{
+  margin-top:0 !important;
+}
+.twOfficialMapOnly .leaflet-interactive{
+  outline:none !important;
+}
+.twAreaFocusedShape{
+  filter:drop-shadow(0 0 12px rgba(15,76,92,.42)) !important;
+}
+@media (max-width:1180px){
+  .twImportantGrid{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .twImportantCard.wide{ grid-column:span 1 !important; }
+  .twAreaGroups{ grid-template-columns:1fr !important; }
+}
+@media (max-width:720px){
+  .twImportantGrid{ grid-template-columns:1fr !important; }
+  .twAreaBlockHead{ align-items:flex-start !important; flex-direction:column !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+  .twCountyPill{ width:max-content !important; max-width:100% !important; }
+}
+
 </style>
 </head>
 
@@ -3313,15 +3457,41 @@ button{ -webkit-tap-highlight-color:transparent; }
                   </div>
                 </div>
 
-                <div class="twOfficialDetailBody">
-                  <h4 class="twOfficialDetailTitle" id="twHeadline">—</h4>
-                  <div class="twOfficialDetailMeta">
-                    <b>事件</b><span id="twEvent">—</span>
-                    <b>發布</b><span id="twSent">—</span>
-                    <b>有效</b><span id="twValid">—</span>
-                    <b>類型</b><span id="twDetailType">—</span>
-                    <b>地區</b><span id="twArea">—</span>
+                <div class="twOfficialDetailBody twDetailV14">
+                  <div class="twDetailTopBar">
+                    <div>
+                      <div class="twDetailSmallLabel">目前選取警特報</div>
+                      <h4 class="twOfficialDetailTitle" id="twHeadline">—</h4>
+                    </div>
                   </div>
+
+                  <div class="twImportantGrid">
+                    <div class="twImportantCard">
+                      <span class="twDetailLabel">事件</span>
+                      <span class="twDetailValue" id="twEvent">—</span>
+                    </div>
+                    <div class="twImportantCard">
+                      <span class="twDetailLabel">發布</span>
+                      <span class="twDetailValue" id="twSent">—</span>
+                    </div>
+                    <div class="twImportantCard wide">
+                      <span class="twDetailLabel">有效時間</span>
+                      <span class="twDetailValue" id="twValid">—</span>
+                    </div>
+                    <div class="twImportantCard">
+                      <span class="twDetailLabel">類型</span>
+                      <span class="twDetailValue" id="twDetailType">—</span>
+                    </div>
+                  </div>
+
+                  <section class="twAreaBlock">
+                    <div class="twAreaBlockHead">
+                      <span class="twDetailLabel">影響地區</span>
+                      <span class="twAreaHelp">縣市在左，鄉鎮區會使用右側空間自動換行</span>
+                    </div>
+                    <div class="twAreaBlockBody" id="twArea">—</div>
+                  </section>
+
                   <div class="twOfficialDetailText" id="twText">（請在上方地區表點選一個警特報）</div>
                   <div class="twOfficialDetailText" id="twRaw" style="display:none;"></div>
                 </div>
@@ -6860,11 +7030,12 @@ button{ -webkit-tap-highlight-color:transparent; }
         }
 
         if(mode === "town"){
-          // Town layer can be painted by town-specific warnings or whole-county warnings.
+          // Only town-specific CAP areas paint town polygons. If a CAP names the whole county,
+          // keep the map clean by painting the county polygon only.
+          if(isWholeCounty) return false;
           return names.keys.includes(norm)
             || names.fullNorm === norm
-            || names.townNorm === norm
-            || (isWholeCounty && names.countyNorm === county);
+            || names.townNorm === norm;
         }
 
         return names.keys.includes(norm)
@@ -6899,10 +7070,10 @@ button{ -webkit-tap-highlight-color:transparent; }
       const best = twAreaBestAlertForFeature(feature, "county");
       const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
       return {
-        color: focused ? "#0f4c5c" : (best ? twAreaHexToRgba(twAreaAlertColor(best), .72) : "rgba(15,76,92,.30)"),
-        weight: focused ? 3.2 : (best ? 1.45 : .9),
+        color: focused ? "#0b2f3d" : (best ? twAreaHexToRgba(twAreaAlertColor(best), .82) : "rgba(8,47,61,.62)"),
+        weight: focused ? 3.6 : (best ? 2.15 : 1.45),
         fillColor: best ? twAreaAlertColor(best) : "#ffffff",
-        fillOpacity: best ? .34 : .10,
+        fillOpacity: best ? .30 : .035,
         opacity:1,
         dashArray:null,
         className: focused ? "twAreaFocusedShape" : ""
