@@ -7651,7 +7651,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       color: townBest ? twAreaHexToRgba(color, countyFocused ? .82 : .64) : 'rgba(15,76,92,.08)',
       weight: townBest ? (countyFocused ? 1.35 : .85) : .18,
       fillColor: townBest ? color : 'transparent',
-      fillOpacity: townBest ? (countyFocused ? .34 : .22) : 0,
+      fillOpacity: townBest ? (countyFocused ? .46 : .34) : 0,
       opacity: townBest ? .78 : .16,
       dashArray:null
     };
@@ -7866,17 +7866,26 @@ ${a.instruction}` : ''
 /* ===== v12 CAP final override: county boundaries always visible + cleaner type legend ===== */
 (function(){
   function capColor(level){
-    return ({
-      extremeRain:'#c026d3',
-      torrentialRain:'#dc2626',
-      heavyRain:'#f97316',
-      rain:'#facc15',
-      typhoon:'#fb7185',
-      heat:'#ef4444',
-      cold:'#0ea5e9',
-      wind:'#38bdf8',
-      other:'#8b5cf6'
-    })[level] || '#8b5cf6';
+    // Keep the CAP map layer synced with the official legend colors.
+    // Official CWA disaster warning lamps:
+    // red #e60012, orange #ff7f00, yellow #fff100, green #00e833.
+    const colors = {
+      officialRed:'#e60012', officialOrange:'#ff7f00', officialYellow:'#fff100', officialGreen:'#00e833',
+
+      redRain:'#e60012', orangeRain:'#ff7f00', yellowRain:'#fff100',
+      redTyphoon:'#e60012', orangeTyphoon:'#ff7f00', yellowTD:'#fff100', greenClear:'#00e833',
+      redCold:'#e60012', orangeCold:'#ff7f00', yellowCold:'#fff100',
+      redHeat:'#e60012', orangeHeat:'#ff7f00', yellowHeat:'#fff100',
+      redWind:'#e60012', orangeWind:'#ff7f00', yellowWind:'#fff100',
+      yellowFog:'#fff100', yellowWave:'#fff100',
+      redTsunami:'#e60012', orangeTsunami:'#ff7f00', yellowTsunami:'#fff100',
+
+      // Legacy / fallback levels
+      extremeRain:'#e60012', torrentialRain:'#e60012', heavyRain:'#ff7f00', rain:'#fff100',
+      typhoon:'#ff7f00', heat:'#ff7f00', cold:'#fff100', wind:'#fff100', fog:'#fff100', wave:'#fff100',
+      tsunami:'#ff7f00', other:'#8b5cf6'
+    };
+    return colors[level] || '#8b5cf6';
   }
 
   window.twAreaOfficialCountyStyle = function(feature){
@@ -7895,7 +7904,7 @@ ${a.instruction}` : ''
       color: focused ? '#083344' : (wholeBest || anyBest ? warnColor : '#173a52'),
       weight: focused ? 3.2 : (wholeBest ? 2.05 : (anyBest ? 1.85 : 1.35)),
       fillColor: wholeBest ? warnColor : '#ffffff',
-      fillOpacity: wholeBest ? (focused ? .30 : .22) : 0,
+      fillOpacity: wholeBest ? (focused ? .42 : .32) : 0,
       opacity: focused ? 1 : (wholeBest || anyBest ? .92 : .76),
       dashArray: null,
       lineJoin:'round',
@@ -7914,7 +7923,7 @@ ${a.instruction}` : ''
       color: townBest ? twAreaHexToRgba(color, countyFocused ? .88 : .72) : 'rgba(23,58,82,.04)',
       weight: townBest ? (countyFocused ? 1.35 : .9) : .08,
       fillColor: townBest ? color : 'transparent',
-      fillOpacity: townBest ? (countyFocused ? .34 : .22) : 0,
+      fillOpacity: townBest ? (countyFocused ? .46 : .34) : 0,
       opacity: townBest ? .82 : .05,
       dashArray:null,
       lineJoin:'round',
