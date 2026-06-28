@@ -3407,6 +3407,83 @@ button{ -webkit-tap-highlight-color:transparent; }
   .twCountyPill{ width:max-content !important; max-width:100% !important; }
 }
 
+
+
+/* ===== v16 CAP detail area fix: compact rows, use right space, no wrong full-county towns ===== */
+.twOfficialDetailMeta{
+  grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+  gap:14px !important;
+}
+.twDetailItem.area{
+  grid-column:1 / -1 !important;
+  display:block !important;
+  padding:0 !important;
+  overflow:hidden !important;
+}
+.twAreaBlockHead{
+  padding:14px 18px !important;
+  background:linear-gradient(135deg, rgba(15,76,92,.055), rgba(42,157,143,.045)) !important;
+}
+.twAreaBlockBody,
+#twArea{
+  padding:12px 14px !important;
+}
+.twAreaGroups{
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:8px !important;
+  width:100% !important;
+}
+.twAreaGroup{
+  display:grid !important;
+  grid-template-columns:150px minmax(0, 1fr) !important;
+  align-items:start !important;
+  gap:10px !important;
+  width:100% !important;
+  min-height:46px !important;
+  padding:9px 12px !important;
+  border-radius:18px !important;
+  background:rgba(255,255,255,.78) !important;
+  border:1px solid rgba(25,42,58,.08) !important;
+  box-shadow:none !important;
+}
+.twCountyPill{
+  width:100% !important;
+  min-width:0 !important;
+  justify-content:center !important;
+  padding:8px 10px !important;
+  border-radius:999px !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+.twTownLine{
+  margin:0 !important;
+  display:flex !important;
+  flex-wrap:wrap !important;
+  align-items:center !important;
+  gap:7px !important;
+  min-width:0 !important;
+}
+.twTownPill,
+.twWholeCounty,
+.twAreaMuted{
+  min-height:30px !important;
+  padding:6px 10px !important;
+  border-radius:999px !important;
+  white-space:nowrap !important;
+}
+.twWholeCounty{
+  color:#0f4c5c !important;
+  background:rgba(42,157,143,.11) !important;
+  border:1px solid rgba(42,157,143,.20) !important;
+  font-weight:900 !important;
+}
+@media (max-width:780px){
+  .twOfficialDetailMeta{ grid-template-columns:1fr !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+  .twCountyPill{ width:max-content !important; max-width:100% !important; justify-content:flex-start !important; }
+}
 </style>
 </head>
 
@@ -7791,6 +7868,110 @@ ${a.instruction}` : ''
   });
 })();
 
+
+
+
+/* ===== v16 override: correct county/town grouping in CAP detail ===== */
+(function(){
+  const COUNTY_LIST = [
+    '基隆市','臺北市','新北市','桃園市','新竹市','新竹縣','苗栗縣','臺中市','彰化縣','南投縣','雲林縣','嘉義市','嘉義縣','臺南市','高雄市','屏東縣','宜蘭縣','花蓮縣','臺東縣','澎湖縣','金門縣','連江縣'
+  ];
+  const norm = v => String(v || '').replace(/台/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim();
+  const COUNTY_SET = new Set(COUNTY_LIST.map(norm));
+  function esc(s){
+    if(typeof twEscape === 'function') return twEscape(s);
+    return String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  }
+  function areaNamesOf(a){
+    if(a && Array.isArray(a.areaNames) && a.areaNames.length) return a.areaNames.map(norm).filter(Boolean);
+    const t = String(a?.area || '').replace(/\s+/g,'');
+    if(!t || t === '—') return [];
+    return t.split(/[;；,，、\n\r]+/).map(norm).filter(Boolean);
+  }
+  function resolveByCountyPrefix(name){
+    const n = norm(name);
+    const hit = COUNTY_LIST.map(norm).find(c => n === c || n.startsWith(c));
+    if(hit) return hit;
+    try{
+      if(typeof twAreaResolveCountyName === 'function'){
+        const r = norm(twAreaResolveCountyName(n));
+        if(COUNTY_SET.has(r)) return r;
+      }
+    }catch(e){}
+    return '';
+  }
+  function displayCounty(c){
+    return COUNTY_LIST.find(x => norm(x) === c) || c;
+  }
+  function townPart(areaName, county){
+    const n = norm(areaName);
+    if(county && n.startsWith(county)) return n.slice(county.length);
+    return n;
+  }
+  function hasAllKnownTowns(county, townSet){
+    try{
+      const known = window.__twAreaCountyToTowns && window.__twAreaCountyToTowns.get(county);
+      if(!known || !known.size || !townSet || !townSet.size) return false;
+      let hit = 0;
+      known.forEach(t => {
+        const tn = norm(t);
+        if(townSet.has(tn) || [...townSet].some(x => x.endsWith(tn) || tn.endsWith(x))) hit++;
+      });
+      return hit >= known.size && known.size >= 3;
+    }catch(e){ return false; }
+  }
+  window.getAlertAreaGroups = function(a){
+    const groups = new Map();
+    areaNamesOf(a).forEach(raw => {
+      const n = norm(raw);
+      if(!n) return;
+      const county = resolveByCountyPrefix(n);
+      if(!county){
+        if(!groups.has(n)) groups.set(n, { county:n, whole:false, towns:[] });
+        return;
+      }
+      if(!groups.has(county)) groups.set(county, { county, whole:false, towns:[] });
+      const g = groups.get(county);
+      if(COUNTY_SET.has(n) && n === county){
+        g.whole = true;
+        g.towns = [];
+        return;
+      }
+      if(!g.whole){
+        const town = townPart(n, county);
+        if(town && town !== county && !g.towns.includes(town)) g.towns.push(town);
+      }
+    });
+    const arr = Array.from(groups.values()).map(g => {
+      if(!g.whole && hasAllKnownTowns(g.county, new Set(g.towns.map(norm)))){
+        g.whole = true;
+        g.towns = [];
+      }
+      g.county = displayCounty(g.county);
+      g.towns = (g.towns || []).filter(t => t && !COUNTY_SET.has(norm(t)));
+      return g;
+    });
+    return arr.sort((a,b) => String(a.county).localeCompare(String(b.county), 'zh-Hant'));
+  };
+  window.renderAreaPills = function(a){
+    const groups = window.getAlertAreaGroups ? window.getAlertAreaGroups(a) : [];
+    if(!groups.length) return '<span class="twAreaMuted">—</span>';
+    return `<div class="twAreaGroups">${groups.map(g => `
+      <section class="twAreaGroup">
+        <span class="twCountyPill" style="--warn:${esc(a?.color || '#2a9d8f')}" title="${esc(g.county)}">${esc(g.county)}</span>
+        <div class="twTownLine">
+          ${g.whole ? `<span class="twWholeCounty">整個縣市</span>` : (g.towns && g.towns.length ? g.towns.map(t => `<span class="twTownPill">${esc(t)}</span>`).join('') : `<span class="twAreaMuted">未列出鄉鎮</span>`)}
+        </div>
+      </section>`).join('')}</div>`;
+  };
+
+  const oldRenderDetails = window.renderDetails;
+  window.renderDetails = function(a){
+    if(typeof oldRenderDetails === 'function') oldRenderDetails(a);
+    const areaEl = document.getElementById('twArea');
+    if(areaEl && a) areaEl.innerHTML = window.renderAreaPills(a);
+  };
+})();
 
     window.addEventListener("load", () => {
       try{ initWarningCenter(); }catch(e){ console.error("initWarningCenter failed", e); }
