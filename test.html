@@ -3484,6 +3484,23 @@ button{ -webkit-tap-highlight-color:transparent; }
   .twAreaGroup{ grid-template-columns:1fr !important; }
   .twCountyPill{ width:max-content !important; max-width:100% !important; justify-content:flex-start !important; }
 }
+
+
+/* ===== v17 Official CWA alert category colors ===== */
+.twOfficialColor.officialRed{ background:#e60012 !important; }
+.twOfficialColor.officialOrange{ background:#ff7f00 !important; }
+.twOfficialColor.officialYellow{ background:#fff100 !important; border:1px solid rgba(25,42,58,.18) !important; }
+.twOfficialColor.officialGreen{ background:#00e833 !important; }
+.twOfficialLegendItem{
+  background:rgba(255,255,255,.76) !important;
+  border:1px solid rgba(25,42,58,.08) !important;
+  padding:10px 12px !important;
+  box-shadow:0 8px 18px rgba(31,53,72,.035) !important;
+}
+.twOfficialWarnStrip{
+  box-shadow:0 0 0 1px rgba(25,42,58,.08) inset !important;
+}
+
 </style>
 </head>
 
@@ -6318,31 +6335,50 @@ button{ -webkit-tap-highlight-color:transparent; }
       function renderTwLegend(kind){
         const el = q("twOfficialLegend");
         if(!el) return;
+
+        // Official CWA alert category legend.
+        // 災害警戒顏色：紅 > 橙 > 黃 > 綠
         const legend = {
           rain: [
-            ['rainLv4','⛈️','超大豪雨','500mm/24h 以上雨量'],
-            ['rainLv3','🌧️','大豪雨','350mm/24h 以上或 200mm/3h 以上雨量'],
-            ['rainLv2','🌧️','豪雨 / 颱風','200mm/24h 以上或 100mm/3h 以上雨量'],
-            ['rainLv1','🌦️','大雨','80mm/24h 以上或 40mm/h 以上雨量']
+            ['officialRed','⛈️','超大豪雨 / 大豪雨','紅色｜500mm/24h 以上；或 350mm/24h、200mm/3h 以上'],
+            ['officialOrange','🌧️','豪雨','橙色｜200mm/24h 以上或 100mm/3h 以上'],
+            ['officialYellow','🌦️','大雨','黃色｜80mm/24h 以上或 40mm/h 以上']
           ],
           cold: [
-            ['coldLv2','🥶','低溫特報','平均氣溫或最低溫達低溫警戒'],
-            ['coldLv','🌡️','寒流 / 輻射冷卻','低溫或寒流影響，注意保暖']
+            ['officialRed','🥶','嚴寒','紅色｜平地氣溫連續 24 小時 6°C 以下'],
+            ['officialOrange','🧊','非常寒冷','橙色｜最低 6°C 以下，或 10°C 以下且連續 24 小時 12°C 以下'],
+            ['officialYellow','🌡️','寒冷','黃色｜平地最低氣溫 10°C 以下']
           ],
           heat: [
-            ['heatLv','🔥','高溫資訊','氣溫達高溫提醒標準'],
-            ['heatLv2','🌡️','極端高溫','高溫持續或達危險等級']
+            ['officialRed','🔥','紅燈','紅色｜38°C 以上且持續 3 天以上'],
+            ['officialOrange','🌡️','橙燈','橙色｜36°C 以上且持續 3 天以上，或 38°C 以上'],
+            ['officialYellow','☀️','黃燈','黃色｜36°C 以上']
           ],
           wind: [
-            ['windLv','💨','陸上強風','平均風力達 6 級以上'],
-            ['windLv2','🌬️','強陣風','陣風達 8 級以上']
+            ['officialRed','💨','陸上強風紅燈','紅色｜平均風 12 級以上或陣風 14 級以上'],
+            ['officialOrange','🌬️','陸上強風橙燈','橙色｜平均風 9 級以上或陣風 11 級以上'],
+            ['officialYellow','🍃','陸上強風黃燈 / 海上強風','黃色｜平均風 6 級以上或陣風 8 級以上']
           ],
           typhoon: [
-            ['tyLv','🌀','颱風警報','海上或陸上颱風警報'],
-            ['windLv','💨','強風半徑','受颱風環流或外圍環流影響'],
-            ['rainLv2','🌧️','颱風雨勢','山區或迎風面易有豪雨']
+            ['officialRed','🌀','海上陸上颱風警報','紅色｜七級風暴風範圍可能侵襲陸上前 18 小時'],
+            ['officialOrange','🌊','海上颱風警報','橙色｜七級風暴風範圍可能侵襲近海前 24 小時'],
+            ['officialYellow','🟡','熱帶性低氣壓特報','黃色｜有威脅或可能增強為輕度颱風'],
+            ['officialGreen','✅','解除警報','綠色｜威脅解除或轉向、消滅']
+          ],
+          fog: [
+            ['officialYellow','🌫️','濃霧特報','黃色｜水平能見度 200 公尺以下']
+          ],
+          tsunami: [
+            ['officialRed','🌊','海嘯警報','紅色｜海嘯波預估 3 小時內抵達'],
+            ['officialOrange','🌊','海嘯警訊','橙色｜海嘯波預估 3 至 6 小時內抵達'],
+            ['officialYellow','ℹ️','海嘯消息','黃色｜未達警報標準但可能引起關切'],
+            ['officialGreen','✅','解除','綠色｜海嘯威脅解除']
+          ],
+          wave: [
+            ['officialYellow','🌊','長浪即時訊息','黃色｜示性波高 ≥ 1.5m 且平均週期 > 8 秒']
           ]
         };
+
         const rows = legend[kind] || legend.rain;
         el.innerHTML = rows.map(([cls, icon, title, desc]) => `
           <div class="twOfficialLegendItem">
@@ -6481,58 +6517,102 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       function getAlertLevel(a){
-        const hay = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.datasetName || ""}`;
-        if(/超大豪雨/.test(hay)) return "extremeRain";
-        if(/大豪雨/.test(hay)) return "torrentialRain";
-        if(/豪雨/.test(hay)) return "heavyRain";
-        if(/大雨/.test(hay)) return "rain";
-        if(/颱風/.test(hay)) return "typhoon";
-        if(/高溫/.test(hay)) return "heat";
-        if(/低溫/.test(hay)) return "cold";
-        if(/強風|陸上/.test(hay)) return "wind";
+        const hay = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.instruction || ""} ${a.datasetName || ""}`;
+
+        // Rain warning levels
+        if(/超大豪雨|大豪雨/.test(hay)) return "redRain";
+        if(/豪雨/.test(hay)) return "orangeRain";
+        if(/大雨/.test(hay)) return "yellowRain";
+
+        // Typhoon warning levels
+        if(/解除/.test(hay) && /颱風/.test(hay)) return "greenClear";
+        if(/海上陸上颱風|海陸|陸上颱風/.test(hay)) return "redTyphoon";
+        if(/海上颱風/.test(hay) || /颱風/.test(hay)) return "orangeTyphoon";
+        if(/熱帶性低氣壓|熱帶低氣壓/.test(hay)) return "yellowTD";
+
+        // Low temperature levels
+        if(/嚴寒/.test(hay)) return "redCold";
+        if(/非常寒冷/.test(hay)) return "orangeCold";
+        if(/寒冷|低溫/.test(hay)) return "yellowCold";
+
+        // High temperature levels
+        if(/紅燈/.test(hay) && /高溫/.test(hay)) return "redHeat";
+        if(/橙燈/.test(hay) && /高溫/.test(hay)) return "orangeHeat";
+        if(/黃燈/.test(hay) && /高溫/.test(hay)) return "yellowHeat";
+        if(/高溫/.test(hay)) return "orangeHeat";
+
+        // Wind levels
+        if(/紅燈/.test(hay) && /強風/.test(hay)) return "redWind";
+        if(/橙燈/.test(hay) && /強風/.test(hay)) return "orangeWind";
+        if(/黃燈/.test(hay) && /強風/.test(hay)) return "yellowWind";
+        if(/強風|陸上|海上強風/.test(hay)) return "yellowWind";
+
+        if(/濃霧|霧/.test(hay)) return "yellowFog";
+        if(/長浪/.test(hay)) return "yellowWave";
+        if(/海嘯警報/.test(hay)) return "redTsunami";
+        if(/海嘯警訊/.test(hay)) return "orangeTsunami";
+        if(/海嘯/.test(hay)) return "yellowTsunami";
+
         return a.kind || "other";
       }
 
       function getLevelColor(level){
         return ({
-          extremeRain:"#b517ff",
-          torrentialRain:"#ef4444",
-          heavyRain:"#f97316",
-          rain:"#facc15",
-          typhoon:"#fb7185",
-          heat:"#fb923c",
-          cold:"#06b6d4",
-          wind:"#38bdf8",
+          officialRed:"#e60012",
+          officialOrange:"#ff7f00",
+          officialYellow:"#fff100",
+          officialGreen:"#00e833",
+          redRain:"#e60012",
+          orangeRain:"#ff7f00",
+          yellowRain:"#fff100",
+          redTyphoon:"#e60012",
+          orangeTyphoon:"#ff7f00",
+          yellowTD:"#fff100",
+          greenClear:"#00e833",
+          redCold:"#e60012",
+          orangeCold:"#ff7f00",
+          yellowCold:"#fff100",
+          redHeat:"#e60012",
+          orangeHeat:"#ff7f00",
+          yellowHeat:"#fff100",
+          redWind:"#e60012",
+          orangeWind:"#ff7f00",
+          yellowWind:"#fff100",
+          yellowFog:"#fff100",
+          yellowWave:"#fff100",
+          redTsunami:"#e60012",
+          orangeTsunami:"#ff7f00",
+          yellowTsunami:"#fff100",
+          rain:"#fff100",
+          typhoon:"#ff7f00",
+          heat:"#ff7f00",
+          cold:"#fff100",
+          wind:"#fff100",
           other:"#8b5cf6"
         })[level] || "#8b5cf6";
       }
 
       function getLevelIcon(level){
         return ({
-          extremeRain:"⛈️",
-          torrentialRain:"🌧️",
-          heavyRain:"🌧️",
-          rain:"🌦️",
-          typhoon:"🌀",
-          heat:"🔥",
-          cold:"🥶",
-          wind:"💨",
-          other:"⚠️"
+          redRain:"⛈️", orangeRain:"🌧️", yellowRain:"🌦️",
+          redTyphoon:"🌀", orangeTyphoon:"🌊", yellowTD:"🟡", greenClear:"✅",
+          redCold:"🥶", orangeCold:"🧊", yellowCold:"🌡️",
+          redHeat:"🔥", orangeHeat:"🌡️", yellowHeat:"☀️",
+          redWind:"💨", orangeWind:"🌬️", yellowWind:"🍃",
+          yellowFog:"🌫️", yellowWave:"🌊",
+          redTsunami:"🌊", orangeTsunami:"🌊", yellowTsunami:"ℹ️",
+          rain:"🌦️", typhoon:"🌀", heat:"🔥", cold:"🌡️", wind:"💨", other:"⚠️"
         })[level] || "⚠️";
       }
 
       function getLevelRank(level){
         return ({
-          extremeRain:90,
-          torrentialRain:80,
-          typhoon:76,
-          heavyRain:70,
-          rain:60,
-          heat:50,
-          cold:45,
-          wind:40,
-          other:10
-        })[level] || 10;
+          redRain:90, redTyphoon:90, redCold:90, redHeat:90, redWind:90, redTsunami:90,
+          orangeRain:70, orangeTyphoon:70, orangeCold:70, orangeHeat:70, orangeWind:70, orangeTsunami:70,
+          yellowRain:50, yellowTD:50, yellowCold:50, yellowHeat:50, yellowWind:50, yellowFog:50, yellowWave:50, yellowTsunami:50,
+          greenClear:10,
+          rain:50, typhoon:70, heat:70, cold:50, wind:50, other:20
+        })[level] || 20;
       }
 
       function enrichAlert(a){
