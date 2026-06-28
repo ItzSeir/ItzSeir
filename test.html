@@ -6517,41 +6517,51 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       function getAlertLevel(a){
-        const hay = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.instruction || ""} ${a.datasetName || ""}`;
+        const hay = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.instruction || ""} ${a.datasetName || ""} ${Object.values(a.parameters || {}).join(" ")}`;
+        const norm = hay.replace(/\s+/g, "");
 
-        // Rain warning levels
-        if(/超大豪雨|大豪雨/.test(hay)) return "redRain";
-        if(/豪雨/.test(hay)) return "orangeRain";
-        if(/大雨/.test(hay)) return "yellowRain";
+        // Rain warning levels — use official lamp color levels.
+        if(/超大豪雨|大豪雨/.test(norm)) return "redRain";
+        if(/豪雨/.test(norm)) return "orangeRain";
+        if(/大雨/.test(norm)) return "yellowRain";
 
-        // Typhoon warning levels
-        if(/解除/.test(hay) && /颱風/.test(hay)) return "greenClear";
-        if(/海上陸上颱風|海陸|陸上颱風/.test(hay)) return "redTyphoon";
-        if(/海上颱風/.test(hay) || /颱風/.test(hay)) return "orangeTyphoon";
-        if(/熱帶性低氣壓|熱帶低氣壓/.test(hay)) return "yellowTD";
+        // Typhoon warning levels.
+        if(/解除/.test(norm) && /颱風/.test(norm)) return "greenClear";
+        if(/海上陸上颱風|海陸|陸上颱風/.test(norm)) return "redTyphoon";
+        if(/海上颱風/.test(norm) || /颱風/.test(norm)) return "orangeTyphoon";
+        if(/熱帶性低氣壓|熱帶低氣壓/.test(norm)) return "yellowTD";
 
-        // Low temperature levels
-        if(/嚴寒/.test(hay)) return "redCold";
-        if(/非常寒冷/.test(hay)) return "orangeCold";
-        if(/寒冷|低溫/.test(hay)) return "yellowCold";
+        // Low temperature levels.
+        if(/嚴寒|紅燈|紅色燈號|紅色警戒/.test(norm) && /低溫|寒冷|嚴寒/.test(norm)) return "redCold";
+        if(/非常寒冷|橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒/.test(norm) && /低溫|寒冷|非常寒冷/.test(norm)) return "orangeCold";
+        if(/寒冷|黃燈|黃色燈號|黃色警戒|低溫/.test(norm)) return "yellowCold";
 
-        // High temperature levels
-        if(/紅燈/.test(hay) && /高溫/.test(hay)) return "redHeat";
-        if(/橙燈/.test(hay) && /高溫/.test(hay)) return "orangeHeat";
-        if(/黃燈/.test(hay) && /高溫/.test(hay)) return "yellowHeat";
-        if(/高溫/.test(hay)) return "orangeHeat";
+        // High temperature levels.
+        // Important: do NOT color all 高溫資訊 orange. CWA CAP may write "黃色燈號" instead of "黃燈".
+        if(/高溫/.test(norm)){
+          if(/紅燈|紅色燈號|紅色警戒|紅色/.test(norm)) return "redHeat";
+          if(/橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒|橙色|橘色/.test(norm)) return "orangeHeat";
+          if(/黃燈|黃色燈號|黃色警戒|黃色/.test(norm)) return "yellowHeat";
+          // Infer from threshold text only when lamp wording is absent.
+          if(/38(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天/.test(norm)) return "redHeat";
+          if(/36(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天|38(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "orangeHeat";
+          if(/36(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "yellowHeat";
+          return "yellowHeat";
+        }
 
-        // Wind levels
-        if(/紅燈/.test(hay) && /強風/.test(hay)) return "redWind";
-        if(/橙燈/.test(hay) && /強風/.test(hay)) return "orangeWind";
-        if(/黃燈/.test(hay) && /強風/.test(hay)) return "yellowWind";
-        if(/強風|陸上|海上強風/.test(hay)) return "yellowWind";
+        // Wind levels.
+        if(/強風|陸上|海上強風/.test(norm)){
+          if(/紅燈|紅色燈號|紅色警戒|紅色|平均風達?12級以上|陣風達?14級以上/.test(norm)) return "redWind";
+          if(/橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒|橙色|橘色|平均風達?9級以上|陣風達?11級以上/.test(norm)) return "orangeWind";
+          if(/黃燈|黃色燈號|黃色警戒|黃色|平均風達?6級以上|陣風達?8級以上/.test(norm)) return "yellowWind";
+          return "yellowWind";
+        }
 
-        if(/濃霧|霧/.test(hay)) return "yellowFog";
-        if(/長浪/.test(hay)) return "yellowWave";
-        if(/海嘯警報/.test(hay)) return "redTsunami";
-        if(/海嘯警訊/.test(hay)) return "orangeTsunami";
-        if(/海嘯/.test(hay)) return "yellowTsunami";
+        if(/濃霧|霧/.test(norm)) return "yellowFog";
+        if(/長浪/.test(norm)) return "yellowWave";
+        if(/海嘯警報/.test(norm)) return "redTsunami";
+        if(/海嘯警訊/.test(norm)) return "orangeTsunami";
+        if(/海嘯/.test(norm)) return "yellowTsunami";
 
         return a.kind || "other";
       }
@@ -6585,7 +6595,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           yellowTsunami:"#fff100",
           rain:"#fff100",
           typhoon:"#ff7f00",
-          heat:"#ff7f00",
+          heat:"#fff100",
           cold:"#fff100",
           wind:"#fff100",
           other:"#8b5cf6"
@@ -7882,7 +7892,7 @@ ${a.instruction}` : ''
 
       // Legacy / fallback levels
       extremeRain:'#e60012', torrentialRain:'#e60012', heavyRain:'#ff7f00', rain:'#fff100',
-      typhoon:'#ff7f00', heat:'#ff7f00', cold:'#fff100', wind:'#fff100', fog:'#fff100', wave:'#fff100',
+      typhoon:'#ff7f00', heat:'#fff100', cold:'#fff100', wind:'#fff100', fog:'#fff100', wave:'#fff100',
       tsunami:'#ff7f00', other:'#8b5cf6'
     };
     return colors[level] || '#8b5cf6';
