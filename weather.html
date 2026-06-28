@@ -2124,30 +2124,244 @@ button{ -webkit-tap-highlight-color:transparent; }
 
 
 
-/* ===== Taiwan CAP Area Map (safe add-on) ===== */
-.twAreaMapBox{
-  margin-top:14px;
-  border:1px solid var(--line);
-  border-radius:22px;
-  background:#fff;
-  overflow:hidden;
-  box-shadow:0 10px 24px rgba(31,53,72,.07);
+
+/* ===== Taiwan CAP Official-like Warning Board ===== */
+.twOfficialGrid{
+  display:grid;
+  grid-template-columns:minmax(360px, 1fr) minmax(420px, 1.1fr);
+  gap:18px;
+  align-items:stretch;
 }
-.twAreaMapHead{
-  min-height:52px;
-  padding:13px 14px;
+
+.twOfficialMapPanel,
+.twOfficialTablePanel,
+.twOfficialDetailPanel{
+  border:1px solid var(--line);
+  border-radius:24px;
+  background:#fff;
+  box-shadow:0 10px 24px rgba(31,53,72,.07);
+  overflow:hidden;
+}
+
+.twOfficialMapPanel{
+  min-height:720px;
+}
+
+.twOfficialMapHead,
+.twOfficialTableHead,
+.twOfficialDetailHead{
+  min-height:56px;
+  padding:13px 16px;
   border-bottom:1px solid var(--line);
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:10px;
-  background:linear-gradient(135deg, rgba(249,252,252,.96), rgba(231,242,243,.78));
+  gap:12px;
+  background:#fff;
 }
-.twAreaMapHead strong{
+
+.twOfficialMapHead strong,
+.twOfficialTableHead strong,
+.twOfficialDetailHead strong{
   color:#122c3c;
   font-size:13px;
   font-weight:900;
 }
+
+.twOfficialLegend{
+  padding:14px 16px 6px;
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:10px 18px;
+}
+
+.twOfficialLegendItem{
+  display:grid;
+  grid-template-columns:18px 34px 1fr;
+  align-items:center;
+  gap:8px;
+  color:#334155;
+  font-size:12px;
+  font-weight:900;
+  line-height:1.35;
+}
+
+.twOfficialColor{
+  width:13px;
+  height:32px;
+  border-radius:1px;
+  display:inline-block;
+}
+
+.twOfficialIcon{
+  font-size:22px;
+  line-height:1;
+}
+
+#twAreaMap{
+  width:100%;
+  height:560px;
+  background:#fff;
+}
+
+.twOfficialMapFoot{
+  padding:10px 14px 14px;
+  color:#647983;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.6;
+}
+
+.twOfficialRight{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:18px;
+}
+
+.twOfficialFilters{
+  padding:14px 16px;
+  display:grid;
+  grid-template-columns:180px 1fr;
+  gap:10px;
+  border-bottom:1px solid var(--line);
+  background:rgba(15,76,92,.025);
+}
+
+.twOfficialCountyTables{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:30px;
+  padding:14px 16px 16px;
+}
+
+.twOfficialTable{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
+}
+
+.twOfficialTable th{
+  height:38px;
+  background:#1887d2;
+  color:#fff;
+  font-size:13px;
+  font-weight:900;
+  text-align:center;
+}
+
+.twOfficialTable th:first-child{ width:44%; }
+.twOfficialTable th:last-child{ width:56%; }
+
+.twOfficialTable td{
+  min-height:48px;
+  padding:11px 10px;
+  color:#334155;
+  font-size:13px;
+  font-weight:800;
+  border-bottom:8px solid #fff;
+  background:#eaf9fc;
+  vertical-align:middle;
+}
+
+.twOfficialTable tr:nth-child(even) td{
+  background:#f7fcfd;
+}
+
+.twOfficialCountyCell{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-height:24px;
+  word-break:keep-all;
+}
+
+.twPlus{
+  display:inline-grid;
+  place-items:center;
+  width:13px;
+  height:13px;
+  border-radius:3px;
+  background:#0b7890;
+  color:#fff;
+  font-size:10px;
+  font-weight:900;
+  line-height:1;
+}
+
+.twOfficialBadges{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.twOfficialWarnBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:2px 0;
+  color:#111827;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.twOfficialWarnStrip{
+  width:13px;
+  height:26px;
+  display:inline-block;
+  border-radius:1px;
+}
+
+.twOfficialWarnIcon{
+  font-size:21px;
+  line-height:1;
+}
+
+.twOfficialNoWarn{
+  color:#94a3b8;
+  font-size:12px;
+  font-weight:800;
+}
+
+.twOfficialDetailPanel{
+  min-height:250px;
+}
+
+.twOfficialDetailBody{
+  padding:16px;
+}
+
+.twOfficialDetailTitle{
+  margin:0 0 8px;
+  color:#122c3c;
+  font-size:18px;
+  font-weight:900;
+  line-height:1.45;
+}
+
+.twOfficialDetailMeta{
+  color:#647983;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.65;
+  margin-bottom:12px;
+}
+
+.twOfficialDetailText{
+  padding:13px 14px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:rgba(15,76,92,.035);
+  color:#334155;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.75;
+  white-space:pre-wrap;
+  max-height:240px;
+  overflow:auto;
+}
+
 .twAreaStatus{
   display:inline-flex;
   align-items:center;
@@ -2162,29 +2376,1129 @@ button{ -webkit-tap-highlight-color:transparent; }
   font-weight:900;
   white-space:nowrap;
 }
-#twAreaMap{
-  width:100%;
-  height:390px;
-  background:#eef8fb;
-}
-.twAreaMapFoot{
-  padding:10px 14px;
-  border-top:1px solid var(--line);
-  background:rgba(15,76,92,.035);
-  color:#647983;
-  font-size:12px;
-  font-weight:800;
-  line-height:1.6;
-}
+
 .tw-area-popup{
   font-family:"Noto Sans TC","Segoe UI",Arial,sans-serif;
   color:#122c3c;
   font-size:12px;
   font-weight:900;
 }
+
+.twOfficialMapOnly .leaflet-container{
+  background:#fff !important;
+}
+
+.twOfficialMapOnly .leaflet-control-attribution{
+  display:none !important;
+}
+
+@media (max-width:1100px){
+  .twOfficialGrid{ grid-template-columns:1fr; }
+  .twOfficialMapPanel{ min-height:auto; }
+  #twAreaMap{ height:520px; }
+}
+
 @media (max-width:780px){
-  #twAreaMap{ height:360px; }
-  .twAreaMapHead{ align-items:flex-start; flex-direction:column; }
+  .twOfficialLegend{ grid-template-columns:1fr; }
+  .twOfficialFilters{ grid-template-columns:1fr; }
+  .twOfficialCountyTables{ grid-template-columns:1fr; gap:12px; }
+  #twAreaMap{ height:440px; }
+  .twOfficialMapHead,
+  .twOfficialTableHead,
+  .twOfficialDetailHead{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}
+
+
+
+/* ===== Xiaofeng CAP Map - Custom Weather Platform Style ===== */
+.twOfficialGrid{
+  grid-template-columns:minmax(360px,.95fr) minmax(480px,1.15fr);
+  gap:18px;
+}
+.twOfficialMapPanel,
+.twOfficialTablePanel,
+.twOfficialDetailPanel{
+  border:1px solid rgba(15,76,92,.12);
+  border-radius:30px;
+  background:rgba(255,255,255,.78);
+  backdrop-filter:blur(18px);
+  box-shadow:0 18px 44px rgba(31,53,72,.10);
+}
+.twOfficialMapPanel{
+  min-height:720px;
+  background:
+    radial-gradient(circle at 22% 8%, rgba(123,223,242,.18), transparent 32%),
+    linear-gradient(180deg, rgba(255,255,255,.92), rgba(239,248,250,.84));
+}
+.twOfficialMapHead,
+.twOfficialTableHead,
+.twOfficialDetailHead{
+  min-height:64px;
+  padding:16px 18px;
+  background:linear-gradient(135deg, rgba(15,76,92,.09), rgba(42,157,143,.075));
+  border-bottom:1px solid rgba(15,76,92,.10);
+}
+.twOfficialMapHead strong,
+.twOfficialTableHead strong,
+.twOfficialDetailHead strong{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  letter-spacing:-.02em;
+}
+.twOfficialLegend{
+  padding:15px 16px 10px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+}
+.twOfficialLegendItem{
+  grid-template-columns:12px 26px 1fr;
+  min-height:36px;
+  padding:8px 10px;
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:999px;
+  background:rgba(255,255,255,.76);
+  box-shadow:0 8px 18px rgba(31,53,72,.06);
+  font-size:11px;
+}
+.twOfficialColor{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  box-shadow:0 0 0 5px rgba(15,76,92,.045);
+}
+.twOfficialIcon{ font-size:17px; }
+#twAreaMap{
+  width:calc(100% - 28px);
+  height:560px;
+  margin:0 14px;
+  border-radius:26px;
+  overflow:hidden;
+  background:#dff3f8;
+  border:1px solid rgba(15,76,92,.12);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.50), 0 14px 30px rgba(31,53,72,.08);
+}
+.twOfficialMapFoot{
+  margin:10px 14px 14px;
+  padding:12px 14px;
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:18px;
+  background:rgba(255,255,255,.70);
+}
+.twOfficialFilters{
+  padding:14px 16px;
+  background:rgba(255,255,255,.62);
+}
+.twOfficialCountyTables{
+  gap:14px;
+  padding:14px 16px 18px;
+}
+.twOfficialTable{
+  border-collapse:separate;
+  border-spacing:0 8px;
+}
+.twOfficialTable th{
+  height:42px;
+  background:linear-gradient(135deg,#0f4c5c,#2a9d8f);
+  box-shadow:0 10px 20px rgba(15,76,92,.14);
+}
+.twOfficialTable th:first-child{ border-radius:16px 0 0 16px; }
+.twOfficialTable th:last-child{ border-radius:0 16px 16px 0; }
+.twOfficialTable td{
+  border-bottom:0;
+  background:rgba(255,255,255,.78);
+  border-top:1px solid rgba(15,76,92,.08);
+  border-bottom:1px solid rgba(15,76,92,.08);
+  min-height:54px;
+}
+.twOfficialTable td:first-child{
+  border-left:1px solid rgba(15,76,92,.08);
+  border-radius:18px 0 0 18px;
+}
+.twOfficialTable td:last-child{
+  border-right:1px solid rgba(15,76,92,.08);
+  border-radius:0 18px 18px 0;
+}
+.twOfficialTable tr:nth-child(even) td{ background:rgba(237,250,252,.78); }
+.twOfficialWarnBadge{
+  min-height:30px;
+  padding:5px 9px;
+  border-radius:999px;
+  border:1px solid rgba(15,76,92,.10);
+  background:#fff;
+  box-shadow:0 8px 16px rgba(31,53,72,.06);
+  transition:.16s ease;
+}
+.twOfficialWarnBadge:hover{
+  transform:translateY(-1px);
+  box-shadow:0 14px 24px rgba(31,53,72,.11);
+}
+.twOfficialWarnStrip{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  box-shadow:0 0 0 5px rgba(15,76,92,.055);
+}
+.twOfficialWarnIcon{ font-size:17px; }
+.twOfficialDetailBody{
+  background:linear-gradient(180deg, rgba(255,255,255,.72), rgba(245,251,252,.70));
+}
+.twOfficialDetailTitle{ font-size:20px; letter-spacing:-.03em; }
+.twOfficialDetailText{
+  border-radius:22px;
+  background:#fff;
+  box-shadow:inset 0 0 0 1px rgba(15,76,92,.04);
+}
+.twAreaStatus{
+  background:#fff;
+  border-color:rgba(15,76,92,.14);
+  box-shadow:0 8px 16px rgba(31,53,72,.06);
+}
+.tw-area-popup{
+  border-radius:999px;
+  padding:7px 10px;
+  background:rgba(255,255,255,.96);
+  border:1px solid rgba(15,76,92,.14);
+  box-shadow:0 10px 22px rgba(31,53,72,.12);
+}
+.twOfficialMapOnly .leaflet-container{ background:#dff3f8 !important; }
+.twOfficialMapOnly .leaflet-control-zoom{
+  border:0 !important;
+  box-shadow:0 10px 22px rgba(31,53,72,.12) !important;
+}
+.twOfficialMapOnly .leaflet-control-zoom a{
+  border-color:rgba(15,76,92,.12) !important;
+  color:#163042 !important;
+}
+.twOfficialMapOnly .leaflet-tile-pane{
+  filter:saturate(.96) contrast(.98) brightness(1.02);
+}
+@media (max-width:780px){
+  #twAreaMap{ width:calc(100% - 20px); margin:0 10px; }
+  .twOfficialLegend{ grid-template-columns:1fr; }
+}
+
+
+/* ===== CAP Custom Clean Redesign v2 ===== */
+.twOfficialGrid{
+  grid-template-columns:minmax(380px, .95fr) minmax(460px, 1.08fr);
+  gap:18px;
+}
+.twOfficialMapPanel,
+.twOfficialTablePanel,
+.twOfficialDetailPanel{
+  border:1px solid rgba(15,76,92,.10);
+  background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,253,254,.82));
+  box-shadow:0 18px 45px rgba(31,53,72,.10);
+}
+.twOfficialMapHead,
+.twOfficialTableHead,
+.twOfficialDetailHead{
+  background:linear-gradient(135deg,rgba(255,255,255,.88),rgba(235,249,250,.72));
+}
+.twOfficialLegend{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  padding:14px 16px 10px;
+  gap:10px;
+}
+.twOfficialLegendItem{
+  grid-template-columns:12px 30px 1fr;
+  min-height:54px;
+  padding:10px 12px;
+  border:1px solid rgba(15,76,92,.09);
+  border-radius:22px;
+  background:rgba(255,255,255,.82);
+  box-shadow:0 12px 24px rgba(31,53,72,.06);
+}
+.twOfficialColor{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  box-shadow:0 0 0 6px rgba(15,76,92,.05);
+}
+.twOfficialIcon{ font-size:17px; filter:saturate(1.05); }
+.twOfficialMapOnly{ padding:0 16px; }
+#twAreaMap{
+  height:560px;
+  border-radius:26px;
+  overflow:hidden;
+  background:#e8f8fb;
+  border:1px solid rgba(15,76,92,.10);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.68), 0 18px 36px rgba(31,53,72,.09);
+}
+.twOfficialMapFoot{
+  color:#5f7481;
+  background:rgba(255,255,255,.72);
+}
+.twOfficialTablePanel{ overflow:hidden; }
+.twOfficialFilters{
+  grid-template-columns:170px 1fr;
+  background:rgba(255,255,255,.58);
+}
+.twOfficialCountyTables{
+  gap:12px;
+}
+.twOfficialTable{
+  border-spacing:0 9px;
+}
+.twOfficialTable th{
+  height:42px;
+  background:linear-gradient(135deg,#0f4c5c,#2a9d8f);
+  color:#fff;
+  letter-spacing:.02em;
+}
+.twOfficialTable td{
+  background:rgba(255,255,255,.78);
+  box-shadow:0 8px 18px rgba(31,53,72,.045);
+}
+.twOfficialTable tr:nth-child(even) td{
+  background:rgba(235,249,251,.76);
+}
+.twOfficialTable tr:hover td{
+  background:rgba(225,248,251,.94);
+}
+.twOfficialCountyCell{
+  font-weight:900;
+  color:#244150;
+}
+.twOfficialWarnBadge{
+  min-height:34px;
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,.92);
+  border:1px solid rgba(15,76,92,.10);
+  box-shadow:0 8px 18px rgba(31,53,72,.06);
+}
+.twOfficialWarnBadge:hover{
+  transform:translateY(-2px);
+  border-color:rgba(15,76,92,.22);
+  box-shadow:0 16px 28px rgba(31,53,72,.11);
+}
+.twOfficialWarnStrip{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+}
+.twOfficialWarnIcon{ font-size:16px; }
+.twOfficialDetailPanel{
+  overflow:hidden;
+}
+.twOfficialDetailBody{
+  padding:18px;
+}
+.twOfficialDetailTitle{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:14px;
+  font-size:22px;
+}
+.twOfficialDetailMeta{
+  display:grid;
+  grid-template-columns:92px 1fr;
+  gap:10px 14px;
+  padding:16px;
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:24px;
+  background:linear-gradient(135deg, rgba(235,249,250,.86), rgba(255,255,255,.80));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.50);
+  color:#244150;
+  font-size:13px;
+  line-height:1.55;
+}
+.twOfficialDetailMeta b{
+  color:#0f4c5c;
+  font-weight:900;
+}
+.twOfficialDetailText{
+  margin-top:14px;
+  padding:16px 18px;
+  max-height:260px;
+  border-radius:24px;
+  background:#fff;
+  border:1px solid rgba(15,76,92,.10);
+  box-shadow:0 12px 28px rgba(31,53,72,.06);
+  color:#314958;
+}
+#twArea{
+  display:block;
+  min-width:0;
+}
+.twAreaGroups{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.twAreaGroup{
+  padding:10px;
+  border-radius:20px;
+  background:rgba(255,255,255,.62);
+  border:1px solid rgba(15,76,92,.08);
+}
+.twCountyPill{
+  display:inline-flex;
+  align-items:center;
+  min-height:34px;
+  padding:0 16px;
+  border-radius:999px;
+  color:#fff;
+  font-size:13px;
+  font-weight:900;
+  background:linear-gradient(135deg, var(--warn), color-mix(in srgb, var(--warn) 70%, #0f4c5c));
+  box-shadow:0 10px 20px color-mix(in srgb, var(--warn) 22%, transparent);
+}
+.twTownLine{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.twTownPill,
+.twWholeCounty,
+.twAreaMuted{
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:0 11px;
+  border-radius:999px;
+  border:1px solid rgba(15,76,92,.12);
+  background:#fff;
+  color:#46606e;
+  font-size:12px;
+  font-weight:900;
+}
+.twWholeCounty{
+  background:rgba(42,157,143,.10);
+  color:#0f4c5c;
+  border-color:rgba(42,157,143,.18);
+}
+.twAreaMuted{
+  color:#8aa0ad;
+}
+.tw-area-popup{
+  border-radius:999px;
+  padding:8px 12px;
+  background:rgba(255,255,255,.96);
+  border:1px solid rgba(15,76,92,.12);
+  box-shadow:0 12px 24px rgba(31,53,72,.12);
+}
+.twAreaFocusedShape{
+  filter:drop-shadow(0 0 7px rgba(15,76,92,.32));
+}
+.twOfficialMapOnly .leaflet-interactive{
+  transition:fill-opacity .18s ease, stroke-width .18s ease, opacity .18s ease;
+}
+@media (max-width:1100px){
+  .twOfficialGrid{ grid-template-columns:1fr; }
+}
+@media (max-width:780px){
+  .twOfficialLegend{ grid-template-columns:1fr; }
+  .twOfficialCountyTables{ grid-template-columns:1fr; }
+  .twOfficialFilters{ grid-template-columns:1fr; }
+  .twOfficialDetailMeta{ grid-template-columns:1fr; }
+  #twAreaMap{ height:500px; }
+}
+
+
+
+/* ===== v11 CAP layout override: map + table top, full detail bottom ===== */
+.twOfficialGrid{
+  display:grid !important;
+  grid-template-columns:minmax(420px, 1.12fr) minmax(360px, .88fr) !important;
+  gap:18px !important;
+  align-items:stretch !important;
+}
+.twOfficialRight{ display:contents !important; }
+.twOfficialMapPanel{ grid-column:1; min-height:0 !important; }
+.twOfficialTablePanel{ grid-column:2; min-height:0 !important; }
+.twOfficialDetailPanel{ grid-column:1 / -1 !important; min-height:auto !important; }
+.twOfficialMapPanel,
+.twOfficialTablePanel,
+.twOfficialDetailPanel{
+  border:1px solid rgba(15,76,92,.095) !important;
+  border-radius:28px !important;
+  background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(248,253,254,.82)) !important;
+  box-shadow:0 18px 45px rgba(31,53,72,.09) !important;
+}
+.twOfficialMapHead,
+.twOfficialTableHead,
+.twOfficialDetailHead{
+  min-height:58px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.93),rgba(233,249,250,.72)) !important;
+}
+#twAreaMap{
+  height:570px !important;
+  border-radius:26px !important;
+  background:#eaf8fb !important;
+}
+.twOfficialTablePanel{
+  display:flex !important;
+  flex-direction:column !important;
+  max-height:760px !important;
+}
+.twOfficialCountyTables{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow:auto !important;
+  padding-bottom:12px !important;
+  scrollbar-gutter:stable !important;
+}
+.twOfficialTable{
+  border-spacing:0 8px !important;
+}
+.twOfficialTable th{
+  height:40px !important;
+  background:linear-gradient(135deg,#0f4c5c,#2a9d8f) !important;
+  color:#fff !important;
+  font-size:12px !important;
+}
+.twOfficialTable td{
+  padding:10px 12px !important;
+  background:rgba(255,255,255,.82) !important;
+  border-top:1px solid rgba(15,76,92,.06) !important;
+  border-bottom:1px solid rgba(15,76,92,.06) !important;
+  box-shadow:0 8px 18px rgba(31,53,72,.04) !important;
+}
+.twOfficialTable td:first-child{
+  border-left:1px solid rgba(15,76,92,.06) !important;
+  border-radius:16px 0 0 16px !important;
+}
+.twOfficialTable td:last-child{
+  border-right:1px solid rgba(15,76,92,.06) !important;
+  border-radius:0 16px 16px 0 !important;
+}
+.twOfficialTable tr:hover td,
+.twOfficialTable tr.twRowActive td{
+  background:rgba(222,248,249,.95) !important;
+  border-color:rgba(42,157,143,.22) !important;
+  box-shadow:0 14px 26px rgba(31,53,72,.09) !important;
+}
+.twOfficialWarnBadge{
+  min-height:32px !important;
+  padding:6px 9px !important;
+  border:1px solid rgba(15,76,92,.10) !important;
+  background:rgba(255,255,255,.92) !important;
+}
+.twOfficialWarnBadge:hover,
+.twOfficialWarnBadge.twBadgeActive{
+  transform:translateY(-1px) !important;
+  border-color:rgba(42,157,143,.32) !important;
+  box-shadow:0 12px 22px rgba(42,157,143,.16) !important;
+}
+.twOfficialDetailBody{
+  padding:20px !important;
+}
+.twOfficialDetailTitle{
+  margin:0 0 16px !important;
+  padding:16px 18px !important;
+  border-radius:24px !important;
+  border:1px solid rgba(15,76,92,.10) !important;
+  background:linear-gradient(135deg,rgba(235,249,250,.92),rgba(255,255,255,.88)) !important;
+  font-size:22px !important;
+  line-height:1.35 !important;
+}
+.twOfficialDetailMeta{
+  display:grid !important;
+  grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+  gap:12px !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+.twDetailItem{
+  min-height:82px;
+  padding:15px 16px;
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:22px;
+  background:rgba(255,255,255,.88);
+  box-shadow:0 10px 24px rgba(31,53,72,.055);
+}
+.twDetailItem .twDetailLabel{
+  display:block;
+  margin-bottom:8px;
+  color:#6a7d89;
+  font-size:12px;
+  font-weight:900;
+}
+.twDetailItem .twDetailValue{
+  display:block;
+  color:#122c3c;
+  font-size:13px;
+  font-weight:900;
+  line-height:1.55;
+  word-break:break-word;
+}
+.twDetailItem.area{
+  grid-column:1 / -1;
+  min-height:auto;
+}
+.twOfficialDetailText{
+  margin-top:14px !important;
+  padding:18px 20px !important;
+  max-height:360px !important;
+  border-radius:24px !important;
+  background:#fff !important;
+  border:1px solid rgba(15,76,92,.09) !important;
+  box-shadow:0 12px 28px rgba(31,53,72,.055) !important;
+  color:#314958 !important;
+}
+.twAreaGroups{
+  gap:12px !important;
+}
+.twAreaGroup{
+  padding:12px !important;
+  border-radius:22px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(240,250,251,.72)) !important;
+}
+.twCountyPill{
+  color:#123044 !important;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--warn) 18%,#ffffff),#ffffff) !important;
+  border:1px solid color-mix(in srgb,var(--warn) 28%,rgba(15,76,92,.12)) !important;
+  box-shadow:0 8px 18px color-mix(in srgb,var(--warn) 14%,transparent) !important;
+}
+.twWholeCounty{
+  background:rgba(42,157,143,.09) !important;
+  color:#0f4c5c !important;
+}
+.twTownPill{
+  background:rgba(255,255,255,.88) !important;
+  color:#3d5663 !important;
+}
+.twAreaFocusedShape{
+  filter:drop-shadow(0 0 10px rgba(42,157,143,.34)) !important;
+}
+.twOfficialMapOnly .leaflet-interactive{
+  outline:none !important;
+  transition:fill-opacity .18s ease, stroke-width .18s ease, opacity .18s ease, filter .18s ease !important;
+}
+.twOfficialMapOnly path:focus{ outline:none !important; }
+.tw-area-popup{
+  border-radius:999px !important;
+  color:#123044 !important;
+  font-weight:900 !important;
+  border:1px solid rgba(42,157,143,.18) !important;
+}
+@media (max-width:1100px){
+  .twOfficialGrid{ grid-template-columns:1fr !important; }
+  .twOfficialMapPanel,
+  .twOfficialTablePanel,
+  .twOfficialDetailPanel{ grid-column:1 !important; }
+  .twOfficialRight{ display:block !important; }
+  .twOfficialTablePanel{ max-height:none !important; }
+  .twOfficialDetailMeta{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+@media (max-width:780px){
+  .twOfficialDetailMeta{ grid-template-columns:1fr !important; }
+  #twAreaMap{ height:500px !important; }
+}
+
+
+/* ===== v12 CAP polish: multi-type legend, stronger county borders, wider detail area ===== */
+.twOfficialGrid{
+  grid-template-columns:minmax(520px, 1fr) minmax(520px, 1fr) !important;
+  align-items:stretch !important;
+}
+.twOfficialMapPanel,
+.twOfficialTablePanel{
+  min-height:800px !important;
+  height:100% !important;
+}
+.twOfficialTablePanel{
+  max-height:none !important;
+}
+.twOfficialCountyTables{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+  overflow:auto !important;
+}
+#twAreaMap{
+  height:620px !important;
+}
+.twOfficialLegend{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:10px !important;
+}
+.twOfficialLegendItem{
+  min-height:52px !important;
+  grid-template-columns:14px 30px 1fr !important;
+  border-radius:20px !important;
+}
+.twOfficialColor.rainLv4{ background:#c026d3 !important; }
+.twOfficialColor.rainLv3{ background:#dc2626 !important; }
+.twOfficialColor.rainLv2{ background:#f97316 !important; }
+.twOfficialColor.rainLv1{ background:#facc15 !important; }
+.twOfficialColor.coldLv{ background:#0ea5e9 !important; }
+.twOfficialColor.heatLv{ background:#ef4444 !important; }
+.twOfficialColor.windLv{ background:#38bdf8 !important; }
+.twOfficialColor.tyLv{ background:#fb7185 !important; }
+.twOfficialFilters{
+  grid-template-columns:160px 1fr !important;
+}
+.twOfficialTable th{
+  position:sticky !important;
+  top:0 !important;
+  z-index:3 !important;
+}
+.twOfficialDetailMeta{
+  grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+}
+.twDetailItem.area{
+  grid-column:1 / -1 !important;
+  padding:16px 18px !important;
+}
+.twAreaGroups{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:12px !important;
+}
+.twAreaGroup{
+  display:grid !important;
+  grid-template-columns:150px minmax(0,1fr) !important;
+  align-items:start !important;
+  gap:12px !important;
+  width:100% !important;
+}
+.twCountyPill{
+  justify-content:center !important;
+  width:100% !important;
+}
+.twTownLine{
+  margin-top:0 !important;
+  align-content:start !important;
+}
+.twTownPill,
+.twWholeCounty,
+.twAreaMuted{
+  min-height:32px !important;
+  padding:0 12px !important;
+}
+.twOfficialMapOnly .leaflet-interactive{
+  outline:none !important;
+}
+.twAreaFocusedShape{
+  filter:drop-shadow(0 0 9px rgba(42,157,143,.36)) !important;
+}
+@media (max-width:1100px){
+  .twOfficialGrid{ grid-template-columns:1fr !important; }
+  .twOfficialMapPanel,
+  .twOfficialTablePanel{ min-height:auto !important; }
+  #twAreaMap{ height:560px !important; }
+}
+@media (max-width:780px){
+  .twOfficialLegend{ grid-template-columns:1fr !important; }
+  .twOfficialDetailMeta{ grid-template-columns:1fr !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+  #twAreaMap{ height:500px !important; }
+}
+
+
+/* ===== v13 CAP active-only + dynamic legend + wider area pills ===== */
+.twOfficialLegend{ grid-template-columns:repeat(auto-fit,minmax(250px,1fr)) !important; }
+.twOfficialColor.coldLv2{ background:#075985 !important; }
+.twOfficialColor.heatLv2{ background:#b91c1c !important; }
+.twOfficialColor.windLv2{ background:#0284c7 !important; }
+.twOfficialMapPanel,
+.twOfficialTablePanel{ min-height:820px !important; }
+.twOfficialTablePanel{ max-height:none !important; height:100% !important; }
+.twOfficialCountyTables{ min-height:640px !important; max-height:none !important; }
+#twAreaMap{ height:640px !important; }
+.twOfficialDetailMeta{
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:12px !important;
+  align-items:start !important;
+}
+.twDetailItem{
+  min-height:74px;
+  padding:14px 16px;
+  border-radius:20px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(15,76,92,.08);
+}
+.twDetailItem.area{
+  grid-column:1 / -1 !important;
+  display:grid !important;
+  grid-template-columns:120px minmax(0,1fr) !important;
+  gap:14px !important;
+  min-height:auto !important;
+}
+.twDetailLabel{ display:block; color:#0f4c5c; font-size:12px; font-weight:900; margin-bottom:6px; }
+.twDetailValue{ display:block; color:#234457; font-size:13px; font-weight:900; line-height:1.7; }
+.twDetailItem.area .twDetailLabel{ margin-bottom:0; padding-top:8px; }
+.twAreaGroups{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr)) !important;
+  gap:12px !important;
+}
+.twAreaGroup{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:116px minmax(0,1fr) !important;
+  gap:10px !important;
+  align-items:start !important;
+}
+.twCountyPill{ width:100% !important; justify-content:center !important; }
+.twTownLine{ margin-top:0 !important; display:flex !important; flex-wrap:wrap !important; gap:8px !important; }
+.twOfficialMapOnly .leaflet-interactive{ outline:none !important; }
+.twAreaFocusedShape{ filter:drop-shadow(0 0 10px rgba(15,76,92,.34)) !important; }
+@media (max-width:1100px){
+  .twOfficialMapPanel,.twOfficialTablePanel{ min-height:auto !important; }
+  .twOfficialCountyTables{ min-height:420px !important; }
+  #twAreaMap{ height:560px !important; }
+}
+@media (max-width:780px){
+  .twOfficialDetailMeta{ grid-template-columns:1fr !important; }
+  .twDetailItem.area{ grid-template-columns:1fr !important; }
+  .twAreaGroups{ grid-template-columns:1fr !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+}
+
+
+
+/* ===== v14 CAP detail layout: important info first + wider area pills ===== */
+.twDetailV14{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:14px !important;
+}
+.twDetailTopBar{
+  display:flex !important;
+  align-items:flex-start !important;
+  justify-content:space-between !important;
+  gap:14px !important;
+  padding:16px 18px !important;
+  border:1px solid rgba(15,76,92,.10) !important;
+  border-radius:24px !important;
+  background:linear-gradient(135deg,rgba(232,249,251,.95),rgba(255,255,255,.92)) !important;
+  box-shadow:0 12px 26px rgba(31,53,72,.055) !important;
+}
+.twDetailSmallLabel,
+.twDetailLabel{
+  display:block !important;
+  color:#5f7480 !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+  letter-spacing:.01em !important;
+}
+.twDetailTopBar .twOfficialDetailTitle{
+  margin:6px 0 0 !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  font-size:24px !important;
+  color:#102d40 !important;
+}
+.twImportantGrid{
+  display:grid !important;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:12px !important;
+}
+.twImportantCard{
+  min-height:76px !important;
+  padding:14px 16px !important;
+  border:1px solid rgba(15,76,92,.095) !important;
+  border-radius:20px !important;
+  background:rgba(255,255,255,.90) !important;
+  box-shadow:0 10px 22px rgba(31,53,72,.045) !important;
+}
+.twImportantCard.wide{
+  grid-column:span 2 !important;
+}
+.twDetailValue{
+  display:block !important;
+  margin-top:7px !important;
+  color:#153447 !important;
+  font-size:13px !important;
+  font-weight:900 !important;
+  line-height:1.55 !important;
+  word-break:break-word !important;
+}
+.twAreaBlock{
+  border:1px solid rgba(15,76,92,.10) !important;
+  border-radius:24px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(240,250,251,.78)) !important;
+  box-shadow:0 12px 28px rgba(31,53,72,.052) !important;
+  overflow:hidden !important;
+}
+.twAreaBlockHead{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+  padding:13px 16px !important;
+  border-bottom:1px solid rgba(15,76,92,.08) !important;
+  background:rgba(255,255,255,.62) !important;
+}
+.twAreaHelp{
+  color:#7f95a1 !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+}
+.twAreaBlockBody{
+  padding:14px 16px 16px !important;
+}
+.twAreaGroups{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:repeat(auto-fit,minmax(520px,1fr)) !important;
+  gap:12px !important;
+}
+.twAreaGroup{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:150px minmax(0,1fr) !important;
+  gap:12px !important;
+  align-items:start !important;
+  padding:12px !important;
+  border-radius:20px !important;
+  background:rgba(255,255,255,.76) !important;
+  border:1px solid rgba(15,76,92,.075) !important;
+}
+.twCountyPill{
+  min-height:34px !important;
+  width:100% !important;
+  justify-content:center !important;
+  white-space:nowrap !important;
+}
+.twTownLine{
+  min-width:0 !important;
+  margin-top:0 !important;
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:8px !important;
+  align-content:flex-start !important;
+}
+.twTownPill,
+.twWholeCounty,
+.twAreaMuted{
+  min-height:32px !important;
+  padding:0 12px !important;
+  white-space:nowrap !important;
+}
+.twOfficialDetailText{
+  margin-top:0 !important;
+}
+.twOfficialMapOnly .leaflet-interactive{
+  outline:none !important;
+}
+.twAreaFocusedShape{
+  filter:drop-shadow(0 0 12px rgba(15,76,92,.42)) !important;
+}
+@media (max-width:1180px){
+  .twImportantGrid{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .twImportantCard.wide{ grid-column:span 1 !important; }
+  .twAreaGroups{ grid-template-columns:1fr !important; }
+}
+@media (max-width:720px){
+  .twImportantGrid{ grid-template-columns:1fr !important; }
+  .twAreaBlockHead{ align-items:flex-start !important; flex-direction:column !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+  .twCountyPill{ width:max-content !important; max-width:100% !important; }
+}
+
+
+
+/* ===== v15 CAP detail compact layout fix ===== */
+.twDetailTopBar{
+  align-items:center !important;
+  background:linear-gradient(135deg,rgba(232,249,251,.96),rgba(255,255,255,.94)) !important;
+}
+.twDetailTopBar::after{
+  content:"重要資訊已整理於下方卡片";
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:0 12px;
+  border-radius:999px;
+  border:1px solid rgba(15,76,92,.12);
+  background:#fff;
+  color:#607885;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.twImportantGrid{
+  grid-template-columns:1.05fr 1.25fr 2fr 1.05fr !important;
+  align-items:stretch !important;
+}
+.twImportantCard{
+  min-height:82px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+}
+.twImportantCard.wide{ grid-column:auto !important; }
+.twAreaBlockHead{
+  background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(238,249,250,.68)) !important;
+}
+.twAreaBlockBody{
+  padding:16px !important;
+}
+.twAreaGroups{
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:12px !important;
+  align-items:start !important;
+}
+.twAreaGroup{
+  display:grid !important;
+  grid-template-columns:150px minmax(0,1fr) !important;
+  gap:12px !important;
+  align-items:start !important;
+  min-height:58px !important;
+  padding:12px !important;
+  border-radius:20px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(248,253,254,.86)) !important;
+  box-shadow:0 8px 18px rgba(31,53,72,.035) !important;
+}
+.twCountyPill{
+  width:100% !important;
+  min-height:34px !important;
+  justify-content:center !important;
+  color:#143248 !important;
+  border-color:color-mix(in srgb, var(--warn, #2a9d8f) 38%, #ffffff) !important;
+  background:linear-gradient(135deg,color-mix(in srgb, var(--warn, #2a9d8f) 12%, #ffffff),#ffffff) !important;
+}
+.twTownLine{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:8px !important;
+  min-width:0 !important;
+  align-content:flex-start !important;
+}
+.twWholeCounty{
+  color:#0f4c5c !important;
+  background:rgba(42,157,143,.10) !important;
+  border-color:rgba(42,157,143,.16) !important;
+}
+.twTownPill,
+.twWholeCounty,
+.twAreaMuted{
+  min-height:32px !important;
+  padding:0 12px !important;
+  border-radius:999px !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+}
+.twOfficialDetailText{
+  border-radius:22px !important;
+  padding:16px 18px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(247,252,253,.84)) !important;
+  border:1px solid rgba(15,76,92,.095) !important;
+  box-shadow:0 10px 22px rgba(31,53,72,.04) !important;
+}
+@media (max-width:1180px){
+  .twImportantGrid{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .twAreaGroups{ grid-template-columns:1fr !important; }
+}
+@media (max-width:720px){
+  .twDetailTopBar{ align-items:flex-start !important; flex-direction:column !important; }
+  .twImportantGrid{ grid-template-columns:1fr !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+  .twCountyPill{ width:max-content !important; max-width:100% !important; }
+}
+
+
+
+/* ===== v16 CAP detail area fix: compact rows, use right space, no wrong full-county towns ===== */
+.twOfficialDetailMeta{
+  grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+  gap:14px !important;
+}
+.twDetailItem.area{
+  grid-column:1 / -1 !important;
+  display:block !important;
+  padding:0 !important;
+  overflow:hidden !important;
+}
+.twAreaBlockHead{
+  padding:14px 18px !important;
+  background:linear-gradient(135deg, rgba(15,76,92,.055), rgba(42,157,143,.045)) !important;
+}
+.twAreaBlockBody,
+#twArea{
+  padding:12px 14px !important;
+}
+.twAreaGroups{
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:8px !important;
+  width:100% !important;
+}
+.twAreaGroup{
+  display:grid !important;
+  grid-template-columns:150px minmax(0, 1fr) !important;
+  align-items:start !important;
+  gap:10px !important;
+  width:100% !important;
+  min-height:46px !important;
+  padding:9px 12px !important;
+  border-radius:18px !important;
+  background:rgba(255,255,255,.78) !important;
+  border:1px solid rgba(25,42,58,.08) !important;
+  box-shadow:none !important;
+}
+.twCountyPill{
+  width:100% !important;
+  min-width:0 !important;
+  justify-content:center !important;
+  padding:8px 10px !important;
+  border-radius:999px !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+.twTownLine{
+  margin:0 !important;
+  display:flex !important;
+  flex-wrap:wrap !important;
+  align-items:center !important;
+  gap:7px !important;
+  min-width:0 !important;
+}
+.twTownPill,
+.twWholeCounty,
+.twAreaMuted{
+  min-height:30px !important;
+  padding:6px 10px !important;
+  border-radius:999px !important;
+  white-space:nowrap !important;
+}
+.twWholeCounty{
+  color:#0f4c5c !important;
+  background:rgba(42,157,143,.11) !important;
+  border:1px solid rgba(42,157,143,.20) !important;
+  font-weight:900 !important;
+}
+@media (max-width:780px){
+  .twOfficialDetailMeta{ grid-template-columns:1fr !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+  .twCountyPill{ width:max-content !important; max-width:100% !important; justify-content:flex-start !important; }
+}
+
+
+/* ===== v17 Official CWA alert category colors ===== */
+.twOfficialColor.officialRed{ background:#e60012 !important; }
+.twOfficialColor.officialOrange{ background:#ff7f00 !important; }
+.twOfficialColor.officialYellow{ background:#fff100 !important; border:1px solid rgba(25,42,58,.18) !important; }
+.twOfficialColor.officialGreen{ background:#00e833 !important; }
+.twOfficialLegendItem{
+  background:rgba(255,255,255,.76) !important;
+  border:1px solid rgba(25,42,58,.08) !important;
+  padding:10px 12px !important;
+  box-shadow:0 8px 18px rgba(31,53,72,.035) !important;
+}
+.twOfficialWarnStrip{
+  box-shadow:0 0 0 1px rgba(25,42,58,.08) inset !important;
 }
 
 </style>
@@ -2266,7 +3580,7 @@ button{ -webkit-tap-highlight-color:transparent; }
             <div>
               <span class="warningPill"><span class="dot" style="background:#ef4444;"></span> 台灣</span>
               <h3>台灣天氣警報</h3>
-              <p>資料來源：中央氣象署 CWA CAP</p>
+              <p>資料來源：中央氣象署 CWA CAP。版面改成類似官網的「地圖 + 地區 / 警特報」顯示。</p>
             </div>
 
             <div class="warningControls">
@@ -2279,80 +3593,103 @@ button{ -webkit-tap-highlight-color:transparent; }
             </div>
           </div>
 
-          <div class="twWarningGrid">
-            <div class="warningBox">
-              <div class="warningBoxHead">
-                <strong>📌 警報清單</strong>
-                <span class="chip" id="twCount">0 筆</span>
+          <div class="twOfficialGrid">
+            <div class="twOfficialMapPanel">
+              <div class="twOfficialMapHead">
+                <strong>🗺️ 警報分區地圖</strong>
+                <span class="twAreaStatus" id="twAreaMapStatus">等待 CAP 資料</span>
               </div>
 
-              <div class="warningBoxBody">
-                <div class="warningFilters">
-                  <select class="warningSelect" id="twTypeFilter"></select>
-                  <input class="warningSearch" id="twSearch" placeholder="搜尋（標題 / 事件 / 內容 / 區域）…" />
-                </div>
+              <div class="twOfficialLegend" id="twOfficialLegend">
+                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv4"></span><span class="twOfficialIcon">⛈️</span><span>超大豪雨<br>500mm/24h 以上雨量</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv3"></span><span class="twOfficialIcon">🌧️</span><span>大豪雨<br>350mm/24h 以上或 200mm/3h 以上雨量</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv2"></span><span class="twOfficialIcon">🌧️</span><span>豪雨 / 颱風<br>200mm/24h 以上或 100mm/3h 以上雨量</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv1"></span><span class="twOfficialIcon">🌦️</span><span>大雨<br>80mm/24h 以上或 40mm/h 以上雨量</span></div>
+              </div>
 
-                <div class="warningList" id="twList"></div>
-                <div class="warningHint" id="twHint"></div>
+              <div class="twOfficialMapOnly">
+                <div id="twAreaMap"></div>
+              </div>
+
+              <div class="twOfficialMapFoot">
+                地圖依 CWA CAP 的 <b>areaDesc</b> 自動上色。請放 <b>tw-county.geojson</b>，若要細到鄉鎮可再放 <b>tw-town.geojson</b>。
               </div>
             </div>
 
-            <div class="warningBox">
-              <div class="warningBoxHead">
-                <strong>🧾 警報詳細</strong>
-                <span class="chip" id="twSelected">未選取</span>
+            <div class="twOfficialRight">
+              <div class="twOfficialTablePanel">
+                <div class="twOfficialTableHead">
+                  <strong>📋 地區警特報</strong>
+                  <span class="chip" id="twCount">0 筆</span>
+                </div>
+
+                <div class="twOfficialFilters">
+                  <select class="warningSelect" id="twTypeFilter"></select>
+                  <input class="warningSearch" id="twSearch" placeholder="搜尋地區 / 警報 / 內容…" />
+                </div>
+
+                <div class="twOfficialCountyTables" id="twCountyTables">
+                  <table class="twOfficialTable">
+                    <thead><tr><th>地區</th><th>警特報</th></tr></thead>
+                    <tbody id="twCountyTableLeft"></tbody>
+                  </table>
+                  <table class="twOfficialTable">
+                    <thead><tr><th>地區</th><th>警特報</th></tr></thead>
+                    <tbody id="twCountyTableRight"></tbody>
+                  </table>
+                </div>
+
+                <div class="warningHint" id="twHint" style="padding:0 16px 16px;"></div>
+                <div class="warningList" id="twList" style="display:none;"></div>
               </div>
 
-              <div class="warningBoxBody">
-                <div class="warningCards">
-                  <div class="warningInfoCard">
-                    <div class="warningVal" id="twHeadline">—</div>
-                    <div class="warningLab">標題</div>
-                  </div>
-
-                  <div class="warningInfoCard">
-                    <div class="warningVal" id="twEvent">—</div>
-                    <div class="warningLab">事件</div>
-                  </div>
-
-                  <div class="warningInfoCard">
-                    <div class="warningVal" id="twSent">—</div>
-                    <div class="warningLab">發布</div>
-                  </div>
-
-                  <div class="warningInfoCard">
-                    <div class="warningVal" id="twValid">—</div>
-                    <div class="warningLab">有效</div>
+              <div class="twOfficialDetailPanel">
+                <div class="twOfficialDetailHead">
+                  <strong>🧾 警報詳細</strong>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <span class="chip" id="twSelected">未選取</span>
+                    <button class="btn" id="twCopy" type="button">複製內容</button>
+                    <button class="btn" id="twRawBtn" type="button">顯示 Raw CAP</button>
                   </div>
                 </div>
 
-                <div class="warningDetailBox">
-                  <div class="warningDetailHead">
-                    <strong>📄 內容</strong>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                      <button class="btn" id="twCopy" type="button">複製內容</button>
-                      <button class="btn" id="twRawBtn" type="button">顯示 Raw CAP</button>
+                <div class="twOfficialDetailBody twDetailV14">
+                  <div class="twDetailTopBar">
+                    <div>
+                      <div class="twDetailSmallLabel">目前選取警特報</div>
+                      <h4 class="twOfficialDetailTitle" id="twHeadline">—</h4>
                     </div>
                   </div>
 
-                  <div class="warningKv">
-                    <div>類型</div><div id="twDetailType">—</div>
-                    <div>區域</div><div id="twArea">—</div>
+                  <div class="twImportantGrid">
+                    <div class="twImportantCard">
+                      <span class="twDetailLabel">事件</span>
+                      <span class="twDetailValue" id="twEvent">—</span>
+                    </div>
+                    <div class="twImportantCard">
+                      <span class="twDetailLabel">發布</span>
+                      <span class="twDetailValue" id="twSent">—</span>
+                    </div>
+                    <div class="twImportantCard wide">
+                      <span class="twDetailLabel">有效時間</span>
+                      <span class="twDetailValue" id="twValid">—</span>
+                    </div>
+                    <div class="twImportantCard">
+                      <span class="twDetailLabel">類型</span>
+                      <span class="twDetailValue" id="twDetailType">—</span>
+                    </div>
                   </div>
 
-                  <div class="warningMono" id="twText">（請在左側點選一筆警報）</div>
-                  <div class="warningMono" id="twRaw" style="display:none;"></div>
-                </div>
+                  <section class="twAreaBlock">
+                    <div class="twAreaBlockHead">
+                      <span class="twDetailLabel">影響地區</span>
+                      <span class="twAreaHelp">整縣市只顯示縣市；部分鄉鎮才會列出鄉鎮</span>
+                    </div>
+                    <div class="twAreaBlockBody" id="twArea">—</div>
+                  </section>
 
-                <div class="twAreaMapBox">
-                  <div class="twAreaMapHead">
-                    <strong>🗺️ 警報分區地圖</strong>
-                    <span class="twAreaStatus" id="twAreaMapStatus">等待選取警報</span>
-                  </div>
-                  <div id="twAreaMap"></div>
-                  <div class="twAreaMapFoot">
-                    會依照目前選取的 CWA CAP 警報，自動把影響行政區上色。支援鄉鎮與縣市兩種 CAP 區域。請放 <b>tw-town.geojson</b>，若有縣市級資料也放 <b>tw-county.geojson</b>。
-                  </div>
+                  <div class="twOfficialDetailText" id="twText">（請在上方地區表點選一個警特報）</div>
+                  <div class="twOfficialDetailText" id="twRaw" style="display:none;"></div>
                 </div>
               </div>
             </div>
@@ -2538,7 +3875,7 @@ button{ -webkit-tap-highlight-color:transparent; }
   <script>
 
     const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
-    const MAPBOX_STYLE = "itzseir/cmihg7ep200rk01qq5ypv03c3";
+    const MAPBOX_STYLE = "itzseir/cmjoiqmu000g401qqh40c87nx";
 
     let weatherMeta = { title: "颱風路徑追蹤器", source: "—" };
     let allTyphoons = [];
@@ -2551,7 +3888,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       2) 如果暫時沒有，就保持空字串，網站會只讀取 ./weather.json。
       3) weather.json 可以用舊格式 { title, source, points: [] }，也可以用新格式 { source, typhoons: [] }。
     */
-    const CWA_TY_API_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=CWA-FC8C348E-F564-4D70-88BF-55EFE12E4CA2&sort=CwaTdNo";
+    const CWA_TY_API_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=CWA-BC6BF68E-0B38-43B1-A5F5-811E1C06742B&sort=CwaTdNo";
 
     const levelStyle = {
       LOW: { color: "#6b7280", label: "低壓/殘餘 LOW" },
@@ -4807,11 +6144,12 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       if(MAPBOX_TOKEN !== "YOUR_MAPBOX_TOKEN" && MAPBOX_STYLE !== "YOUR_USERNAME/YOUR_STYLE_ID"){
         const mb = L.tileLayer(
-          `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+          `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
           {
             tileSize:512,
             zoomOffset:-1,
-            maxZoom:18,
+            maxZoom:22,
+            detectRetina:true,
             crossOrigin:"anonymous",
             attribution:"© Mapbox © OpenStreetMap"
           }
@@ -4964,18 +6302,96 @@ button{ -webkit-tap-highlight-color:transparent; }
       const CAP_BASE = "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Warning/";
 
       const DATASETS = [
-        { id:"W-C0033-003", name:"豪雨特報", kind:"rain", color:"#3b82f6" },
+        { id:"W-C0033-003", name:"豪雨特報", kind:"rain", color:"#ff7a00" },
         { id:"W-C0033-004", name:"低溫特報", kind:"cold", color:"#06b6d4" },
         { id:"W-C0033-005", name:"高溫資訊", kind:"heat", color:"#f97316" },
         { id:"W-C0033-006", name:"陸上強風特報", kind:"wind", color:"#64748b" },
-        { id:"W-C0034-001", name:"颱風警報", kind:"typhoon", color:"#ef4444" }
+        { id:"W-C0034-001", name:"颱風警報", kind:"typhoon", color:"#ff7a00" }
       ];
 
       const AUTO_REFRESH_SEC = 60;
 
+      function parseCapDate(t){
+        if(!t) return null;
+        const raw = String(t).trim();
+        const d = new Date(raw);
+        if(!Number.isNaN(d.getTime())) return d;
+        const normalized = raw
+          .replace(/\//g, "-")
+          .replace(/(\d{4}-\d{1,2}-\d{1,2})\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?)/, "$1T$2+08:00");
+        const d2 = new Date(normalized);
+        return Number.isNaN(d2.getTime()) ? null : d2;
+      }
+
+      function isCapAlertActive(a){
+        const now = new Date();
+        const start = parseCapDate(a?.effective);
+        const end = parseCapDate(a?.expires);
+        if(start && now < start) return false;
+        if(end && now > end) return false;
+        return !!(a && (start || end || a.sent || a.headline || a.event));
+      }
+
+      function renderTwLegend(kind){
+        const el = q("twOfficialLegend");
+        if(!el) return;
+
+        // Official CWA alert category legend.
+        // 災害警戒顏色：紅 > 橙 > 黃 > 綠
+        const legend = {
+          rain: [
+            ['officialRed','⛈️','超大豪雨 / 大豪雨','紅色｜500mm/24h 以上；或 350mm/24h、200mm/3h 以上'],
+            ['officialOrange','🌧️','豪雨','橙色｜200mm/24h 以上或 100mm/3h 以上'],
+            ['officialYellow','🌦️','大雨','黃色｜80mm/24h 以上或 40mm/h 以上']
+          ],
+          cold: [
+            ['officialRed','🥶','嚴寒','紅色｜平地氣溫連續 24 小時 6°C 以下'],
+            ['officialOrange','🧊','非常寒冷','橙色｜最低 6°C 以下，或 10°C 以下且連續 24 小時 12°C 以下'],
+            ['officialYellow','🌡️','寒冷','黃色｜平地最低氣溫 10°C 以下']
+          ],
+          heat: [
+            ['officialRed','🔥','紅燈','紅色｜38°C 以上且持續 3 天以上'],
+            ['officialOrange','🌡️','橙燈','橙色｜36°C 以上且持續 3 天以上，或 38°C 以上'],
+            ['officialYellow','☀️','黃燈','黃色｜36°C 以上']
+          ],
+          wind: [
+            ['officialRed','💨','陸上強風紅燈','紅色｜平均風 12 級以上或陣風 14 級以上'],
+            ['officialOrange','🌬️','陸上強風橙燈','橙色｜平均風 9 級以上或陣風 11 級以上'],
+            ['officialYellow','🍃','陸上強風黃燈 / 海上強風','黃色｜平均風 6 級以上或陣風 8 級以上']
+          ],
+          typhoon: [
+            ['officialRed','🌀','海上陸上颱風警報','紅色｜七級風暴風範圍可能侵襲陸上前 18 小時'],
+            ['officialOrange','🌊','海上颱風警報','橙色｜七級風暴風範圍可能侵襲近海前 24 小時'],
+            ['officialYellow','🟡','熱帶性低氣壓特報','黃色｜有威脅或可能增強為輕度颱風'],
+            ['officialGreen','✅','解除警報','綠色｜威脅解除或轉向、消滅']
+          ],
+          fog: [
+            ['officialYellow','🌫️','濃霧特報','黃色｜水平能見度 200 公尺以下']
+          ],
+          tsunami: [
+            ['officialRed','🌊','海嘯警報','紅色｜海嘯波預估 3 小時內抵達'],
+            ['officialOrange','🌊','海嘯警訊','橙色｜海嘯波預估 3 至 6 小時內抵達'],
+            ['officialYellow','ℹ️','海嘯消息','黃色｜未達警報標準但可能引起關切'],
+            ['officialGreen','✅','解除','綠色｜海嘯威脅解除']
+          ],
+          wave: [
+            ['officialYellow','🌊','長浪即時訊息','黃色｜示性波高 ≥ 1.5m 且平均週期 > 8 秒']
+          ]
+        };
+
+        const rows = legend[kind] || legend.rain;
+        el.innerHTML = rows.map(([cls, icon, title, desc]) => `
+          <div class="twOfficialLegendItem">
+            <span class="twOfficialColor ${cls}"></span>
+            <span class="twOfficialIcon">${icon}</span>
+            <span>${title}<br>${desc}</span>
+          </div>
+        `).join("");
+      }
+
       let allAlerts = [];
       let filteredAlerts = [];
-      let selectedIndex = -1;
+      let selectedAlert = null;
       let autoTimer = null;
       let tickTimer = null;
 
@@ -4996,7 +6412,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         try{
           const d = new Date(t);
           if(Number.isNaN(d.getTime())) return t;
-          return d.toLocaleString();
+          return d.toLocaleString("zh-TW", { hour12:false });
         }catch{
           return t;
         }
@@ -5027,17 +6443,8 @@ button{ -webkit-tap-highlight-color:transparent; }
 
         if(!info){
           return {
-            ok:true,
-            sent,
-            identifier,
-            raw:xmlText,
-            headline:"",
-            event:"",
-            effective:"",
-            expires:"",
-            description:"",
-            instruction:"",
-            area:""
+            ok:true, sent, identifier, raw:xmlText, headline:"", event:"",
+            effective:"", expires:"", description:"", instruction:"", area:"", parameters:{}
           };
         }
 
@@ -5054,18 +6461,16 @@ button{ -webkit-tap-highlight-color:transparent; }
           .filter(Boolean)
           .join("；");
 
+        const parameters = {};
+        xml.querySelectorAll("alert > info > parameter").forEach(param => {
+          const name = (param.querySelector("valueName")?.textContent || "").trim();
+          const val = (param.querySelector("value")?.textContent || "").trim();
+          if(name) parameters[name] = val;
+        });
+
         return {
-          ok:true,
-          sent,
-          identifier,
-          raw:xmlText,
-          headline,
-          event,
-          effective,
-          expires,
-          description,
-          instruction,
-          area
+          ok:true, sent, identifier, raw:xmlText, headline, event,
+          effective, expires, description, instruction, area, parameters
         };
       }
 
@@ -5078,12 +6483,9 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function buildFilters(){
         const typeSel = q("twTypeFilter");
+        if(!typeSel) return;
+        const oldValue = typeSel.value;
         typeSel.innerHTML = "";
-
-        const optAll = document.createElement("option");
-        optAll.value = "all";
-        optAll.textContent = "全部特報";
-        typeSel.appendChild(optAll);
 
         DATASETS.forEach(d => {
           const opt = document.createElement("option");
@@ -5091,9 +6493,201 @@ button{ -webkit-tap-highlight-color:transparent; }
           opt.textContent = d.name;
           typeSel.appendChild(opt);
         });
+
+        if(oldValue && DATASETS.some(d => d.kind === oldValue)) typeSel.value = oldValue;
+        else typeSel.value = DATASETS[0]?.kind || "rain";
+        renderTwLegend(typeSel.value);
+      }
+
+      function twNormalizeNameLocal(v){
+        return String(v || "")
+          .replace(/台/g, "臺")
+          .replace(/\s+/g, "")
+          .replace(/[()（）]/g, "")
+          .trim();
+      }
+
+      function splitAreaNames(areaText){
+        const text = String(areaText || "").replace(/\s+/g, "");
+        if(!text || text === "—") return [];
+        return text
+          .split(/[;；,，、\n\r]+/)
+          .map(s => twNormalizeNameLocal(s))
+          .filter(Boolean);
+      }
+
+      function getAlertLevel(a){
+        const hay = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.instruction || ""} ${a.datasetName || ""} ${Object.values(a.parameters || {}).join(" ")}`;
+        const norm = hay.replace(/\s+/g, "");
+
+        // Rain warning levels — use official lamp color levels.
+        if(/超大豪雨|大豪雨/.test(norm)) return "redRain";
+        if(/豪雨/.test(norm)) return "orangeRain";
+        if(/大雨/.test(norm)) return "yellowRain";
+
+        // Typhoon warning levels.
+        if(/解除/.test(norm) && /颱風/.test(norm)) return "greenClear";
+        if(/海上陸上颱風|海陸|陸上颱風/.test(norm)) return "redTyphoon";
+        if(/海上颱風/.test(norm) || /颱風/.test(norm)) return "orangeTyphoon";
+        if(/熱帶性低氣壓|熱帶低氣壓/.test(norm)) return "yellowTD";
+
+        // Low temperature levels.
+        if(/嚴寒|紅燈|紅色燈號|紅色警戒/.test(norm) && /低溫|寒冷|嚴寒/.test(norm)) return "redCold";
+        if(/非常寒冷|橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒/.test(norm) && /低溫|寒冷|非常寒冷/.test(norm)) return "orangeCold";
+        if(/寒冷|黃燈|黃色燈號|黃色警戒|低溫/.test(norm)) return "yellowCold";
+
+        // High temperature levels.
+        // Important: do NOT color all 高溫資訊 orange. CWA CAP may write "黃色燈號" instead of "黃燈".
+        if(/高溫/.test(norm)){
+          if(/紅燈|紅色燈號|紅色警戒|紅色/.test(norm)) return "redHeat";
+          if(/橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒|橙色|橘色/.test(norm)) return "orangeHeat";
+          if(/黃燈|黃色燈號|黃色警戒|黃色/.test(norm)) return "yellowHeat";
+          // Infer from threshold text only when lamp wording is absent.
+          if(/38(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天/.test(norm)) return "redHeat";
+          if(/36(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天|38(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "orangeHeat";
+          if(/36(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "yellowHeat";
+          return "yellowHeat";
+        }
+
+        // Wind levels.
+        if(/強風|陸上|海上強風/.test(norm)){
+          if(/紅燈|紅色燈號|紅色警戒|紅色|平均風達?12級以上|陣風達?14級以上/.test(norm)) return "redWind";
+          if(/橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒|橙色|橘色|平均風達?9級以上|陣風達?11級以上/.test(norm)) return "orangeWind";
+          if(/黃燈|黃色燈號|黃色警戒|黃色|平均風達?6級以上|陣風達?8級以上/.test(norm)) return "yellowWind";
+          return "yellowWind";
+        }
+
+        if(/濃霧|霧/.test(norm)) return "yellowFog";
+        if(/長浪/.test(norm)) return "yellowWave";
+        if(/海嘯警報/.test(norm)) return "redTsunami";
+        if(/海嘯警訊/.test(norm)) return "orangeTsunami";
+        if(/海嘯/.test(norm)) return "yellowTsunami";
+
+        return a.kind || "other";
+      }
+
+      function getLevelColor(level){
+        return ({
+          officialRed:"#e60012",
+          officialOrange:"#ff7f00",
+          officialYellow:"#fff100",
+          officialGreen:"#00e833",
+          redRain:"#e60012",
+          orangeRain:"#ff7f00",
+          yellowRain:"#fff100",
+          redTyphoon:"#e60012",
+          orangeTyphoon:"#ff7f00",
+          yellowTD:"#fff100",
+          greenClear:"#00e833",
+          redCold:"#e60012",
+          orangeCold:"#ff7f00",
+          yellowCold:"#fff100",
+          redHeat:"#e60012",
+          orangeHeat:"#ff7f00",
+          yellowHeat:"#fff100",
+          redWind:"#e60012",
+          orangeWind:"#ff7f00",
+          yellowWind:"#fff100",
+          yellowFog:"#fff100",
+          yellowWave:"#fff100",
+          redTsunami:"#e60012",
+          orangeTsunami:"#ff7f00",
+          yellowTsunami:"#fff100",
+          rain:"#fff100",
+          typhoon:"#ff7f00",
+          heat:"#fff100",
+          cold:"#fff100",
+          wind:"#fff100",
+          other:"#8b5cf6"
+        })[level] || "#8b5cf6";
+      }
+
+      function getLevelIcon(level){
+        return ({
+          redRain:"⛈️", orangeRain:"🌧️", yellowRain:"🌦️",
+          redTyphoon:"🌀", orangeTyphoon:"🌊", yellowTD:"🟡", greenClear:"✅",
+          redCold:"🥶", orangeCold:"🧊", yellowCold:"🌡️",
+          redHeat:"🔥", orangeHeat:"🌡️", yellowHeat:"☀️",
+          redWind:"💨", orangeWind:"🌬️", yellowWind:"🍃",
+          yellowFog:"🌫️", yellowWave:"🌊",
+          redTsunami:"🌊", orangeTsunami:"🌊", yellowTsunami:"ℹ️",
+          rain:"🌦️", typhoon:"🌀", heat:"🔥", cold:"🌡️", wind:"💨", other:"⚠️"
+        })[level] || "⚠️";
+      }
+
+      function getLevelRank(level){
+        return ({
+          redRain:90, redTyphoon:90, redCold:90, redHeat:90, redWind:90, redTsunami:90,
+          orangeRain:70, orangeTyphoon:70, orangeCold:70, orangeHeat:70, orangeWind:70, orangeTsunami:70,
+          yellowRain:50, yellowTD:50, yellowCold:50, yellowHeat:50, yellowWind:50, yellowFog:50, yellowWave:50, yellowTsunami:50,
+          greenClear:10,
+          rain:50, typhoon:70, heat:70, cold:50, wind:50, other:20
+        })[level] || 20;
+      }
+
+      function enrichAlert(a){
+        const level = getAlertLevel(a);
+        return {
+          ...a,
+          level,
+          color:getLevelColor(level),
+          icon:getLevelIcon(level),
+          levelRank:getLevelRank(level),
+          areaNames:splitAreaNames(a.area)
+        };
+      }
+
+      function getAlertAreaGroups(a){
+        const names = (a?.areaNames?.length ? a.areaNames : splitAreaNames(a?.area || ""));
+        const groups = new Map();
+
+        names.forEach(raw => {
+          const norm = twNormalizeNameLocal(raw);
+          if(!norm) return;
+
+          const county = (typeof twAreaResolveCountyName === "function")
+            ? twAreaResolveCountyName(norm)
+            : norm;
+
+          if(!groups.has(county)) groups.set(county, { county, whole:false, towns:[] });
+          const g = groups.get(county);
+
+          const isWholeCounty = (typeof twCountyNameSet !== "undefined" && twCountyNameSet.has(norm)) || norm === county;
+          if(isWholeCounty){
+            g.whole = true;
+            g.towns = [];
+            return;
+          }
+
+          // If it is not a whole county, display the town / district name under the county pill.
+          let town = norm;
+          if(county && town.startsWith(county)) town = town.slice(county.length);
+          if(!town) town = norm;
+          if(!g.whole && !g.towns.includes(town)) g.towns.push(town);
+        });
+
+        return Array.from(groups.values()).sort((a,b) => a.county.localeCompare(b.county, "zh-Hant"));
+      }
+
+      function renderAreaPills(a){
+        const groups = getAlertAreaGroups(a);
+        if(!groups.length) return `<span class="twAreaMuted">—</span>`;
+
+        return `<div class="twAreaGroups">${groups.map(g => `
+          <section class="twAreaGroup">
+            <span class="twCountyPill" style="--warn:${twEscape(a.color || '#2a9d8f')}">${twEscape(g.county)}</span>
+            ${g.whole ? `<div class="twTownLine"><span class="twWholeCounty">全縣市</span></div>` : `
+              <div class="twTownLine">
+                ${g.towns.length ? g.towns.map(t => `<span class="twTownPill">${twEscape(t)}</span>`).join("") : `<span class="twAreaMuted">未列出鄉鎮</span>`}
+              </div>
+            `}
+          </section>
+        `).join("")}</div>`;
       }
 
       function renderDetails(a){
+        selectedAlert = a || null;
+
         if(!a){
           q("twSelected").textContent = "未選取";
           q("twHeadline").textContent = "—";
@@ -5101,8 +6695,8 @@ button{ -webkit-tap-highlight-color:transparent; }
           q("twSent").textContent = "—";
           q("twValid").textContent = "—";
           q("twDetailType").textContent = "—";
-          q("twArea").textContent = "—";
-          q("twText").textContent = "（請在左側點選一筆警報）";
+          q("twArea").innerHTML = "—";
+          q("twText").textContent = "（請在上方地區表點選一個警特報）";
           q("twRaw").textContent = "";
           q("twRaw").style.display = "none";
           q("twText").style.display = "block";
@@ -5111,12 +6705,12 @@ button{ -webkit-tap-highlight-color:transparent; }
         }
 
         q("twSelected").textContent = a.datasetName || "CAP";
-        q("twHeadline").textContent = a.headline || "—";
+        q("twHeadline").textContent = a.headline || a.event || "—";
         q("twEvent").textContent = a.event || "—";
         q("twSent").textContent = fmtCapTime(a.sent) || "—";
         q("twValid").textContent = `${fmtCapTime(a.effective)} → ${fmtCapTime(a.expires)}`;
         q("twDetailType").textContent = a.datasetName || "—";
-        q("twArea").textContent = a.area || "—";
+        q("twArea").innerHTML = renderAreaPills(a);
 
         const text = [
           a.description ? `【說明】\n${a.description}` : "",
@@ -5127,75 +6721,113 @@ button{ -webkit-tap-highlight-color:transparent; }
         q("twRaw").textContent = a.raw || "";
       }
 
-      function highlightActive(){
-        document.querySelectorAll("#twList .warningItem").forEach((el, idx) => {
-          el.classList.toggle("active", idx === selectedIndex);
+      function getCountyWarningMap(){
+        const map = new Map();
+
+        filteredAlerts.forEach(a => {
+          (a.areaNames || []).forEach(name => {
+            const county = (typeof twAreaResolveCountyName === "function")
+              ? twAreaResolveCountyName(name)
+              : name;
+
+            if(!county) return;
+            if(!map.has(county)) map.set(county, []);
+            map.get(county).push(a);
+          });
+        });
+
+        map.forEach((arr, key) => {
+          arr.sort((x,y) => (y.levelRank || 0) - (x.levelRank || 0));
+          const dedupe = [];
+          const seen = new Set();
+          arr.forEach(a => {
+            const sig = `${a.datasetId}-${a.headline}-${a.event}`;
+            if(seen.has(sig)) return;
+            seen.add(sig);
+            dedupe.push(a);
+          });
+          map.set(key, dedupe);
+        });
+
+        return map;
+      }
+
+      function renderCountyTables(){
+        const left = q("twCountyTableLeft");
+        const right = q("twCountyTableRight");
+        if(!left || !right) return;
+
+        const warnMap = getCountyWarningMap();
+        const counties = (typeof twCountyNameList !== "undefined" ? twCountyNameList : Array.from(warnMap.keys()));
+        const half = Math.ceil(counties.length / 2);
+
+        function rowHtml(county){
+          const norm = twNormalizeNameLocal(county);
+          const alerts = warnMap.get(norm) || warnMap.get(county) || [];
+          const badges = alerts.length ? alerts.map((a, idx) => `
+            <span class="twOfficialWarnBadge" data-county="${twEscape(norm)}" data-alert="${twEscape(String(allAlerts.indexOf(a)))}" title="${twEscape(a.headline || a.event || "")}">
+              <span class="twOfficialWarnStrip" style="background:${twEscape(a.color)}"></span>
+              <span class="twOfficialWarnIcon">${twEscape(a.icon)}</span>
+            </span>
+          `).join("") : `<span class="twOfficialNoWarn">—</span>`;
+
+          return `
+            <tr data-county-row="${twEscape(norm)}">
+              <td><span class="twOfficialCountyCell">${twEscape(county)}${alerts.length ? '<span class="twPlus">+</span>' : ''}</span></td>
+              <td><div class="twOfficialBadges">${badges}</div></td>
+            </tr>
+          `;
+        }
+
+        left.innerHTML = counties.slice(0, half).map(rowHtml).join("");
+        right.innerHTML = counties.slice(half).map(rowHtml).join("");
+
+        document.querySelectorAll(".twOfficialWarnBadge").forEach(el => {
+          el.addEventListener("click", () => {
+            const idx = Number(el.dataset.alert);
+            const a = allAlerts[idx];
+            if(a) renderDetails(a);
+
+            if(typeof twAreaFocusCounty === "function"){
+              twAreaFocusCounty(el.dataset.county);
+            }
+          });
         });
       }
 
       function renderList(){
-        q("twCount").textContent = `${filteredAlerts.length} 筆`;
-        const list = q("twList");
-        list.innerHTML = "";
+        q("twCount").textContent = `${filteredAlerts.length} 筆警報`;
+        q("twHint").textContent = filteredAlerts.length
+          ? "點擊右側表格中的警報 icon，可查看 CAP 詳細內容。"
+          : "目前沒有符合條件的警報。";
 
-        if(!filteredAlerts.length){
-          list.innerHTML = `<div class="warningEmpty">沒有符合條件的警報</div>`;
-          q("twHint").textContent = "你可以改篩選條件，或按「立即更新」。";
-          return;
+        renderCountyTables();
+
+        window.__twCapAlerts = filteredAlerts;
+        if(typeof twAreaRefreshHighlight === "function"){
+          twAreaRefreshHighlight();
         }
-
-        q("twHint").textContent = "點選左側任一筆，右側顯示詳細內容。";
-
-        filteredAlerts.forEach((a, idx) => {
-          const el = document.createElement("div");
-          el.className = "warningItem" + (idx === selectedIndex ? " active" : "");
-
-          el.innerHTML = `
-            <div class="warningItemTop">
-              <div class="warningTime">${twEscape(fmtCapTime(a.sent || a.effective || ""))}</div>
-              <div class="warningBadge">
-                <span class="warningBadgeDot" style="background:${a.color || "#111827"};"></span>
-                ${twEscape(a.datasetName || "—")}
-              </div>
-            </div>
-            <div class="warningItemTitle">${twEscape(a.headline || a.event || "—")}</div>
-            <div class="warningItemMeta">
-              <b>有效：</b>${twEscape(fmtCapTime(a.effective))} → ${twEscape(fmtCapTime(a.expires))}
-            </div>
-          `;
-
-          el.addEventListener("click", () => {
-            selectedIndex = idx;
-            renderDetails(a);
-            highlightActive();
-          });
-
-          list.appendChild(el);
-        });
       }
 
       function applyFilters(){
-        const type = q("twTypeFilter").value;
+        const type = q("twTypeFilter").value || DATASETS[0]?.kind || "rain";
         const keyword = String(q("twSearch").value || "").trim().toLowerCase();
+        renderTwLegend(type);
 
         filteredAlerts = allAlerts.filter(a => {
-          const okType = type === "all" ? true : a.kind === type;
-          const hay = `${a.headline} ${a.event} ${a.description} ${a.instruction} ${a.area}`.toLowerCase();
+          const okType = a.kind === type;
+          const okActive = isCapAlertActive(a);
+          const hay = `${a.headline} ${a.event} ${a.description} ${a.instruction} ${a.area} ${a.datasetName}`.toLowerCase();
           const okKeyword = keyword ? hay.includes(keyword) : true;
-          return okType && okKeyword;
+          return okType && okActive && okKeyword;
         });
-
-        if(selectedIndex >= filteredAlerts.length) selectedIndex = -1;
 
         renderList();
 
-        if(filteredAlerts.length && selectedIndex === -1){
-          selectedIndex = 0;
-          renderDetails(filteredAlerts[0]);
-          highlightActive();
-        }else if(selectedIndex >= 0){
-          renderDetails(filteredAlerts[selectedIndex]);
-          highlightActive();
+        if(filteredAlerts.length){
+          if(!selectedAlert || !filteredAlerts.includes(selectedAlert)){
+            renderDetails(filteredAlerts[0]);
+          }
         }else{
           renderDetails(null);
         }
@@ -5231,7 +6863,7 @@ button{ -webkit-tap-highlight-color:transparent; }
               const xmlText = await fetchCap(d.id);
               const parsed = parseCapXml(xmlText);
 
-              return {
+              return enrichAlert({
                 datasetId:d.id,
                 datasetName:d.name,
                 kind:d.kind,
@@ -5244,8 +6876,9 @@ button{ -webkit-tap-highlight-color:transparent; }
                 area:parsed.ok ? parsed.area : "",
                 description:parsed.ok ? parsed.description : "",
                 instruction:parsed.ok ? parsed.instruction : "",
+                parameters:parsed.ok ? parsed.parameters : {},
                 raw:xmlText
-              };
+              });
             })
           );
 
@@ -5259,19 +6892,20 @@ button{ -webkit-tap-highlight-color:transparent; }
 
           ok.sort((a,b) => String(b.sent || b.effective || "").localeCompare(String(a.sent || a.effective || "")));
 
-          allAlerts = ok;
-          selectedIndex = -1;
+          allAlerts = ok.filter(isCapAlertActive);
+          selectedAlert = null;
 
           buildFilters();
           applyFilters();
 
           const errCount = bad.length;
           const total = DATASETS.length;
-          q("twStatus").textContent = errCount ? `已更新（${total - errCount}/${total} 成功）` : `已更新（${total}）`;
+          q("twStatus").textContent = errCount ? `已更新生效警報（${total - errCount}/${total} 成功）` : `已更新生效警報（${allAlerts.length} 筆）`;
         }catch(err){
           console.error(err);
           q("twStatus").textContent = "更新失敗";
-          q("twList").innerHTML = `<div class="warningEmpty">讀取失敗，請檢查網路或跨域限制</div>`;
+          q("twCountyTableLeft").innerHTML = `<tr><td colspan="2">讀取失敗</td></tr>`;
+          q("twCountyTableRight").innerHTML = "";
           q("twHint").textContent = String(err?.message || err);
         }finally{
           if(!silent){
@@ -5546,21 +7180,19 @@ button{ -webkit-tap-highlight-color:transparent; }
     }
 
 
-    /* ===== Taiwan CAP Area Map Add-on: isolated, will not affect typhoon tracker ===== */
+    /* ===== Taiwan Official-like CAP Map Add-on ===== */
     let twAreaLeafletMap = null;
     let twAreaTownLayer = null;
     let twAreaCountyLayer = null;
-    let twAreaTownData = null;
-    let twAreaCountyData = null;
-    let twAreaSelectedTownNames = new Set();
-    let twAreaSelectedCountyNames = new Set();
+    let twAreaTownToCounty = new Map();
+    let twAreaCountyLayerByName = new Map();
+    let twAreaFocusedCounty = "";
 
     const twCountyNameList = [
       "基隆市","臺北市","新北市","桃園市","新竹市","新竹縣","苗栗縣",
       "臺中市","彰化縣","南投縣","雲林縣","嘉義市","嘉義縣","臺南市",
       "高雄市","屏東縣","宜蘭縣","花蓮縣","臺東縣","澎湖縣","金門縣","連江縣"
     ];
-    const twCountyNameSet = new Set(twCountyNameList.map(n => twAreaNormalizeName(n)));
 
     function twAreaNormalizeName(v){
       return String(v || "")
@@ -5569,6 +7201,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         .replace(/[()（）]/g, "")
         .trim();
     }
+
+    const twCountyNameSet = new Set(twCountyNameList.map(n => twAreaNormalizeName(n)));
 
     function twAreaGetProp(props, keys){
       props = props || {};
@@ -5592,140 +7226,176 @@ button{ -webkit-tap-highlight-color:transparent; }
       const full = (county && town) ? `${county}${town}` : (fullDirect || county || town);
       const countyNorm = twAreaNormalizeName(county || fullDirect);
       const townNorm = twAreaNormalizeName(town);
+      const fullNorm = twAreaNormalizeName(full);
       return {
         county,
         town,
         full,
         countyNorm,
         townNorm,
-        fullNorm: twAreaNormalizeName(full),
-        keys: [
-          twAreaNormalizeName(full),
+        fullNorm,
+        keys:[
+          fullNorm,
           twAreaNormalizeName(county + town),
-          twAreaNormalizeName(town),
+          townNorm,
           twAreaNormalizeName(fullDirect),
           countyNorm
         ].filter(Boolean)
       };
     }
 
-    function twAreaGetSelectedText(){
-      const area = document.getElementById("twArea")?.textContent || "";
-      const type = document.getElementById("twDetailType")?.textContent || "";
-      const eventName = document.getElementById("twEvent")?.textContent || "";
-      return { area, type, eventName };
-    }
-
-    function twAreaExtractAreaNames(areaText){
+    function twAreaSplitAreaText(areaText){
       const text = String(areaText || "").replace(/\s+/g, "");
       if(!text || text === "—") return [];
-      return text
-        .split(/[;；,，、\n\r]+/)
-        .map(s => s.trim())
-        .filter(Boolean)
-        .map(s => twAreaNormalizeName(s));
+      return text.split(/[;；,，、\n\r]+/).map(twAreaNormalizeName).filter(Boolean);
     }
 
-    function twAreaSplitSelectedNames(areaText){
-      const all = twAreaExtractAreaNames(areaText);
-      const towns = new Set();
-      const counties = new Set();
+    function twAreaResolveCountyName(name){
+      const norm = twAreaNormalizeName(name);
+      if(twCountyNameSet.has(norm)) return norm;
+      if(twAreaTownToCounty.has(norm)) return twAreaTownToCounty.get(norm);
+      for(const [town, county] of twAreaTownToCounty.entries()){
+        if(norm.includes(town) || town.includes(norm)) return county;
+      }
+      return norm;
+    }
 
-      all.forEach(name => {
-        if(twCountyNameSet.has(name)) counties.add(name);
-        else towns.add(name);
+    function twAreaAlertLevel(a){
+      return a?.level || "other";
+    }
+
+    function twAreaAlertColor(a){
+      return a?.color || "#8b5cf6";
+    }
+
+    function twAreaAlertRank(a){
+      return a?.levelRank || 0;
+    }
+
+    function twAreaAlertAreas(alert){
+      return alert?.areaNames?.length ? alert.areaNames : twAreaSplitAreaText(alert?.area || "");
+    }
+
+    function twAreaAlertCoversWholeCounty(alert, countyNorm){
+      const areas = twAreaAlertAreas(alert);
+      return areas.some(areaName => {
+        const norm = twAreaNormalizeName(areaName);
+        return twCountyNameSet.has(norm) && norm === countyNorm;
       });
-
-      return { all, towns, counties };
     }
 
-    function twAreaColorByType(typeText){
-      const t = String(typeText || "");
-      if(/高溫|熱/.test(t)) return "#f97316";
-      if(/豪雨|大雨|雨/.test(t)) return "#3b82f6";
-      if(/颱風|陸上|海上/.test(t)) return "#ef4444";
-      if(/風|強風/.test(t)) return "#64748b";
-      if(/低溫|寒/.test(t)) return "#06b6d4";
-      return "#8b5cf6";
-    }
-
-    function twAreaIsCountyHit(feature){
+    function twAreaAlertHitsFeature(alert, feature, mode="any"){
       const names = twAreaFeatureNames(feature);
-      return names.keys.some(k => twAreaSelectedCountyNames.has(k)) || twAreaSelectedCountyNames.has(names.countyNorm);
+      const areas = twAreaAlertAreas(alert);
+
+      return areas.some(areaName => {
+        const norm = twAreaNormalizeName(areaName);
+        const county = twAreaResolveCountyName(norm);
+        const isWholeCounty = twCountyNameSet.has(norm) || norm === county;
+
+        if(mode === "county"){
+          // Only paint the whole county when CAP really names the whole county.
+          return isWholeCounty && names.countyNorm === county;
+        }
+
+        if(mode === "town"){
+          // Only town-specific CAP areas paint town polygons. If a CAP names the whole county,
+          // keep the map clean by painting the county polygon only.
+          if(isWholeCounty) return false;
+          return names.keys.includes(norm)
+            || names.fullNorm === norm
+            || names.townNorm === norm;
+        }
+
+        return names.keys.includes(norm)
+          || names.keys.includes(county)
+          || names.countyNorm === county
+          || names.fullNorm === norm
+          || names.townNorm === norm;
+      });
     }
 
-    function twAreaIsTownHit(feature){
+    function twAreaBestAlertForFeature(feature, mode="any"){
+      const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+      let best = null;
+      alerts.forEach(a => {
+        if(twAreaAlertHitsFeature(a, feature, mode)){
+          if(!best || twAreaAlertRank(a) > twAreaAlertRank(best)) best = a;
+        }
+      });
+      return best;
+    }
+
+    function twAreaHexToRgba(hex, alpha){
+      const h = String(hex || "#8b5cf6").replace("#", "");
+      const full = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+      const n = parseInt(full, 16);
+      if(Number.isNaN(n)) return `rgba(139,92,246,${alpha})`;
+      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+    }
+
+    function twAreaOfficialCountyStyle(feature){
       const names = twAreaFeatureNames(feature);
-      const townHit = names.keys.some(k => twAreaSelectedTownNames.has(k));
-      const countyFallbackHit = !twAreaCountyLayer && names.countyNorm && twAreaSelectedCountyNames.has(names.countyNorm);
-      return townHit || countyFallbackHit;
-    }
-
-    function twAreaTownStyle(feature){
-      const { type } = twAreaGetSelectedText();
-      const color = twAreaColorByType(type);
-      const hit = twAreaIsTownHit(feature);
+      const best = twAreaBestAlertForFeature(feature, "county");
+      const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
       return {
-        color: hit ? color : "rgba(15,76,92,.22)",
-        weight: hit ? 1.4 : .55,
-        fillColor: hit ? color : "transparent",
-        fillOpacity: hit ? .46 : 0,
-        opacity: hit ? .95 : .32
+        color: focused ? "#0b2f3d" : (best ? twAreaHexToRgba(twAreaAlertColor(best), .82) : "rgba(8,47,61,.62)"),
+        weight: focused ? 3.6 : (best ? 2.15 : 1.45),
+        fillColor: best ? twAreaAlertColor(best) : "#ffffff",
+        fillOpacity: best ? .30 : .035,
+        opacity:1,
+        dashArray:null,
+        className: focused ? "twAreaFocusedShape" : ""
       };
     }
 
-    function twAreaCountyStyle(feature){
-      const { type } = twAreaGetSelectedText();
-      const color = twAreaColorByType(type);
-      const hit = twAreaIsCountyHit(feature);
+    function twAreaOfficialTownStyle(feature){
+      const names = twAreaFeatureNames(feature);
+      const best = twAreaBestAlertForFeature(feature, "town");
+      const countyFocused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
       return {
-        color: hit ? color : "rgba(15,76,92,.18)",
-        weight: hit ? 2.2 : .8,
-        fillColor: hit ? color : "transparent",
-        fillOpacity: hit ? .26 : 0,
-        opacity: hit ? .95 : .26
+        color: best ? twAreaHexToRgba(twAreaAlertColor(best), .88) : "rgba(15,76,92,.10)",
+        weight: best ? 1.05 : .25,
+        fillColor: best ? twAreaAlertColor(best) : "transparent",
+        fillOpacity: best ? (countyFocused ? .44 : .28) : 0,
+        opacity: best ? .88 : .20
       };
     }
 
     function twAreaRefreshHighlight(){
       const status = document.getElementById("twAreaMapStatus");
-      const { area } = twAreaGetSelectedText();
-      const selected = twAreaSplitSelectedNames(area);
-      twAreaSelectedTownNames = selected.towns;
-      twAreaSelectedCountyNames = selected.counties;
+      const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
 
-      const hitLayers = [];
+      let hitCount = 0;
 
       if(twAreaCountyLayer){
-        twAreaCountyLayer.setStyle(twAreaCountyStyle);
+        twAreaCountyLayer.setStyle(twAreaOfficialCountyStyle);
         twAreaCountyLayer.eachLayer(layer => {
-          if(twAreaIsCountyHit(layer.feature)) hitLayers.push(layer);
+          const best = twAreaBestAlertForFeature(layer.feature, "any");
+          if(best) hitCount++;
         });
       }
 
       if(twAreaTownLayer){
-        twAreaTownLayer.setStyle(twAreaTownStyle);
-        twAreaTownLayer.eachLayer(layer => {
-          if(twAreaIsTownHit(layer.feature)) hitLayers.push(layer);
-        });
+        twAreaTownLayer.setStyle(twAreaOfficialTownStyle);
       }
 
       if(status){
-        if(!selected.all.length){
-          status.textContent = "等待選取警報";
-        }else if(!twAreaTownLayer && !twAreaCountyLayer){
-          status.textContent = "分區尚未載入";
-        }else{
-          const countyCount = twAreaSelectedCountyNames.size;
-          const townCount = twAreaSelectedTownNames.size;
-          status.textContent = `已標示 ${hitLayers.length} 個分區（縣市 ${countyCount} / 鄉鎮 ${townCount}）`;
-        }
+        if(!alerts.length) status.textContent = "目前無符合條件的 CAP 警報";
+        else if(!twAreaTownLayer && !twAreaCountyLayer) status.textContent = "分區尚未載入";
+        else status.textContent = `已標示 ${hitCount} 個縣市 / 分區`;
       }
+    }
 
-      if(hitLayers.length && twAreaLeafletMap){
+    function twAreaFocusCounty(countyName){
+      const norm = twAreaNormalizeName(countyName);
+      twAreaFocusedCounty = norm;
+      const layer = twAreaCountyLayerByName.get(norm);
+      if(twAreaCountyLayer) twAreaCountyLayer.setStyle(twAreaOfficialCountyStyle);
+      if(twAreaTownLayer) twAreaTownLayer.setStyle(twAreaOfficialTownStyle);
+      if(layer && twAreaLeafletMap){
         try{
-          const group = L.featureGroup(hitLayers);
-          twAreaLeafletMap.fitBounds(group.getBounds(), { padding:[22,22], maxZoom:10 });
+          twAreaLeafletMap.fitBounds(layer.getBounds(), { padding:[38,38], maxZoom:8 });
         }catch(e){}
       }
     }
@@ -5748,25 +7418,27 @@ button{ -webkit-tap-highlight-color:transparent; }
         attributionControl:false
       }).setView([23.72, 121.0], 7);
 
-      try{
-        if(typeof MAPBOX_TOKEN !== "undefined" && typeof MAPBOX_STYLE !== "undefined" && MAPBOX_TOKEN && MAPBOX_STYLE){
-          L.tileLayer(
-            `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
-            {
-              tileSize:512,
-              zoomOffset:-1,
-              maxZoom:18,
-              crossOrigin:"anonymous",
-              attribution:"© Mapbox © OpenStreetMap"
-            }
-          ).addTo(twAreaLeafletMap);
-        }else{
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19 }).addTo(twAreaLeafletMap);
+      // Custom Mapbox background layer + CAP GeoJSON overlay.
+      const twAreaBaseLayer = L.tileLayer(
+        `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+        {
+          tileSize:512,
+          zoomOffset:-1,
+          maxZoom:22,
+          detectRetina:true,
+          crossOrigin:"anonymous",
+          attribution:"© Mapbox © OpenStreetMap"
         }
-      }catch(e){
-        console.warn("twArea base map failed", e);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19 }).addTo(twAreaLeafletMap);
-      }
+      ).addTo(twAreaLeafletMap);
+
+      twAreaBaseLayer.on("tileerror", () => {
+        if(twAreaLeafletMap.hasLayer(twAreaBaseLayer)) twAreaLeafletMap.removeLayer(twAreaBaseLayer);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom:19,
+          crossOrigin:"anonymous",
+          attribution:"© OpenStreetMap"
+        }).addTo(twAreaLeafletMap);
+      });
 
       if(status) status.textContent = "載入分區中…";
 
@@ -5774,12 +7446,23 @@ button{ -webkit-tap-highlight-color:transparent; }
       let loadedCounty = false;
 
       try{
-        twAreaCountyData = await twAreaLoadGeoJson("./tw-county.geojson");
-        twAreaCountyLayer = L.geoJSON(twAreaCountyData, {
-          style: twAreaCountyStyle,
+        const countyData = await twAreaLoadGeoJson("./tw-county.geojson");
+        twAreaCountyLayer = L.geoJSON(countyData, {
+          style: twAreaOfficialCountyStyle,
           onEachFeature(feature, layer){
             const names = twAreaFeatureNames(feature);
-            layer.bindTooltip(names.full || names.county || "—", { sticky:true, direction:"top", className:"tw-area-popup" });
+            const countyName = twAreaNormalizeName(names.county || names.full);
+            if(countyName) twAreaCountyLayerByName.set(countyName, layer);
+
+            layer.bindTooltip(names.full || names.county || "—", {
+              sticky:true,
+              direction:"top",
+              className:"tw-area-popup"
+            });
+
+            layer.on("click", () => {
+              if(typeof twAreaFocusCounty === "function") twAreaFocusCounty(countyName);
+            });
           }
         }).addTo(twAreaLeafletMap);
         loadedCounty = true;
@@ -5788,30 +7471,39 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       try{
-        twAreaTownData = await twAreaLoadGeoJson("./tw-town.geojson");
-        twAreaTownLayer = L.geoJSON(twAreaTownData, {
-          style: twAreaTownStyle,
+        const townData = await twAreaLoadGeoJson("./tw-town.geojson");
+        twAreaTownLayer = L.geoJSON(townData, {
+          style: twAreaOfficialTownStyle,
           onEachFeature(feature, layer){
             const names = twAreaFeatureNames(feature);
-            layer.bindTooltip(names.full || "—", { sticky:true, direction:"top", className:"tw-area-popup" });
+            if(names.townNorm && names.countyNorm){
+              twAreaTownToCounty.set(names.townNorm, names.countyNorm);
+              twAreaTownToCounty.set(names.fullNorm, names.countyNorm);
+            }
+
+            layer.bindTooltip(names.full || "—", {
+              sticky:true,
+              direction:"top",
+              className:"tw-area-popup"
+            });
           }
         }).addTo(twAreaLeafletMap);
         loadedTown = true;
       }catch(err){
-        console.error("tw-town.geojson load failed", err);
+        console.warn("tw-town.geojson optional load failed", err);
       }
 
       if(status){
         if(loadedTown && loadedCounty) status.textContent = "鄉鎮 + 縣市分區已載入";
-        else if(loadedTown) status.textContent = "鄉鎮分區已載入（縣市檔未載入）";
-        else if(loadedCounty) status.textContent = "縣市分區已載入（鄉鎮檔未載入）";
+        else if(loadedTown) status.textContent = "鄉鎮分區已載入";
+        else if(loadedCounty) status.textContent = "縣市分區已載入";
         else status.textContent = "GeoJSON 讀取失敗";
       }
 
       try{
         const fitLayers = [];
         if(twAreaCountyLayer) fitLayers.push(twAreaCountyLayer);
-        if(twAreaTownLayer) fitLayers.push(twAreaTownLayer);
+        if(twAreaTownLayer && !twAreaCountyLayer) fitLayers.push(twAreaTownLayer);
         if(fitLayers.length){
           const group = L.featureGroup(fitLayers);
           twAreaLeafletMap.fitBounds(group.getBounds(), { padding:[18,18] });
@@ -5820,15 +7512,565 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       twAreaRefreshHighlight();
 
-      const watchTargets = ["twArea", "twDetailType", "twEvent"].map(id => document.getElementById(id)).filter(Boolean);
-      const observer = new MutationObserver(() => twAreaRefreshHighlight());
-      watchTargets.forEach(node => observer.observe(node, { childList:true, subtree:true, characterData:true }));
-
       window.addEventListener("resize", () => {
         setTimeout(() => twAreaLeafletMap && twAreaLeafletMap.invalidateSize(true), 120);
       });
+
       setTimeout(() => twAreaLeafletMap && twAreaLeafletMap.invalidateSize(true), 400);
     }
+
+
+
+/* ===== v11 CAP logic override: county-only when whole county, soft focus, cleaner detail ===== */
+(function(){
+  window.__twAreaCountyToTowns = window.__twAreaCountyToTowns || new Map();
+
+  const CAP_SOFT_COLORS = {
+    extremeRain:'#c084fc',
+    torrentialRain:'#fb7185',
+    heavyRain:'#fdba74',
+    rain:'#fde68a',
+    typhoon:'#fda4af',
+    heat:'#fdba74',
+    cold:'#67e8f9',
+    wind:'#7dd3fc',
+    other:'#c4b5fd'
+  };
+
+  const oldGetLevelColor = window.getLevelColor;
+  window.getLevelColor = function(level){
+    return CAP_SOFT_COLORS[level] || (oldGetLevelColor ? oldGetLevelColor(level) : '#c4b5fd');
+  };
+
+  function areaCoverage(alert, countyNorm){
+    const areas = twAreaAlertAreas(alert);
+    const towns = new Set();
+    let whole = false;
+    areas.forEach(areaName => {
+      const norm = twAreaNormalizeName(areaName);
+      if(!norm) return;
+      const county = twAreaResolveCountyName(norm);
+      const isCountyName = twCountyNameSet.has(norm) || norm === county;
+      if(isCountyName && county === countyNorm){
+        whole = true;
+        return;
+      }
+      if(county === countyNorm){
+        const townKey = norm;
+        towns.add(townKey);
+      }
+    });
+
+    const knownTownSet = window.__twAreaCountyToTowns?.get(countyNorm);
+    if(!whole && knownTownSet && knownTownSet.size){
+      let hit = 0;
+      knownTownSet.forEach(t => {
+        for(const areaName of areas){
+          const norm = twAreaNormalizeName(areaName);
+          if(norm === t || norm.endsWith(t) || t.endsWith(norm)){
+            hit += 1;
+            break;
+          }
+        }
+      });
+      if(hit >= knownTownSet.size) whole = true;
+    }
+    return { whole, towns };
+  }
+
+  window.twAreaAlertCoversWholeCounty = function(alert, countyNorm){
+    return areaCoverage(alert, countyNorm).whole;
+  };
+
+  window.twAreaAlertHitsFeature = function(alert, feature, mode='any'){
+    const names = twAreaFeatureNames(feature);
+    const areas = twAreaAlertAreas(alert);
+    const countyNorm = names.countyNorm || twAreaResolveCountyName(names.fullNorm);
+    const coverage = areaCoverage(alert, countyNorm);
+
+    if(mode === 'county'){
+      return !!(countyNorm && coverage.whole && names.countyNorm === countyNorm);
+    }
+
+    if(mode === 'town'){
+      if(coverage.whole) return false;
+      return areas.some(areaName => {
+        const norm = twAreaNormalizeName(areaName);
+        if(!norm) return false;
+        return names.fullNorm === norm || names.townNorm === norm || names.keys.includes(norm);
+      });
+    }
+
+    if(coverage.whole) return true;
+    return areas.some(areaName => {
+      const norm = twAreaNormalizeName(areaName);
+      const county = twAreaResolveCountyName(norm);
+      return names.keys.includes(norm)
+        || names.fullNorm === norm
+        || names.townNorm === norm
+        || names.countyNorm === county;
+    });
+  };
+
+  window.twAreaBestAlertForFeature = function(feature, mode='any'){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    let best = null;
+    alerts.forEach(a => {
+      if(twAreaAlertHitsFeature(a, feature, mode)){
+        if(!best || twAreaAlertRank(a) > twAreaAlertRank(best)) best = a;
+      }
+    });
+    return best;
+  };
+
+  function bestAlertForCountyAny(feature){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    const names = twAreaFeatureNames(feature);
+    let best = null;
+    alerts.forEach(a => {
+      const areas = twAreaAlertAreas(a);
+      const hit = areas.some(areaName => twAreaResolveCountyName(areaName) === names.countyNorm);
+      if(hit && (!best || twAreaAlertRank(a) > twAreaAlertRank(best))) best = a;
+    });
+    return best;
+  }
+
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const wholeBest = twAreaBestAlertForFeature(feature, 'county');
+    const anyBest = bestAlertForCountyAny(feature);
+    const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const color = twAreaAlertColor(wholeBest || anyBest);
+    return {
+      color: focused ? (wholeBest || anyBest ? color : '#2a9d8f') : (wholeBest ? color : (anyBest ? twAreaHexToRgba(color,.58) : 'rgba(15,76,92,.26)')),
+      weight: focused ? 2.4 : (wholeBest ? 1.65 : (anyBest ? 1.35 : .75)),
+      fillColor: wholeBest ? color : '#ffffff',
+      fillOpacity: wholeBest ? (focused ? .30 : .20) : 0,
+      opacity: focused ? .96 : (wholeBest || anyBest ? .72 : .30),
+      dashArray: wholeBest ? null : (anyBest ? '5 5' : null),
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+
+  window.twAreaOfficialTownStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const townBest = twAreaBestAlertForFeature(feature, 'town');
+    const countyFocused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const color = twAreaAlertColor(townBest);
+    return {
+      color: townBest ? twAreaHexToRgba(color, countyFocused ? .82 : .64) : 'rgba(15,76,92,.08)',
+      weight: townBest ? (countyFocused ? 1.35 : .85) : .18,
+      fillColor: townBest ? color : 'transparent',
+      fillOpacity: townBest ? (countyFocused ? .46 : .34) : 0,
+      opacity: townBest ? .78 : .16,
+      dashArray:null
+    };
+  };
+
+  window.getAlertAreaGroups = function(a){
+    const names = (a?.areaNames?.length ? a.areaNames : splitAreaNames(a?.area || ''));
+    const groups = new Map();
+    names.forEach(raw => {
+      const norm = twNormalizeNameLocal(raw);
+      if(!norm) return;
+      const county = (typeof twAreaResolveCountyName === 'function') ? twAreaResolveCountyName(norm) : norm;
+      if(!groups.has(county)) groups.set(county, { county, whole:false, towns:[] });
+      const g = groups.get(county);
+      const cov = (typeof areaCoverage === 'function') ? areaCoverage(a, county) : {whole:false};
+      const isWholeCounty = (typeof twCountyNameSet !== 'undefined' && twCountyNameSet.has(norm)) || norm === county || cov.whole;
+      if(isWholeCounty){
+        g.whole = true;
+        g.towns = [];
+        return;
+      }
+      let town = norm;
+      if(county && town.startsWith(county)) town = town.slice(county.length);
+      if(!town) town = norm;
+      if(!g.whole && !g.towns.includes(town)) g.towns.push(town);
+    });
+    return Array.from(groups.values()).sort((a,b) => a.county.localeCompare(b.county, 'zh-Hant'));
+  };
+
+  window.renderAreaPills = function(a){
+    const groups = getAlertAreaGroups(a);
+    if(!groups.length) return '<span class="twAreaMuted">—</span>';
+    return `<div class="twAreaGroups">${groups.map(g => `
+      <section class="twAreaGroup">
+        <span class="twCountyPill" style="--warn:${twEscape(a.color || '#2a9d8f')}">${twEscape(g.county)}</span>
+        ${g.whole ? `<div class="twTownLine"><span class="twWholeCounty">整個縣市</span></div>` : `
+          <div class="twTownLine">
+            ${g.towns.length ? g.towns.map(t => `<span class="twTownPill">${twEscape(t)}</span>`).join('') : `<span class="twAreaMuted">未列出鄉鎮</span>`}
+          </div>`}
+      </section>`).join('')}</div>`;
+  };
+
+  window.renderDetails = function(a){
+    selectedAlert = a || null;
+    const ids = ['twSelected','twHeadline','twEvent','twSent','twValid','twDetailType','twArea','twText','twRaw'];
+    const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+    if(!a){
+      if(el.twSelected) el.twSelected.textContent = '未選取';
+      if(el.twHeadline) el.twHeadline.textContent = '—';
+      if(el.twEvent) el.twEvent.textContent = '—';
+      if(el.twSent) el.twSent.textContent = '—';
+      if(el.twValid) el.twValid.textContent = '—';
+      if(el.twDetailType) el.twDetailType.textContent = '—';
+      if(el.twArea) el.twArea.innerHTML = '—';
+      if(el.twText) el.twText.textContent = '（請在上方地區表點選一個警特報）';
+      if(el.twRaw){ el.twRaw.textContent = ''; el.twRaw.style.display = 'none'; }
+      if(el.twText) el.twText.style.display = 'block';
+      const rawBtn = document.getElementById('twRawBtn');
+      if(rawBtn) rawBtn.textContent = '顯示 Raw CAP';
+      return;
+    }
+    if(el.twSelected) el.twSelected.textContent = a.datasetName || 'CAP';
+    if(el.twHeadline) el.twHeadline.textContent = a.headline || a.event || '—';
+    const meta = document.querySelector('.twOfficialDetailMeta');
+    if(meta){
+      meta.innerHTML = `
+        <div class="twDetailItem"><span class="twDetailLabel">事件</span><span class="twDetailValue" id="twEvent">${twEscape(a.event || '—')}</span></div>
+        <div class="twDetailItem"><span class="twDetailLabel">發布時間</span><span class="twDetailValue" id="twSent">${twEscape(fmtCapTime(a.sent) || '—')}</span></div>
+        <div class="twDetailItem"><span class="twDetailLabel">有效時間</span><span class="twDetailValue" id="twValid">${twEscape(fmtCapTime(a.effective))} → ${twEscape(fmtCapTime(a.expires))}</span></div>
+        <div class="twDetailItem"><span class="twDetailLabel">類型</span><span class="twDetailValue" id="twDetailType">${twEscape(a.datasetName || '—')}</span></div>
+        <div class="twDetailItem area"><span class="twDetailLabel">影響地區</span><span class="twDetailValue" id="twArea">${renderAreaPills(a)}</span></div>
+      `;
+    }
+    const text = [
+      a.description ? `【說明】
+${a.description}` : '',
+      a.instruction ? `
+【指示】
+${a.instruction}` : ''
+    ].filter(Boolean).join('\n');
+    const textEl = document.getElementById('twText');
+    const rawEl = document.getElementById('twRaw');
+    if(textEl) textEl.textContent = text || '（此警報沒有內容）';
+    if(rawEl) rawEl.textContent = a.raw || '';
+
+    document.querySelectorAll('.twOfficialWarnBadge').forEach(x => x.classList.remove('twBadgeActive'));
+    const idx = allAlerts.indexOf(a);
+    if(idx >= 0){
+      document.querySelectorAll(`.twOfficialWarnBadge[data-alert="${idx}"]`).forEach(x => x.classList.add('twBadgeActive'));
+    }
+  };
+
+  window.twAreaFocusCounty = function(countyName){
+    const norm = twAreaNormalizeName(countyName);
+    twAreaFocusedCounty = norm;
+    document.querySelectorAll('[data-county-row]').forEach(row => {
+      row.classList.toggle('twRowActive', row.dataset.countyRow === norm);
+    });
+    if(twAreaCountyLayer) twAreaCountyLayer.setStyle(twAreaOfficialCountyStyle);
+    if(twAreaTownLayer) twAreaTownLayer.setStyle(twAreaOfficialTownStyle);
+    const layer = twAreaCountyLayerByName.get(norm);
+    if(layer && twAreaLeafletMap){
+      try{ twAreaLeafletMap.fitBounds(layer.getBounds(), { padding:[42,42], maxZoom:8 }); }catch(e){}
+    }
+  };
+
+  window.twAreaRefreshHighlight = function(){
+    const status = document.getElementById('twAreaMapStatus');
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    const countySet = new Set();
+    alerts.forEach(a => (a.areaNames || []).forEach(n => countySet.add(twAreaResolveCountyName(n))));
+    if(twAreaCountyLayer) twAreaCountyLayer.setStyle(twAreaOfficialCountyStyle);
+    if(twAreaTownLayer) twAreaTownLayer.setStyle(twAreaOfficialTownStyle);
+    if(status){
+      if(!alerts.length) status.textContent = '目前無符合條件的 CAP 警報';
+      else if(!twAreaTownLayer && !twAreaCountyLayer) status.textContent = '分區尚未載入';
+      else status.textContent = `已標示 ${countySet.size} 個縣市`;
+    }
+  };
+
+  window.initTwAreaWarningMap = async function(){
+    const el = document.getElementById('twAreaMap');
+    const status = document.getElementById('twAreaMapStatus');
+    if(!el || typeof L === 'undefined') return;
+    if(twAreaLeafletMap) return;
+
+    twAreaLeafletMap = L.map(el, {
+      zoomControl:true,
+      scrollWheelZoom:true,
+      attributionControl:false
+    }).setView([23.72, 121.0], 7);
+
+    const twAreaBaseLayer = L.tileLayer(
+      `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+      { tileSize:512, zoomOffset:-1, maxZoom:22, detectRetina:true, crossOrigin:'anonymous', attribution:'© Mapbox © OpenStreetMap' }
+    ).addTo(twAreaLeafletMap);
+
+    twAreaBaseLayer.on('tileerror', () => {
+      if(twAreaLeafletMap.hasLayer(twAreaBaseLayer)) twAreaLeafletMap.removeLayer(twAreaBaseLayer);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, crossOrigin:'anonymous', attribution:'© OpenStreetMap' }).addTo(twAreaLeafletMap);
+    });
+
+    if(status) status.textContent = '載入分區中…';
+    let loadedTown = false, loadedCounty = false;
+
+    try{
+      const countyData = await twAreaLoadGeoJson('./tw-county.geojson');
+      twAreaCountyLayer = L.geoJSON(countyData, {
+        style: twAreaOfficialCountyStyle,
+        pane:'overlayPane',
+        onEachFeature(feature, layer){
+          const names = twAreaFeatureNames(feature);
+          const countyName = twAreaNormalizeName(names.county || names.full);
+          if(countyName) twAreaCountyLayerByName.set(countyName, layer);
+          layer.bindTooltip(names.full || names.county || '—', { sticky:true, direction:'top', className:'tw-area-popup' });
+          layer.on({
+            click: () => { if(typeof twAreaFocusCounty === 'function') twAreaFocusCounty(countyName); },
+            mouseover: () => { layer.setStyle({weight:2.2, opacity:.95}); },
+            mouseout: () => { if(twAreaCountyLayer) twAreaCountyLayer.setStyle(twAreaOfficialCountyStyle); }
+          });
+        }
+      }).addTo(twAreaLeafletMap);
+      loadedCounty = true;
+    }catch(err){ console.warn('tw-county.geojson optional load failed', err); }
+
+    try{
+      const townData = await twAreaLoadGeoJson('./tw-town.geojson');
+      window.__twAreaCountyToTowns = new Map();
+      twAreaTownLayer = L.geoJSON(townData, {
+        style: twAreaOfficialTownStyle,
+        onEachFeature(feature, layer){
+          const names = twAreaFeatureNames(feature);
+          if(names.townNorm && names.countyNorm){
+            twAreaTownToCounty.set(names.townNorm, names.countyNorm);
+            twAreaTownToCounty.set(names.fullNorm, names.countyNorm);
+            if(!window.__twAreaCountyToTowns.has(names.countyNorm)) window.__twAreaCountyToTowns.set(names.countyNorm, new Set());
+            window.__twAreaCountyToTowns.get(names.countyNorm).add(names.townNorm);
+            window.__twAreaCountyToTowns.get(names.countyNorm).add(names.fullNorm);
+          }
+          layer.bindTooltip(names.full || '—', { sticky:true, direction:'top', className:'tw-area-popup' });
+          layer.on({
+            mouseover: () => { layer.setStyle({weight:1.7, opacity:.95}); },
+            mouseout: () => { if(twAreaTownLayer) twAreaTownLayer.setStyle(twAreaOfficialTownStyle); }
+          });
+        }
+      }).addTo(twAreaLeafletMap);
+      loadedTown = true;
+    }catch(err){ console.warn('tw-town.geojson optional load failed', err); }
+
+    if(status){
+      if(loadedTown && loadedCounty) status.textContent = '鄉鎮 + 縣市分區已載入';
+      else if(loadedTown) status.textContent = '鄉鎮分區已載入';
+      else if(loadedCounty) status.textContent = '縣市分區已載入';
+      else status.textContent = 'GeoJSON 讀取失敗';
+    }
+    try{
+      const fitLayers = [];
+      if(twAreaCountyLayer) fitLayers.push(twAreaCountyLayer);
+      if(twAreaTownLayer && !twAreaCountyLayer) fitLayers.push(twAreaTownLayer);
+      if(fitLayers.length){
+        const group = L.featureGroup(fitLayers);
+        twAreaLeafletMap.fitBounds(group.getBounds(), { padding:[18,18] });
+      }
+    }catch(e){}
+    twAreaRefreshHighlight();
+    window.addEventListener('resize', () => setTimeout(() => twAreaLeafletMap && twAreaLeafletMap.invalidateSize(true), 120));
+    setTimeout(() => twAreaLeafletMap && twAreaLeafletMap.invalidateSize(true), 400);
+  };
+})();
+
+
+/* ===== v12 CAP final override: county boundaries always visible + cleaner type legend ===== */
+(function(){
+  function capColor(level){
+    // Keep the CAP map layer synced with the official legend colors.
+    // Official CWA disaster warning lamps:
+    // red #e60012, orange #ff7f00, yellow #fff100, green #00e833.
+    const colors = {
+      officialRed:'#e60012', officialOrange:'#ff7f00', officialYellow:'#fff100', officialGreen:'#00e833',
+
+      redRain:'#e60012', orangeRain:'#ff7f00', yellowRain:'#fff100',
+      redTyphoon:'#e60012', orangeTyphoon:'#ff7f00', yellowTD:'#fff100', greenClear:'#00e833',
+      redCold:'#e60012', orangeCold:'#ff7f00', yellowCold:'#fff100',
+      redHeat:'#e60012', orangeHeat:'#ff7f00', yellowHeat:'#fff100',
+      redWind:'#e60012', orangeWind:'#ff7f00', yellowWind:'#fff100',
+      yellowFog:'#fff100', yellowWave:'#fff100',
+      redTsunami:'#e60012', orangeTsunami:'#ff7f00', yellowTsunami:'#fff100',
+
+      // Legacy / fallback levels
+      extremeRain:'#e60012', torrentialRain:'#e60012', heavyRain:'#ff7f00', rain:'#fff100',
+      typhoon:'#ff7f00', heat:'#fff100', cold:'#fff100', wind:'#fff100', fog:'#fff100', wave:'#fff100',
+      tsunami:'#ff7f00', other:'#8b5cf6'
+    };
+    return colors[level] || '#8b5cf6';
+  }
+
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const wholeBest = twAreaBestAlertForFeature(feature, 'county');
+    let anyBest = null;
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    alerts.forEach(a => {
+      const hit = twAreaAlertAreas(a).some(areaName => twAreaResolveCountyName(areaName) === names.countyNorm);
+      if(hit && (!anyBest || twAreaAlertRank(a) > twAreaAlertRank(anyBest))) anyBest = a;
+    });
+    const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const warnColor = wholeBest ? capColor(twAreaAlertLevel(wholeBest)) : (anyBest ? capColor(twAreaAlertLevel(anyBest)) : '#0f2f46');
+    return {
+      // County border is always visible and darker, even without warning.
+      color: focused ? '#083344' : (wholeBest || anyBest ? warnColor : '#173a52'),
+      weight: focused ? 3.2 : (wholeBest ? 2.05 : (anyBest ? 1.85 : 1.35)),
+      fillColor: wholeBest ? warnColor : '#ffffff',
+      fillOpacity: wholeBest ? (focused ? .42 : .32) : 0,
+      opacity: focused ? 1 : (wholeBest || anyBest ? .92 : .76),
+      dashArray: null,
+      lineJoin:'round',
+      lineCap:'round',
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+
+  window.twAreaOfficialTownStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const townBest = twAreaBestAlertForFeature(feature, 'town');
+    const countyFocused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const color = townBest ? capColor(twAreaAlertLevel(townBest)) : '#173a52';
+    return {
+      // No-warning town boundaries are almost hidden so county borders stay clean.
+      color: townBest ? twAreaHexToRgba(color, countyFocused ? .88 : .72) : 'rgba(23,58,82,.04)',
+      weight: townBest ? (countyFocused ? 1.35 : .9) : .08,
+      fillColor: townBest ? color : 'transparent',
+      fillOpacity: townBest ? (countyFocused ? .46 : .34) : 0,
+      opacity: townBest ? .82 : .05,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round'
+    };
+  };
+
+  const oldRefresh = window.twAreaRefreshHighlight;
+  window.twAreaRefreshHighlight = function(){
+    if(typeof oldRefresh === 'function') oldRefresh();
+    // Keep county layer above town layer so county borders remain clear.
+    try{ if(twAreaTownLayer) twAreaTownLayer.bringToFront(); }catch(e){}
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.bringToFront(); }catch(e){}
+  };
+
+  const oldFocus = window.twAreaFocusCounty;
+  window.twAreaFocusCounty = function(countyName){
+    if(typeof oldFocus === 'function') oldFocus(countyName);
+    try{ if(twAreaTownLayer) twAreaTownLayer.bringToFront(); }catch(e){}
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.bringToFront(); }catch(e){}
+  };
+
+  // After Taiwan warning module creates the filter, remove the old wording completely.
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const sel = document.getElementById('twTypeFilter');
+      if(sel){
+        [...sel.options].forEach(opt => { if(opt.value === 'all') opt.remove(); });
+      }
+    }, 500);
+  });
+})();
+
+
+
+
+/* ===== v16 override: correct county/town grouping in CAP detail ===== */
+(function(){
+  const COUNTY_LIST = [
+    '基隆市','臺北市','新北市','桃園市','新竹市','新竹縣','苗栗縣','臺中市','彰化縣','南投縣','雲林縣','嘉義市','嘉義縣','臺南市','高雄市','屏東縣','宜蘭縣','花蓮縣','臺東縣','澎湖縣','金門縣','連江縣'
+  ];
+  const norm = v => String(v || '').replace(/台/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim();
+  const COUNTY_SET = new Set(COUNTY_LIST.map(norm));
+  function esc(s){
+    if(typeof twEscape === 'function') return twEscape(s);
+    return String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  }
+  function areaNamesOf(a){
+    if(a && Array.isArray(a.areaNames) && a.areaNames.length) return a.areaNames.map(norm).filter(Boolean);
+    const t = String(a?.area || '').replace(/\s+/g,'');
+    if(!t || t === '—') return [];
+    return t.split(/[;；,，、\n\r]+/).map(norm).filter(Boolean);
+  }
+  function resolveByCountyPrefix(name){
+    const n = norm(name);
+    const hit = COUNTY_LIST.map(norm).find(c => n === c || n.startsWith(c));
+    if(hit) return hit;
+    try{
+      if(typeof twAreaResolveCountyName === 'function'){
+        const r = norm(twAreaResolveCountyName(n));
+        if(COUNTY_SET.has(r)) return r;
+      }
+    }catch(e){}
+    return '';
+  }
+  function displayCounty(c){
+    return COUNTY_LIST.find(x => norm(x) === c) || c;
+  }
+  function townPart(areaName, county){
+    const n = norm(areaName);
+    if(county && n.startsWith(county)) return n.slice(county.length);
+    return n;
+  }
+  function hasAllKnownTowns(county, townSet){
+    try{
+      const known = window.__twAreaCountyToTowns && window.__twAreaCountyToTowns.get(county);
+      if(!known || !known.size || !townSet || !townSet.size) return false;
+      let hit = 0;
+      known.forEach(t => {
+        const tn = norm(t);
+        if(townSet.has(tn) || [...townSet].some(x => x.endsWith(tn) || tn.endsWith(x))) hit++;
+      });
+      return hit >= known.size && known.size >= 3;
+    }catch(e){ return false; }
+  }
+  window.getAlertAreaGroups = function(a){
+    const groups = new Map();
+    areaNamesOf(a).forEach(raw => {
+      const n = norm(raw);
+      if(!n) return;
+      const county = resolveByCountyPrefix(n);
+      if(!county){
+        if(!groups.has(n)) groups.set(n, { county:n, whole:false, towns:[] });
+        return;
+      }
+      if(!groups.has(county)) groups.set(county, { county, whole:false, towns:[] });
+      const g = groups.get(county);
+      if(COUNTY_SET.has(n) && n === county){
+        g.whole = true;
+        g.towns = [];
+        return;
+      }
+      if(!g.whole){
+        const town = townPart(n, county);
+        if(town && town !== county && !g.towns.includes(town)) g.towns.push(town);
+      }
+    });
+    const arr = Array.from(groups.values()).map(g => {
+      if(!g.whole && hasAllKnownTowns(g.county, new Set(g.towns.map(norm)))){
+        g.whole = true;
+        g.towns = [];
+      }
+      g.county = displayCounty(g.county);
+      g.towns = (g.towns || []).filter(t => t && !COUNTY_SET.has(norm(t)));
+      return g;
+    });
+    return arr.sort((a,b) => String(a.county).localeCompare(String(b.county), 'zh-Hant'));
+  };
+  window.renderAreaPills = function(a){
+    const groups = window.getAlertAreaGroups ? window.getAlertAreaGroups(a) : [];
+    if(!groups.length) return '<span class="twAreaMuted">—</span>';
+    return `<div class="twAreaGroups">${groups.map(g => `
+      <section class="twAreaGroup">
+        <span class="twCountyPill" style="--warn:${esc(a?.color || '#2a9d8f')}" title="${esc(g.county)}">${esc(g.county)}</span>
+        <div class="twTownLine">
+          ${g.whole ? `<span class="twWholeCounty">整個縣市</span>` : (g.towns && g.towns.length ? g.towns.map(t => `<span class="twTownPill">${esc(t)}</span>`).join('') : `<span class="twAreaMuted">未列出鄉鎮</span>`)}
+        </div>
+      </section>`).join('')}</div>`;
+  };
+
+  const oldRenderDetails = window.renderDetails;
+  window.renderDetails = function(a){
+    if(typeof oldRenderDetails === 'function') oldRenderDetails(a);
+    const areaEl = document.getElementById('twArea');
+    if(areaEl && a) areaEl.innerHTML = window.renderAreaPills(a);
+  };
+})();
 
     window.addEventListener("load", () => {
       try{ initWarningCenter(); }catch(e){ console.error("initWarningCenter failed", e); }
