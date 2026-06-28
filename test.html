@@ -6429,13 +6429,20 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       function isCapAlertActive(a){
+        // v22: time-window filtering is ONLY for CAP fallback records.
+        // W-C0033-001 / W-C0033-002 are already CWA's current warning products,
+        // so do not hide them because their parsed time field is missing, future-looking,
+        // or formatted differently.
+        if(!a) return false;
+        const isCap = /^CAP-/i.test(String(a.datasetId || "")) || /CAP/i.test(String(a.sourceType || ""));
+        if(!isCap) return true;
+
         const now = new Date();
         const start = parseCwaTime(a?.effective);
         const end = parseCwaTime(a?.expires);
         if(start && now < start) return false;
         if(end && now > end) return false;
-        // W-C0033-001 already means current county warning. If there is no time, keep it visible.
-        return !!(a && (a.noExplicitTime || start || end || a.sent || a.headline || a.event));
+        return !!(a.noExplicitTime || start || end || a.sent || a.headline || a.event);
       }
 
       async function fetchCwaWarningJson(url){
@@ -6541,15 +6548,24 @@ button{ -webkit-tap-highlight-color:transparent; }
           out.push(s);
         };
 
-        getCountyList().forEach(c => {
-          if(normalized.includes(c)) add(c);
-        });
-
-        // Catch combined county+town strings such as 宜蘭縣三星鄉.
+        // Catch combined county+town strings such as 宜蘭縣三星鄉 first.
+        // Important: if an alert names specific towns, do not also add the county as
+        // a whole-county area, otherwise the UI becomes「宜蘭縣 / 全縣市」and hides towns.
         const townRe = /(?:臺北市|新北市|桃園市|臺中市|臺南市|高雄市|基隆市|新竹市|嘉義市|新竹縣|苗栗縣|彰化縣|南投縣|雲林縣|嘉義縣|屏東縣|宜蘭縣|花蓮縣|臺東縣|澎湖縣|金門縣|連江縣)?[\u4e00-\u9fa5]{1,6}(?:鄉|鎮|區|市)/g;
         const matches = normalized.match(townRe) || [];
+        const townCountySet = new Set();
         matches.forEach(m => {
-          if(!/縣市$/.test(m) && !getCountyList().includes(m) && m.length <= 12) add(m);
+          if(/縣市$/.test(m) || getCountyList().includes(m) || m.length > 12) return;
+          add(m);
+          const c = (typeof twAreaResolveCountyName === "function") ? twAreaResolveCountyName(m) : "";
+          if(c) townCountySet.add(twNormalizeNameLocal(c));
+        });
+
+        getCountyList().forEach(c => {
+          const cn = twNormalizeNameLocal(c);
+          if(!normalized.includes(cn)) return;
+          if(townCountySet.has(cn)) return;
+          add(cn);
         });
         return out;
       }
@@ -6956,14 +6972,28 @@ button{ -webkit-tap-highlight-color:transparent; }
       function getAlertAreaGroups(a){
         const names = (a?.areaNames?.length ? a.areaNames : splitAreaNames(a?.area || ""));
         const groups = new Map();
+        const explicitTownCountySet = new Set();
+
+        // First pass: detect whether this alert has town-level areas under a county.
+        // If yes, a same-county token should not force「全縣市」.
+        names.forEach(raw => {
+          const norm = twNormalizeNameLocal(raw);
+          if(!norm) return;
+          const county = (typeof twAreaResolveCountyName === "function") ? twAreaResolveCountyName(norm) : norm;
+          const isWholeCounty = (typeof twCountyNameSet !== "undefined" && twCountyNameSet.has(norm)) || norm === county;
+          if(!isWholeCounty && county) explicitTownCountySet.add(twNormalizeNameLocal(county));
+        });
+
         names.forEach(raw => {
           const norm = twNormalizeNameLocal(raw);
           if(!norm) return;
           const county = (typeof twAreaResolveCountyName === "function") ? twAreaResolveCountyName(norm) : norm;
           if(!groups.has(county)) groups.set(county, { county, whole:false, towns:[] });
           const g = groups.get(county);
+          const countyNorm = twNormalizeNameLocal(county);
           const isWholeCounty = (typeof twCountyNameSet !== "undefined" && twCountyNameSet.has(norm)) || norm === county;
           if(isWholeCounty){
+            if(explicitTownCountySet.has(countyNorm)) return;
             g.whole = true;
             g.towns = [];
             return;
@@ -7165,8 +7195,8 @@ button{ -webkit-tap-highlight-color:transparent; }
           if(typeof renderTyphoonWarningOverlay === "function") renderTyphoonWarningOverlay();
           const success = 2 - bad.length;
           q("twStatus").textContent = bad.length
-            ? `已更新 W-C0033 + CAP 補充生效警報（${success}/3 成功，${allAlerts.length} 筆）`
-            : `已更新 W-C0033 + CAP 補充生效警報（${allAlerts.length} 筆）`;
+            ? `已更新 W-C0033 目前警報 + CAP 補充（${success}/3 成功，${allAlerts.length} 筆）`
+            : `已更新 W-C0033 目前警報 + CAP 補充（${allAlerts.length} 筆）`;
         }catch(err){
           console.error(err);
           q("twStatus").textContent = "更新失敗";
