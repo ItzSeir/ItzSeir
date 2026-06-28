@@ -6174,7 +6174,6 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       renderTyphoonLayers({ fit:true });
-      if(typeof renderTyphoonWarningOverlay === "function") renderTyphoonWarningOverlay();
       enableHorizontalWheelScroll();
 
       $("typhoonSelect")?.addEventListener("change", (e) => {
@@ -6306,6 +6305,17 @@ button{ -webkit-tap-highlight-color:transparent; }
       const CWA_WARNING_DETAIL_API =
         "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0033-002?Authorization=CWA-BC6BF68E-0B38-43B1-A5F5-811E1C06742B&format=JSON";
 
+      // v21: W-C0033 is the main source. CAP is kept only as a fallback補充，
+      // for cases where CWA official pages show items that W-C0033 has not yet surfaced.
+      const CWA_CAP_FALLBACK_BASE = "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Warning/";
+      const CWA_CAP_FALLBACK_DATASETS = [
+        { id:"W-C0033-003", name:"豪雨 / 大雨 CAP 補充", kind:"rain" },
+        { id:"W-C0033-004", name:"低溫 CAP 補充", kind:"cold" },
+        { id:"W-C0033-005", name:"高溫 CAP 補充", kind:"heat" },
+        { id:"W-C0033-006", name:"強風 CAP 補充", kind:"wind" },
+        { id:"W-C0034-001", name:"颱風 CAP 補充", kind:"typhoon" }
+      ];
+
       const DATASETS = [
         { id:"rain", name:"豪雨 / 大雨", kind:"rain", color:"#fff100" },
         { id:"cold", name:"低溫特報", kind:"cold", color:"#fff100" },
@@ -6318,34 +6328,126 @@ button{ -webkit-tap-highlight-color:transparent; }
       ];
 
       const AUTO_REFRESH_SEC = 60;
+      const q = (id) => document.getElementById(id);
 
-      function parseCapDate(t){
+      const FALLBACK_COUNTIES = [
+        "基隆市","臺北市","新北市","桃園市","新竹市","新竹縣","苗栗縣","臺中市","彰化縣","南投縣",
+        "雲林縣","嘉義市","嘉義縣","臺南市","高雄市","屏東縣","宜蘭縣","花蓮縣","臺東縣","澎湖縣","金門縣","連江縣"
+      ];
+
+      function twEscape(s){
+        return String(s ?? "").replace(/[&<>"']/g, m => ({
+          "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+        }[m]));
+      }
+
+      function twNormalizeNameLocal(v){
+        return String(v || "")
+          .replace(/台/g, "臺")
+          .replace(/\s+/g, "")
+          .replace(/[()（）]/g, "")
+          .trim();
+      }
+
+      function getCountyList(){
+        if(typeof twCountyNameList !== "undefined" && Array.isArray(twCountyNameList) && twCountyNameList.length){
+          return twCountyNameList.map(twNormalizeNameLocal);
+        }
+        return FALLBACK_COUNTIES;
+      }
+
+      function asArray(v){
+        if(v === undefined || v === null) return [];
+        return Array.isArray(v) ? v : [v];
+      }
+
+      function pickText(obj, keys){
+        if(!obj || typeof obj !== "object") return "";
+        for(const k of keys){
+          if(obj[k] !== undefined && obj[k] !== null){
+            const val = obj[k];
+            if(typeof val === "string" || typeof val === "number") return String(val).trim();
+          }
+        }
+        return "";
+      }
+
+      function collectStringsDeep(node, limit=160){
+        const out = [];
+        const seen = new Set();
+        function walk(v){
+          if(out.length >= limit || v === undefined || v === null) return;
+          if(typeof v === "string" || typeof v === "number"){
+            const s = String(v).trim();
+            if(s && !seen.has(s)){
+              seen.add(s);
+              out.push(s);
+            }
+            return;
+          }
+          if(Array.isArray(v)){
+            v.forEach(walk);
+            return;
+          }
+          if(typeof v === "object"){
+            Object.values(v).forEach(walk);
+          }
+        }
+        walk(node);
+        return out;
+      }
+
+      function parseCwaTime(t){
         if(!t) return null;
         const raw = String(t).trim();
         const d = new Date(raw);
         if(!Number.isNaN(d.getTime())) return d;
         const normalized = raw
-          .replace(/\//g, "-")
+          .replace(/年/g,"/").replace(/月/g,"/").replace(/日/g," ")
+          .replace(/上午/g," AM ").replace(/下午/g," PM ")
+          .replace(/\//g,"-")
           .replace(/(\d{4}-\d{1,2}-\d{1,2})\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?)/, "$1T$2+08:00");
         const d2 = new Date(normalized);
         return Number.isNaN(d2.getTime()) ? null : d2;
       }
 
+      function fmtCapTime(t){
+        if(!t) return "—";
+        try{
+          const d = parseCwaTime(t);
+          if(!d) return String(t);
+          return d.toLocaleString("zh-TW", { hour12:false });
+        }catch{
+          return String(t);
+        }
+      }
+
+      function nowHHMMSS(){
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2,"0");
+        return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+
       function isCapAlertActive(a){
         const now = new Date();
-        const start = parseCapDate(a?.effective);
-        const end = parseCapDate(a?.expires);
+        const start = parseCwaTime(a?.effective);
+        const end = parseCwaTime(a?.expires);
         if(start && now < start) return false;
         if(end && now > end) return false;
-        return !!(a && (start || end || a.sent || a.headline || a.event));
+        // W-C0033-001 already means current county warning. If there is no time, keep it visible.
+        return !!(a && (a.noExplicitTime || start || end || a.sent || a.headline || a.event));
+      }
+
+      async function fetchCwaWarningJson(url){
+        const res = await fetch(`${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`, { cache:"no-store" });
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
       }
 
       function renderTwLegend(kind){
         const el = q("twOfficialLegend");
         if(!el) return;
 
-        // Official CWA alert category legend.
-        // 災害警戒顏色：紅 > 橙 > 黃 > 綠
         const legend = {
           rain: [
             ['officialRed','⛈️','超大豪雨 / 大豪雨','紅色｜500mm/24h 以上；或 350mm/24h、200mm/3h 以上'],
@@ -6373,18 +6475,14 @@ button{ -webkit-tap-highlight-color:transparent; }
             ['officialYellow','🟡','熱帶性低氣壓特報','黃色｜有威脅或可能增強為輕度颱風'],
             ['officialGreen','✅','解除警報','綠色｜威脅解除或轉向、消滅']
           ],
-          fog: [
-            ['officialYellow','🌫️','濃霧特報','黃色｜水平能見度 200 公尺以下']
-          ],
+          fog: [['officialYellow','🌫️','濃霧特報','黃色｜水平能見度 200 公尺以下']],
           tsunami: [
             ['officialRed','🌊','海嘯警報','紅色｜海嘯波預估 3 小時內抵達'],
             ['officialOrange','🌊','海嘯警訊','橙色｜海嘯波預估 3 至 6 小時內抵達'],
             ['officialYellow','ℹ️','海嘯消息','黃色｜未達警報標準但可能引起關切'],
             ['officialGreen','✅','解除','綠色｜海嘯威脅解除']
           ],
-          wave: [
-            ['officialYellow','🌊','長浪即時訊息','黃色｜示性波高 ≥ 1.5m 且平均週期 > 8 秒']
-          ]
+          wave: [['officialYellow','🌊','長浪即時訊息','黃色｜示性波高 ≥ 1.5m 且平均週期 > 8 秒']]
         };
 
         const rows = legend[kind] || legend.rain;
@@ -6395,193 +6493,6 @@ button{ -webkit-tap-highlight-color:transparent; }
             <span>${title}<br>${desc}</span>
           </div>
         `).join("");
-      }
-
-      let allAlerts = [];
-      let filteredAlerts = [];
-      let selectedAlert = null;
-      let autoTimer = null;
-      let tickTimer = null;
-
-      const q = (id) => document.getElementById(id);
-
-      function twEscape(s){
-        return String(s ?? "").replace(/[&<>"']/g, m => ({
-          "&":"&amp;",
-          "<":"&lt;",
-          ">":"&gt;",
-          '"':"&quot;",
-          "'":"&#39;"
-        }[m]));
-      }
-
-      function fmtCapTime(t){
-        if(!t) return "—";
-        try{
-          const d = new Date(t);
-          if(Number.isNaN(d.getTime())) return t;
-          return d.toLocaleString("zh-TW", { hour12:false });
-        }catch{
-          return t;
-        }
-      }
-
-      function nowHHMMSS(){
-        const d = new Date();
-        const pad = (n) => String(n).padStart(2,"0");
-        return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-      }
-
-      function parseCapXml(xmlText){
-        const p = new DOMParser();
-        const xml = p.parseFromString(xmlText, "application/xml");
-
-        if(xml.querySelector("parsererror")){
-          return { ok:false, err:"parsererror", raw:xmlText };
-        }
-
-        const textOf = (sel) => {
-          const el = xml.querySelector(sel);
-          return el ? (el.textContent || "").trim() : "";
-        };
-
-        const sent = textOf("alert > sent");
-        const identifier = textOf("alert > identifier");
-        const info = xml.querySelector("alert > info");
-
-        if(!info){
-          return {
-            ok:true, sent, identifier, raw:xmlText, headline:"", event:"",
-            effective:"", expires:"", description:"", instruction:"", area:"", parameters:{}
-          };
-        }
-
-        const headline = textOf("alert > info > headline") || textOf("alert > info > event");
-        const event = textOf("alert > info > event");
-        const effective = textOf("alert > info > effective");
-        const expires = textOf("alert > info > expires");
-        const description = textOf("alert > info > description");
-        const instruction = textOf("alert > info > instruction");
-
-        const areaEls = xml.querySelectorAll("alert > info > area > areaDesc");
-        const area = Array.from(areaEls)
-          .map(x => (x.textContent || "").trim())
-          .filter(Boolean)
-          .join("；");
-
-        const parameters = {};
-        xml.querySelectorAll("alert > info > parameter").forEach(param => {
-          const name = (param.querySelector("valueName")?.textContent || "").trim();
-          const val = (param.querySelector("value")?.textContent || "").trim();
-          if(name) parameters[name] = val;
-        });
-
-        return {
-          ok:true, sent, identifier, raw:xmlText, headline, event,
-          effective, expires, description, instruction, area, parameters
-        };
-      }
-
-      async function fetchCwaWarningJson(url){
-        const res = await fetch(`${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`, { cache:"no-store" });
-        if(!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
-      }
-
-      function asArray(v){
-        if(v === undefined || v === null) return [];
-        return Array.isArray(v) ? v : [v];
-      }
-
-      function plainText(v){
-        if(v === undefined || v === null) return "";
-        if(typeof v === "string" || typeof v === "number") return String(v).trim();
-        return "";
-      }
-
-      function pickText(obj, keys){
-        if(!obj || typeof obj !== "object") return "";
-        for(const k of keys){
-          if(obj[k] !== undefined && obj[k] !== null){
-            const val = obj[k];
-            if(typeof val === "string" || typeof val === "number") return String(val).trim();
-          }
-        }
-        return "";
-      }
-
-      function collectStringsDeep(node, limit=80){
-        const out = [];
-        const seen = new Set();
-        function walk(v){
-          if(out.length >= limit || v === undefined || v === null) return;
-          if(typeof v === "string" || typeof v === "number"){
-            const s = String(v).trim();
-            if(s && !seen.has(s)){
-              seen.add(s);
-              out.push(s);
-            }
-            return;
-          }
-          if(Array.isArray(v)){
-            v.forEach(walk);
-            return;
-          }
-          if(typeof v === "object"){
-            Object.values(v).forEach(walk);
-          }
-        }
-        walk(node);
-        return out;
-      }
-
-      function collectAreaNamesFrom(node){
-        const names = [];
-        const seen = new Set();
-
-        function add(v){
-          const s = twNormalizeNameLocal(v);
-          if(!s || seen.has(s)) return;
-          // Keep only Taiwan county/town-like strings. Avoid collecting long descriptions.
-          if(s.length > 18) return;
-          if(/(縣|市|鄉|鎮|區|島|嶼|金門|馬祖|澎湖|連江)/.test(s)){
-            seen.add(s);
-            names.push(s);
-          }
-        }
-
-        function walk(v, key=""){
-          if(v === undefined || v === null) return;
-
-          if(typeof v === "string" || typeof v === "number"){
-            if(/areaDesc|locationName|county|town|areaName|地區|區域/i.test(key)) {
-              String(v).split(/[;；,，、\n\r]+/).forEach(add);
-            }
-            return;
-          }
-
-          if(Array.isArray(v)){
-            v.forEach(x => walk(x, key));
-            return;
-          }
-
-          if(typeof v === "object"){
-            Object.entries(v).forEach(([k,val]) => {
-              if(/areaDesc|locationName|county|town|areaName|地區|區域/i.test(k)){
-                if(typeof val === "string" || typeof val === "number"){
-                  String(val).split(/[;；,，、\n\r]+/).forEach(add);
-                }else{
-                  walk(val, k);
-                }
-              }else{
-                walk(val, k);
-              }
-            });
-          }
-        }
-
-        walk(node);
-        return names;
       }
 
       function getKindFromText(text){
@@ -6602,157 +6513,11 @@ button{ -webkit-tap-highlight-color:transparent; }
         if(kind === "cold") return "低溫特報";
         if(kind === "heat") return "高溫資訊";
         if(kind === "wind") return /海上強風/.test(text) ? "海上強風特報" : "陸上強風特報";
-        if(kind === "typhoon") return "颱風警報";
+        if(kind === "typhoon") return /熱帶性低氣壓|熱帶低氣壓/.test(text) ? "熱帶性低氣壓特報" : "颱風警報";
         if(kind === "fog") return "濃霧特報";
         if(kind === "wave") return "長浪即時訊息";
         if(kind === "tsunami") return "海嘯資訊";
         return "天氣警特報";
-      }
-
-      function normalizeCwaWarningJson(data, sourceLabel){
-        const alerts = [];
-        const seenObj = new WeakSet();
-
-        function makeAlert(base, rawNode){
-          const textPack = collectStringsDeep(rawNode || base, 120).join(" ");
-          const kind = getKindFromText(`${base.headline || ""} ${base.event || ""} ${base.description || ""} ${base.instruction || ""} ${textPack}`);
-          if(kind === "other") return null;
-
-          const areaNames = (base.areaNames && base.areaNames.length) ? base.areaNames : collectAreaNamesFrom(rawNode || base);
-          const area = areaNames.length ? areaNames.join("；") : (base.area || "");
-
-          const a = enrichAlert({
-            datasetId:sourceLabel,
-            datasetName:datasetNameFromKind(kind, `${base.headline || ""} ${base.event || ""} ${textPack}`),
-            kind,
-            headline:base.headline || base.event || datasetNameFromKind(kind),
-            event:base.event || base.headline || datasetNameFromKind(kind),
-            sent:base.sent || base.updateTime || base.issueTime || "",
-            effective:base.effective || base.onset || base.startTime || base.validFrom || "",
-            expires:base.expires || base.endTime || base.validTo || "",
-            area,
-            description:base.description || "",
-            instruction:base.instruction || "",
-            parameters:base.parameters || {},
-            raw:JSON.stringify(rawNode || base, null, 2)
-          });
-
-          // W-C0033 endpoints represent current warnings; if no explicit time is supplied,
-          // keep it visible instead of accidentally hiding it.
-          if(!a.effective && !a.expires && !a.sent){
-            a.effective = new Date(Date.now() - 60 * 1000).toISOString();
-            a.expires = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
-          }
-
-          return a;
-        }
-
-        function fromInfoObject(info, rawNode){
-          const areaNames = collectAreaNamesFrom(info);
-          const headline = pickText(info, ["headline","title","contentTitle","warningTitle","eventName"]);
-          const event = pickText(info, ["event","eventName","phenomena","warningName"]);
-          const description = pickText(info, ["description","contentText","text","descriptionText","hazardContent"]);
-          const instruction = pickText(info, ["instruction","suggestion","advice","instructionText"]);
-          const sent = pickText(rawNode, ["sent","issueTime","updateTime","dataTime","publishTime"]) || pickText(info, ["sent","issueTime","updateTime","dataTime","publishTime"]);
-          const effective = pickText(info, ["effective","onset","startTime","validFrom","beginTime"]);
-          const expires = pickText(info, ["expires","endTime","validTo","expireTime"]);
-
-          const a = makeAlert({ headline, event, description, instruction, sent, effective, expires, areaNames }, rawNode || info);
-          if(a && (areaNames.length || a.description || a.headline)) alerts.push(a);
-        }
-
-        function visit(node){
-          if(!node || typeof node !== "object") return;
-          if(seenObj.has(node)) return;
-          seenObj.add(node);
-
-          if(node.info){
-            asArray(node.info).forEach(info => fromInfoObject(info, node));
-          }
-
-          // County-current endpoint often stores one location with nested hazard conditions.
-          const locationName = pickText(node, ["locationName","countyName","areaName"]);
-          const strings = collectStringsDeep(node, 80);
-          const joined = strings.join(" ");
-          if(locationName && /(特報|警報|資訊|燈|豪雨|大雨|高溫|低溫|強風|颱風|濃霧|長浪|海嘯)/.test(joined)){
-            const kind = getKindFromText(joined);
-            if(kind !== "other"){
-              const a = makeAlert({
-                headline:datasetNameFromKind(kind, joined),
-                event:datasetNameFromKind(kind, joined),
-                sent:pickText(node, ["updateTime","issueTime","dataTime","publishTime","sent"]),
-                effective:pickText(node, ["startTime","validFrom","effective","beginTime"]),
-                expires:pickText(node, ["endTime","validTo","expires","expireTime"]),
-                areaNames:[locationName],
-                description:joined.slice(0, 900)
-              }, node);
-              if(a) alerts.push(a);
-            }
-          }
-
-          if(Array.isArray(node)){
-            node.forEach(visit);
-          }else{
-            Object.values(node).forEach(visit);
-          }
-        }
-
-        visit(data);
-
-        const uniq = [];
-        const seen = new Set();
-        alerts.forEach(a => {
-          const sig = `${a.kind}|${a.headline}|${a.event}|${a.effective}|${a.expires}|${(a.areaNames || []).join(",")}`;
-          if(seen.has(sig)) return;
-          seen.add(sig);
-          uniq.push(a);
-        });
-
-        return uniq;
-      }
-
-      function mergeWarningAlerts(countyAlerts, detailAlerts){
-        // Prefer detailed W-C0033-002 alerts when available; keep county-only alerts to fill gaps.
-        const out = [];
-        const coveredCountyKind = new Set();
-
-        detailAlerts.forEach(a => {
-          (a.areaNames || []).forEach(n => coveredCountyKind.add(`${twAreaResolveCountyName(n)}|${a.kind}`));
-          out.push(a);
-        });
-
-        countyAlerts.forEach(a => {
-          const hasCovered = (a.areaNames || []).some(n => coveredCountyKind.has(`${twAreaResolveCountyName(n)}|${a.kind}`));
-          if(!hasCovered) out.push(a);
-        });
-
-        return out;
-      }
-
-      function buildFilters(){
-        const typeSel = q("twTypeFilter");
-        if(!typeSel) return;
-        const oldValue = typeSel.value;
-        typeSel.innerHTML = "";
-
-        DATASETS.forEach(d => {
-          const opt = document.createElement("option");
-          opt.value = d.kind;
-          opt.textContent = d.name;
-          typeSel.appendChild(opt);
-        });
-
-        if(oldValue && DATASETS.some(d => d.kind === oldValue)) typeSel.value = oldValue;
-        else typeSel.value = DATASETS[0]?.kind || "rain";
-        renderTwLegend(typeSel.value);
-      }
-
-      function twNormalizeNameLocal(v){
-        return String(v || "")
-          .replace(/台/g, "臺")
-          .replace(/\s+/g, "")
-          .replace(/[()（）]/g, "")
-          .trim();
       }
 
       function splitAreaNames(areaText){
@@ -6764,44 +6529,95 @@ button{ -webkit-tap-highlight-color:transparent; }
           .filter(Boolean);
       }
 
+      function extractTaiwanAreasFromText(text){
+        const normalized = twNormalizeNameLocal(text);
+        const out = [];
+        const seen = new Set();
+        const add = (v) => {
+          const s = twNormalizeNameLocal(v);
+          if(!s || seen.has(s)) return;
+          if(s.length > 18) return;
+          seen.add(s);
+          out.push(s);
+        };
+
+        getCountyList().forEach(c => {
+          if(normalized.includes(c)) add(c);
+        });
+
+        // Catch combined county+town strings such as 宜蘭縣三星鄉.
+        const townRe = /(?:臺北市|新北市|桃園市|臺中市|臺南市|高雄市|基隆市|新竹市|嘉義市|新竹縣|苗栗縣|彰化縣|南投縣|雲林縣|嘉義縣|屏東縣|宜蘭縣|花蓮縣|臺東縣|澎湖縣|金門縣|連江縣)?[\u4e00-\u9fa5]{1,6}(?:鄉|鎮|區|市)/g;
+        const matches = normalized.match(townRe) || [];
+        matches.forEach(m => {
+          if(!/縣市$/.test(m) && !getCountyList().includes(m) && m.length <= 12) add(m);
+        });
+        return out;
+      }
+
+      function collectAreaNamesFrom(node){
+        const names = [];
+        const seen = new Set();
+        const add = (v) => {
+          const s = twNormalizeNameLocal(v);
+          if(!s || seen.has(s)) return;
+          if(s.length > 18) return;
+          if(getCountyList().includes(s) || /(縣|市|鄉|鎮|區|島|嶼|金門|馬祖|澎湖|連江)/.test(s)){
+            seen.add(s);
+            names.push(s);
+          }
+        };
+        function walk(v, key=""){
+          if(v === undefined || v === null) return;
+          if(typeof v === "string" || typeof v === "number"){
+            const str = String(v);
+            if(/areaDesc|locationName|county|town|areaName|地區|區域|affected|location/i.test(key)){
+              str.split(/[;；,，、\n\r]+/).forEach(add);
+            }else{
+              extractTaiwanAreasFromText(str).forEach(add);
+            }
+            return;
+          }
+          if(Array.isArray(v)){
+            v.forEach(x => walk(x, key));
+            return;
+          }
+          if(typeof v === "object"){
+            Object.entries(v).forEach(([k,val]) => walk(val, k));
+          }
+        }
+        walk(node);
+        return names;
+      }
+
       function getAlertLevel(a){
         const hay = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.instruction || ""} ${a.datasetName || ""} ${Object.values(a.parameters || {}).join(" ")}`;
         const norm = hay.replace(/\s+/g, "");
 
-        // Rain warning levels — use official lamp color levels.
         if(/超大豪雨|大豪雨/.test(norm)) return "redRain";
         if(/豪雨/.test(norm)) return "orangeRain";
         if(/大雨/.test(norm)) return "yellowRain";
 
-        // Typhoon warning levels.
         if(/解除/.test(norm) && /颱風/.test(norm)) return "greenClear";
         if(/海上陸上颱風|海陸|陸上颱風/.test(norm)) return "redTyphoon";
         if(/海上颱風/.test(norm) || /颱風/.test(norm)) return "orangeTyphoon";
         if(/熱帶性低氣壓|熱帶低氣壓/.test(norm)) return "yellowTD";
 
-        // Low temperature levels.
         if(/嚴寒|紅燈|紅色燈號|紅色警戒/.test(norm) && /低溫|寒冷|嚴寒/.test(norm)) return "redCold";
         if(/非常寒冷|橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒/.test(norm) && /低溫|寒冷|非常寒冷/.test(norm)) return "orangeCold";
         if(/寒冷|黃燈|黃色燈號|黃色警戒|低溫/.test(norm)) return "yellowCold";
 
-        // High temperature levels.
-        // Important: do NOT color all 高溫資訊 orange. CWA CAP may write "黃色燈號" instead of "黃燈".
         if(/高溫/.test(norm)){
           if(/紅燈|紅色燈號|紅色警戒|紅色/.test(norm)) return "redHeat";
           if(/橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒|橙色|橘色/.test(norm)) return "orangeHeat";
           if(/黃燈|黃色燈號|黃色警戒|黃色/.test(norm)) return "yellowHeat";
-          // Infer from threshold text only when lamp wording is absent.
           if(/38(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天/.test(norm)) return "redHeat";
           if(/36(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天|38(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "orangeHeat";
-          if(/36(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "yellowHeat";
           return "yellowHeat";
         }
 
-        // Wind levels.
         if(/強風|陸上|海上強風/.test(norm)){
           if(/紅燈|紅色燈號|紅色警戒|紅色|平均風達?12級以上|陣風達?14級以上/.test(norm)) return "redWind";
           if(/橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒|橙色|橘色|平均風達?9級以上|陣風達?11級以上/.test(norm)) return "orangeWind";
-          if(/黃燈|黃色燈號|黃色警戒|黃色|平均風達?6級以上|陣風達?8級以上/.test(norm)) return "yellowWind";
           return "yellowWind";
         }
 
@@ -6810,43 +6626,20 @@ button{ -webkit-tap-highlight-color:transparent; }
         if(/海嘯警報/.test(norm)) return "redTsunami";
         if(/海嘯警訊/.test(norm)) return "orangeTsunami";
         if(/海嘯/.test(norm)) return "yellowTsunami";
-
         return a.kind || "other";
       }
 
       function getLevelColor(level){
         return ({
-          officialRed:"#e60012",
-          officialOrange:"#ff7f00",
-          officialYellow:"#fff100",
-          officialGreen:"#00e833",
-          redRain:"#e60012",
-          orangeRain:"#ff7f00",
-          yellowRain:"#fff100",
-          redTyphoon:"#e60012",
-          orangeTyphoon:"#ff7f00",
-          yellowTD:"#fff100",
-          greenClear:"#00e833",
-          redCold:"#e60012",
-          orangeCold:"#ff7f00",
-          yellowCold:"#fff100",
-          redHeat:"#e60012",
-          orangeHeat:"#ff7f00",
-          yellowHeat:"#fff100",
-          redWind:"#e60012",
-          orangeWind:"#ff7f00",
-          yellowWind:"#fff100",
-          yellowFog:"#fff100",
-          yellowWave:"#fff100",
-          redTsunami:"#e60012",
-          orangeTsunami:"#ff7f00",
-          yellowTsunami:"#fff100",
-          rain:"#fff100",
-          typhoon:"#ff7f00",
-          heat:"#fff100",
-          cold:"#fff100",
-          wind:"#fff100",
-          other:"#8b5cf6"
+          officialRed:"#e60012", officialOrange:"#ff7f00", officialYellow:"#fff100", officialGreen:"#00e833",
+          redRain:"#e60012", orangeRain:"#ff7f00", yellowRain:"#fff100",
+          redTyphoon:"#e60012", orangeTyphoon:"#ff7f00", yellowTD:"#fff100", greenClear:"#00e833",
+          redCold:"#e60012", orangeCold:"#ff7f00", yellowCold:"#fff100",
+          redHeat:"#e60012", orangeHeat:"#ff7f00", yellowHeat:"#fff100",
+          redWind:"#e60012", orangeWind:"#ff7f00", yellowWind:"#fff100",
+          yellowFog:"#fff100", yellowWave:"#fff100",
+          redTsunami:"#e60012", orangeTsunami:"#ff7f00", yellowTsunami:"#fff100",
+          rain:"#fff100", typhoon:"#ff7f00", heat:"#fff100", cold:"#fff100", wind:"#fff100", other:"#8b5cf6"
         })[level] || "#8b5cf6";
       }
 
@@ -6868,59 +6661,324 @@ button{ -webkit-tap-highlight-color:transparent; }
           redRain:90, redTyphoon:90, redCold:90, redHeat:90, redWind:90, redTsunami:90,
           orangeRain:70, orangeTyphoon:70, orangeCold:70, orangeHeat:70, orangeWind:70, orangeTsunami:70,
           yellowRain:50, yellowTD:50, yellowCold:50, yellowHeat:50, yellowWind:50, yellowFog:50, yellowWave:50, yellowTsunami:50,
-          greenClear:10,
-          rain:50, typhoon:70, heat:70, cold:50, wind:50, other:20
+          greenClear:10, rain:50, typhoon:70, heat:50, cold:50, wind:50, other:20
         })[level] || 20;
       }
 
       function enrichAlert(a){
         const level = getAlertLevel(a);
+        const areaNames = a.areaNames?.length ? a.areaNames.map(twNormalizeNameLocal) : splitAreaNames(a.area);
         return {
           ...a,
           level,
           color:getLevelColor(level),
           icon:getLevelIcon(level),
           levelRank:getLevelRank(level),
-          areaNames:splitAreaNames(a.area)
+          areaNames,
+          area: areaNames.length ? areaNames.join("；") : (a.area || "")
         };
+      }
+
+      function makeAlert(base, rawNode, sourceLabel){
+        const textPack = collectStringsDeep(rawNode || base, 200).join(" ");
+        const allText = `${base.headline || ""} ${base.event || ""} ${base.description || ""} ${base.instruction || ""} ${textPack}`;
+        const kind = base.kind || getKindFromText(allText);
+        if(kind === "other") return null;
+
+        const areaNames = (base.areaNames && base.areaNames.length) ? base.areaNames : collectAreaNamesFrom(rawNode || base);
+        const a = enrichAlert({
+          datasetId:sourceLabel || "W-C0033",
+          datasetName:datasetNameFromKind(kind, allText),
+          kind,
+          headline:base.headline || base.event || datasetNameFromKind(kind, allText),
+          event:base.event || base.headline || datasetNameFromKind(kind, allText),
+          sent:base.sent || base.updateTime || base.issueTime || "",
+          effective:base.effective || base.onset || base.startTime || base.validFrom || "",
+          expires:base.expires || base.endTime || base.validTo || "",
+          areaNames,
+          description:base.description || textPack.slice(0, 1200),
+          instruction:base.instruction || "",
+          parameters:base.parameters || {},
+          raw:JSON.stringify(rawNode || base, null, 2)
+        });
+
+        if(!a.effective && !a.expires && !a.sent){
+          a.noExplicitTime = true;
+        }
+        return a;
+      }
+
+      function normalizeCwaWarningJson(data, sourceLabel){
+        const alerts = [];
+        const seenObj = new WeakSet();
+
+        function pushAlert(a){
+          if(!a) return;
+          if(!a.areaNames?.length && a.kind !== "typhoon" && a.kind !== "tsunami" && a.kind !== "wave") return;
+          alerts.push(a);
+        }
+
+        function parseWeatherElementLocation(node){
+          const locationName = pickText(node, ["locationName","countyName","areaName"]);
+          if(!locationName || !node.weatherElement) return;
+          asArray(node.weatherElement).forEach(we => {
+            const elementName = pickText(we, ["elementName","name"]);
+            asArray(we.time || we.times || we.Time).forEach(t => {
+              const start = pickText(t, ["startTime","validFrom","beginTime","dataTime"]);
+              const end = pickText(t, ["endTime","validTo","expireTime"]);
+              const params = asArray(t.parameter || t.parameters || t.elementValue || t.value);
+              const baseText = `${elementName} ${collectStringsDeep(t, 80).join(" ")}`;
+              if(!/(特報|警報|資訊|燈|豪雨|大雨|高溫|低溫|強風|颱風|濃霧|長浪|海嘯)/.test(baseText)) return;
+              if(/無警特報|無特報|無警報|無資料/.test(baseText)) return;
+              const paramText = params.map(x => collectStringsDeep(x, 20).join(" ")).join(" ");
+              const headline = elementName || datasetNameFromKind(getKindFromText(baseText), baseText);
+              pushAlert(makeAlert({
+                headline,
+                event:headline,
+                effective:start,
+                expires:end,
+                areaNames:[locationName],
+                description:`${baseText} ${paramText}`.trim()
+              }, t, sourceLabel));
+            });
+          });
+        }
+
+        function parseHazardsLocation(node){
+          const locationName = pickText(node, ["locationName","countyName","areaName"]);
+          const hazards = asArray(node?.hazardConditions?.hazards || node?.hazardConditions?.hazard || node?.hazards || node?.hazard);
+          if(!locationName || !hazards.length) return;
+          hazards.forEach(h => {
+            const info = h.info || h;
+            const all = collectStringsDeep(info, 120).join(" ");
+            if(/無警特報|無特報|無警報|無資料/.test(all)) return;
+            const headline = pickText(info, ["headline","title","contentTitle","warningTitle","eventName","phenomena","phenomenon","significance"]) || datasetNameFromKind(getKindFromText(all), all);
+            pushAlert(makeAlert({
+              headline,
+              event:pickText(info, ["event","eventName","phenomena","phenomenon","significance"]) || headline,
+              sent:pickText(info, ["sent","issueTime","updateTime","dataTime","publishTime"]),
+              effective:pickText(info, ["effective","onset","startTime","validFrom","beginTime"]),
+              expires:pickText(info, ["expires","endTime","validTo","expireTime"]),
+              areaNames:[locationName],
+              description:pickText(info, ["description","contentText","text","descriptionText","hazardContent"]) || all,
+              instruction:pickText(info, ["instruction","suggestion","advice","instructionText"])
+            }, h, sourceLabel));
+          });
+        }
+
+        function parseDetailInfo(node){
+          const all = collectStringsDeep(node, 200).join(" ");
+          if(!/(特報|警報|資訊|豪雨|大雨|高溫|低溫|強風|颱風|濃霧|長浪|海嘯)/.test(all)) return;
+          if(/無警特報|無特報|無警報|無資料/.test(all)) return;
+          const areaNames = collectAreaNamesFrom(node);
+          const headline = pickText(node, ["headline","title","contentTitle","warningTitle","eventName","warningName","phenomena","significance"]) || datasetNameFromKind(getKindFromText(all), all);
+          pushAlert(makeAlert({
+            headline,
+            event:pickText(node, ["event","eventName","phenomena","warningName","significance"]) || headline,
+            sent:pickText(node, ["sent","issueTime","updateTime","dataTime","publishTime"]),
+            effective:pickText(node, ["effective","onset","startTime","validFrom","beginTime"]),
+            expires:pickText(node, ["expires","endTime","validTo","expireTime"]),
+            areaNames,
+            description:pickText(node, ["description","contentText","text","descriptionText","hazardContent"]) || all,
+            instruction:pickText(node, ["instruction","suggestion","advice","instructionText"])
+          }, node, sourceLabel));
+        }
+
+        function visit(node){
+          if(!node || typeof node !== "object") return;
+          if(seenObj.has(node)) return;
+          seenObj.add(node);
+
+          parseWeatherElementLocation(node);
+          parseHazardsLocation(node);
+
+          if(node.info) asArray(node.info).forEach(info => parseDetailInfo(info));
+          if(node.hazardConditions || node.weatherElement || node.phenomena || node.significance || node.headline || node.description){
+            parseDetailInfo(node);
+          }
+
+          if(Array.isArray(node)) node.forEach(visit);
+          else Object.values(node).forEach(visit);
+        }
+
+        visit(data);
+
+        const uniq = [];
+        const seen = new Set();
+        alerts.forEach(a => {
+          const sig = `${a.kind}|${a.level}|${a.headline}|${a.event}|${a.effective}|${a.expires}|${(a.areaNames || []).join(",")}`;
+          if(seen.has(sig)) return;
+          seen.add(sig);
+          uniq.push(a);
+        });
+        return uniq;
+      }
+
+      function parseCapFallbackXml(xmlText, dataset){
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(xmlText, "application/xml");
+        if(xml.querySelector("parsererror")) return [];
+        const textOf = (root, sel) => (root.querySelector(sel)?.textContent || "").trim();
+        const sent = textOf(xml, "alert > sent");
+        const identifier = textOf(xml, "alert > identifier");
+        const infoNodes = Array.from(xml.querySelectorAll("alert > info"));
+        const out = [];
+        infoNodes.forEach(info => {
+          const headline = textOf(info, "headline") || textOf(info, "event") || dataset.name;
+          const event = textOf(info, "event") || headline;
+          const effective = textOf(info, "effective") || textOf(info, "onset");
+          const expires = textOf(info, "expires");
+          const description = textOf(info, "description");
+          const instruction = textOf(info, "instruction");
+          const area = Array.from(info.querySelectorAll("area > areaDesc"))
+            .map(x => (x.textContent || "").trim())
+            .filter(Boolean)
+            .join("；");
+          const parameters = {};
+          info.querySelectorAll("parameter").forEach(param => {
+            const name = (param.querySelector("valueName")?.textContent || "").trim();
+            const val = (param.querySelector("value")?.textContent || "").trim();
+            if(name) parameters[name] = val;
+          });
+          const allText = `${headline} ${event} ${description} ${instruction} ${area} ${Object.values(parameters).join(" ")}`;
+          const kind = dataset.kind || getKindFromText(allText);
+          const areaNames = collectAreaNamesFrom({ area, headline, event, description, instruction, parameters });
+          const a = makeAlert({
+            datasetId:`CAP-${dataset.id}`,
+            datasetName:dataset.name || "CAP 補充",
+            kind,
+            headline,
+            event,
+            sent,
+            effective,
+            expires,
+            area,
+            areaNames,
+            description,
+            instruction,
+            parameters,
+            raw:xmlText
+          }, { source:"CAP fallback", dataset, identifier, sent, headline, event, effective, expires, area, parameters }, `CAP-${dataset.id}`);
+          if(a){
+            a.datasetName = dataset.name || a.datasetName || "CAP 補充";
+            a.datasetId = `CAP-${dataset.id}`;
+            a.sourceType = "CAP fallback";
+            out.push(a);
+          }
+        });
+        return out;
+      }
+
+      async function fetchCapFallbackAlerts(){
+        const jobs = CWA_CAP_FALLBACK_DATASETS.map(async dataset => {
+          try{
+            const url = `${CWA_CAP_FALLBACK_BASE}${encodeURIComponent(dataset.id)}.cap?_=${Date.now()}`;
+            const res = await fetch(url, { cache:"no-store" });
+            if(!res.ok) return [];
+            const xmlText = await res.text();
+            return parseCapFallbackXml(xmlText, dataset);
+          }catch(err){
+            console.warn("CAP fallback failed", dataset.id, err);
+            return [];
+          }
+        });
+        const groups = await Promise.all(jobs);
+        return groups.flat().filter(Boolean);
+      }
+
+      function mergeHybridAlerts(primaryAlerts, capFallbackAlerts){
+        const out = [];
+        const seen = new Set();
+        function keyOf(a){
+          const kind = a.kind || "";
+          const event = String(a.event || a.headline || "").replace(/\s+/g, "");
+          const level = a.level || getAlertLevel(a);
+          const area = (a.areaNames || []).map(twNormalizeNameLocal).sort().join("|");
+          const time = `${a.effective || ""}|${a.expires || ""}`;
+          return `${kind}::${event}::${level}::${area}::${time}`;
+        }
+        function add(a){
+          if(!a) return;
+          const k = keyOf(a);
+          if(seen.has(k)) return;
+          seen.add(k);
+          out.push(a);
+        }
+        // W-C0033 stays authoritative and first.
+        primaryAlerts.forEach(add);
+        // CAP fills gaps only.
+        capFallbackAlerts.forEach(add);
+        return out;
+      }
+
+      function mergeWarningAlerts(countyAlerts, detailAlerts){
+        const out = [];
+        const coveredCountyKind = new Set();
+        detailAlerts.forEach(a => {
+          (a.areaNames || []).forEach(n => {
+            const c = (typeof twAreaResolveCountyName === "function") ? twAreaResolveCountyName(n) : n;
+            coveredCountyKind.add(`${c}|${a.kind}`);
+          });
+          out.push(a);
+        });
+        countyAlerts.forEach(a => {
+          const hasCovered = (a.areaNames || []).some(n => {
+            const c = (typeof twAreaResolveCountyName === "function") ? twAreaResolveCountyName(n) : n;
+            return coveredCountyKind.has(`${c}|${a.kind}`);
+          });
+          if(!hasCovered) out.push(a);
+        });
+        return out;
+      }
+
+      let allAlerts = [];
+      let filteredAlerts = [];
+      let selectedAlert = null;
+      let autoTimer = null;
+      let tickTimer = null;
+
+      function buildFilters(){
+        const typeSel = q("twTypeFilter");
+        if(!typeSel) return;
+        const oldValue = typeSel.value;
+        typeSel.innerHTML = "";
+        DATASETS.forEach(d => {
+          const opt = document.createElement("option");
+          opt.value = d.kind;
+          opt.textContent = d.name;
+          typeSel.appendChild(opt);
+        });
+        if(oldValue && DATASETS.some(d => d.kind === oldValue)) typeSel.value = oldValue;
+        else typeSel.value = DATASETS[0]?.kind || "rain";
+        renderTwLegend(typeSel.value);
       }
 
       function getAlertAreaGroups(a){
         const names = (a?.areaNames?.length ? a.areaNames : splitAreaNames(a?.area || ""));
         const groups = new Map();
-
         names.forEach(raw => {
           const norm = twNormalizeNameLocal(raw);
           if(!norm) return;
-
-          const county = (typeof twAreaResolveCountyName === "function")
-            ? twAreaResolveCountyName(norm)
-            : norm;
-
+          const county = (typeof twAreaResolveCountyName === "function") ? twAreaResolveCountyName(norm) : norm;
           if(!groups.has(county)) groups.set(county, { county, whole:false, towns:[] });
           const g = groups.get(county);
-
           const isWholeCounty = (typeof twCountyNameSet !== "undefined" && twCountyNameSet.has(norm)) || norm === county;
           if(isWholeCounty){
             g.whole = true;
             g.towns = [];
             return;
           }
-
-          // If it is not a whole county, display the town / district name under the county pill.
           let town = norm;
           if(county && town.startsWith(county)) town = town.slice(county.length);
           if(!town) town = norm;
           if(!g.whole && !g.towns.includes(town)) g.towns.push(town);
         });
-
         return Array.from(groups.values()).sort((a,b) => a.county.localeCompare(b.county, "zh-Hant"));
       }
 
       function renderAreaPills(a){
         const groups = getAlertAreaGroups(a);
-        if(!groups.length) return `<span class="twAreaMuted">—</span>`;
-
+        if(!groups.length) return `<span class="twAreaMuted">海上或近海警報，無縣市填色範圍</span>`;
         return `<div class="twAreaGroups">${groups.map(g => `
           <section class="twAreaGroup">
             <span class="twCountyPill" style="--warn:${twEscape(a.color || '#2a9d8f')}">${twEscape(g.county)}</span>
@@ -6935,7 +6993,6 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function renderDetails(a){
         selectedAlert = a || null;
-
         if(!a){
           q("twSelected").textContent = "未選取";
           q("twHeadline").textContent = "—";
@@ -6948,55 +7005,46 @@ button{ -webkit-tap-highlight-color:transparent; }
           q("twRaw").textContent = "";
           q("twRaw").style.display = "none";
           q("twText").style.display = "block";
-          q("twRawBtn").textContent = "顯示 Raw CAP";
+          q("twRawBtn").textContent = "顯示 Raw JSON";
           return;
         }
-
-        q("twSelected").textContent = a.datasetName || "CAP";
+        q("twSelected").textContent = a.datasetName || "W-C0033";
         q("twHeadline").textContent = a.headline || a.event || "—";
         q("twEvent").textContent = a.event || "—";
         q("twSent").textContent = fmtCapTime(a.sent) || "—";
         q("twValid").textContent = `${fmtCapTime(a.effective)} → ${fmtCapTime(a.expires)}`;
         q("twDetailType").textContent = a.datasetName || "—";
         q("twArea").innerHTML = renderAreaPills(a);
-
         const text = [
           a.description ? `【說明】\n${a.description}` : "",
-          a.instruction ? `\n【指示】\n${a.instruction}` : ""
+          a.instruction ? `\n【建議】\n${a.instruction}` : ""
         ].filter(Boolean).join("\n");
-
         q("twText").textContent = text || "（此警報沒有內容）";
         q("twRaw").textContent = a.raw || "";
       }
 
       function getCountyWarningMap(){
         const map = new Map();
-
         filteredAlerts.forEach(a => {
           (a.areaNames || []).forEach(name => {
-            const county = (typeof twAreaResolveCountyName === "function")
-              ? twAreaResolveCountyName(name)
-              : name;
-
+            const county = (typeof twAreaResolveCountyName === "function") ? twAreaResolveCountyName(name) : name;
             if(!county) return;
             if(!map.has(county)) map.set(county, []);
             map.get(county).push(a);
           });
         });
-
         map.forEach((arr, key) => {
           arr.sort((x,y) => (y.levelRank || 0) - (x.levelRank || 0));
           const dedupe = [];
           const seen = new Set();
           arr.forEach(a => {
-            const sig = `${a.datasetId}-${a.headline}-${a.event}`;
+            const sig = `${a.datasetId}-${a.headline}-${a.event}-${a.level}`;
             if(seen.has(sig)) return;
             seen.add(sig);
             dedupe.push(a);
           });
           map.set(key, dedupe);
         });
-
         return map;
       }
 
@@ -7004,21 +7052,18 @@ button{ -webkit-tap-highlight-color:transparent; }
         const left = q("twCountyTableLeft");
         const right = q("twCountyTableRight");
         if(!left || !right) return;
-
         const warnMap = getCountyWarningMap();
-        const counties = (typeof twCountyNameList !== "undefined" ? twCountyNameList : Array.from(warnMap.keys()));
+        const counties = (typeof twCountyNameList !== "undefined" ? twCountyNameList : getCountyList());
         const half = Math.ceil(counties.length / 2);
-
         function rowHtml(county){
           const norm = twNormalizeNameLocal(county);
           const alerts = warnMap.get(norm) || warnMap.get(county) || [];
-          const badges = alerts.length ? alerts.map((a, idx) => `
+          const badges = alerts.length ? alerts.map(a => `
             <span class="twOfficialWarnBadge" data-county="${twEscape(norm)}" data-alert="${twEscape(String(allAlerts.indexOf(a)))}" title="${twEscape(a.headline || a.event || "")}">
               <span class="twOfficialWarnStrip" style="background:${twEscape(a.color)}"></span>
               <span class="twOfficialWarnIcon">${twEscape(a.icon)}</span>
             </span>
           `).join("") : `<span class="twOfficialNoWarn">—</span>`;
-
           return `
             <tr data-county-row="${twEscape(norm)}">
               <td><span class="twOfficialCountyCell">${twEscape(county)}${alerts.length ? '<span class="twPlus">+</span>' : ''}</span></td>
@@ -7026,19 +7071,14 @@ button{ -webkit-tap-highlight-color:transparent; }
             </tr>
           `;
         }
-
         left.innerHTML = counties.slice(0, half).map(rowHtml).join("");
         right.innerHTML = counties.slice(half).map(rowHtml).join("");
-
         document.querySelectorAll(".twOfficialWarnBadge").forEach(el => {
           el.addEventListener("click", () => {
             const idx = Number(el.dataset.alert);
             const a = allAlerts[idx];
             if(a) renderDetails(a);
-
-            if(typeof twAreaFocusCounty === "function"){
-              twAreaFocusCounty(el.dataset.county);
-            }
+            if(typeof twAreaFocusCounty === "function") twAreaFocusCounty(el.dataset.county);
           });
         });
       }
@@ -7046,22 +7086,17 @@ button{ -webkit-tap-highlight-color:transparent; }
       function renderList(){
         q("twCount").textContent = `${filteredAlerts.length} 筆警報`;
         q("twHint").textContent = filteredAlerts.length
-          ? "點擊右側表格中的警報 icon，可查看 CAP 詳細內容。"
+          ? "點擊右側表格中的警報 icon，可查看 W-C0033 詳細內容。"
           : "目前沒有符合條件的警報。";
-
         renderCountyTables();
-
         window.__twCapAlerts = filteredAlerts;
-        if(typeof twAreaRefreshHighlight === "function"){
-          twAreaRefreshHighlight();
-        }
+        if(typeof twAreaRefreshHighlight === "function") twAreaRefreshHighlight();
       }
 
       function applyFilters(){
         const type = q("twTypeFilter").value || DATASETS[0]?.kind || "rain";
         const keyword = String(q("twSearch").value || "").trim().toLowerCase();
         renderTwLegend(type);
-
         filteredAlerts = allAlerts.filter(a => {
           const okType = a.kind === type;
           const okActive = isCapAlertActive(a);
@@ -7069,13 +7104,9 @@ button{ -webkit-tap-highlight-color:transparent; }
           const okKeyword = keyword ? hay.includes(keyword) : true;
           return okType && okActive && okKeyword;
         });
-
         renderList();
-
         if(filteredAlerts.length){
-          if(!selectedAlert || !filteredAlerts.includes(selectedAlert)){
-            renderDetails(filteredAlerts[0]);
-          }
+          if(!selectedAlert || !filteredAlerts.includes(selectedAlert)) renderDetails(filteredAlerts[0]);
         }else{
           renderDetails(null);
         }
@@ -7102,49 +7133,40 @@ button{ -webkit-tap-highlight-color:transparent; }
           q("twRefresh").disabled = true;
           q("twRefresh").textContent = "更新中…";
         }
-
-        q("twStatus").textContent = "讀取 W-C0033 中…";
-
+        q("twStatus").textContent = "讀取 W-C0033 + CAP 補充中…";
         try{
-          const [countyResult, detailResult] = await Promise.allSettled([
+          const [countyResult, detailResult, capFallbackResult] = await Promise.allSettled([
             fetchCwaWarningJson(CWA_WARNING_COUNTY_API),
-            fetchCwaWarningJson(CWA_WARNING_DETAIL_API)
+            fetchCwaWarningJson(CWA_WARNING_DETAIL_API),
+            fetchCapFallbackAlerts()
           ]);
-
           const bad = [];
           let countyAlerts = [];
           let detailAlerts = [];
+          let capFallbackAlerts = [];
+          if(countyResult.status === "fulfilled") countyAlerts = normalizeCwaWarningJson(countyResult.value, "W-C0033-001");
+          else bad.push(countyResult.reason);
+          if(detailResult.status === "fulfilled") detailAlerts = normalizeCwaWarningJson(detailResult.value, "W-C0033-002");
+          else bad.push(detailResult.reason);
+          if(capFallbackResult.status === "fulfilled") capFallbackAlerts = capFallbackResult.value || [];
+          else bad.push(capFallbackResult.reason);
 
-          if(countyResult.status === "fulfilled"){
-            countyAlerts = normalizeCwaWarningJson(countyResult.value, "W-C0033-001");
-          }else{
-            bad.push(countyResult.reason);
-          }
+          const primaryAlerts = mergeWarningAlerts(countyAlerts, detailAlerts);
+          let ok = mergeHybridAlerts(primaryAlerts, capFallbackAlerts)
+            .filter(isCapAlertActive)
+            .sort((a,b) => String(b.sent || b.effective || "").localeCompare(String(a.sent || a.effective || "")));
 
-          if(detailResult.status === "fulfilled"){
-            detailAlerts = normalizeCwaWarningJson(detailResult.value, "W-C0033-002");
-          }else{
-            bad.push(detailResult.reason);
-          }
-
-          let ok = mergeWarningAlerts(countyAlerts, detailAlerts);
-          ok.sort((a,b) => String(b.sent || b.effective || "").localeCompare(String(a.sent || a.effective || "")));
-
-          allAlerts = ok.filter(isCapAlertActive);
+          allAlerts = ok;
           window.__twTyphoonAlerts = allAlerts.filter(a => a.kind === "typhoon");
+          window.__twSeaTyphoonAlerts = allAlerts.filter(a => a.kind === "typhoon" && (!a.areaNames || !a.areaNames.length || /海上颱風/.test(`${a.headline} ${a.event} ${a.description}`)));
           selectedAlert = null;
-
           buildFilters();
           applyFilters();
-
-          if(typeof renderTyphoonWarningOverlay === "function"){
-            renderTyphoonWarningOverlay();
-          }
-
+          if(typeof renderTyphoonWarningOverlay === "function") renderTyphoonWarningOverlay();
           const success = 2 - bad.length;
           q("twStatus").textContent = bad.length
-            ? `已更新 W-C0033 生效警報（${success}/2 成功，${allAlerts.length} 筆）`
-            : `已更新 W-C0033 生效警報（${allAlerts.length} 筆）`;
+            ? `已更新 W-C0033 + CAP 補充生效警報（${success}/3 成功，${allAlerts.length} 筆）`
+            : `已更新 W-C0033 + CAP 補充生效警報（${allAlerts.length} 筆）`;
         }catch(err){
           console.error(err);
           q("twStatus").textContent = "更新失敗";
@@ -7161,87 +7183,66 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function startAuto(){
         stopAuto();
-
         let remaining = AUTO_REFRESH_SEC;
-
         const tick = () => {
           q("twStatus").textContent = `下次更新：${remaining}s（${nowHHMMSS()}）`;
           remaining -= 1;
           if(remaining < 0) remaining = AUTO_REFRESH_SEC;
         };
-
         tick();
         tickTimer = setInterval(tick, 1000);
         autoTimer = setInterval(() => refreshTaiwan({ silent:true }), AUTO_REFRESH_SEC * 1000);
       }
 
       function stopAuto(){
-        if(autoTimer){
-          clearInterval(autoTimer);
-          autoTimer = null;
-        }
-
-        if(tickTimer){
-          clearInterval(tickTimer);
-          tickTimer = null;
-        }
-
+        if(autoTimer) clearInterval(autoTimer);
+        if(tickTimer) clearInterval(tickTimer);
+        autoTimer = null;
+        tickTimer = null;
         q("twStatus").textContent = `已暫停自動更新（${nowHHMMSS()}）`;
       }
 
       buildFilters();
-
       q("twRefresh").addEventListener("click", () => refreshTaiwan({ silent:false }));
-
-      q("twAuto").addEventListener("change", (e) => {
-        if(e.target.checked) startAuto();
-        else stopAuto();
-      });
-
+      q("twAuto").addEventListener("change", (e) => e.target.checked ? startAuto() : stopAuto());
       q("twTypeFilter").addEventListener("change", applyFilters);
-
       q("twSearch").addEventListener("input", () => {
         clearTimeout(window.__twQTimer);
         window.__twQTimer = setTimeout(applyFilters, 120);
       });
-
       q("twCopy").addEventListener("click", async () => {
         const txt = q("twText").style.display !== "none" ? q("twText").textContent : q("twRaw").textContent;
         await copyText(txt);
         q("twCopy").textContent = "已複製";
         setTimeout(() => q("twCopy").textContent = "複製內容", 900);
       });
-
       q("twRawBtn").addEventListener("click", () => {
         const rawShown = q("twRaw").style.display !== "none";
-
         if(rawShown){
           q("twRaw").style.display = "none";
           q("twText").style.display = "block";
-          q("twRawBtn").textContent = "顯示 Raw CAP";
+          q("twRawBtn").textContent = "顯示 Raw JSON";
         }else{
           q("twRaw").style.display = "block";
           q("twText").style.display = "none";
           q("twRawBtn").textContent = "顯示內容";
         }
       });
-
       refreshTaiwan({ silent:true });
-
-      if(q("twAuto").checked){
-        startAuto();
-      }
+      if(q("twAuto").checked) startAuto();
     }
 
 
-    /* ===== Typhoon map warning overlay: only mark active typhoon warning areas ===== */
+    /* ===== Typhoon map warning overlay: county fill for land warning + sea zone mark for sea warning ===== */
     let typhoonWarningCountyLayer = null;
     let typhoonWarningCountyData = null;
+    let typhoonSeaWarningLayer = null;
+    let typhoonSeaWarningLabel = null;
 
     function typhoonWarningAlertHitsFeature(alert, feature){
       if(!alert || alert.kind !== "typhoon") return false;
       const names = (typeof twAreaFeatureNames === "function") ? twAreaFeatureNames(feature) : {};
-      const areas = alert?.areaNames?.length ? alert.areaNames : (typeof splitAreaNames === "function" ? splitAreaNames(alert.area || "") : []);
+      const areas = alert?.areaNames?.length ? alert.areaNames : [];
       return areas.some(areaName => {
         const norm = (typeof twAreaNormalizeName === "function") ? twAreaNormalizeName(areaName) : String(areaName || "").trim();
         const county = (typeof twAreaResolveCountyName === "function") ? twAreaResolveCountyName(norm) : norm;
@@ -7253,63 +7254,77 @@ button{ -webkit-tap-highlight-color:transparent; }
       const alerts = Array.isArray(window.__twTyphoonAlerts) ? window.__twTyphoonAlerts : [];
       const hit = alerts.find(a => typhoonWarningAlertHitsFeature(a, feature));
       if(!hit){
-        return {
-          color:"rgba(15,76,92,.18)",
-          weight:.7,
-          fillColor:"transparent",
-          fillOpacity:0,
-          opacity:.45
-        };
+        return { color:"rgba(15,76,92,.18)", weight:.7, fillColor:"transparent", fillOpacity:0, opacity:.45 };
       }
+      return { color:hit.color || "#e60012", weight:2.4, fillColor:hit.color || "#e60012", fillOpacity:.22, opacity:.95, dashArray:null };
+    }
 
-      return {
-        color:hit.color || "#ff7f00",
-        weight:2.2,
-        fillColor:hit.color || "#ff7f00",
-        fillOpacity:.20,
+    function removeTyphoonSeaWarning(){
+      if(typeof map === "undefined" || !map) return;
+      if(typhoonSeaWarningLayer && map.hasLayer(typhoonSeaWarningLayer)) map.removeLayer(typhoonSeaWarningLayer);
+      if(typhoonSeaWarningLabel && map.hasLayer(typhoonSeaWarningLabel)) map.removeLayer(typhoonSeaWarningLabel);
+      typhoonSeaWarningLayer = null;
+      typhoonSeaWarningLabel = null;
+    }
+
+    function renderTyphoonSeaWarning(alerts){
+      if(typeof L === "undefined" || typeof map === "undefined" || !map) return;
+      removeTyphoonSeaWarning();
+      const seaAlerts = (alerts || []).filter(a => !a.areaNames?.length || /海上颱風/.test(`${a.headline || ""} ${a.event || ""} ${a.description || ""}`));
+      if(!seaAlerts.length) return;
+
+      const strongest = seaAlerts.sort((a,b) => (b.levelRank || 0) - (a.levelRank || 0))[0];
+      const color = strongest.color || "#ff7f00";
+      const bounds = [[18.0, 116.8], [27.6, 126.4]];
+      typhoonSeaWarningLayer = L.rectangle(bounds, {
+        pane:"overlayPane",
+        color,
+        weight:2.4,
         opacity:.92,
-        dashArray:null
-      };
+        dashArray:"10 8",
+        fillColor:color,
+        fillOpacity:.055,
+        interactive:false
+      }).addTo(map);
+
+      typhoonSeaWarningLabel = L.marker([25.7, 124.2], {
+        interactive:false,
+        icon:L.divIcon({
+          className:"ty-label-icon",
+          html:`<div class="tlabel current"><span class="miniDot" style="background:${color}"></span>海上颱風警報</div>`,
+          iconSize:[150,34],
+          iconAnchor:[75,17]
+        })
+      }).addTo(map);
     }
 
     async function renderTyphoonWarningOverlay(){
-      if(typeof L === "undefined" || !map) return;
+      if(typeof L === "undefined" || typeof map === "undefined" || !map) return;
       const alerts = Array.isArray(window.__twTyphoonAlerts) ? window.__twTyphoonAlerts : [];
-
       try{
         if(!typhoonWarningCountyData){
           const res = await fetch("./tw-county.geojson", { cache:"no-store" });
           if(!res.ok) throw new Error(`tw-county.geojson HTTP ${res.status}`);
           typhoonWarningCountyData = await res.json();
         }
-
         if(!typhoonWarningCountyLayer){
           typhoonWarningCountyLayer = L.geoJSON(typhoonWarningCountyData, {
             style: typhoonWarningStyle,
             pane:"overlayPane",
             onEachFeature(feature, layer){
               const names = (typeof twAreaFeatureNames === "function") ? twAreaFeatureNames(feature) : {};
-              layer.bindTooltip(`颱風警報：${names.county || names.full || "—"}`, {
-                sticky:true,
-                direction:"top",
-                className:"tw-area-popup"
-              });
+              layer.bindTooltip(`颱風警報：${names.county || names.full || "—"}`, { sticky:true, direction:"top", className:"tw-area-popup" });
             }
           }).addTo(map);
         }else{
           typhoonWarningCountyLayer.setStyle(typhoonWarningStyle);
           if(!map.hasLayer(typhoonWarningCountyLayer)) typhoonWarningCountyLayer.addTo(map);
         }
-
-        if(!alerts.length && typhoonWarningCountyLayer){
-          // Keep a subtle county outline only; no warning fill when no typhoon alert.
-          typhoonWarningCountyLayer.setStyle(typhoonWarningStyle);
-        }
+        renderTyphoonSeaWarning(alerts);
       }catch(e){
         console.warn("Typhoon warning overlay skipped", e);
       }
     }
-
 
     function initMalaysiaWarnings(){
       const API = "https://api.data.gov.my/weather/warning";
