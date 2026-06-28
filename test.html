@@ -2997,6 +2997,107 @@ button{ -webkit-tap-highlight-color:transparent; }
   #twAreaMap{ height:500px !important; }
 }
 
+
+/* ===== v12 CAP polish: multi-type legend, stronger county borders, wider detail area ===== */
+.twOfficialGrid{
+  grid-template-columns:minmax(520px, 1fr) minmax(520px, 1fr) !important;
+  align-items:stretch !important;
+}
+.twOfficialMapPanel,
+.twOfficialTablePanel{
+  min-height:800px !important;
+  height:100% !important;
+}
+.twOfficialTablePanel{
+  max-height:none !important;
+}
+.twOfficialCountyTables{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+  overflow:auto !important;
+}
+#twAreaMap{
+  height:620px !important;
+}
+.twOfficialLegend{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:10px !important;
+}
+.twOfficialLegendItem{
+  min-height:52px !important;
+  grid-template-columns:14px 30px 1fr !important;
+  border-radius:20px !important;
+}
+.twOfficialColor.rainLv4{ background:#c026d3 !important; }
+.twOfficialColor.rainLv3{ background:#dc2626 !important; }
+.twOfficialColor.rainLv2{ background:#f97316 !important; }
+.twOfficialColor.rainLv1{ background:#facc15 !important; }
+.twOfficialColor.coldLv{ background:#0ea5e9 !important; }
+.twOfficialColor.heatLv{ background:#ef4444 !important; }
+.twOfficialColor.windLv{ background:#38bdf8 !important; }
+.twOfficialColor.tyLv{ background:#fb7185 !important; }
+.twOfficialFilters{
+  grid-template-columns:160px 1fr !important;
+}
+.twOfficialTable th{
+  position:sticky !important;
+  top:0 !important;
+  z-index:3 !important;
+}
+.twOfficialDetailMeta{
+  grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+}
+.twDetailItem.area{
+  grid-column:1 / -1 !important;
+  padding:16px 18px !important;
+}
+.twAreaGroups{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:12px !important;
+}
+.twAreaGroup{
+  display:grid !important;
+  grid-template-columns:150px minmax(0,1fr) !important;
+  align-items:start !important;
+  gap:12px !important;
+  width:100% !important;
+}
+.twCountyPill{
+  justify-content:center !important;
+  width:100% !important;
+}
+.twTownLine{
+  margin-top:0 !important;
+  align-content:start !important;
+}
+.twTownPill,
+.twWholeCounty,
+.twAreaMuted{
+  min-height:32px !important;
+  padding:0 12px !important;
+}
+.twOfficialMapOnly .leaflet-interactive{
+  outline:none !important;
+}
+.twAreaFocusedShape{
+  filter:drop-shadow(0 0 9px rgba(42,157,143,.36)) !important;
+}
+@media (max-width:1100px){
+  .twOfficialGrid{ grid-template-columns:1fr !important; }
+  .twOfficialMapPanel,
+  .twOfficialTablePanel{ min-height:auto !important; }
+  #twAreaMap{ height:560px !important; }
+}
+@media (max-width:780px){
+  .twOfficialLegend{ grid-template-columns:1fr !important; }
+  .twOfficialDetailMeta{ grid-template-columns:1fr !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+  #twAreaMap{ height:500px !important; }
+}
+
 </style>
 </head>
 
@@ -3097,10 +3198,14 @@ button{ -webkit-tap-highlight-color:transparent; }
               </div>
 
               <div class="twOfficialLegend" id="twOfficialLegend">
-                <div class="twOfficialLegendItem"><span class="twOfficialColor" style="background:#d600d6;"></span><span class="twOfficialIcon">⛈️</span><span>超大豪雨<br>500mm/24h 以上雨量</span></div>
-                <div class="twOfficialLegendItem"><span class="twOfficialColor" style="background:#e60000;"></span><span class="twOfficialIcon">🌧️</span><span>大豪雨<br>350mm/24h 以上或 200mm/3h 以上雨量</span></div>
-                <div class="twOfficialLegendItem"><span class="twOfficialColor" style="background:#ff7a00;"></span><span class="twOfficialIcon">🌧️</span><span>豪雨 / 颱風<br>200mm/24h 以上或 100mm/3h 以上雨量</span></div>
-                <div class="twOfficialLegendItem"><span class="twOfficialColor" style="background:#fff000;"></span><span class="twOfficialIcon">🌦️</span><span>大雨<br>80mm/24h 以上或 40mm/h 以上雨量</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv4"></span><span class="twOfficialIcon">⛈️</span><span>超大豪雨<br>500mm/24h 以上雨量</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv3"></span><span class="twOfficialIcon">🌧️</span><span>大豪雨<br>350mm/24h 以上或 200mm/3h 以上雨量</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv2"></span><span class="twOfficialIcon">🌧️</span><span>豪雨<br>200mm/24h 以上或 100mm/3h 以上雨量</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv1"></span><span class="twOfficialIcon">🌦️</span><span>大雨<br>80mm/24h 以上或 40mm/h 以上雨量</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor coldLv"></span><span class="twOfficialIcon">🌡️</span><span>低溫特報<br>低溫或寒流影響</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor heatLv"></span><span class="twOfficialIcon">🔥</span><span>高溫資訊<br>高溫或極端高溫提醒</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor windLv"></span><span class="twOfficialIcon">💨</span><span>陸上強風<br>平均風力或陣風達標</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor tyLv"></span><span class="twOfficialIcon">🌀</span><span>颱風警報<br>海上或陸上颱風警報</span></div>
               </div>
 
               <div class="twOfficialMapOnly">
@@ -5880,7 +5985,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
         const optAll = document.createElement("option");
         optAll.value = "all";
-        optAll.textContent = "全部警特報";
+        optAll.textContent = "全部類型";
         typeSel.appendChild(optAll);
 
         DATASETS.forEach(d => {
@@ -7205,6 +7310,94 @@ ${a.instruction}` : ''
     window.addEventListener('resize', () => setTimeout(() => twAreaLeafletMap && twAreaLeafletMap.invalidateSize(true), 120));
     setTimeout(() => twAreaLeafletMap && twAreaLeafletMap.invalidateSize(true), 400);
   };
+})();
+
+
+/* ===== v12 CAP final override: county boundaries always visible + cleaner type legend ===== */
+(function(){
+  function capColor(level){
+    return ({
+      extremeRain:'#c026d3',
+      torrentialRain:'#dc2626',
+      heavyRain:'#f97316',
+      rain:'#facc15',
+      typhoon:'#fb7185',
+      heat:'#ef4444',
+      cold:'#0ea5e9',
+      wind:'#38bdf8',
+      other:'#8b5cf6'
+    })[level] || '#8b5cf6';
+  }
+
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const wholeBest = twAreaBestAlertForFeature(feature, 'county');
+    let anyBest = null;
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    alerts.forEach(a => {
+      const hit = twAreaAlertAreas(a).some(areaName => twAreaResolveCountyName(areaName) === names.countyNorm);
+      if(hit && (!anyBest || twAreaAlertRank(a) > twAreaAlertRank(anyBest))) anyBest = a;
+    });
+    const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const warnColor = wholeBest ? capColor(twAreaAlertLevel(wholeBest)) : (anyBest ? capColor(twAreaAlertLevel(anyBest)) : '#0f2f46');
+    return {
+      // County border is always visible and darker, even without warning.
+      color: focused ? '#083344' : (wholeBest || anyBest ? warnColor : '#173a52'),
+      weight: focused ? 3.2 : (wholeBest ? 2.05 : (anyBest ? 1.85 : 1.35)),
+      fillColor: wholeBest ? warnColor : '#ffffff',
+      fillOpacity: wholeBest ? (focused ? .30 : .22) : 0,
+      opacity: focused ? 1 : (wholeBest || anyBest ? .92 : .76),
+      dashArray: null,
+      lineJoin:'round',
+      lineCap:'round',
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+
+  window.twAreaOfficialTownStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const townBest = twAreaBestAlertForFeature(feature, 'town');
+    const countyFocused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const color = townBest ? capColor(twAreaAlertLevel(townBest)) : '#173a52';
+    return {
+      // No-warning town boundaries are almost hidden so county borders stay clean.
+      color: townBest ? twAreaHexToRgba(color, countyFocused ? .88 : .72) : 'rgba(23,58,82,.04)',
+      weight: townBest ? (countyFocused ? 1.35 : .9) : .08,
+      fillColor: townBest ? color : 'transparent',
+      fillOpacity: townBest ? (countyFocused ? .34 : .22) : 0,
+      opacity: townBest ? .82 : .05,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round'
+    };
+  };
+
+  const oldRefresh = window.twAreaRefreshHighlight;
+  window.twAreaRefreshHighlight = function(){
+    if(typeof oldRefresh === 'function') oldRefresh();
+    // Keep county layer above town layer so county borders remain clear.
+    try{ if(twAreaTownLayer) twAreaTownLayer.bringToFront(); }catch(e){}
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.bringToFront(); }catch(e){}
+  };
+
+  const oldFocus = window.twAreaFocusCounty;
+  window.twAreaFocusCounty = function(countyName){
+    if(typeof oldFocus === 'function') oldFocus(countyName);
+    try{ if(twAreaTownLayer) twAreaTownLayer.bringToFront(); }catch(e){}
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.bringToFront(); }catch(e){}
+  };
+
+  // After Taiwan warning module creates the filter, remove the old wording completely.
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const sel = document.getElementById('twTypeFilter');
+      if(sel){
+        [...sel.options].forEach(opt => {
+          if(opt.textContent.includes('全部警特報')) opt.textContent = '全部類型';
+        });
+      }
+    }, 500);
+  });
 })();
 
 
