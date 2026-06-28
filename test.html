@@ -3305,6 +3305,108 @@ button{ -webkit-tap-highlight-color:transparent; }
   .twCountyPill{ width:max-content !important; max-width:100% !important; }
 }
 
+
+
+/* ===== v15 CAP detail compact layout fix ===== */
+.twDetailTopBar{
+  align-items:center !important;
+  background:linear-gradient(135deg,rgba(232,249,251,.96),rgba(255,255,255,.94)) !important;
+}
+.twDetailTopBar::after{
+  content:"重要資訊已整理於下方卡片";
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:0 12px;
+  border-radius:999px;
+  border:1px solid rgba(15,76,92,.12);
+  background:#fff;
+  color:#607885;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.twImportantGrid{
+  grid-template-columns:1.05fr 1.25fr 2fr 1.05fr !important;
+  align-items:stretch !important;
+}
+.twImportantCard{
+  min-height:82px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+}
+.twImportantCard.wide{ grid-column:auto !important; }
+.twAreaBlockHead{
+  background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(238,249,250,.68)) !important;
+}
+.twAreaBlockBody{
+  padding:16px !important;
+}
+.twAreaGroups{
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:12px !important;
+  align-items:start !important;
+}
+.twAreaGroup{
+  display:grid !important;
+  grid-template-columns:150px minmax(0,1fr) !important;
+  gap:12px !important;
+  align-items:start !important;
+  min-height:58px !important;
+  padding:12px !important;
+  border-radius:20px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(248,253,254,.86)) !important;
+  box-shadow:0 8px 18px rgba(31,53,72,.035) !important;
+}
+.twCountyPill{
+  width:100% !important;
+  min-height:34px !important;
+  justify-content:center !important;
+  color:#143248 !important;
+  border-color:color-mix(in srgb, var(--warn, #2a9d8f) 38%, #ffffff) !important;
+  background:linear-gradient(135deg,color-mix(in srgb, var(--warn, #2a9d8f) 12%, #ffffff),#ffffff) !important;
+}
+.twTownLine{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:8px !important;
+  min-width:0 !important;
+  align-content:flex-start !important;
+}
+.twWholeCounty{
+  color:#0f4c5c !important;
+  background:rgba(42,157,143,.10) !important;
+  border-color:rgba(42,157,143,.16) !important;
+}
+.twTownPill,
+.twWholeCounty,
+.twAreaMuted{
+  min-height:32px !important;
+  padding:0 12px !important;
+  border-radius:999px !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+}
+.twOfficialDetailText{
+  border-radius:22px !important;
+  padding:16px 18px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(247,252,253,.84)) !important;
+  border:1px solid rgba(15,76,92,.095) !important;
+  box-shadow:0 10px 22px rgba(31,53,72,.04) !important;
+}
+@media (max-width:1180px){
+  .twImportantGrid{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .twAreaGroups{ grid-template-columns:1fr !important; }
+}
+@media (max-width:720px){
+  .twDetailTopBar{ align-items:flex-start !important; flex-direction:column !important; }
+  .twImportantGrid{ grid-template-columns:1fr !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+  .twCountyPill{ width:max-content !important; max-width:100% !important; }
+}
+
 </style>
 </head>
 
@@ -3487,7 +3589,7 @@ button{ -webkit-tap-highlight-color:transparent; }
                   <section class="twAreaBlock">
                     <div class="twAreaBlockHead">
                       <span class="twDetailLabel">影響地區</span>
-                      <span class="twAreaHelp">縣市在左，鄉鎮區會使用右側空間自動換行</span>
+                      <span class="twAreaHelp">整縣市只顯示縣市；部分鄉鎮才會列出鄉鎮</span>
                     </div>
                     <div class="twAreaBlockBody" id="twArea">—</div>
                   </section>
@@ -7428,7 +7530,7 @@ button{ -webkit-tap-highlight-color:transparent; }
     return `<div class="twAreaGroups">${groups.map(g => `
       <section class="twAreaGroup">
         <span class="twCountyPill" style="--warn:${twEscape(a.color || '#2a9d8f')}">${twEscape(g.county)}</span>
-        ${g.whole ? `<div class="twTownLine"><span class="twWholeCounty">全縣市範圍</span></div>` : `
+        ${g.whole ? `<div class="twTownLine"><span class="twWholeCounty">整個縣市</span></div>` : `
           <div class="twTownLine">
             ${g.towns.length ? g.towns.map(t => `<span class="twTownPill">${twEscape(t)}</span>`).join('') : `<span class="twAreaMuted">未列出鄉鎮</span>`}
           </div>`}
