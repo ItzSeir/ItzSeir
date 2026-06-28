@@ -2803,6 +2803,200 @@ button{ -webkit-tap-highlight-color:transparent; }
   #twAreaMap{ height:500px; }
 }
 
+
+
+/* ===== v11 CAP layout override: map + table top, full detail bottom ===== */
+.twOfficialGrid{
+  display:grid !important;
+  grid-template-columns:minmax(420px, 1.12fr) minmax(360px, .88fr) !important;
+  gap:18px !important;
+  align-items:stretch !important;
+}
+.twOfficialRight{ display:contents !important; }
+.twOfficialMapPanel{ grid-column:1; min-height:0 !important; }
+.twOfficialTablePanel{ grid-column:2; min-height:0 !important; }
+.twOfficialDetailPanel{ grid-column:1 / -1 !important; min-height:auto !important; }
+.twOfficialMapPanel,
+.twOfficialTablePanel,
+.twOfficialDetailPanel{
+  border:1px solid rgba(15,76,92,.095) !important;
+  border-radius:28px !important;
+  background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(248,253,254,.82)) !important;
+  box-shadow:0 18px 45px rgba(31,53,72,.09) !important;
+}
+.twOfficialMapHead,
+.twOfficialTableHead,
+.twOfficialDetailHead{
+  min-height:58px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.93),rgba(233,249,250,.72)) !important;
+}
+#twAreaMap{
+  height:570px !important;
+  border-radius:26px !important;
+  background:#eaf8fb !important;
+}
+.twOfficialTablePanel{
+  display:flex !important;
+  flex-direction:column !important;
+  max-height:760px !important;
+}
+.twOfficialCountyTables{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow:auto !important;
+  padding-bottom:12px !important;
+  scrollbar-gutter:stable !important;
+}
+.twOfficialTable{
+  border-spacing:0 8px !important;
+}
+.twOfficialTable th{
+  height:40px !important;
+  background:linear-gradient(135deg,#0f4c5c,#2a9d8f) !important;
+  color:#fff !important;
+  font-size:12px !important;
+}
+.twOfficialTable td{
+  padding:10px 12px !important;
+  background:rgba(255,255,255,.82) !important;
+  border-top:1px solid rgba(15,76,92,.06) !important;
+  border-bottom:1px solid rgba(15,76,92,.06) !important;
+  box-shadow:0 8px 18px rgba(31,53,72,.04) !important;
+}
+.twOfficialTable td:first-child{
+  border-left:1px solid rgba(15,76,92,.06) !important;
+  border-radius:16px 0 0 16px !important;
+}
+.twOfficialTable td:last-child{
+  border-right:1px solid rgba(15,76,92,.06) !important;
+  border-radius:0 16px 16px 0 !important;
+}
+.twOfficialTable tr:hover td,
+.twOfficialTable tr.twRowActive td{
+  background:rgba(222,248,249,.95) !important;
+  border-color:rgba(42,157,143,.22) !important;
+  box-shadow:0 14px 26px rgba(31,53,72,.09) !important;
+}
+.twOfficialWarnBadge{
+  min-height:32px !important;
+  padding:6px 9px !important;
+  border:1px solid rgba(15,76,92,.10) !important;
+  background:rgba(255,255,255,.92) !important;
+}
+.twOfficialWarnBadge:hover,
+.twOfficialWarnBadge.twBadgeActive{
+  transform:translateY(-1px) !important;
+  border-color:rgba(42,157,143,.32) !important;
+  box-shadow:0 12px 22px rgba(42,157,143,.16) !important;
+}
+.twOfficialDetailBody{
+  padding:20px !important;
+}
+.twOfficialDetailTitle{
+  margin:0 0 16px !important;
+  padding:16px 18px !important;
+  border-radius:24px !important;
+  border:1px solid rgba(15,76,92,.10) !important;
+  background:linear-gradient(135deg,rgba(235,249,250,.92),rgba(255,255,255,.88)) !important;
+  font-size:22px !important;
+  line-height:1.35 !important;
+}
+.twOfficialDetailMeta{
+  display:grid !important;
+  grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+  gap:12px !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+.twDetailItem{
+  min-height:82px;
+  padding:15px 16px;
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:22px;
+  background:rgba(255,255,255,.88);
+  box-shadow:0 10px 24px rgba(31,53,72,.055);
+}
+.twDetailItem .twDetailLabel{
+  display:block;
+  margin-bottom:8px;
+  color:#6a7d89;
+  font-size:12px;
+  font-weight:900;
+}
+.twDetailItem .twDetailValue{
+  display:block;
+  color:#122c3c;
+  font-size:13px;
+  font-weight:900;
+  line-height:1.55;
+  word-break:break-word;
+}
+.twDetailItem.area{
+  grid-column:1 / -1;
+  min-height:auto;
+}
+.twOfficialDetailText{
+  margin-top:14px !important;
+  padding:18px 20px !important;
+  max-height:360px !important;
+  border-radius:24px !important;
+  background:#fff !important;
+  border:1px solid rgba(15,76,92,.09) !important;
+  box-shadow:0 12px 28px rgba(31,53,72,.055) !important;
+  color:#314958 !important;
+}
+.twAreaGroups{
+  gap:12px !important;
+}
+.twAreaGroup{
+  padding:12px !important;
+  border-radius:22px !important;
+  background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(240,250,251,.72)) !important;
+}
+.twCountyPill{
+  color:#123044 !important;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--warn) 18%,#ffffff),#ffffff) !important;
+  border:1px solid color-mix(in srgb,var(--warn) 28%,rgba(15,76,92,.12)) !important;
+  box-shadow:0 8px 18px color-mix(in srgb,var(--warn) 14%,transparent) !important;
+}
+.twWholeCounty{
+  background:rgba(42,157,143,.09) !important;
+  color:#0f4c5c !important;
+}
+.twTownPill{
+  background:rgba(255,255,255,.88) !important;
+  color:#3d5663 !important;
+}
+.twAreaFocusedShape{
+  filter:drop-shadow(0 0 10px rgba(42,157,143,.34)) !important;
+}
+.twOfficialMapOnly .leaflet-interactive{
+  outline:none !important;
+  transition:fill-opacity .18s ease, stroke-width .18s ease, opacity .18s ease, filter .18s ease !important;
+}
+.twOfficialMapOnly path:focus{ outline:none !important; }
+.tw-area-popup{
+  border-radius:999px !important;
+  color:#123044 !important;
+  font-weight:900 !important;
+  border:1px solid rgba(42,157,143,.18) !important;
+}
+@media (max-width:1100px){
+  .twOfficialGrid{ grid-template-columns:1fr !important; }
+  .twOfficialMapPanel,
+  .twOfficialTablePanel,
+  .twOfficialDetailPanel{ grid-column:1 !important; }
+  .twOfficialRight{ display:block !important; }
+  .twOfficialTablePanel{ max-height:none !important; }
+  .twOfficialDetailMeta{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+@media (max-width:780px){
+  .twOfficialDetailMeta{ grid-template-columns:1fr !important; }
+  #twAreaMap{ height:500px !important; }
+}
+
 </style>
 </head>
 
@@ -6659,6 +6853,360 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       setTimeout(() => twAreaLeafletMap && twAreaLeafletMap.invalidateSize(true), 400);
     }
+
+
+
+/* ===== v11 CAP logic override: county-only when whole county, soft focus, cleaner detail ===== */
+(function(){
+  window.__twAreaCountyToTowns = window.__twAreaCountyToTowns || new Map();
+
+  const CAP_SOFT_COLORS = {
+    extremeRain:'#c084fc',
+    torrentialRain:'#fb7185',
+    heavyRain:'#fdba74',
+    rain:'#fde68a',
+    typhoon:'#fda4af',
+    heat:'#fdba74',
+    cold:'#67e8f9',
+    wind:'#7dd3fc',
+    other:'#c4b5fd'
+  };
+
+  const oldGetLevelColor = window.getLevelColor;
+  window.getLevelColor = function(level){
+    return CAP_SOFT_COLORS[level] || (oldGetLevelColor ? oldGetLevelColor(level) : '#c4b5fd');
+  };
+
+  function areaCoverage(alert, countyNorm){
+    const areas = twAreaAlertAreas(alert);
+    const towns = new Set();
+    let whole = false;
+    areas.forEach(areaName => {
+      const norm = twAreaNormalizeName(areaName);
+      if(!norm) return;
+      const county = twAreaResolveCountyName(norm);
+      const isCountyName = twCountyNameSet.has(norm) || norm === county;
+      if(isCountyName && county === countyNorm){
+        whole = true;
+        return;
+      }
+      if(county === countyNorm){
+        const townKey = norm;
+        towns.add(townKey);
+      }
+    });
+
+    const knownTownSet = window.__twAreaCountyToTowns?.get(countyNorm);
+    if(!whole && knownTownSet && knownTownSet.size){
+      let hit = 0;
+      knownTownSet.forEach(t => {
+        for(const areaName of areas){
+          const norm = twAreaNormalizeName(areaName);
+          if(norm === t || norm.endsWith(t) || t.endsWith(norm)){
+            hit += 1;
+            break;
+          }
+        }
+      });
+      if(hit >= knownTownSet.size) whole = true;
+    }
+    return { whole, towns };
+  }
+
+  window.twAreaAlertCoversWholeCounty = function(alert, countyNorm){
+    return areaCoverage(alert, countyNorm).whole;
+  };
+
+  window.twAreaAlertHitsFeature = function(alert, feature, mode='any'){
+    const names = twAreaFeatureNames(feature);
+    const areas = twAreaAlertAreas(alert);
+    const countyNorm = names.countyNorm || twAreaResolveCountyName(names.fullNorm);
+    const coverage = areaCoverage(alert, countyNorm);
+
+    if(mode === 'county'){
+      return !!(countyNorm && coverage.whole && names.countyNorm === countyNorm);
+    }
+
+    if(mode === 'town'){
+      if(coverage.whole) return false;
+      return areas.some(areaName => {
+        const norm = twAreaNormalizeName(areaName);
+        if(!norm) return false;
+        return names.fullNorm === norm || names.townNorm === norm || names.keys.includes(norm);
+      });
+    }
+
+    if(coverage.whole) return true;
+    return areas.some(areaName => {
+      const norm = twAreaNormalizeName(areaName);
+      const county = twAreaResolveCountyName(norm);
+      return names.keys.includes(norm)
+        || names.fullNorm === norm
+        || names.townNorm === norm
+        || names.countyNorm === county;
+    });
+  };
+
+  window.twAreaBestAlertForFeature = function(feature, mode='any'){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    let best = null;
+    alerts.forEach(a => {
+      if(twAreaAlertHitsFeature(a, feature, mode)){
+        if(!best || twAreaAlertRank(a) > twAreaAlertRank(best)) best = a;
+      }
+    });
+    return best;
+  };
+
+  function bestAlertForCountyAny(feature){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    const names = twAreaFeatureNames(feature);
+    let best = null;
+    alerts.forEach(a => {
+      const areas = twAreaAlertAreas(a);
+      const hit = areas.some(areaName => twAreaResolveCountyName(areaName) === names.countyNorm);
+      if(hit && (!best || twAreaAlertRank(a) > twAreaAlertRank(best))) best = a;
+    });
+    return best;
+  }
+
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const wholeBest = twAreaBestAlertForFeature(feature, 'county');
+    const anyBest = bestAlertForCountyAny(feature);
+    const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const color = twAreaAlertColor(wholeBest || anyBest);
+    return {
+      color: focused ? (wholeBest || anyBest ? color : '#2a9d8f') : (wholeBest ? color : (anyBest ? twAreaHexToRgba(color,.58) : 'rgba(15,76,92,.26)')),
+      weight: focused ? 2.4 : (wholeBest ? 1.65 : (anyBest ? 1.35 : .75)),
+      fillColor: wholeBest ? color : '#ffffff',
+      fillOpacity: wholeBest ? (focused ? .30 : .20) : 0,
+      opacity: focused ? .96 : (wholeBest || anyBest ? .72 : .30),
+      dashArray: wholeBest ? null : (anyBest ? '5 5' : null),
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+
+  window.twAreaOfficialTownStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const townBest = twAreaBestAlertForFeature(feature, 'town');
+    const countyFocused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const color = twAreaAlertColor(townBest);
+    return {
+      color: townBest ? twAreaHexToRgba(color, countyFocused ? .82 : .64) : 'rgba(15,76,92,.08)',
+      weight: townBest ? (countyFocused ? 1.35 : .85) : .18,
+      fillColor: townBest ? color : 'transparent',
+      fillOpacity: townBest ? (countyFocused ? .34 : .22) : 0,
+      opacity: townBest ? .78 : .16,
+      dashArray:null
+    };
+  };
+
+  window.getAlertAreaGroups = function(a){
+    const names = (a?.areaNames?.length ? a.areaNames : splitAreaNames(a?.area || ''));
+    const groups = new Map();
+    names.forEach(raw => {
+      const norm = twNormalizeNameLocal(raw);
+      if(!norm) return;
+      const county = (typeof twAreaResolveCountyName === 'function') ? twAreaResolveCountyName(norm) : norm;
+      if(!groups.has(county)) groups.set(county, { county, whole:false, towns:[] });
+      const g = groups.get(county);
+      const cov = (typeof areaCoverage === 'function') ? areaCoverage(a, county) : {whole:false};
+      const isWholeCounty = (typeof twCountyNameSet !== 'undefined' && twCountyNameSet.has(norm)) || norm === county || cov.whole;
+      if(isWholeCounty){
+        g.whole = true;
+        g.towns = [];
+        return;
+      }
+      let town = norm;
+      if(county && town.startsWith(county)) town = town.slice(county.length);
+      if(!town) town = norm;
+      if(!g.whole && !g.towns.includes(town)) g.towns.push(town);
+    });
+    return Array.from(groups.values()).sort((a,b) => a.county.localeCompare(b.county, 'zh-Hant'));
+  };
+
+  window.renderAreaPills = function(a){
+    const groups = getAlertAreaGroups(a);
+    if(!groups.length) return '<span class="twAreaMuted">—</span>';
+    return `<div class="twAreaGroups">${groups.map(g => `
+      <section class="twAreaGroup">
+        <span class="twCountyPill" style="--warn:${twEscape(a.color || '#2a9d8f')}">${twEscape(g.county)}</span>
+        ${g.whole ? `<div class="twTownLine"><span class="twWholeCounty">全縣市範圍</span></div>` : `
+          <div class="twTownLine">
+            ${g.towns.length ? g.towns.map(t => `<span class="twTownPill">${twEscape(t)}</span>`).join('') : `<span class="twAreaMuted">未列出鄉鎮</span>`}
+          </div>`}
+      </section>`).join('')}</div>`;
+  };
+
+  window.renderDetails = function(a){
+    selectedAlert = a || null;
+    const ids = ['twSelected','twHeadline','twEvent','twSent','twValid','twDetailType','twArea','twText','twRaw'];
+    const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+    if(!a){
+      if(el.twSelected) el.twSelected.textContent = '未選取';
+      if(el.twHeadline) el.twHeadline.textContent = '—';
+      if(el.twEvent) el.twEvent.textContent = '—';
+      if(el.twSent) el.twSent.textContent = '—';
+      if(el.twValid) el.twValid.textContent = '—';
+      if(el.twDetailType) el.twDetailType.textContent = '—';
+      if(el.twArea) el.twArea.innerHTML = '—';
+      if(el.twText) el.twText.textContent = '（請在上方地區表點選一個警特報）';
+      if(el.twRaw){ el.twRaw.textContent = ''; el.twRaw.style.display = 'none'; }
+      if(el.twText) el.twText.style.display = 'block';
+      const rawBtn = document.getElementById('twRawBtn');
+      if(rawBtn) rawBtn.textContent = '顯示 Raw CAP';
+      return;
+    }
+    if(el.twSelected) el.twSelected.textContent = a.datasetName || 'CAP';
+    if(el.twHeadline) el.twHeadline.textContent = a.headline || a.event || '—';
+    const meta = document.querySelector('.twOfficialDetailMeta');
+    if(meta){
+      meta.innerHTML = `
+        <div class="twDetailItem"><span class="twDetailLabel">事件</span><span class="twDetailValue" id="twEvent">${twEscape(a.event || '—')}</span></div>
+        <div class="twDetailItem"><span class="twDetailLabel">發布時間</span><span class="twDetailValue" id="twSent">${twEscape(fmtCapTime(a.sent) || '—')}</span></div>
+        <div class="twDetailItem"><span class="twDetailLabel">有效時間</span><span class="twDetailValue" id="twValid">${twEscape(fmtCapTime(a.effective))} → ${twEscape(fmtCapTime(a.expires))}</span></div>
+        <div class="twDetailItem"><span class="twDetailLabel">類型</span><span class="twDetailValue" id="twDetailType">${twEscape(a.datasetName || '—')}</span></div>
+        <div class="twDetailItem area"><span class="twDetailLabel">影響地區</span><span class="twDetailValue" id="twArea">${renderAreaPills(a)}</span></div>
+      `;
+    }
+    const text = [
+      a.description ? `【說明】
+${a.description}` : '',
+      a.instruction ? `
+【指示】
+${a.instruction}` : ''
+    ].filter(Boolean).join('\n');
+    const textEl = document.getElementById('twText');
+    const rawEl = document.getElementById('twRaw');
+    if(textEl) textEl.textContent = text || '（此警報沒有內容）';
+    if(rawEl) rawEl.textContent = a.raw || '';
+
+    document.querySelectorAll('.twOfficialWarnBadge').forEach(x => x.classList.remove('twBadgeActive'));
+    const idx = allAlerts.indexOf(a);
+    if(idx >= 0){
+      document.querySelectorAll(`.twOfficialWarnBadge[data-alert="${idx}"]`).forEach(x => x.classList.add('twBadgeActive'));
+    }
+  };
+
+  window.twAreaFocusCounty = function(countyName){
+    const norm = twAreaNormalizeName(countyName);
+    twAreaFocusedCounty = norm;
+    document.querySelectorAll('[data-county-row]').forEach(row => {
+      row.classList.toggle('twRowActive', row.dataset.countyRow === norm);
+    });
+    if(twAreaCountyLayer) twAreaCountyLayer.setStyle(twAreaOfficialCountyStyle);
+    if(twAreaTownLayer) twAreaTownLayer.setStyle(twAreaOfficialTownStyle);
+    const layer = twAreaCountyLayerByName.get(norm);
+    if(layer && twAreaLeafletMap){
+      try{ twAreaLeafletMap.fitBounds(layer.getBounds(), { padding:[42,42], maxZoom:8 }); }catch(e){}
+    }
+  };
+
+  window.twAreaRefreshHighlight = function(){
+    const status = document.getElementById('twAreaMapStatus');
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    const countySet = new Set();
+    alerts.forEach(a => (a.areaNames || []).forEach(n => countySet.add(twAreaResolveCountyName(n))));
+    if(twAreaCountyLayer) twAreaCountyLayer.setStyle(twAreaOfficialCountyStyle);
+    if(twAreaTownLayer) twAreaTownLayer.setStyle(twAreaOfficialTownStyle);
+    if(status){
+      if(!alerts.length) status.textContent = '目前無符合條件的 CAP 警報';
+      else if(!twAreaTownLayer && !twAreaCountyLayer) status.textContent = '分區尚未載入';
+      else status.textContent = `已標示 ${countySet.size} 個縣市`;
+    }
+  };
+
+  window.initTwAreaWarningMap = async function(){
+    const el = document.getElementById('twAreaMap');
+    const status = document.getElementById('twAreaMapStatus');
+    if(!el || typeof L === 'undefined') return;
+    if(twAreaLeafletMap) return;
+
+    twAreaLeafletMap = L.map(el, {
+      zoomControl:true,
+      scrollWheelZoom:true,
+      attributionControl:false
+    }).setView([23.72, 121.0], 7);
+
+    const twAreaBaseLayer = L.tileLayer(
+      `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+      { tileSize:512, zoomOffset:-1, maxZoom:22, detectRetina:true, crossOrigin:'anonymous', attribution:'© Mapbox © OpenStreetMap' }
+    ).addTo(twAreaLeafletMap);
+
+    twAreaBaseLayer.on('tileerror', () => {
+      if(twAreaLeafletMap.hasLayer(twAreaBaseLayer)) twAreaLeafletMap.removeLayer(twAreaBaseLayer);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, crossOrigin:'anonymous', attribution:'© OpenStreetMap' }).addTo(twAreaLeafletMap);
+    });
+
+    if(status) status.textContent = '載入分區中…';
+    let loadedTown = false, loadedCounty = false;
+
+    try{
+      const countyData = await twAreaLoadGeoJson('./tw-county.geojson');
+      twAreaCountyLayer = L.geoJSON(countyData, {
+        style: twAreaOfficialCountyStyle,
+        pane:'overlayPane',
+        onEachFeature(feature, layer){
+          const names = twAreaFeatureNames(feature);
+          const countyName = twAreaNormalizeName(names.county || names.full);
+          if(countyName) twAreaCountyLayerByName.set(countyName, layer);
+          layer.bindTooltip(names.full || names.county || '—', { sticky:true, direction:'top', className:'tw-area-popup' });
+          layer.on({
+            click: () => { if(typeof twAreaFocusCounty === 'function') twAreaFocusCounty(countyName); },
+            mouseover: () => { layer.setStyle({weight:2.2, opacity:.95}); },
+            mouseout: () => { if(twAreaCountyLayer) twAreaCountyLayer.setStyle(twAreaOfficialCountyStyle); }
+          });
+        }
+      }).addTo(twAreaLeafletMap);
+      loadedCounty = true;
+    }catch(err){ console.warn('tw-county.geojson optional load failed', err); }
+
+    try{
+      const townData = await twAreaLoadGeoJson('./tw-town.geojson');
+      window.__twAreaCountyToTowns = new Map();
+      twAreaTownLayer = L.geoJSON(townData, {
+        style: twAreaOfficialTownStyle,
+        onEachFeature(feature, layer){
+          const names = twAreaFeatureNames(feature);
+          if(names.townNorm && names.countyNorm){
+            twAreaTownToCounty.set(names.townNorm, names.countyNorm);
+            twAreaTownToCounty.set(names.fullNorm, names.countyNorm);
+            if(!window.__twAreaCountyToTowns.has(names.countyNorm)) window.__twAreaCountyToTowns.set(names.countyNorm, new Set());
+            window.__twAreaCountyToTowns.get(names.countyNorm).add(names.townNorm);
+            window.__twAreaCountyToTowns.get(names.countyNorm).add(names.fullNorm);
+          }
+          layer.bindTooltip(names.full || '—', { sticky:true, direction:'top', className:'tw-area-popup' });
+          layer.on({
+            mouseover: () => { layer.setStyle({weight:1.7, opacity:.95}); },
+            mouseout: () => { if(twAreaTownLayer) twAreaTownLayer.setStyle(twAreaOfficialTownStyle); }
+          });
+        }
+      }).addTo(twAreaLeafletMap);
+      loadedTown = true;
+    }catch(err){ console.warn('tw-town.geojson optional load failed', err); }
+
+    if(status){
+      if(loadedTown && loadedCounty) status.textContent = '鄉鎮 + 縣市分區已載入';
+      else if(loadedTown) status.textContent = '鄉鎮分區已載入';
+      else if(loadedCounty) status.textContent = '縣市分區已載入';
+      else status.textContent = 'GeoJSON 讀取失敗';
+    }
+    try{
+      const fitLayers = [];
+      if(twAreaCountyLayer) fitLayers.push(twAreaCountyLayer);
+      if(twAreaTownLayer && !twAreaCountyLayer) fitLayers.push(twAreaTownLayer);
+      if(fitLayers.length){
+        const group = L.featureGroup(fitLayers);
+        twAreaLeafletMap.fitBounds(group.getBounds(), { padding:[18,18] });
+      }
+    }catch(e){}
+    twAreaRefreshHighlight();
+    window.addEventListener('resize', () => setTimeout(() => twAreaLeafletMap && twAreaLeafletMap.invalidateSize(true), 120));
+    setTimeout(() => twAreaLeafletMap && twAreaLeafletMap.invalidateSize(true), 400);
+  };
+})();
+
 
     window.addEventListener("load", () => {
       try{ initWarningCenter(); }catch(e){ console.error("initWarningCenter failed", e); }
