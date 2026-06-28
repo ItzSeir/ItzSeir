@@ -6730,7 +6730,11 @@ button{ -webkit-tap-highlight-color:transparent; }
 
         function pushAlert(a){
           if(!a) return;
-          if(!a.areaNames?.length && a.kind !== "typhoon" && a.kind !== "tsunami" && a.kind !== "wave") return;
+          const noArea = !(a.areaNames && a.areaNames.length);
+          const text = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.datasetName || ""}`;
+          // W-C0033-002 sometimes returns general解除/內容型資料 without locationName.
+          // Keep these as detail-only alerts; they will not color the map or table.
+          if(noArea && a.kind !== "typhoon" && a.kind !== "tsunami" && a.kind !== "wave" && !/解除|取消|發布/.test(text)) return;
           alerts.push(a);
         }
 
@@ -6783,19 +6787,29 @@ button{ -webkit-tap-highlight-color:transparent; }
         }
 
         function parseDetailInfo(node){
-          const all = collectStringsDeep(node, 200).join(" ");
-          if(!/(特報|警報|資訊|豪雨|大雨|高溫|低溫|強風|颱風|濃霧|長浪|海嘯)/.test(all)) return;
+          const all = collectStringsDeep(node, 260).join(" ");
+          if(!/(特報|警報|資訊|豪雨|大雨|高溫|低溫|強風|颱風|濃霧|長浪|海嘯|解除)/.test(all)) return;
           if(/無警特報|無特報|無警報|無資料/.test(all)) return;
+
+          // W-C0033-002 official format:
+          // record[].datasetInfo.{datasetDescription, validTime, issueTime, update}
+          // record[].contents.content.contentText
+          const ds = node.datasetInfo || {};
+          const valid = ds.validTime || node.validTime || {};
+          const contentNode = node.contents?.content || node.contents || node.content || {};
+          const contentText = pickText(contentNode, ["contentText","text","description","descriptionText"]);
+
           const areaNames = collectAreaNamesFrom(node);
-          const headline = pickText(node, ["headline","title","contentTitle","warningTitle","eventName","warningName","phenomena","significance"]) || datasetNameFromKind(getKindFromText(all), all);
+          const dsTitle = pickText(ds, ["datasetDescription","description","title"]);
+          const headline = dsTitle || pickText(node, ["headline","title","contentTitle","warningTitle","eventName","warningName","phenomena","significance"]) || datasetNameFromKind(getKindFromText(all), all);
           pushAlert(makeAlert({
             headline,
             event:pickText(node, ["event","eventName","phenomena","warningName","significance"]) || headline,
-            sent:pickText(node, ["sent","issueTime","updateTime","dataTime","publishTime"]),
-            effective:pickText(node, ["effective","onset","startTime","validFrom","beginTime"]),
-            expires:pickText(node, ["expires","endTime","validTo","expireTime"]),
+            sent:pickText(ds, ["issueTime","update"]) || pickText(node, ["sent","issueTime","updateTime","dataTime","publishTime"]),
+            effective:pickText(valid, ["startTime","validFrom","beginTime"]) || pickText(node, ["effective","onset","startTime","validFrom","beginTime"]),
+            expires:pickText(valid, ["endTime","validTo","expireTime"]) || pickText(node, ["expires","endTime","validTo","expireTime"]),
             areaNames,
-            description:pickText(node, ["description","contentText","text","descriptionText","hazardContent"]) || all,
+            description:contentText || pickText(node, ["description","contentText","text","descriptionText","hazardContent"]) || all,
             instruction:pickText(node, ["instruction","suggestion","advice","instructionText"])
           }, node, sourceLabel));
         }
@@ -6809,7 +6823,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           parseHazardsLocation(node);
 
           if(node.info) asArray(node.info).forEach(info => parseDetailInfo(info));
-          if(node.hazardConditions || node.weatherElement || node.phenomena || node.significance || node.headline || node.description){
+          if(node.datasetInfo || node.contents || node.hazardConditions || node.weatherElement || node.phenomena || node.significance || node.headline || node.description){
             parseDetailInfo(node);
           }
 
@@ -7913,34 +7927,47 @@ button{ -webkit-tap-highlight-color:transparent; }
     const areas = twAreaAlertAreas(alert);
     const towns = new Set();
     let whole = false;
+
+    // First pass: if specific towns under this county exist, a repeated county token
+    // should be treated as grouping label, not「whole county」.
+    let hasSpecificTown = false;
     areas.forEach(areaName => {
       const norm = twAreaNormalizeName(areaName);
       if(!norm) return;
       const county = twAreaResolveCountyName(norm);
-      const isCountyName = twCountyNameSet.has(norm) || norm === county;
+      const isCountyName = twCountyNameSet.has(norm) && norm === county;
+      if(county === countyNorm && !isCountyName) hasSpecificTown = true;
+    });
+
+    areas.forEach(areaName => {
+      const norm = twAreaNormalizeName(areaName);
+      if(!norm) return;
+      const county = twAreaResolveCountyName(norm);
+      const isCountyName = twCountyNameSet.has(norm) && norm === county;
       if(isCountyName && county === countyNorm){
-        whole = true;
+        if(!hasSpecificTown) whole = true;
         return;
       }
       if(county === countyNorm){
-        const townKey = norm;
-        towns.add(townKey);
+        towns.add(norm);
+        if(county && norm.startsWith(county)) towns.add(norm.slice(county.length));
       }
     });
 
     const knownTownSet = window.__twAreaCountyToTowns?.get(countyNorm);
-    if(!whole && knownTownSet && knownTownSet.size){
+    if(!whole && knownTownSet && knownTownSet.size && towns.size){
       let hit = 0;
       knownTownSet.forEach(t => {
-        for(const areaName of areas){
+        const tn = twAreaNormalizeName(t);
+        for(const areaName of towns){
           const norm = twAreaNormalizeName(areaName);
-          if(norm === t || norm.endsWith(t) || t.endsWith(norm)){
+          if(norm === tn || norm.endsWith(tn) || tn.endsWith(norm)){
             hit += 1;
             break;
           }
         }
       });
-      if(hit >= knownTownSet.size) whole = true;
+      if(hit >= knownTownSet.size && knownTownSet.size >= 3) whole = true;
     }
     return { whole, towns };
   }
@@ -8439,6 +8466,139 @@ ${a.instruction}` : ''
   };
 })();
 
+
+
+/* ===== v23 fix: W-C0033 detail-only records + town-level map coloring ===== */
+(function(){
+  function v23CapColor(level){
+    const colors = {
+      officialRed:'#e60012', officialOrange:'#ff7f00', officialYellow:'#fff100', officialGreen:'#00e833',
+      redRain:'#e60012', orangeRain:'#ff7f00', yellowRain:'#fff100',
+      redTyphoon:'#e60012', orangeTyphoon:'#ff7f00', yellowTD:'#fff100', greenClear:'#00e833',
+      redCold:'#e60012', orangeCold:'#ff7f00', yellowCold:'#fff100',
+      redHeat:'#e60012', orangeHeat:'#ff7f00', yellowHeat:'#fff100',
+      redWind:'#e60012', orangeWind:'#ff7f00', yellowWind:'#fff100',
+      yellowFog:'#fff100', yellowWave:'#fff100',
+      redTsunami:'#e60012', orangeTsunami:'#ff7f00', yellowTsunami:'#fff100',
+      rain:'#fff100', typhoon:'#ff7f00', heat:'#fff100', cold:'#fff100', wind:'#fff100', fog:'#fff100', wave:'#fff100', tsunami:'#fff100', other:'#8b5cf6'
+    };
+    return colors[level] || '#8b5cf6';
+  }
+
+  function v23Areas(alert){
+    if(alert && Array.isArray(alert.areaNames) && alert.areaNames.length) return alert.areaNames;
+    try{ return twAreaSplitAreaText(alert?.area || ''); }catch(e){ return []; }
+  }
+
+  function v23Coverage(alert, countyNorm){
+    const areas = v23Areas(alert);
+    let hasTown = false;
+    let whole = false;
+    const towns = new Set();
+    areas.forEach(areaName => {
+      const norm = twAreaNormalizeName(areaName);
+      if(!norm) return;
+      const county = twAreaResolveCountyName(norm);
+      const isCountyName = twCountyNameSet.has(norm) && norm === county;
+      if(county === countyNorm && !isCountyName) hasTown = true;
+    });
+    areas.forEach(areaName => {
+      const norm = twAreaNormalizeName(areaName);
+      if(!norm) return;
+      const county = twAreaResolveCountyName(norm);
+      const isCountyName = twCountyNameSet.has(norm) && norm === county;
+      if(county !== countyNorm) return;
+      if(isCountyName){
+        if(!hasTown) whole = true;
+        return;
+      }
+      towns.add(norm);
+      if(norm.startsWith(countyNorm)) towns.add(norm.slice(countyNorm.length));
+    });
+    return { whole, towns, hasTown };
+  }
+
+  window.twAreaAlertHitsFeature = function(alert, feature, mode='any'){
+    const names = twAreaFeatureNames(feature);
+    const countyNorm = names.countyNorm || twAreaResolveCountyName(names.fullNorm);
+    const cov = v23Coverage(alert, countyNorm);
+    if(mode === 'county') return !!(countyNorm && cov.whole && names.countyNorm === countyNorm);
+    if(mode === 'town'){
+      if(cov.whole) return false;
+      const areas = v23Areas(alert);
+      return areas.some(areaName => {
+        const norm = twAreaNormalizeName(areaName);
+        return names.fullNorm === norm || names.townNorm === norm || names.keys.includes(norm) || cov.towns.has(names.townNorm) || cov.towns.has(names.fullNorm);
+      });
+    }
+    return cov.whole || cov.hasTown || v23Areas(alert).some(areaName => twAreaResolveCountyName(areaName) === names.countyNorm);
+  };
+
+  window.twAreaBestAlertForFeature = function(feature, mode='any'){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    let best = null;
+    alerts.forEach(a => {
+      if(window.twAreaAlertHitsFeature(a, feature, mode)){
+        if(!best || twAreaAlertRank(a) > twAreaAlertRank(best)) best = a;
+      }
+    });
+    return best;
+  };
+
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const wholeBest = window.twAreaBestAlertForFeature(feature, 'county');
+    const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const warnColor = wholeBest ? v23CapColor(twAreaAlertLevel(wholeBest)) : '#173a52';
+    return {
+      color: focused ? '#083344' : (wholeBest ? warnColor : '#173a52'),
+      weight: focused ? 3.2 : (wholeBest ? 2.05 : 1.35),
+      fillColor: wholeBest ? warnColor : '#ffffff',
+      fillOpacity: wholeBest ? (focused ? .42 : .32) : 0,
+      opacity: focused ? 1 : (wholeBest ? .92 : .76),
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round',
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+
+  window.twAreaOfficialTownStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const townBest = window.twAreaBestAlertForFeature(feature, 'town');
+    const countyFocused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const color = townBest ? v23CapColor(twAreaAlertLevel(townBest)) : '#173a52';
+    return {
+      color: townBest ? twAreaHexToRgba(color, countyFocused ? .88 : .72) : 'rgba(23,58,82,.04)',
+      weight: townBest ? (countyFocused ? 1.35 : .9) : .08,
+      fillColor: townBest ? color : 'transparent',
+      fillOpacity: townBest ? (countyFocused ? .46 : .34) : 0,
+      opacity: townBest ? .82 : .05,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round'
+    };
+  };
+
+  const oldRefreshV23 = window.twAreaRefreshHighlight;
+  window.twAreaRefreshHighlight = function(){
+    if(typeof oldRefreshV23 === 'function') oldRefreshV23();
+    try{ if(twAreaTownLayer) twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle); }catch(e){}
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle); }catch(e){}
+    try{ if(twAreaTownLayer) twAreaTownLayer.bringToFront(); }catch(e){}
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.bringToFront(); }catch(e){}
+    const status = document.getElementById('twAreaMapStatus');
+    if(status){
+      const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+      const townCount = alerts.reduce((n,a) => n + v23Areas(a).filter(x => {
+        const norm = twAreaNormalizeName(x);
+        const c = twAreaResolveCountyName(norm);
+        return c && !(twCountyNameSet.has(norm) && norm === c);
+      }).length, 0);
+      status.textContent = alerts.length ? `已標示 ${alerts.length} 筆警報${townCount ? `（含 ${townCount} 個鄉鎮）` : ''}` : '目前無符合條件的警報';
+    }
+  };
+})();
     window.addEventListener("load", () => {
       try{ initWarningCenter(); }catch(e){ console.error("initWarningCenter failed", e); }
       try{ initTyphoonTracker(); }catch(e){ console.error("initTyphoonTracker failed", e); }
