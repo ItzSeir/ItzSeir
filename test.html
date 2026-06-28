@@ -3098,6 +3098,69 @@ button{ -webkit-tap-highlight-color:transparent; }
   #twAreaMap{ height:500px !important; }
 }
 
+
+/* ===== v13 CAP active-only + dynamic legend + wider area pills ===== */
+.twOfficialLegend{ grid-template-columns:repeat(auto-fit,minmax(250px,1fr)) !important; }
+.twOfficialColor.coldLv2{ background:#075985 !important; }
+.twOfficialColor.heatLv2{ background:#b91c1c !important; }
+.twOfficialColor.windLv2{ background:#0284c7 !important; }
+.twOfficialMapPanel,
+.twOfficialTablePanel{ min-height:820px !important; }
+.twOfficialTablePanel{ max-height:none !important; height:100% !important; }
+.twOfficialCountyTables{ min-height:640px !important; max-height:none !important; }
+#twAreaMap{ height:640px !important; }
+.twOfficialDetailMeta{
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:12px !important;
+  align-items:start !important;
+}
+.twDetailItem{
+  min-height:74px;
+  padding:14px 16px;
+  border-radius:20px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(15,76,92,.08);
+}
+.twDetailItem.area{
+  grid-column:1 / -1 !important;
+  display:grid !important;
+  grid-template-columns:120px minmax(0,1fr) !important;
+  gap:14px !important;
+  min-height:auto !important;
+}
+.twDetailLabel{ display:block; color:#0f4c5c; font-size:12px; font-weight:900; margin-bottom:6px; }
+.twDetailValue{ display:block; color:#234457; font-size:13px; font-weight:900; line-height:1.7; }
+.twDetailItem.area .twDetailLabel{ margin-bottom:0; padding-top:8px; }
+.twAreaGroups{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr)) !important;
+  gap:12px !important;
+}
+.twAreaGroup{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:116px minmax(0,1fr) !important;
+  gap:10px !important;
+  align-items:start !important;
+}
+.twCountyPill{ width:100% !important; justify-content:center !important; }
+.twTownLine{ margin-top:0 !important; display:flex !important; flex-wrap:wrap !important; gap:8px !important; }
+.twOfficialMapOnly .leaflet-interactive{ outline:none !important; }
+.twAreaFocusedShape{ filter:drop-shadow(0 0 10px rgba(15,76,92,.34)) !important; }
+@media (max-width:1100px){
+  .twOfficialMapPanel,.twOfficialTablePanel{ min-height:auto !important; }
+  .twOfficialCountyTables{ min-height:420px !important; }
+  #twAreaMap{ height:560px !important; }
+}
+@media (max-width:780px){
+  .twOfficialDetailMeta{ grid-template-columns:1fr !important; }
+  .twDetailItem.area{ grid-template-columns:1fr !important; }
+  .twAreaGroups{ grid-template-columns:1fr !important; }
+  .twAreaGroup{ grid-template-columns:1fr !important; }
+}
+
 </style>
 </head>
 
@@ -3200,12 +3263,8 @@ button{ -webkit-tap-highlight-color:transparent; }
               <div class="twOfficialLegend" id="twOfficialLegend">
                 <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv4"></span><span class="twOfficialIcon">⛈️</span><span>超大豪雨<br>500mm/24h 以上雨量</span></div>
                 <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv3"></span><span class="twOfficialIcon">🌧️</span><span>大豪雨<br>350mm/24h 以上或 200mm/3h 以上雨量</span></div>
-                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv2"></span><span class="twOfficialIcon">🌧️</span><span>豪雨<br>200mm/24h 以上或 100mm/3h 以上雨量</span></div>
+                <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv2"></span><span class="twOfficialIcon">🌧️</span><span>豪雨 / 颱風<br>200mm/24h 以上或 100mm/3h 以上雨量</span></div>
                 <div class="twOfficialLegendItem"><span class="twOfficialColor rainLv1"></span><span class="twOfficialIcon">🌦️</span><span>大雨<br>80mm/24h 以上或 40mm/h 以上雨量</span></div>
-                <div class="twOfficialLegendItem"><span class="twOfficialColor coldLv"></span><span class="twOfficialIcon">🌡️</span><span>低溫特報<br>低溫或寒流影響</span></div>
-                <div class="twOfficialLegendItem"><span class="twOfficialColor heatLv"></span><span class="twOfficialIcon">🔥</span><span>高溫資訊<br>高溫或極端高溫提醒</span></div>
-                <div class="twOfficialLegendItem"><span class="twOfficialColor windLv"></span><span class="twOfficialIcon">💨</span><span>陸上強風<br>平均風力或陣風達標</span></div>
-                <div class="twOfficialLegendItem"><span class="twOfficialColor tyLv"></span><span class="twOfficialIcon">🌀</span><span>颱風警報<br>海上或陸上颱風警報</span></div>
               </div>
 
               <div class="twOfficialMapOnly">
@@ -5886,6 +5945,65 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       const AUTO_REFRESH_SEC = 60;
 
+      function parseCapDate(t){
+        if(!t) return null;
+        const raw = String(t).trim();
+        const d = new Date(raw);
+        if(!Number.isNaN(d.getTime())) return d;
+        const normalized = raw
+          .replace(/\//g, "-")
+          .replace(/(\d{4}-\d{1,2}-\d{1,2})\s+(\d{1,2}:\d{1,2}(?::\d{1,2})?)/, "$1T$2+08:00");
+        const d2 = new Date(normalized);
+        return Number.isNaN(d2.getTime()) ? null : d2;
+      }
+
+      function isCapAlertActive(a){
+        const now = new Date();
+        const start = parseCapDate(a?.effective);
+        const end = parseCapDate(a?.expires);
+        if(start && now < start) return false;
+        if(end && now > end) return false;
+        return !!(a && (start || end || a.sent || a.headline || a.event));
+      }
+
+      function renderTwLegend(kind){
+        const el = q("twOfficialLegend");
+        if(!el) return;
+        const legend = {
+          rain: [
+            ['rainLv4','⛈️','超大豪雨','500mm/24h 以上雨量'],
+            ['rainLv3','🌧️','大豪雨','350mm/24h 以上或 200mm/3h 以上雨量'],
+            ['rainLv2','🌧️','豪雨 / 颱風','200mm/24h 以上或 100mm/3h 以上雨量'],
+            ['rainLv1','🌦️','大雨','80mm/24h 以上或 40mm/h 以上雨量']
+          ],
+          cold: [
+            ['coldLv2','🥶','低溫特報','平均氣溫或最低溫達低溫警戒'],
+            ['coldLv','🌡️','寒流 / 輻射冷卻','低溫或寒流影響，注意保暖']
+          ],
+          heat: [
+            ['heatLv','🔥','高溫資訊','氣溫達高溫提醒標準'],
+            ['heatLv2','🌡️','極端高溫','高溫持續或達危險等級']
+          ],
+          wind: [
+            ['windLv','💨','陸上強風','平均風力達 6 級以上'],
+            ['windLv2','🌬️','強陣風','陣風達 8 級以上']
+          ],
+          typhoon: [
+            ['tyLv','🌀','颱風警報','海上或陸上颱風警報'],
+            ['windLv','💨','強風半徑','受颱風環流或外圍環流影響'],
+            ['rainLv2','🌧️','颱風雨勢','山區或迎風面易有豪雨']
+          ]
+        };
+        const rows = legend[kind] || legend.rain;
+        el.innerHTML = rows.map(([cls, icon, title, desc]) => `
+          <div class="twOfficialLegendItem">
+            <span class="twOfficialColor ${cls}"></span>
+            <span class="twOfficialIcon">${icon}</span>
+            <span>${title}<br>${desc}</span>
+          </div>
+        `).join("");
+      }
+
       let allAlerts = [];
       let filteredAlerts = [];
       let selectedAlert = null;
@@ -5981,12 +6099,8 @@ button{ -webkit-tap-highlight-color:transparent; }
       function buildFilters(){
         const typeSel = q("twTypeFilter");
         if(!typeSel) return;
+        const oldValue = typeSel.value;
         typeSel.innerHTML = "";
-
-        const optAll = document.createElement("option");
-        optAll.value = "all";
-        optAll.textContent = "全部類型";
-        typeSel.appendChild(optAll);
 
         DATASETS.forEach(d => {
           const opt = document.createElement("option");
@@ -5994,6 +6108,10 @@ button{ -webkit-tap-highlight-color:transparent; }
           opt.textContent = d.name;
           typeSel.appendChild(opt);
         });
+
+        if(oldValue && DATASETS.some(d => d.kind === oldValue)) typeSel.value = oldValue;
+        else typeSel.value = DATASETS[0]?.kind || "rain";
+        renderTwLegend(typeSel.value);
       }
 
       function twNormalizeNameLocal(v){
@@ -6253,14 +6371,16 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       function applyFilters(){
-        const type = q("twTypeFilter").value;
+        const type = q("twTypeFilter").value || DATASETS[0]?.kind || "rain";
         const keyword = String(q("twSearch").value || "").trim().toLowerCase();
+        renderTwLegend(type);
 
         filteredAlerts = allAlerts.filter(a => {
-          const okType = type === "all" ? true : a.kind === type;
+          const okType = a.kind === type;
+          const okActive = isCapAlertActive(a);
           const hay = `${a.headline} ${a.event} ${a.description} ${a.instruction} ${a.area} ${a.datasetName}`.toLowerCase();
           const okKeyword = keyword ? hay.includes(keyword) : true;
-          return okType && okKeyword;
+          return okType && okActive && okKeyword;
         });
 
         renderList();
@@ -6333,7 +6453,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
           ok.sort((a,b) => String(b.sent || b.effective || "").localeCompare(String(a.sent || a.effective || "")));
 
-          allAlerts = ok;
+          allAlerts = ok.filter(isCapAlertActive);
           selectedAlert = null;
 
           buildFilters();
@@ -6341,7 +6461,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
           const errCount = bad.length;
           const total = DATASETS.length;
-          q("twStatus").textContent = errCount ? `已更新（${total - errCount}/${total} 成功）` : `已更新（${total}）`;
+          q("twStatus").textContent = errCount ? `已更新生效警報（${total - errCount}/${total} 成功）` : `已更新生效警報（${allAlerts.length} 筆）`;
         }catch(err){
           console.error(err);
           q("twStatus").textContent = "更新失敗";
@@ -7392,9 +7512,7 @@ ${a.instruction}` : ''
     setTimeout(() => {
       const sel = document.getElementById('twTypeFilter');
       if(sel){
-        [...sel.options].forEach(opt => {
-          if(opt.textContent.includes('全部警特報')) opt.textContent = '全部類型';
-        });
+        [...sel.options].forEach(opt => { if(opt.value === 'all') opt.remove(); });
       }
     }, 500);
   });
