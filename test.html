@@ -9558,5 +9558,93 @@ function renderTwLegend(kind){
   }
 </style>
 
+
+
+<!-- ===== v42: show all CAP info levels in affected area detail ===== -->
+<style>
+  .twAreaLevelBlocks{display:flex;flex-direction:column;gap:14px;width:100%;}
+  .twAreaLevelBlock{border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.72);overflow:hidden;}
+  .twAreaLevelHead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,rgba(249,252,252,.96),rgba(231,242,243,.55));}
+  .twAreaLevelDot{width:12px;height:12px;border-radius:999px;background:var(--warn,#2a9d8f);box-shadow:0 0 0 4px color-mix(in srgb, var(--warn,#2a9d8f) 16%, transparent);flex:0 0 auto;}
+  .twAreaLevelTitle{font-size:13px;font-weight:900;color:#122c3c;white-space:nowrap;}
+  .twAreaLevelMeta{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap;}
+  .twAreaLevelBody{padding:12px;}
+  .twAreaLevelBody .twAreaGroups{gap:10px!important;}
+</style>
+<script>
+(function(){
+  function escV42(s){
+    if(typeof window.twEscape === 'function') return window.twEscape(s);
+    return String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  }
+  function normV42(v){
+    try{ return window.twAreaNormalizeName(v); }
+    catch(e){ return String(v || '').replace(/台/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim(); }
+  }
+  function alertKeyV42(a){
+    const id = String(a?.identifier || '').trim();
+    if(id) return 'id:' + id;
+    const sent = String(a?.sent || '').trim();
+    const desc = String(a?.description || '').replace(/\s+/g,'').slice(0,80);
+    const event = String(a?.event || a?.headline || a?.datasetName || '').replace(/\s+/g,'');
+    return `fallback:${sent}:${event}:${desc}`;
+  }
+  function relatedAlertsV42(a){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    if(!a) return [];
+    const key = alertKeyV42(a);
+    let list = alerts.filter(x => alertKeyV42(x) === key);
+    if(!list.length) list = [a];
+    const seen = new Set();
+    list = list.filter(x => {
+      const k = `${x?.identifier||''}|${x?.infoIndex ?? ''}|${x?.level || ''}|${(x?.areaNames||[]).join(',')}|${x?.headline||''}`;
+      if(seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    list.sort((x,y) => {
+      const yr = Number(y?.levelRank || (typeof window.twAreaAlertRank === 'function' ? window.twAreaAlertRank(y) : 0));
+      const xr = Number(x?.levelRank || (typeof window.twAreaAlertRank === 'function' ? window.twAreaAlertRank(x) : 0));
+      return yr - xr;
+    });
+    return list;
+  }
+  function levelTitleV42(a){
+    const p = a?.parameters || {};
+    return String(p.severity_level || p.alert_title || a?.headline || a?.event || a?.datasetName || '警特報').replace(/\s+/g,'');
+  }
+  function renderSingleAreaGroupsV42(a){
+    const groups = (typeof window.getAlertAreaGroups === 'function') ? window.getAlertAreaGroups(a) : [];
+    if(!groups.length) return '<span class="twAreaMuted">—</span>';
+    return `<div class="twAreaGroups">${groups.map(g => `<section class="twAreaGroup"><span class="twCountyPill" style="--warn:${escV42(a?.color || '#2a9d8f')}" title="${escV42(g.county)}">${escV42(g.county)}</span><div class="twTownLine">${g.whole ? `<span class="twWholeCounty">整個縣市</span>` : (g.towns && g.towns.length ? g.towns.map(t=>`<span class="twTownPill">${escV42(t)}</span>`).join('') : `<span class="twAreaMuted">未列出鄉鎮</span>`)}</div></section>`).join('')}</div>`;
+  }
+  window.renderAreaPills = function(a){
+    const related = relatedAlertsV42(a).filter(x => {
+      const groups = (typeof window.getAlertAreaGroups === 'function') ? window.getAlertAreaGroups(x) : [];
+      return groups && groups.length;
+    });
+    if(!related.length) return '<span class="twAreaMuted">—</span>';
+    if(related.length === 1) return renderSingleAreaGroupsV42(related[0]);
+    return `<div class="twAreaLevelBlocks">${related.map(x => {
+      const color = x?.color || '#2a9d8f';
+      const title = levelTitleV42(x);
+      const count = (x?.areaNames || []).length;
+      return `<section class="twAreaLevelBlock"><div class="twAreaLevelHead"><span class="twAreaLevelDot" style="--warn:${escV42(color)}"></span><span class="twAreaLevelTitle">${escV42(title)}</span><span class="twAreaLevelMeta">${count ? `${count} 個地區` : ''}</span></div><div class="twAreaLevelBody">${renderSingleAreaGroupsV42(x)}</div></section>`;
+    }).join('')}</div>`;
+  };
+  const oldRenderDetailsV42 = window.renderDetails;
+  window.renderDetails = function(a){
+    window.__twSelectedAlert = a || null;
+    if(typeof oldRenderDetailsV42 === 'function') oldRenderDetailsV42(a);
+    const areaEl = document.getElementById('twArea');
+    if(areaEl) areaEl.innerHTML = a ? window.renderAreaPills(a) : '<span class="twAreaMuted">—</span>';
+  };
+  document.addEventListener('click', () => setTimeout(() => {
+    const areaEl = document.getElementById('twArea');
+    if(areaEl && window.__twSelectedAlert) areaEl.innerHTML = window.renderAreaPills(window.__twSelectedAlert);
+  }, 60), true);
+})();
+</script>
+
 </body>
 </html>
