@@ -8824,7 +8824,7 @@ ${a.instruction}` : ''
       if(/[鄉鎮市]$/.test(t)) return t.slice(0,-1) + '區';
     }
     if(c === '高雄市'){
-      if(t === '三民鄉' || t === '那瑪夏鄉') return '那瑪夏區';
+      if(t === '三民鄉' || t === '三民區' || t === '那瑪夏鄉') return '那瑪夏區';
       if(t === '瑪雅鄉' || t === '民權鄉') return t.replace(/鄉$/,'區');
     }
     if(c === '彰化縣'){
