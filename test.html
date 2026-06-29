@@ -8831,6 +8831,288 @@ ${a.instruction}` : ''
   };
 })();
 
+
+
+/* ===== v26 Exact town/county area painting fix =====
+   - County token is treated as a grouping label when the same alert also has towns under that county.
+   - Specific town warnings never paint the whole county.
+   - 嘉義市 / 桃園市 combined town names are handled by direct county-prefix parsing.
+*/
+(function(){
+  const COUNTY_RE_V26 = /(臺北市|新北市|桃園市|臺中市|臺南市|高雄市|基隆市|新竹市|嘉義市|新竹縣|苗栗縣|彰化縣|南投縣|雲林縣|嘉義縣|屏東縣|宜蘭縣|花蓮縣|臺東縣|澎湖縣|金門縣|連江縣)/;
+  const TOWN_SUFFIX_RE_V26 = /(鄉|鎮|區|市)$/;
+
+  function norm26(v){
+    try{ return twAreaNormalizeName(v); }
+    catch(e){ return String(v || '').replace(/台/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim(); }
+  }
+
+  function countySet26(){
+    try{ return twCountyNameSet || new Set(); }
+    catch(e){ return new Set(); }
+  }
+
+  function isCounty26(v){
+    const n = norm26(v);
+    return countySet26().has(n);
+  }
+
+  function prefixCounty26(v){
+    const n = norm26(v);
+    const m = n.match(COUNTY_RE_V26);
+    return m ? norm26(m[1]) : '';
+  }
+
+  function stripCounty26(county, token){
+    const c = norm26(county);
+    const n = norm26(token);
+    return c && n.startsWith(c) ? n.slice(c.length) : n;
+  }
+
+  function looksTown26(token){
+    const n = norm26(token);
+    if(!n || isCounty26(n)) return false;
+    const c = prefixCounty26(n);
+    if(c && n !== c) return true;
+    return TOWN_SUFFIX_RE_V26.test(n);
+  }
+
+  function resolveCounty26(token, pendingCounty){
+    const n = norm26(token);
+    if(!n) return '';
+    const c = prefixCounty26(n);
+    if(c && n !== c) return c;
+    if(pendingCounty) return norm26(pendingCounty);
+    try{
+      const r = twAreaResolveCountyName(n);
+      if(r && norm26(r) !== n && isCounty26(r)) return norm26(r);
+    }catch(e){}
+    return '';
+  }
+
+  function rawAreas26(alert){
+    let names = [];
+    try{ names = twAreaAlertAreas(alert); }catch(e){}
+    if(!Array.isArray(names) || !names.length){
+      names = Array.isArray(alert?.areaNames) && alert.areaNames.length
+        ? alert.areaNames
+        : String(alert?.area || '').split(/[;；,，、\n\r]+/);
+    }
+    const out = [];
+    const seen = new Set();
+    names.forEach(x => {
+      const n = norm26(x);
+      if(!n || seen.has(n)) return;
+      seen.add(n);
+      out.push(n);
+    });
+    return out;
+  }
+
+  function ensureGroup26(map, county){
+    const c = norm26(county);
+    if(!c) return null;
+    if(!map.has(c)) map.set(c, { county:c, whole:false, towns:new Set(), rawTowns:new Set() });
+    return map.get(c);
+  }
+
+  function addTown26(group, county, token){
+    if(!group || group.whole) return;
+    const c = norm26(county);
+    const n = norm26(token);
+    const bare = stripCounty26(c, n);
+    if(!bare) return;
+    group.towns.add(n);
+    group.towns.add(bare);
+    if(c) group.towns.add(c + bare);
+    group.rawTowns.add(bare);
+  }
+
+  function areaGroups26(alert){
+    const names = rawAreas26(alert);
+    const groups = new Map();
+    const townCountySet = new Set();
+
+    // First pass: identify counties that have explicit towns in this same alert.
+    let pending = '';
+    for(let i=0;i<names.length;i++){
+      const n = norm26(names[i]);
+      if(!n) continue;
+      if(isCounty26(n)){
+        pending = n;
+        continue;
+      }
+      if(looksTown26(n)){
+        const c = resolveCounty26(n, pending);
+        if(c) townCountySet.add(c);
+      }
+    }
+
+    // Also detect "county token followed by loose town before next county".
+    for(let i=0;i<names.length;i++){
+      const n = norm26(names[i]);
+      if(!isCounty26(n)) continue;
+      for(let j=i+1;j<names.length;j++){
+        const next = norm26(names[j]);
+        if(!next) continue;
+        if(isCounty26(next)) break;
+        if(looksTown26(next)){
+          townCountySet.add(n);
+          break;
+        }
+      }
+    }
+
+    pending = '';
+    for(const raw of names){
+      const n = norm26(raw);
+      if(!n) continue;
+
+      if(isCounty26(n)){
+        pending = n;
+        const g = ensureGroup26(groups, n);
+        // A county token can be a grouping label in CWA/CAP text.
+        // Only paint whole county if no explicit town under the same county exists.
+        if(g && !townCountySet.has(n) && !g.rawTowns.size){
+          g.whole = true;
+          g.towns.clear();
+          g.rawTowns.clear();
+        }
+        continue;
+      }
+
+      if(looksTown26(n)){
+        const c = resolveCounty26(n, pending);
+        if(c){
+          const g = ensureGroup26(groups, c);
+          if(g && !g.whole) addTown26(g, c, n);
+        }
+        continue;
+      }
+
+      // GeoJSON resolver fallback for rare town aliases.
+      try{
+        const c = twAreaResolveCountyName(n);
+        if(c && norm26(c) !== n && isCounty26(c)){
+          const g = ensureGroup26(groups, c);
+          if(g && !g.whole) addTown26(g, c, n);
+        }
+      }catch(e){}
+    }
+
+    return Array.from(groups.values());
+  }
+
+  window.__twV26AreaGroups = areaGroups26;
+
+  window.twAreaAlertHitsFeature = function(alert, feature, mode='any'){
+    const names = twAreaFeatureNames(feature);
+    const featureCounty = names.countyNorm || resolveCounty26(names.fullNorm, '');
+    if(!featureCounty) return false;
+    const groups = areaGroups26(alert).filter(g => g.county === featureCounty);
+    if(!groups.length) return false;
+
+    if(mode === 'county'){
+      return groups.some(g => g.whole === true);
+    }
+
+    if(mode === 'town'){
+      return groups.some(g => {
+        if(g.whole) return false;
+        const full = norm26(names.fullNorm);
+        const town = norm26(names.townNorm);
+        const combo = norm26((names.countyNorm || featureCounty) + (names.townNorm || ''));
+        return g.towns.has(full) || g.towns.has(town) || g.towns.has(combo);
+      });
+    }
+
+    return groups.some(g => g.whole || g.towns.size > 0);
+  };
+
+  window.twAreaBestAlertForFeature = function(feature, mode='any'){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    let best = null;
+    alerts.forEach(a => {
+      if(window.twAreaAlertHitsFeature(a, feature, mode)){
+        if(!best || twAreaAlertRank(a) > twAreaAlertRank(best)) best = a;
+      }
+    });
+    return best;
+  };
+
+  window.getAlertAreaGroups = function(a){
+    return areaGroups26(a).map(g => ({
+      county:g.county,
+      whole:g.whole,
+      towns:Array.from(g.rawTowns).filter(Boolean).sort((x,y)=>x.localeCompare(y,'zh-Hant'))
+    })).sort((x,y)=>x.county.localeCompare(y.county,'zh-Hant'));
+  };
+
+  window.renderAreaPills = function(a){
+    const groups = window.getAlertAreaGroups(a);
+    if(!groups.length) return '<span class="twAreaMuted">—</span>';
+    return `<div class="twAreaGroups">${groups.map(g => `
+      <section class="twAreaGroup">
+        <span class="twCountyPill" style="--warn:${twEscape(a.color || '#2a9d8f')}">${twEscape(g.county)}</span>
+        ${g.whole ? `<div class="twTownLine"><span class="twWholeCounty">整個縣市</span></div>` : `
+          <div class="twTownLine">
+            ${g.towns.length ? g.towns.map(t => `<span class="twTownPill">${twEscape(t)}</span>`).join('') : `<span class="twAreaMuted">未列出鄉鎮</span>`}
+          </div>`}
+      </section>`).join('')}</div>`;
+  };
+
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const wholeBest = window.twAreaBestAlertForFeature(feature, 'county');
+    const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const color = wholeBest ? twAreaAlertColor(wholeBest) : '#173a52';
+    return {
+      color: focused ? '#083344' : (wholeBest ? color : '#173a52'),
+      weight: focused ? 3.2 : (wholeBest ? 2.05 : 1.35),
+      fillColor: wholeBest ? color : '#ffffff',
+      fillOpacity: wholeBest ? (focused ? .42 : .32) : 0,
+      opacity: focused ? 1 : (wholeBest ? .92 : .76),
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round',
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+
+  window.twAreaOfficialTownStyle = function(feature){
+    const names = twAreaFeatureNames(feature);
+    const townBest = window.twAreaBestAlertForFeature(feature, 'town');
+    const countyFocused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+    const color = townBest ? twAreaAlertColor(townBest) : '#173a52';
+    return {
+      color: townBest ? twAreaHexToRgba(color, countyFocused ? .90 : .76) : 'rgba(23,58,82,.04)',
+      weight: townBest ? (countyFocused ? 1.55 : 1.05) : .08,
+      fillColor: townBest ? color : 'transparent',
+      fillOpacity: townBest ? (countyFocused ? .52 : .40) : 0,
+      opacity: townBest ? .86 : .05,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round'
+    };
+  };
+
+  const oldRefresh26 = window.twAreaRefreshHighlight;
+  window.twAreaRefreshHighlight = function(){
+    if(typeof oldRefresh26 === 'function') oldRefresh26();
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle); }catch(e){}
+    try{ if(twAreaTownLayer) twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle); }catch(e){}
+    try{ if(twAreaTownLayer) twAreaTownLayer.bringToFront(); }catch(e){}
+    const status = document.getElementById('twAreaMapStatus');
+    if(status){
+      const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+      let townCount = 0;
+      let countyCount = 0;
+      alerts.forEach(a => areaGroups26(a).forEach(g => g.whole ? countyCount++ : townCount += g.rawTowns.size));
+      status.textContent = alerts.length ? `已標示 ${alerts.length} 筆警報（整縣 ${countyCount}，鄉鎮 ${townCount}）` : '目前無符合條件的警報';
+    }
+  };
+})();
+
     window.addEventListener("load", () => {
       try{ initWarningCenter(); }catch(e){ console.error("initWarningCenter failed", e); }
       try{ initTyphoonTracker(); }catch(e){ console.error("initTyphoonTracker failed", e); }
