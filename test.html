@@ -6512,48 +6512,58 @@ button{ -webkit-tap-highlight-color:transparent; }
         const xml = p.parseFromString(xmlText, "application/xml");
 
         if(xml.querySelector("parsererror")){
-          return { ok:false, err:"parsererror", raw:xmlText };
+          return { ok:false, err:"parsererror", raw:xmlText, infos:[] };
         }
 
-        const textOf = (sel) => {
-          const el = xml.querySelector(sel);
+        const textOfNode = (node, sel) => {
+          const el = node ? node.querySelector(sel) : null;
           return el ? (el.textContent || "").trim() : "";
         };
+        const textOf = (sel) => textOfNode(xml, sel);
 
         const sent = textOf("alert > sent");
         const identifier = textOf("alert > identifier");
-        const info = xml.querySelector("alert > info");
+        const infoEls = Array.from(xml.querySelectorAll("alert > info"));
 
-        if(!info){
+        if(!infoEls.length){
           return {
             ok:true, sent, identifier, raw:xmlText, headline:"", event:"",
-            effective:"", expires:"", description:"", instruction:"", area:"", parameters:{}
+            effective:"", expires:"", description:"", instruction:"", area:"", parameters:{}, infos:[]
           };
         }
 
-        const headline = textOf("alert > info > headline") || textOf("alert > info > event");
-        const event = textOf("alert > info > event");
-        const effective = textOf("alert > info > effective");
-        const expires = textOf("alert > info > expires");
-        const description = textOf("alert > info > description");
-        const instruction = textOf("alert > info > instruction");
+        const infos = infoEls.map((info, infoIndex) => {
+          const headline = textOfNode(info, "headline") || textOfNode(info, "event");
+          const event = textOfNode(info, "event");
+          const effective = textOfNode(info, "effective");
+          const expires = textOfNode(info, "expires");
+          const description = textOfNode(info, "description");
+          const instruction = textOfNode(info, "instruction");
 
-        const areaEls = xml.querySelectorAll("alert > info > area > areaDesc");
-        const area = Array.from(areaEls)
-          .map(x => (x.textContent || "").trim())
-          .filter(Boolean)
-          .join("；");
+          const areaEls = Array.from(info.querySelectorAll("area > areaDesc"));
+          const area = areaEls
+            .map(x => (x.textContent || "").trim())
+            .filter(Boolean)
+            .join("；");
 
-        const parameters = {};
-        xml.querySelectorAll("alert > info > parameter").forEach(param => {
-          const name = (param.querySelector("valueName")?.textContent || "").trim();
-          const val = (param.querySelector("value")?.textContent || "").trim();
-          if(name) parameters[name] = val;
+          const parameters = {};
+          info.querySelectorAll("parameter").forEach(param => {
+            const name = (param.querySelector("valueName")?.textContent || "").trim();
+            const val = (param.querySelector("value")?.textContent || "").trim();
+            if(name) parameters[name] = val;
+          });
+
+          return { infoIndex, sent, identifier, headline, event, effective, expires, description, instruction, area, parameters };
         });
 
+        // Keep old single-info fields for compatibility, but expose all CAP <info> blocks.
+        const first = infos[0] || {};
         return {
-          ok:true, sent, identifier, raw:xmlText, headline, event,
-          effective, expires, description, instruction, area, parameters
+          ok:true, sent, identifier, raw:xmlText,
+          headline:first.headline || "", event:first.event || "",
+          effective:first.effective || "", expires:first.expires || "",
+          description:first.description || "", instruction:first.instruction || "",
+          area:first.area || "", parameters:first.parameters || {}, infos
         };
       }
 
@@ -6600,11 +6610,42 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       function getAlertLevel(a){
-        const hay = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.instruction || ""} ${a.datasetName || ""} ${Object.values(a.parameters || {}).join(" ")}`;
+        const params = a?.parameters || {};
+        const sev = String(params.severity_level || params.alert_title || params.alert_color || "").replace(/\s+/g, "");
+        const webColor = String(params.website_color || "").replace(/\s+/g, "");
+        const title = String(params.alert_title || a.headline || a.datasetName || "").replace(/\s+/g, "");
+
+        // Prefer official CAP parameters from CWA. This is required when one CAP file has multiple <info> blocks,
+        // for example 豪雨(橙色) and 大雨(黃色) in the same XML.
+        if(/255,0,255|204,0,204|#?d600d6/i.test(webColor) || /超大豪雨/.test(sev + title)) return "purpleRain";
+        if(/大豪雨/.test(sev + title)) return "redRain";
+        if(/豪雨/.test(sev + title)) return "orangeRain";
+        if(/大雨/.test(sev + title)) return "yellowRain";
+        if(/紅色|紅燈/.test(sev)){
+          if(/高溫/.test(title)) return "redHeat";
+          if(/低溫|寒冷|嚴寒/.test(title + sev)) return "redCold";
+          if(/強風/.test(title)) return "redWind";
+          return "officialRed";
+        }
+        if(/橙色|橘色|橙燈|橘燈/.test(sev)){
+          if(/高溫/.test(title)) return "orangeHeat";
+          if(/低溫|寒冷|非常寒冷/.test(title + sev)) return "orangeCold";
+          if(/強風/.test(title)) return "orangeWind";
+          return "officialOrange";
+        }
+        if(/黃色|黃燈/.test(sev)){
+          if(/高溫/.test(title)) return "yellowHeat";
+          if(/低溫|寒冷/.test(title + sev)) return "yellowCold";
+          if(/強風/.test(title)) return "yellowWind";
+          return "officialYellow";
+        }
+
+        const hay = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.instruction || ""} ${a.datasetName || ""} ${Object.values(params).join(" ")}`;
         const norm = hay.replace(/\s+/g, "");
 
         // Rain warning levels — use official lamp color levels.
-        if(/超大豪雨|大豪雨/.test(norm)) return "redRain";
+        if(/超大豪雨/.test(norm)) return "purpleRain";
+        if(/大豪雨/.test(norm)) return "redRain";
         if(/豪雨/.test(norm)) return "orangeRain";
         if(/大雨/.test(norm)) return "yellowRain";
 
@@ -6620,12 +6661,10 @@ button{ -webkit-tap-highlight-color:transparent; }
         if(/寒冷|黃燈|黃色燈號|黃色警戒|低溫/.test(norm)) return "yellowCold";
 
         // High temperature levels.
-        // Important: do NOT color all 高溫資訊 orange. CWA CAP may write "黃色燈號" instead of "黃燈".
         if(/高溫/.test(norm)){
           if(/紅燈|紅色燈號|紅色警戒|紅色/.test(norm)) return "redHeat";
           if(/橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒|橙色|橘色/.test(norm)) return "orangeHeat";
           if(/黃燈|黃色燈號|黃色警戒|黃色/.test(norm)) return "yellowHeat";
-          // Infer from threshold text only when lamp wording is absent.
           if(/38(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天/.test(norm)) return "redHeat";
           if(/36(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天|38(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "orangeHeat";
           if(/36(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "yellowHeat";
@@ -6651,10 +6690,12 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function getLevelColor(level){
         return ({
+          purpleRain:"#d600d6",
           officialRed:"#e60012",
           officialOrange:"#ff7f00",
           officialYellow:"#fff100",
           officialGreen:"#00e833",
+          purpleRain:"#d600d6",
           redRain:"#e60012",
           orangeRain:"#ff7f00",
           yellowRain:"#fff100",
@@ -6687,7 +6728,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function getLevelIcon(level){
         return ({
-          redRain:"⛈️", orangeRain:"🌧️", yellowRain:"🌦️",
+          purpleRain:"⛈️", redRain:"🌧️", orangeRain:"🌧️", yellowRain:"🌦️",
           redTyphoon:"🌀", orangeTyphoon:"🌊", yellowTD:"🟡", greenClear:"✅",
           redCold:"🥶", orangeCold:"🧊", yellowCold:"🌡️",
           redHeat:"🔥", orangeHeat:"🌡️", yellowHeat:"☀️",
@@ -6700,7 +6741,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function getLevelRank(level){
         return ({
-          redRain:90, redTyphoon:90, redCold:90, redHeat:90, redWind:90, redTsunami:90,
+          purpleRain:95, redRain:90, redTyphoon:90, redCold:90, redHeat:90, redWind:90, redTsunami:90,
           orangeRain:70, orangeTyphoon:70, orangeCold:70, orangeHeat:70, orangeWind:70, orangeTsunami:70,
           yellowRain:50, yellowTD:50, yellowCold:50, yellowHeat:50, yellowWind:50, yellowFog:50, yellowWave:50, yellowTsunami:50,
           greenClear:10,
@@ -6710,10 +6751,15 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function enrichAlert(a){
         const level = getAlertLevel(a);
+        const webColor = String(a?.parameters?.website_color || "").trim();
+        const rgbMatch = webColor.match(/^(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})$/);
+        const officialColor = rgbMatch
+          ? `rgb(${Math.max(0, Math.min(255, Number(rgbMatch[1])) )},${Math.max(0, Math.min(255, Number(rgbMatch[2])) )},${Math.max(0, Math.min(255, Number(rgbMatch[3])) )})`
+          : getLevelColor(level);
         return {
           ...a,
           level,
-          color:getLevelColor(level),
+          color:officialColor,
           icon:getLevelIcon(level),
           levelRank:getLevelRank(level),
           areaNames:splitAreaNames(a.area)
@@ -6946,22 +6992,43 @@ button{ -webkit-tap-highlight-color:transparent; }
               const xmlText = await fetchCap(d.id);
               const parsed = parseCapXml(xmlText);
 
-              return enrichAlert({
+              if(!parsed.ok){
+                return [enrichAlert({
+                  datasetId:d.id,
+                  datasetName:d.name,
+                  kind:d.kind,
+                  color:d.color,
+                  headline:`（CAP 解析失敗）${d.name}`,
+                  event:"",
+                  sent:"",
+                  effective:"",
+                  expires:"",
+                  area:"",
+                  description:"",
+                  instruction:"",
+                  parameters:{},
+                  raw:xmlText
+                })];
+              }
+
+              const infos = Array.isArray(parsed.infos) && parsed.infos.length ? parsed.infos : [parsed];
+              return infos.map((info, idx) => enrichAlert({
                 datasetId:d.id,
                 datasetName:d.name,
                 kind:d.kind,
                 color:d.color,
-                headline:parsed.ok ? parsed.headline : `（CAP 解析失敗）${d.name}`,
-                event:parsed.ok ? parsed.event : "",
-                sent:parsed.ok ? parsed.sent : "",
-                effective:parsed.ok ? parsed.effective : "",
-                expires:parsed.ok ? parsed.expires : "",
-                area:parsed.ok ? parsed.area : "",
-                description:parsed.ok ? parsed.description : "",
-                instruction:parsed.ok ? parsed.instruction : "",
-                parameters:parsed.ok ? parsed.parameters : {},
+                capInfoIndex:info.infoIndex ?? idx,
+                headline:info.headline || parsed.headline || d.name,
+                event:info.event || parsed.event || "",
+                sent:parsed.sent || info.sent || "",
+                effective:info.effective || parsed.effective || "",
+                expires:info.expires || parsed.expires || "",
+                area:info.area || "",
+                description:info.description || parsed.description || "",
+                instruction:info.instruction || parsed.instruction || "",
+                parameters:info.parameters || {},
                 raw:xmlText
-              });
+              }));
             })
           );
 
@@ -6969,7 +7036,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           const bad = [];
 
           for(const r of results){
-            if(r.status === "fulfilled") ok.push(r.value);
+            if(r.status === "fulfilled") ok.push(...(Array.isArray(r.value) ? r.value : [r.value]));
             else bad.push(r.reason);
           }
 
@@ -8822,6 +8889,8 @@ ${a.instruction}` : ''
     if(c === '桃園市'){
       if(taoyuanTownAlias.has(t)) return taoyuanTownAlias.get(t);
       if(/[鄉鎮市]$/.test(t)) return t.slice(0,-1) + '區';
+      if(t === '桃園市') return t.replace(/市$/,'區');
+
     }
     if(c === '高雄市'){
       if(t === '三民鄉' || t === '那瑪夏鄉') return '那瑪夏區';
@@ -9247,6 +9316,80 @@ function renderTwLegend(kind){
         if(typeof window.twAreaRefreshHighlight === 'function') window.twAreaRefreshHighlight();
       }catch(e){ console.warn('v38 tooltip rebind failed', e); }
     }, 1100);
+  });
+})();
+
+
+
+/* ===== v39 CAP multi-info color sync + official area colors ===== */
+(function(){
+  function pickAlertColor(a){ return a?.color || '#8b5cf6'; }
+  function alpha(hexOrRgb, a){
+    const c = String(hexOrRgb || '').trim();
+    const m = c.match(/^rgb\((\d+),(\d+),(\d+)\)$/i) || c.match(/^(\d+)\s*,\s*(\d+)\s*,\s*(\d+)$/);
+    if(m) return `rgba(${m[1]},${m[2]},${m[3]},${a})`;
+    if(/^#([0-9a-f]{6})$/i.test(c)){
+      const n = c.slice(1);
+      const r = parseInt(n.slice(0,2),16), g = parseInt(n.slice(2,4),16), b = parseInt(n.slice(4,6),16);
+      return `rgba(${r},${g},${b},${a})`;
+    }
+    return c;
+  }
+  function namesOf(feature){ return window.twAreaFeatureNames ? window.twAreaFeatureNames(feature) : {}; }
+
+  const oldRank = window.twAreaAlertRank;
+  window.twAreaAlertRank = function(a){
+    if(a?.level === 'purpleRain') return 95;
+    return oldRank ? oldRank(a) : (a?.levelRank || 0);
+  };
+
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = namesOf(feature);
+    const wholeBest = window.twAreaBestAlertForFeature ? window.twAreaBestAlertForFeature(feature, 'county') : null;
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    let anyBest = null;
+    alerts.forEach(a => {
+      const hit = (window.twAreaAlertAreas ? window.twAreaAlertAreas(a) : (a.areaNames || [])).some(areaName => {
+        const county = window.twAreaResolveCountyName ? window.twAreaResolveCountyName(areaName) : areaName;
+        return county === names.countyNorm;
+      });
+      if(hit && (!anyBest || window.twAreaAlertRank(a) > window.twAreaAlertRank(anyBest))) anyBest = a;
+    });
+    const focused = window.twAreaFocusedCounty && names.countyNorm === window.twAreaFocusedCounty;
+    const borderColor = wholeBest ? pickAlertColor(wholeBest) : (anyBest ? pickAlertColor(anyBest) : '#173a52');
+    return {
+      color: focused ? '#083344' : borderColor,
+      weight: focused ? 3.2 : (wholeBest ? 2.05 : (anyBest ? 1.85 : 1.35)),
+      fillColor: wholeBest ? pickAlertColor(wholeBest) : '#ffffff',
+      fillOpacity: wholeBest ? (focused ? .44 : .34) : 0,
+      opacity: focused ? 1 : (wholeBest || anyBest ? .94 : .76),
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round',
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+
+  window.twAreaOfficialTownStyle = function(feature){
+    const names = namesOf(feature);
+    const townBest = window.twAreaBestAlertForFeature ? window.twAreaBestAlertForFeature(feature, 'town') : null;
+    const countyFocused = window.twAreaFocusedCounty && names.countyNorm === window.twAreaFocusedCounty;
+    const color = pickAlertColor(townBest);
+    return {
+      color: townBest ? alpha(color, countyFocused ? .9 : .74) : 'rgba(23,58,82,.04)',
+      weight: townBest ? (countyFocused ? 1.35 : .9) : .08,
+      fillColor: townBest ? color : 'transparent',
+      fillOpacity: townBest ? (countyFocused ? .48 : .36) : 0,
+      opacity: townBest ? .86 : .05,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round'
+    };
+  };
+
+  // Refresh once more after the CAP list and GeoJSON layers have both loaded.
+  window.addEventListener('load', () => {
+    setTimeout(() => { try{ window.twAreaRefreshHighlight && window.twAreaRefreshHighlight(); }catch(e){} }, 1800);
   });
 })();
 
