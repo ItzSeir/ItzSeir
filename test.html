@@ -3763,17 +3763,26 @@ button{ -webkit-tap-highlight-color:transparent; }
                     </div>
                   </div>
 
-                  <section class="twAreaBlock">
-                    <div class="twAreaBlockHead">
-                      <span class="twDetailLabel">影響地區</span>
-                      <span class="twAreaHelp">整縣市只顯示縣市；部分鄉鎮才會列出鄉鎮</span>
-                    </div>
-                    <div class="twAreaBlockBody" id="twArea">—</div>
-                  </section>
-
-                  <div class="twOfficialDetailText" id="twText">（請在上方地區表點選一個警特報）</div>
-                  <div class="twOfficialDetailText" id="twRaw" style="display:none;"></div>
                 </div>
+              </div>
+            </div>
+
+            <div class="twOfficialBottomDetailPanel">
+              <div class="twOfficialDetailHead">
+                <strong>📍 影響地區與詳細說明</strong>
+                <span class="chip">點選地區警特報後更新</span>
+              </div>
+              <div class="twOfficialDetailBody twBottomDetailBody">
+                <section class="twAreaBlock">
+                  <div class="twAreaBlockHead">
+                    <span class="twDetailLabel">影響地區</span>
+                    <span class="twAreaHelp">整縣市只顯示縣市；部分鄉鎮才會列出鄉鎮</span>
+                  </div>
+                  <div class="twAreaBlockBody" id="twArea">—</div>
+                </section>
+
+                <div class="twOfficialDetailText" id="twText">（請在上方地區表點選一個警特報）</div>
+                <div class="twOfficialDetailText" id="twRaw" style="display:none;"></div>
               </div>
             </div>
           </div>
@@ -9497,6 +9506,55 @@ function renderTwLegend(kind){
       grid-template-columns:1fr !important;
     }
     #twAreaMap{ height:500px !important; }
+  }
+</style>
+
+
+<!-- ===== v41: put affected areas and detail text below map/table ===== -->
+<style>
+  .twOfficialGrid{
+    grid-template-areas:
+      "detail detail"
+      "map table"
+      "bottom bottom" !important;
+  }
+
+  .twOfficialBottomDetailPanel{
+    grid-area:bottom !important;
+    grid-column:1 / -1 !important;
+    border:1px solid var(--line);
+    border-radius:24px;
+    background:rgba(255,255,255,.88);
+    box-shadow:0 10px 24px rgba(31,53,72,.07);
+    overflow:hidden;
+  }
+
+  .twBottomDetailBody{
+    padding:16px !important;
+  }
+
+  .twOfficialBottomDetailPanel .twAreaBlock{
+    margin-top:0 !important;
+  }
+
+  .twOfficialBottomDetailPanel .twOfficialDetailText{
+    margin-top:14px !important;
+    max-height:none !important;
+  }
+
+  .twOfficialDetailPanel .twAreaBlock,
+  .twOfficialDetailPanel .twOfficialDetailText{
+    display:none !important;
+  }
+
+  @media (max-width:1100px){
+    .twOfficialGrid{
+      grid-template-areas:
+        "detail"
+        "map"
+        "table"
+        "bottom" !important;
+    }
   }
 </style>
 
