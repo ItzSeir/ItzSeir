@@ -6305,15 +6305,18 @@ button{ -webkit-tap-highlight-color:transparent; }
       const CWA_WARNING_DETAIL_API =
         "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0033-002?Authorization=CWA-BC6BF68E-0B38-43B1-A5F5-811E1C06742B&format=JSON";
 
-      // v21: W-C0033 is the main source. CAP is kept only as a fallback補充，
-      // for cases where CWA official pages show items that W-C0033 has not yet surfaced.
+      // v25: Split source rule.
+      // W-C0033 is used only for products that this API reliably provides:
+      // 豪(大)雨、陸上/海上強風、濃霧、颱風警報.
+      // Other products such as 高溫、低溫、長浪、海嘯 use CAP only.
+      // This prevents W-C0033 county-level summaries and CAP town-level warnings from overwriting each other.
+      const W_C0033_ONLY_KINDS = new Set(["rain", "wind", "fog", "typhoon"]);
+      const CAP_ONLY_KINDS = new Set(["cold", "heat", "wave", "tsunami"]);
+
       const CWA_CAP_FALLBACK_BASE = "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Warning/";
       const CWA_CAP_FALLBACK_DATASETS = [
-        { id:"W-C0033-003", name:"豪雨 / 大雨 CAP 補充", kind:"rain" },
-        { id:"W-C0033-004", name:"低溫 CAP 補充", kind:"cold" },
-        { id:"W-C0033-005", name:"高溫 CAP 補充", kind:"heat" },
-        { id:"W-C0033-006", name:"強風 CAP 補充", kind:"wind" },
-        { id:"W-C0034-001", name:"颱風 CAP 補充", kind:"typhoon" }
+        { id:"W-C0033-004", name:"低溫 CAP", kind:"cold" },
+        { id:"W-C0033-005", name:"高溫 CAP", kind:"heat" }
       ];
 
       const DATASETS = [
@@ -7177,7 +7180,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           q("twRefresh").disabled = true;
           q("twRefresh").textContent = "更新中…";
         }
-        q("twStatus").textContent = "讀取 W-C0033 + CAP 補充中…";
+        q("twStatus").textContent = "讀取 W-C0033 與 CAP 分流資料中…";
         try{
           const [countyResult, detailResult, capFallbackResult] = await Promise.allSettled([
             fetchCwaWarningJson(CWA_WARNING_COUNTY_API),
@@ -7188,12 +7191,18 @@ button{ -webkit-tap-highlight-color:transparent; }
           let countyAlerts = [];
           let detailAlerts = [];
           let capFallbackAlerts = [];
-          if(countyResult.status === "fulfilled") countyAlerts = normalizeCwaWarningJson(countyResult.value, "W-C0033-001");
-          else bad.push(countyResult.reason);
-          if(detailResult.status === "fulfilled") detailAlerts = normalizeCwaWarningJson(detailResult.value, "W-C0033-002");
-          else bad.push(detailResult.reason);
-          if(capFallbackResult.status === "fulfilled") capFallbackAlerts = capFallbackResult.value || [];
-          else bad.push(capFallbackResult.reason);
+          if(countyResult.status === "fulfilled") {
+            countyAlerts = normalizeCwaWarningJson(countyResult.value, "W-C0033-001")
+              .filter(a => W_C0033_ONLY_KINDS.has(a.kind));
+          }else bad.push(countyResult.reason);
+          if(detailResult.status === "fulfilled") {
+            detailAlerts = normalizeCwaWarningJson(detailResult.value, "W-C0033-002")
+              .filter(a => W_C0033_ONLY_KINDS.has(a.kind));
+          }else bad.push(detailResult.reason);
+          if(capFallbackResult.status === "fulfilled") {
+            capFallbackAlerts = (capFallbackResult.value || [])
+              .filter(a => CAP_ONLY_KINDS.has(a.kind));
+          }else bad.push(capFallbackResult.reason);
 
           const primaryAlerts = mergeWarningAlerts(countyAlerts, detailAlerts);
           let ok = mergeHybridAlerts(primaryAlerts, capFallbackAlerts)
@@ -7207,10 +7216,12 @@ button{ -webkit-tap-highlight-color:transparent; }
           buildFilters();
           applyFilters();
           if(typeof renderTyphoonWarningOverlay === "function") renderTyphoonWarningOverlay();
-          const success = 2 - bad.length;
+          const success = 3 - bad.length;
+          const wCount = primaryAlerts.length;
+          const capCount = capFallbackAlerts.length;
           q("twStatus").textContent = bad.length
-            ? `已更新 W-C0033 目前警報 + CAP 補充（${success}/3 成功，${allAlerts.length} 筆）`
-            : `已更新 W-C0033 目前警報 + CAP 補充（${allAlerts.length} 筆）`;
+            ? `已更新 W-C0033 / CAP 分流（${success}/3 成功，W:${wCount}，CAP:${capCount}，共 ${allAlerts.length} 筆）`
+            : `已更新 W-C0033 / CAP 分流（W:${wCount}，CAP:${capCount}，共 ${allAlerts.length} 筆）`;
         }catch(err){
           console.error(err);
           q("twStatus").textContent = "更新失敗";
