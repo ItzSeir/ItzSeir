@@ -7537,7 +7537,7 @@ button{ -webkit-tap-highlight-color:transparent; }
             const countyName = twAreaNormalizeName(names.county || names.full);
             if(countyName) twAreaCountyLayerByName.set(countyName, layer);
 
-            layer.bindTooltip(names.full || names.county || "—", {
+            layer.bindTooltip(names.county || "—", {
               sticky:true,
               direction:"top",
               className:"tw-area-popup"
@@ -7564,7 +7564,7 @@ button{ -webkit-tap-highlight-color:transparent; }
               twAreaTownToCounty.set(names.fullNorm, names.countyNorm);
             }
 
-            layer.bindTooltip(names.full || "—", {
+            layer.bindTooltip(names.county || "—", {
               sticky:true,
               direction:"top",
               className:"tw-area-popup"
@@ -7899,7 +7899,7 @@ ${a.instruction}` : ''
           const names = twAreaFeatureNames(feature);
           const countyName = twAreaNormalizeName(names.county || names.full);
           if(countyName) twAreaCountyLayerByName.set(countyName, layer);
-          layer.bindTooltip(names.full || names.county || '—', { sticky:true, direction:'top', className:'tw-area-popup' });
+          layer.bindTooltip(names.county || '—', { sticky:true, direction:'top', className:'tw-area-popup' });
           layer.on({
             click: () => { if(typeof twAreaFocusCounty === 'function') twAreaFocusCounty(countyName); },
             mouseover: () => { layer.setStyle({weight:2.2, opacity:.95}); },
@@ -7924,7 +7924,7 @@ ${a.instruction}` : ''
             window.__twAreaCountyToTowns.get(names.countyNorm).add(names.townNorm);
             window.__twAreaCountyToTowns.get(names.countyNorm).add(names.fullNorm);
           }
-          layer.bindTooltip(names.full || '—', { sticky:true, direction:'top', className:'tw-area-popup' });
+          layer.bindTooltip(names.county || '—', { sticky:true, direction:'top', className:'tw-area-popup' });
           layer.on({
             mouseover: () => { layer.setStyle({weight:1.7, opacity:.95}); },
             mouseout: () => { if(twAreaTownLayer) twAreaTownLayer.setStyle(twAreaOfficialTownStyle); }
@@ -8824,7 +8824,7 @@ ${a.instruction}` : ''
       if(/[鄉鎮市]$/.test(t)) return t.slice(0,-1) + '區';
     }
     if(c === '高雄市'){
-      if(t === '三民鄉' || t === '三民區' || t === '那瑪夏鄉') return '那瑪夏區';
+      if(t === '三民鄉' || t === '那瑪夏鄉') return '那瑪夏區';
       if(t === '瑪雅鄉' || t === '民權鄉') return t.replace(/鄉$/,'區');
     }
     if(c === '彰化縣'){
@@ -9033,6 +9033,222 @@ function renderTwLegend(kind){
       <span class="legendText"><span class="legendTitle">${title}</span><span class="legendDef">${desc}</span></span>
     </div>`).join('');
 }
+
+
+
+/* ===== v38 GeoJSON duplicate-town disambiguation + hover + official legend fix ===== */
+(function(){
+  const css = document.createElement('style');
+  css.textContent = `
+    .twOfficialLegend{
+      display:grid !important;
+      grid-template-columns:repeat(auto-fit,minmax(235px,1fr)) !important;
+      gap:12px !important;
+      padding:14px !important;
+      align-items:stretch !important;
+    }
+    .twOfficialLegendItem{
+      display:grid !important;
+      grid-template-columns:12px 28px minmax(0,1fr) !important;
+      gap:10px !important;
+      align-items:start !important;
+      min-height:72px !important;
+      padding:12px !important;
+      border-radius:18px !important;
+      background:rgba(255,255,255,.92) !important;
+      border:1px solid rgba(25,42,58,.12) !important;
+      box-shadow:0 10px 22px rgba(31,53,72,.055) !important;
+      overflow:hidden !important;
+    }
+    .twOfficialColor{
+      width:12px !important;
+      min-width:12px !important;
+      height:44px !important;
+      border-radius:999px !important;
+      box-shadow:0 0 0 1px rgba(25,42,58,.16) inset !important;
+    }
+    .twOfficialColor.rainExtreme{ background:#d600d6 !important; }
+    .twOfficialColor.officialRed{ background:#e60012 !important; }
+    .twOfficialColor.officialOrange{ background:#ff7f00 !important; }
+    .twOfficialColor.officialYellow{ background:#fff100 !important; }
+    .twOfficialColor.officialGreen{ background:#00c853 !important; }
+    .twOfficialIcon{ width:28px !important; min-width:28px !important; text-align:center !important; font-size:19px !important; line-height:1.2 !important; }
+    .twOfficialLegendItem .legendText{ display:block !important; min-width:0 !important; }
+    .twOfficialLegendItem .legendTitle{
+      display:block !important;
+      font-size:12.5px !important;
+      line-height:1.25 !important;
+      color:#122c3c !important;
+      font-weight:900 !important;
+      word-break:keep-all !important;
+      overflow-wrap:normal !important;
+      white-space:normal !important;
+    }
+    .twOfficialLegendItem .legendDef{
+      display:block !important;
+      margin-top:5px !important;
+      font-size:11.5px !important;
+      line-height:1.5 !important;
+      color:#607684 !important;
+      font-weight:800 !important;
+      word-break:keep-all !important;
+      overflow-wrap:normal !important;
+      white-space:normal !important;
+    }
+    .tw-area-popup{ font-weight:900 !important; }
+  `;
+  document.head.appendChild(css);
+
+  function norm(v){
+    return String(v ?? '').replace(/台/g,'臺').replace(/[()（）]/g,'').replace(/\s+/g,'').trim();
+  }
+
+  function collectLngLatFromCoords(coords, bucket){
+    if(!coords) return;
+    if(typeof coords[0] === 'number' && typeof coords[1] === 'number'){
+      bucket.push([coords[0], coords[1]]);
+      return;
+    }
+    for(const c of coords) collectLngLatFromCoords(c, bucket);
+  }
+
+  function featureCentroid(feature){
+    const pts = [];
+    try{ collectLngLatFromCoords(feature?.geometry?.coordinates, pts); }catch(e){}
+    if(!pts.length) return {lng:0, lat:0};
+    let lng=0, lat=0;
+    for(const p of pts){ lng += Number(p[0]) || 0; lat += Number(p[1]) || 0; }
+    return {lng:lng/pts.length, lat:lat/pts.length};
+  }
+
+  function isOldKaohsiungSanminMountain(feature){
+    const c = featureCentroid(feature);
+    // Old 高雄縣三民鄉 / current 那瑪夏區 is in NE mountain area.
+    // Real 高雄市三民區 is near downtown Kaohsiung (lower latitude/longitude).
+    return c.lat > 22.9 || c.lng > 120.55;
+  }
+
+  function requestedTownSetForAlertCounty(alert, county){
+    const groups = (typeof window.__twBuildAreaGroupsV37 === 'function')
+      ? window.__twBuildAreaGroupsV37(alert)
+      : [];
+    const g = groups.find(x => x && x.county === county);
+    return g ? g.towns : new Set();
+  }
+
+  function hasAny(set, values){
+    if(!set) return false;
+    for(const v of values){ if(set.has(v)) return true; }
+    return false;
+  }
+
+  const oldHit = window.twAreaAlertHitsFeature;
+  window.twAreaAlertHitsFeature = function(alert, feature, mode='any'){
+    const names = window.twAreaFeatureNames ? window.twAreaFeatureNames(feature) : null;
+    if(names && names.countyNorm === '高雄市' && names.townNorm === '三民區'){
+      const requested = requestedTownSetForAlertCounty(alert, '高雄市');
+      const wantsNamasia = hasAny(requested, ['那瑪夏區','高雄市那瑪夏區','那瑪夏鄉','高雄市那瑪夏鄉','三民鄉','高雄市三民鄉']);
+      const wantsSanmin = hasAny(requested, ['三民區','高雄市三民區']);
+      const mountain = isOldKaohsiungSanminMountain(feature);
+
+      if(mode === 'town'){
+        if(wantsNamasia) return mountain;
+        if(wantsSanmin) return !mountain;
+      }
+      if(mode === 'any'){
+        if(wantsNamasia || wantsSanmin) return wantsNamasia ? mountain : !mountain;
+      }
+      if(mode === 'county') return oldHit ? oldHit(alert, feature, mode) : false;
+    }
+    return oldHit ? oldHit(alert, feature, mode) : false;
+  };
+
+  const oldResolve = window.twAreaResolveCountyName;
+  window.twAreaResolveCountyName = function(name){
+    const n = norm(name);
+    if(n === '那瑪夏區' || n === '那瑪夏鄉' || n === '三民鄉' || n === '瑪雅鄉' || n === '民權鄉') return '高雄市';
+    return oldResolve ? oldResolve(name) : n;
+  };
+
+  const oldFeatureNames = window.twAreaFeatureNames;
+  window.twAreaFeatureNames = function(feature){
+    const names = oldFeatureNames ? oldFeatureNames(feature) : {};
+    // Keep GeoJSON matching name as 三民區, because the uploaded GeoJSON has two 三民區.
+    // Display/tooltip is county-only, so township label will not expose the old duplicate name.
+    return names;
+  };
+
+  window.renderTwLegend = function(kind){
+    const el = document.getElementById('twOfficialLegend');
+    if(!el) return;
+    const legends = {
+      rain:[
+        ['rainExtreme','⛈️','超大豪雨','24 小時累積雨量 500mm 以上。'],
+        ['officialRed','🌧️','大豪雨','24 小時累積雨量 350mm 以上，或 3 小時累積雨量 200mm 以上。'],
+        ['officialOrange','🌧️','豪雨','24 小時累積雨量 200mm 以上，或 3 小時累積雨量 100mm 以上。'],
+        ['officialYellow','🌦️','大雨','24 小時累積雨量 80mm 以上，或時雨量 40mm 以上。']
+      ],
+      heat:[
+        ['officialRed','🌡️','紅色燈號','氣溫達 38°C 以上，且持續 3 日以上。'],
+        ['officialOrange','🌡️','橙色燈號','氣溫達 38°C 以上，或氣溫達 36°C 以上且持續 3 日以上。'],
+        ['officialYellow','🌡️','黃色燈號','氣溫達 36°C 以上。']
+      ],
+      cold:[
+        ['officialRed','🥶','嚴寒','平地最低氣溫連續 24 小時攝氏 6 度以下。'],
+        ['officialOrange','🧊','非常寒冷','平地最低氣溫攝氏 6 度以下，或攝氏 10 度以下且連續 24 小時攝氏 12 度以下。'],
+        ['officialYellow','🌡️','寒冷','平地最低氣溫攝氏 10 度以下。']
+      ],
+      wind:[
+        ['officialRed','💨','紅色燈號','平均風 12 級以上，或陣風 14 級以上。'],
+        ['officialOrange','🌬️','橙色燈號','平均風 9 級以上，或陣風 11 級以上。'],
+        ['officialYellow','🍃','黃色燈號','平均風 6 級以上，或陣風 8 級以上。']
+      ],
+      typhoon:[
+        ['officialRed','🌀','海上陸上颱風警報','預測颱風 7 級風暴風範圍可能侵襲臺灣本島、澎湖、金門或馬祖陸上之前 18 小時。'],
+        ['officialOrange','🌊','海上颱風警報','預測颱風 7 級風暴風範圍可能侵襲臺灣本島、澎湖、金門或馬祖近海 100 公里內海域之前 24 小時。'],
+        ['officialGreen','✅','解除警報','颱風威脅解除、轉向或消滅，視情況改發豪雨特報。']
+      ],
+      fog:[['officialYellow','🌫️','濃霧特報','水平能見度低於或等於 200 公尺。']],
+      wave:[['officialYellow','🌊','長浪即時訊息','平均週期大於 8 秒，且示性波高大於或等於 1.5 公尺。']],
+      tsunami:[
+        ['officialRed','🌊','海嘯警報','海嘯預估波高 0.3 公尺以上，且預估 3 小時內抵達。'],
+        ['officialOrange','🌊','海嘯警訊','海嘯預估波高 0.3 公尺以上，且預估 3 至 6 小時內抵達。'],
+        ['officialYellow','ℹ️','海嘯消息','未達警報或警訊標準，但可能引起民眾關切。'],
+        ['officialGreen','✅','解除','海嘯威脅解除。']
+      ]
+    };
+    const rows = legends[kind] || legends.rain;
+    el.innerHTML = rows.map(([cls, icon, title, desc]) => `
+      <div class="twOfficialLegendItem">
+        <span class="twOfficialColor ${cls}"></span>
+        <span class="twOfficialIcon">${icon}</span>
+        <span class="legendText"><span class="legendTitle">${title}</span><span class="legendDef">${desc}</span></span>
+      </div>`).join('');
+  };
+
+  // Rebind tooltips after map is ready: all hover labels show county only.
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      try{
+        if(window.twAreaCountyLayer){
+          window.twAreaCountyLayer.eachLayer(layer => {
+            const n = window.twAreaFeatureNames(layer.feature);
+            layer.unbindTooltip();
+            layer.bindTooltip(n.county || '—', {sticky:true, direction:'top', className:'tw-area-popup'});
+          });
+        }
+        if(window.twAreaTownLayer){
+          window.twAreaTownLayer.eachLayer(layer => {
+            const n = window.twAreaFeatureNames(layer.feature);
+            layer.unbindTooltip();
+            layer.bindTooltip(n.county || '—', {sticky:true, direction:'top', className:'tw-area-popup'});
+          });
+        }
+        if(typeof window.twAreaRefreshHighlight === 'function') window.twAreaRefreshHighlight();
+      }catch(e){ console.warn('v38 tooltip rebind failed', e); }
+    }, 1100);
+  });
+})();
 
     window.addEventListener("load", () => {
       try{ initWarningCenter(); }catch(e){ console.error("initWarningCenter failed", e); }
