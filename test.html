@@ -8889,8 +8889,6 @@ ${a.instruction}` : ''
     if(c === '桃園市'){
       if(taoyuanTownAlias.has(t)) return taoyuanTownAlias.get(t);
       if(/[鄉鎮市]$/.test(t)) return t.slice(0,-1) + '區';
-      if(t === '桃園市') return t.replace(/市$/,'區');
-
     }
     if(c === '高雄市'){
       if(t === '三民鄉' || t === '那瑪夏鄉') return '那瑪夏區';
@@ -9400,5 +9398,107 @@ function renderTwLegend(kind){
     });
   
 </script>
+
+
+<!-- ===== v40: move selected warning summary above map/table ===== -->
+<style>
+  /* Put the selected-detail card above both the map and the county table. */
+  .twOfficialGrid{
+    display:grid !important;
+    grid-template-columns:minmax(520px,1fr) minmax(520px,1fr) !important;
+    grid-template-areas:
+      "detail detail"
+      "map table" !important;
+    gap:18px !important;
+    align-items:start !important;
+  }
+
+  .twOfficialRight{
+    display:contents !important;
+  }
+
+  .twOfficialDetailPanel{
+    grid-area:detail !important;
+    grid-column:1 / -1 !important;
+    order:-10 !important;
+    min-height:auto !important;
+  }
+
+  .twOfficialMapPanel{
+    grid-area:map !important;
+    grid-column:auto !important;
+    order:1 !important;
+  }
+
+  .twOfficialTablePanel{
+    grid-area:table !important;
+    grid-column:auto !important;
+    order:2 !important;
+  }
+
+  /* Make the summary compact when it is above the map/table. */
+  .twOfficialDetailPanel .twOfficialDetailBody{
+    padding:16px !important;
+  }
+
+  .twOfficialDetailPanel .twDetailTopBar{
+    margin-bottom:12px !important;
+  }
+
+  .twOfficialDetailPanel .twImportantGrid{
+    grid-template-columns:1fr 1.25fr 2fr 1fr !important;
+    gap:12px !important;
+  }
+
+  .twOfficialDetailPanel .twAreaBlock{
+    margin-top:12px !important;
+  }
+
+  .twOfficialDetailPanel .twOfficialDetailText{
+    margin-top:12px !important;
+  }
+
+  /* Keep map/table balanced after the detail card moves upward. */
+  .twOfficialMapPanel,
+  .twOfficialTablePanel{
+    min-height:760px !important;
+    height:100% !important;
+  }
+
+  .twOfficialCountyTables{
+    min-height:580px !important;
+  }
+
+  #twAreaMap{
+    height:610px !important;
+  }
+
+  @media (max-width:1100px){
+    .twOfficialGrid{
+      grid-template-columns:1fr !important;
+      grid-template-areas:
+        "detail"
+        "map"
+        "table" !important;
+    }
+    .twOfficialMapPanel,
+    .twOfficialTablePanel{
+      min-height:auto !important;
+      height:auto !important;
+    }
+    #twAreaMap{ height:560px !important; }
+    .twOfficialDetailPanel .twImportantGrid{
+      grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    }
+  }
+
+  @media (max-width:700px){
+    .twOfficialDetailPanel .twImportantGrid{
+      grid-template-columns:1fr !important;
+    }
+    #twAreaMap{ height:500px !important; }
+  }
+</style>
+
 </body>
 </html>
