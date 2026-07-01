@@ -7607,7 +7607,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       async function fetchCap(datasetId){
         const url = `${CAP_BASE}${encodeURIComponent(datasetId)}.cap`;
-        const res = await fetch(url, { cache:"no-store" });
+        const res = await fetch(url, { cache:"force-cache" });
         if(!res.ok) throw new Error(`HTTP ${res.status} (${datasetId})`);
         return await res.text();
       }
@@ -8588,7 +8588,7 @@ button{ -webkit-tap-highlight-color:transparent; }
     }
 
     async function twAreaLoadGeoJson(url){
-      const res = await fetch(url, { cache:"no-store" });
+      const res = await fetch(url, { cache:"force-cache" });
       if(!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     }
@@ -8602,7 +8602,9 @@ button{ -webkit-tap-highlight-color:transparent; }
       twAreaLeafletMap = L.map(el, {
         zoomControl:true,
         scrollWheelZoom:true,
-        attributionControl:false
+        attributionControl:false,
+        preferCanvas:true,
+        renderer: L.canvas({ padding:0.5 })
       }).setView([23.72, 121.0], 7);
 
       // Custom Mapbox background layer + CAP GeoJSON overlay.
@@ -10869,6 +10871,170 @@ function renderTwLegend(kind){
   // Raw CAP toggle is restored.
   // v59: CAP map fill logic is restored to the stable pre-v58 implementation.
 
+})();
+</script>
+
+
+
+<style>
+/* ===== v64 visual clarity: warning outlines + softer typhoon internal borders ===== */
+.tw-area-popup{ pointer-events:none; }
+</style>
+<script>
+/* ===== v64: solid CAP borders, clearer yellow outline, faster GeoJSON cache, softer typhoon county lines ===== */
+(function(){
+  function rgba(hex, alpha){
+    try{
+      if(typeof window.twAreaHexToRgba === 'function') return window.twAreaHexToRgba(hex, alpha);
+      const h = String(hex || '#173a52').replace('#','');
+      const full = h.length === 3 ? h.split('').map(c=>c+c).join('') : h;
+      const n = parseInt(full, 16);
+      if(Number.isNaN(n)) return hex || '#173a52';
+      return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`;
+    }catch(e){ return hex || '#173a52'; }
+  }
+  function isYellowColor(c){
+    c = String(c || '').toLowerCase().replace(/\s+/g,'');
+    return c.includes('fff100') || c.includes('ffff00') || c.includes('255,255,0') || c.includes('255,241,0') || c === 'yellow';
+  }
+  function alertColor(a){
+    if(!a) return '#173a52';
+    try{ if(typeof window.twAreaAlertColor === 'function') return window.twAreaAlertColor(a); }catch(e){}
+    return a.color || '#8b5cf6';
+  }
+  function rank(a){
+    try{ return typeof window.twAreaAlertRank === 'function' ? window.twAreaAlertRank(a) : (a?.levelRank || 0); }
+    catch(e){ return a?.levelRank || 0; }
+  }
+  function featureNames(feature){
+    try{ return typeof window.twAreaFeatureNames === 'function' ? window.twAreaFeatureNames(feature) : {}; }
+    catch(e){ return {}; }
+  }
+  function best(feature, mode){
+    try{ return typeof window.twAreaBestAlertForFeature === 'function' ? window.twAreaBestAlertForFeature(feature, mode) : null; }
+    catch(e){ return null; }
+  }
+  function bestCountyAny(feature){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    const names = featureNames(feature);
+    let picked = null;
+    alerts.forEach(a => {
+      let hit = false;
+      try{
+        const areas = typeof window.twAreaAlertAreas === 'function' ? window.twAreaAlertAreas(a) : (a.areaNames || []);
+        hit = areas.some(n => (typeof window.twAreaResolveCountyName === 'function' ? window.twAreaResolveCountyName(n) : n) === names.countyNorm);
+      }catch(e){}
+      if(hit && (!picked || rank(a) > rank(picked))) picked = a;
+    });
+    return picked;
+  }
+
+  // CAP map: county/town borders are solid; yellow warning gets a stronger outer line.
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = featureNames(feature);
+    const whole = best(feature, 'county');
+    const any = bestCountyAny(feature);
+    const picked = whole || any;
+    const c = alertColor(picked);
+    const yellow = isYellowColor(c);
+    const focused = window.twAreaFocusedCounty && names.countyNorm === window.twAreaFocusedCounty;
+    const border = picked ? (yellow ? '#d1c300' : rgba(c, focused ? 1 : .96)) : 'rgba(8,47,61,.66)';
+    return {
+      color: focused ? '#083344' : border,
+      weight: focused ? 3.2 : (picked ? (yellow ? 3.15 : 2.25) : 1.25),
+      fillColor: whole ? c : '#ffffff',
+      fillOpacity: whole ? (focused ? .46 : .34) : 0,
+      opacity:1,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round',
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+
+  window.twAreaOfficialTownStyle = function(feature){
+    const names = featureNames(feature);
+    const picked = best(feature, 'town');
+    const c = alertColor(picked);
+    const yellow = isYellowColor(c);
+    const focused = window.twAreaFocusedCounty && names.countyNorm === window.twAreaFocusedCounty;
+    return {
+      color: picked ? (yellow ? '#d1c300' : rgba(c, focused ? .95 : .88)) : 'rgba(15,76,92,.08)',
+      weight: picked ? (yellow ? (focused ? 1.9 : 1.55) : (focused ? 1.55 : 1.12)) : .16,
+      fillColor: picked ? c : 'transparent',
+      fillOpacity: picked ? (focused ? .50 : .40) : 0,
+      opacity: picked ? .96 : .12,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round'
+    };
+  };
+
+  // Cache GeoJSON in memory and use normal browser HTTP cache instead of no-store.
+  try{
+    const previousLoader = window.twAreaLoadGeoJson || (typeof twAreaLoadGeoJson === 'function' ? twAreaLoadGeoJson : null);
+    const geoCache = window.__twGeoJsonCache || (window.__twGeoJsonCache = new Map());
+    window.twAreaLoadGeoJson = async function(url){
+      if(geoCache.has(url)) return geoCache.get(url);
+      const promise = (async () => {
+        const res = await fetch(url, { cache:'force-cache' });
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      })();
+      geoCache.set(url, promise);
+      return promise;
+    };
+    try{ twAreaLoadGeoJson = window.twAreaLoadGeoJson; }catch(e){}
+  }catch(e){}
+
+  // Typhoon interactive map: strong Taiwan island outline, light internal county borders.
+  const taiwanMainIslandOutline = [
+    [25.30,121.55],[25.18,121.80],[24.98,121.94],[24.72,121.87],[24.47,121.84],[24.21,121.76],
+    [23.95,121.66],[23.70,121.55],[23.47,121.48],[23.18,121.40],[22.88,121.31],[22.62,121.18],
+    [22.35,120.98],[22.15,120.78],[21.92,120.86],[21.91,120.65],[22.10,120.43],[22.32,120.30],
+    [22.60,120.18],[22.88,120.10],[23.15,120.08],[23.42,120.10],[23.70,120.18],[24.00,120.30],
+    [24.29,120.48],[24.56,120.68],[24.82,120.88],[25.05,121.12],[25.22,121.35],[25.30,121.55]
+  ];
+
+  window.addTyphoonCountyBoundaryOverlay = async function(){
+    if(!map) return;
+    try{ if(window.typhoonCountyBoundaryLayer){ map.removeLayer(window.typhoonCountyBoundaryLayer); } }catch(e){}
+    try{
+      if(!map.getPane('taiwanStrongBoundaryPane')){
+        map.createPane('taiwanStrongBoundaryPane');
+        map.getPane('taiwanStrongBoundaryPane').style.zIndex = 326;
+        map.getPane('taiwanStrongBoundaryPane').style.pointerEvents = 'none';
+      }
+      if(!map.getPane('countyBoundaryPane')){
+        map.createPane('countyBoundaryPane');
+        map.getPane('countyBoundaryPane').style.zIndex = 327;
+        map.getPane('countyBoundaryPane').style.pointerEvents = 'none';
+      }
+      const data = await window.twAreaLoadGeoJson('./tw-county.geojson');
+      const islandOutline = L.polyline(taiwanMainIslandOutline, {
+        pane:'taiwanStrongBoundaryPane',
+        interactive:false,
+        color:'#062f3f',
+        weight:2.55,
+        opacity:.92,
+        lineJoin:'round',
+        lineCap:'round'
+      });
+      const countySoft = L.geoJSON(data, {
+        pane:'countyBoundaryPane',
+        interactive:false,
+        style(){ return { color:'#123d52', weight:.46, opacity:.34, fill:false, fillOpacity:0, lineJoin:'round', lineCap:'round' }; }
+      });
+      window.typhoonCountyBoundaryLayer = L.layerGroup([countySoft, islandOutline]).addTo(map);
+    }catch(err){
+      console.warn('tw-county.geojson optional load failed for typhoon map', err);
+    }
+  };
+
+  window.addEventListener('load', () => {
+    setTimeout(() => { try{ window.twAreaRefreshHighlight && window.twAreaRefreshHighlight(); }catch(e){} }, 600);
+    setTimeout(() => { try{ window.addTyphoonCountyBoundaryOverlay && window.addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 700);
+  });
 })();
 </script>
 
