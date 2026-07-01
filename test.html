@@ -4032,9 +4032,17 @@ button{ -webkit-tap-highlight-color:transparent; }
     }
 
     function parseLocalDateTime(s){
-      const m = String(s ?? "").trim().match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\s+(\d{1,2}):(\d{2})$/);
-      if(!m) return null;
-      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), 0, 0);
+      const raw = String(s ?? "").trim();
+      let m = raw.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\s+(\d{1,2}):(\d{2})$/);
+      if(m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), 0, 0);
+
+      // CWA XML often uses ISO time such as 2026-07-01T14:00:00+08:00.
+      m = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?$/);
+      if(m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), 0, 0);
+
+      const d = new Date(raw);
+      if(!Number.isNaN(d.getTime())) return d;
+      return null;
     }
 
     function pad2(n){
@@ -4063,7 +4071,20 @@ button{ -webkit-tap-highlight-color:transparent; }
       const joiner = url.includes("?") ? "&" : "?";
       const res = await fetch(`${url}${joiner}_=${Date.now()}`, { cache:"no-store" });
       if(!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
-      return await res.json();
+
+      const text = await res.text();
+      const trimmed = text.trim();
+
+      // W-C0034-005 may return XML even when the normal warning APIs use JSON/CAP.
+      // Parse XML here so the typhoon panel can read <TropicalCyclone>/<Fix>.
+      if(trimmed.startsWith("<")){
+        const xml = new DOMParser().parseFromString(trimmed, "application/xml");
+        const parserError = xml.querySelector("parsererror");
+        if(parserError) throw new Error("CWA XML parse failed");
+        return xml;
+      }
+
+      return JSON.parse(trimmed);
     }
 
     function normalizeKind(v){
@@ -4099,22 +4120,22 @@ button{ -webkit-tap-highlight-color:transparent; }
     }
 
     function normalizePoint(p, typhoonId, typhoonName){
-      const lat = Number(firstValue(p, ["lat", "latitude", "Latitude", "緯度"]));
-      const lon = Number(firstValue(p, ["lon", "lng", "longitude", "Longitude", "經度"]));
+      const lat = Number(firstValue(p, ["lat", "latitude", "Latitude", "CoordinateLatitude", "緯度"]));
+      const lon = Number(firstValue(p, ["lon", "lng", "longitude", "Longitude", "CoordinateLongitude", "經度"]));
 
       return {
         typhoonId,
         typhoonName,
         lat,
         lon,
-        time: String(firstValue(p, ["time", "validTime", "dataTime", "DateTime", "dateTime", "時間"]) ?? ""),
+        time: String(firstValue(p, ["time", "validTime", "dataTime", "DateTime", "dateTime", "InitialTime", "時間"]) ?? ""),
         kind: normalizeKind(firstValue(p, ["kind", "type", "pointType", "資料型態"])),
         level: normalizeLevel(firstValue(p, ["level", "intensity", "Intensity", "強度"])),
-        wind: firstValue(p, ["wind", "maxWind", "maxWindSpeed", "最大風速"]) === null ? null : Number(firstValue(p, ["wind", "maxWind", "maxWindSpeed", "最大風速"])),
-        pressure: firstValue(p, ["pressure", "airPressure", "centralPressure", "中心氣壓"]) === null ? null : Number(firstValue(p, ["pressure", "airPressure", "centralPressure", "中心氣壓"])),
-        note: String(firstValue(p, ["note", "remark", "description", "備註"]) ?? ""),
-        fcst_radius_km: firstValue(p, ["fcst_radius_km", "forecastRadius", "radius", "誤差半徑"]) === null ? 0 : Number(firstValue(p, ["fcst_radius_km", "forecastRadius", "radius", "誤差半徑"])),
-        storm_radius_km: firstValue(p, ["storm_radius_km", "stormRadius", "暴風半徑"]) === null ? 0 : Number(firstValue(p, ["storm_radius_km", "stormRadius", "暴風半徑"]))
+        wind: firstValue(p, ["wind", "maxWind", "maxWindSpeed", "MaxWindSpeed", "最大風速"]) === null ? null : Number(firstValue(p, ["wind", "maxWind", "maxWindSpeed", "MaxWindSpeed", "最大風速"])),
+        pressure: firstValue(p, ["pressure", "airPressure", "centralPressure", "Pressure", "中心氣壓"]) === null ? null : Number(firstValue(p, ["pressure", "airPressure", "centralPressure", "Pressure", "中心氣壓"])),
+        note: String(firstValue(p, ["note", "remark", "description", "MovingPrediction", "StateTransfer", "備註"]) ?? ""),
+        fcst_radius_km: firstValue(p, ["fcst_radius_km", "forecastRadius", "Radius70PercentProbability", "radius", "誤差半徑"]) === null ? 0 : Number(firstValue(p, ["fcst_radius_km", "forecastRadius", "Radius70PercentProbability", "radius", "誤差半徑"])),
+        storm_radius_km: firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"]) === null ? 0 : Number(firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"]))
       };
     }
 
@@ -4192,8 +4213,120 @@ button{ -webkit-tap-highlight-color:transparent; }
       return found;
     }
 
+    function localNameOf(node){
+      return node?.localName || String(node?.nodeName || "").split(":").pop();
+    }
+
+    function childElementsByName(node, name){
+      if(!node) return [];
+      return Array.from(node.children || []).filter(el => localNameOf(el) === name);
+    }
+
+    function childText(node, name){
+      const el = childElementsByName(node, name)[0];
+      return el ? String(el.textContent || "").trim() : "";
+    }
+
+    function allElementsByName(node, name){
+      if(!node) return [];
+      return Array.from(node.getElementsByTagName("*")).filter(el => localNameOf(el) === name);
+    }
+
+    function addHoursToCwaTime(initialTime, hours){
+      const d = parseLocalDateTime(initialTime);
+      if(!d || !isFinite(Number(hours))) return initialTime || "";
+      d.setHours(d.getHours() + Number(hours));
+      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    }
+
+    function levelFromWindMs(ms){
+      const v = Number(ms);
+      if(!isFinite(v)) return "TD";
+      if(v >= 51) return "STY";
+      if(v >= 33) return "TY";
+      if(v >= 17) return "TS";
+      return "TD";
+    }
+
+    function parseCwaCircleRadiusKm(fixEl, circleName){
+      const circle = childElementsByName(fixEl, circleName)[0];
+      if(!circle) return 0;
+      const radius = Number(childText(circle, "Radius"));
+      return isFinite(radius) ? radius : 0;
+    }
+
+    function parseCwaXmlFix(fixEl, kind, id, name){
+      const lat = Number(childText(fixEl, "CoordinateLatitude"));
+      const lon = Number(childText(fixEl, "CoordinateLongitude"));
+      const wind = Number(childText(fixEl, "MaxWindSpeed"));
+      const pressure = Number(childText(fixEl, "Pressure"));
+      const gust = childText(fixEl, "MaxGustSpeed");
+      const movingSpeed = childText(fixEl, "MovingSpeed");
+      const movingDirection = childText(fixEl, "MovingDirection");
+      const prediction = childText(fixEl, "MovingPrediction");
+      const transfer = childText(fixEl, "StateTransfer");
+      const forecastHour = childText(fixEl, "ForecastHour");
+      const initialTime = childText(fixEl, "InitialTime");
+      const dateTime = childText(fixEl, "DateTime");
+      const validTime = kind === "fcst" ? addHoursToCwaTime(initialTime, Number(forecastHour || 0)) : dateTime;
+      const stormRadius = parseCwaCircleRadiusKm(fixEl, "Circle15ms");
+      const fcstRadius = Number(childText(fixEl, "Radius70PercentProbability"));
+      const noteParts = [];
+      if(kind === "fcst" && forecastHour) noteParts.push(`${forecastHour}小時預報`);
+      if(prediction) noteParts.push(prediction);
+      if(transfer) noteParts.push(transfer);
+      if(movingDirection || movingSpeed) noteParts.push(`移向 ${movingDirection || "—"}，速度 ${movingSpeed || "—"} km/h`);
+      if(gust) noteParts.push(`最大陣風 ${gust} m/s`);
+
+      return {
+        typhoonId:id,
+        typhoonName:name,
+        lat,
+        lon,
+        time:validTime,
+        kind,
+        level:levelFromWindMs(wind),
+        wind:isFinite(wind) ? wind : null,
+        pressure:isFinite(pressure) ? pressure : null,
+        note:noteParts.join("｜"),
+        fcst_radius_km:isFinite(fcstRadius) ? fcstRadius : 0,
+        storm_radius_km:stormRadius
+      };
+    }
+
+    function parseCwaTyphoonXml(xml){
+      const storms = allElementsByName(xml, "TropicalCyclone");
+      if(!storms.length) return [];
+      return storms.map((storm, i) => {
+        const year = childText(storm, "Year") || "";
+        const tdNo = childText(storm, "CwaTdNo") || childText(storm, "TyphoonNo") || String(i + 1);
+        const nameZh = childText(storm, "TyphoonName") || childText(storm, "Name") || (tdNo ? `熱帶氣旋 ${tdNo}` : `熱帶氣旋 ${i + 1}`);
+        const id = `cwa-${year || "ty"}-${tdNo}`;
+        const name = `CWA｜${nameZh}`;
+
+        const analysis = childElementsByName(storm, "AnalysisData")[0];
+        const forecast = childElementsByName(storm, "ForecastData")[0];
+        const obsFixes = analysis ? childElementsByName(analysis, "Fix") : [];
+        const fcstFixes = forecast ? childElementsByName(forecast, "Fix") : [];
+        const obsPoints = obsFixes.map(fix => parseCwaXmlFix(fix, "obs", id, name));
+        const fcstPoints = fcstFixes.map(fix => parseCwaXmlFix(fix, "fcst", id, name));
+        const points = [...obsPoints, ...fcstPoints].filter(p => isFinite(p.lat) && isFinite(p.lon));
+
+        return {
+          id,
+          name,
+          source:"CWA W-C0034-005 熱帶氣旋路徑",
+          points
+        };
+      }).filter(t => t.points.length);
+    }
+
     function normalizeCwaTyphoonData(data){
       if(!data || typeof data !== "object") return [];
+
+      if(data.nodeType === 9 || localNameOf(data.documentElement) === "cwaopendata"){
+        return parseCwaTyphoonXml(data);
+      }
 
       const candidates = [];
       const records = data.records || data.Record || data;
