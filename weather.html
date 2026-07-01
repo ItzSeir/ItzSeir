@@ -3758,7 +3758,7 @@ button{ -webkit-tap-highlight-color:transparent; }
             <div class="twOfficialMapPanel">
               <div class="twOfficialMapHead">
                 <strong>🗺️ 警報分區地圖</strong>
-                <span class="twAreaStatus" id="twAreaMapStatus">等待 CAP 資料</span>
+                <span class="twAreaStatus" id="twAreaMapStatus">—</span>
               </div>
 
               <div class="twOfficialLegend" id="twOfficialLegend">
@@ -3772,9 +3772,7 @@ button{ -webkit-tap-highlight-color:transparent; }
                 <div id="twAreaMap"></div>
               </div>
 
-              <div class="twOfficialMapFoot">
-                地圖依 CWA CAP 的 <b>areaDesc</b> 自動上色。請放 <b>tw-county.geojson</b>，若要細到鄉鎮可再放 <b>tw-town.geojson</b>。
-              </div>
+              <div class="twOfficialMapFoot" style="display:none;"></div>
             </div>
 
             <div class="twOfficialRight">
@@ -3800,7 +3798,7 @@ button{ -webkit-tap-highlight-color:transparent; }
                   </table>
                 </div>
 
-                <div class="warningHint" id="twHint" style="padding:0 16px 16px;"></div>
+                <div class="warningHint" id="twHint" style="display:none;"></div>
                 <div class="warningList" id="twList" style="display:none;"></div>
               </div>
 
@@ -3810,7 +3808,7 @@ button{ -webkit-tap-highlight-color:transparent; }
                   <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <span class="chip" id="twSelected">未選取</span>
                     <button class="btn" id="twCopy" type="button">複製內容</button>
-                    
+                    <button class="btn" id="twRawBtn" type="button">顯示 Raw CAP</button>
                   </div>
                 </div>
 
@@ -3848,18 +3846,18 @@ button{ -webkit-tap-highlight-color:transparent; }
             <div class="twOfficialBottomDetailPanel">
               <div class="twOfficialDetailHead">
                 <strong>📍 影響地區與詳細說明</strong>
-                <span class="chip">點選地區警特報後更新</span>
+                
               </div>
               <div class="twOfficialDetailBody twBottomDetailBody">
                 <section class="twAreaBlock">
                   <div class="twAreaBlockHead">
                     <span class="twDetailLabel">影響地區</span>
-                    <span class="twAreaHelp">整縣市只顯示縣市；部分鄉鎮才會列出鄉鎮</span>
+                    
                   </div>
                   <div class="twAreaBlockBody" id="twArea">—</div>
                 </section>
 
-                <div class="twOfficialDetailText" id="twText">（請在上方地區表點選一個警特報）</div>
+                <div class="twOfficialDetailText" id="twText">—</div>
                 <div class="twOfficialDetailText" id="twRaw" style="display:none;"></div>
               </div>
             </div>
@@ -3922,7 +3920,7 @@ button{ -webkit-tap-highlight-color:transparent; }
     </h2>
 
     <p class="sectionDesc">
-      此區塊已停用颱風路徑；颱風警報請於上方「天氣警報」的台灣警報中心查看。
+      
     </p>
   </div>
 
@@ -6492,7 +6490,7 @@ button{ -webkit-tap-highlight-color:transparent; }
               ctx.fill();
               ctx.strokeStyle = small ? "rgba(96,165,250,.55)" : "rgba(96,165,250,.82)";
               ctx.lineWidth = small ? 1.2 : 1.8;
-              ctx.setLineDash(small ? [6,6] : [8,7]);
+              ctx.setLineDash([]);
               ctx.stroke();
               ctx.setLineDash([]);
               ctx.restore();
@@ -6828,10 +6826,10 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
       function drawMiniTimeLabelLocal(ctx, x, y, text, fromX=null, fromY=null){
         ctx.save();
-        ctx.font = `900 11px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
-        const padX = 7;
+        ctx.font = `900 14px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+        const padX = 9;
         const w = Math.ceil(ctx.measureText(text).width) + padX * 2;
-        const h = 22;
+        const h = 28;
         const bx = x;
         const by = y - h/2;
         if(Number.isFinite(fromX) && Number.isFinite(fromY)){
@@ -6853,7 +6851,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.fillStyle = "#31566a";
-        ctx.fillText(text, bx + padX, y + 4);
+        ctx.fillText(text, bx + padX, y + 5);
         ctx.restore();
       }
 
@@ -7060,28 +7058,27 @@ button{ -webkit-tap-highlight-color:transparent; }
             const minY = Math.min(...ps.map(p=>p.y));
             const maxY = Math.max(...ps.map(p=>p.y));
             conePixelBoxes.set(key, {minX,maxX,minY,maxY,cx:(minX+maxX)/2,cy:(minY+maxY)/2});
-            addBox(routeProtectBoxes, minX, minY, maxX-minX, maxY-minY, 2);
           }
         });
 
         timeGroupMap.forEach((arr, groupIdx) => {
-          arr.forEach((p, idx) => {
+          const fcstOnly = arr.filter(p => p.kind === "fcst");
+          fcstOnly.forEach((p, idx) => {
             if(idx % 2 !== 0) return;
             const q = project(p.lat, p.lon);
             const label = fmtTime(p.time, "short");
-            const w = 82, h = 24;
+            const w = 104, h = 30;
             const flip = ((idx / 2 + groupIdx) % 2 === 0) ? 1 : -1;
             const candidates = [
-              {x:q.x + 28, y:q.y - 42},
-              {x:q.x - w - 28, y:q.y - 42},
-              {x:q.x + 28, y:q.y + 26},
-              {x:q.x - w - 28, y:q.y + 26},
-              {x:q.x + flip*44, y:q.y - 68},
-              {x:q.x - w/2, y:q.y + 48},
-              {x:q.x + flip*58, y:q.y - 8}
+              {x:q.x + 22, y:q.y - 46},
+              {x:q.x - w - 22, y:q.y - 46},
+              {x:q.x + 22, y:q.y + 28},
+              {x:q.x - w - 22, y:q.y + 28},
+              {x:q.x + flip*36, y:q.y - 66},
+              {x:q.x - w/2, y:q.y + 50}
             ];
             const b = chooseBox(candidates, w, h);
-            drawMiniTimeLabelLocal(ctx, b.x, b.y + 12, label, q.x, q.y);
+            drawMiniTimeLabelLocal(ctx, b.x, b.y + 15, label, q.x, q.y);
             addBox(occupiedLabelBoxes, b.x, b.y, w, h, 4);
           });
         });
@@ -7104,21 +7101,21 @@ button{ -webkit-tap-highlight-color:transparent; }
           const coneBox = conePixelBoxes.get(key);
           let candidates = [];
           const nearCandidates = [
-            {x:q.x + 16, y:q.y - 38},
-            {x:q.x - w - 16, y:q.y - 38},
-            {x:q.x + 16, y:q.y + 18},
-            {x:q.x - w - 16, y:q.y + 18},
-            {x:q.x - w/2, y:q.y - 56},
-            {x:q.x - w/2, y:q.y + 38}
+            {x:q.x + 10, y:q.y - 30},
+            {x:q.x - w - 10, y:q.y - 30},
+            {x:q.x + 10, y:q.y + 12},
+            {x:q.x - w - 10, y:q.y + 12},
+            {x:q.x - w/2, y:q.y - 44},
+            {x:q.x - w/2, y:q.y + 28}
           ];
           if(coneBox){
             const rightFirst = q.x >= coneBox.cx;
             /* v61：名稱先嘗試靠近颱風，再退到 70% 預測誤差範圍外側。 */
-            const gap = 4;
-            const right = {x:coneBox.maxX + gap, y:q.y - 15};
-            const left = {x:coneBox.minX - w - gap, y:q.y - 15};
-            const top = {x:q.x - w/2, y:coneBox.minY - h - gap};
-            const bottom = {x:q.x - w/2, y:coneBox.maxY + gap};
+            const gap = 2;
+            const right = {x:q.x + 18, y:q.y - 15};
+            const left = {x:q.x - w - 18, y:q.y - 15};
+            const top = {x:q.x - w/2, y:q.y - h - 24};
+            const bottom = {x:q.x - w/2, y:q.y + 24};
             candidates = nearCandidates.concat(rightFirst ? [right,left,top,bottom] : [left,right,top,bottom]);
           }else{
             candidates = nearCandidates;
@@ -7866,7 +7863,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           q("twValid").textContent = "—";
           q("twDetailType").textContent = "—";
           q("twArea").innerHTML = "—";
-          q("twText").textContent = "（請在上方地區表點選一個警特報）";
+          q("twText").textContent = "—";
           q("twRaw").textContent = "";
           q("twRaw").style.display = "none";
           q("twText").style.display = "block";
@@ -7967,9 +7964,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function renderList(){
         q("twCount").textContent = `${filteredAlerts.length} 筆警報`;
-        q("twHint").textContent = filteredAlerts.length
-          ? "點擊右側表格中的警報 icon，可查看 CAP 詳細內容。"
-          : "目前沒有符合條件的警報。";
+        q("twHint").textContent = "";
 
         renderCountyTables();
 
@@ -8097,7 +8092,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           q("twStatus").textContent = "更新失敗";
           q("twCountyTableLeft").innerHTML = `<tr><td colspan="2">讀取失敗</td></tr>`;
           q("twCountyTableRight").innerHTML = "";
-          q("twHint").textContent = String(err?.message || err);
+          q("twHint").textContent = "";
         }finally{
           if(!silent){
             q("twRefresh").disabled = false;
@@ -8159,7 +8154,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         setTimeout(() => q("twCopy").textContent = "複製內容", 900);
       });
 
-      q("twRawBtn").addEventListener("click", () => {
+      const twRawBtnEl = document.getElementById("twRawBtn");
+      if(twRawBtnEl) twRawBtnEl.addEventListener("click", () => {
         const rawShown = q("twRaw").style.display !== "none";
 
         if(rawShown){
@@ -8907,7 +8903,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       if(el.twValid) el.twValid.textContent = '—';
       if(el.twDetailType) el.twDetailType.textContent = '—';
       if(el.twArea) el.twArea.innerHTML = '—';
-      if(el.twText) el.twText.textContent = '（請在上方地區表點選一個警特報）';
+      if(el.twText) el.twText.textContent = '—';
       if(el.twRaw){ el.twRaw.textContent = ''; el.twRaw.style.display = 'none'; }
       if(el.twText) el.twText.style.display = 'block';
       const rawBtn = document.getElementById('twRawBtn');
@@ -10799,8 +10795,7 @@ function renderTwLegend(kind){
 
 
 <style>
-/* v58: hide raw CAP from users and keep map labels compact */
-#twRawBtn, #twRaw{ display:none !important; }
+/* v63: keep mobile typhoon labels compact; Raw CAP is visible again */
 @media (max-width:780px){
   .tlabel{ font-size:10px !important; padding:5px 8px !important; gap:5px !important; }
   .ty-error-label{ font-size:9px !important; padding:3px 6px !important; }
@@ -10871,19 +10866,7 @@ function renderTwLegend(kind){
     if(map){ setTimeout(() => { try{ addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 300); }
   }catch(e){ console.warn('v58 typhoon boundary patch failed', e); }
 
-  // Raw CAP is not exposed to user.
-  try{
-    const hideRaw = () => {
-      const btn = document.getElementById('twRawBtn');
-      const raw = document.getElementById('twRaw');
-      if(btn) btn.remove();
-      if(raw){ raw.style.display='none'; raw.textContent=''; }
-    };
-    hideRaw();
-    document.addEventListener('DOMContentLoaded', hideRaw);
-    setTimeout(hideRaw, 800);
-  }catch(e){}
-
+  // Raw CAP toggle is restored.
   // v59: CAP map fill logic is restored to the stable pre-v58 implementation.
 
 })();
