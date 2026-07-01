@@ -1,0 +1,75 @@
+{
+  "title": "低壓情報",
+  "source": "AI模式",
+  "cwa_warning_areas": [
+    "臺灣東北部海面",
+    "臺灣東南部海面",
+    "巴士海峽"
+  ],
+
+  "points": [
+     {
+      "lat": 21.3,
+      "lon": 112.4,
+      "time": "2026-06-08 20:00",
+      "kind": "obs",
+      "level": "LOW",
+      "wind": null,
+      "gust": null,
+      "pressure": null,
+      "note": ""
+    },
+    {
+      "lat": 21.6,
+      "lon": 113.5,
+      "time": "2026-06-09 08:00",
+      "kind": "fcst",
+      "level": "LOW",
+      "wind": null,
+      "gust": null,
+      "pressure": null,
+      "note": "",
+      "fcst_radius_km": 50,
+      "storm_radius_km": null
+    },
+    {
+      "lat": 23.25,
+      "lon": 118.6,
+      "time": "2026-06-09 20:00",
+      "kind": "fcst",
+      "level": "TD",
+      "wind": null,
+      "gust": null,
+      "pressure": null,
+      "note": "",
+      "fcst_radius_km": 100,
+      "storm_radius_km": null
+    },
+    {
+      "lat": 24.16,
+      "lon": 122.26,
+      "time": "2026-06-10 08:00",
+      "kind": "fcst",
+      "level": "TD",
+      "wind": null,
+      "gust": null,
+      "pressure": null,
+      "note": "",
+      "fcst_radius_km": 130,
+      "storm_radius_km": null
+    },
+    {
+      "lat": 27.4,
+      "lon": 131.2,
+      "time": "2026-06-11 08:00",
+      "kind": "fcst",
+      "level": "TD",
+      "wind": null,
+      "gust": null,
+      "pressure": 1005,
+      "note": "",
+      "fcst_radius_km": 170,
+      "storm_radius_km": null
+    }
+  ]
+}
