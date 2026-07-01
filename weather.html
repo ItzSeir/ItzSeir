@@ -1292,6 +1292,27 @@ button{ -webkit-tap-highlight-color:transparent; }
   border:none;
 }
 
+.ty-error-label{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  border:1px solid rgba(96,165,250,.36);
+  background:rgba(255,255,255,.94);
+  color:#0f4c5c;
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap;
+  box-shadow:0 8px 18px rgba(31,53,72,.12);
+}
+
+.leaflet-div-icon.ty-error-icon{
+  background:transparent;
+  border:none;
+}
+
+
 .leaflet-popup-content-wrapper{
   border-radius:18px;
   box-shadow:0 20px 44px rgba(31,53,72,.18);
@@ -1821,6 +1842,40 @@ button{ -webkit-tap-highlight-color:transparent; }
   .typhoonForecastSide .fcstCard{
     width:270px;
   }
+}
+
+
+
+/* ===== v57 Forecast List Clean Layout ===== */
+.typhoonForecastSide .fcstCard{
+  overflow:hidden;
+}
+.typhoonForecastSide .fcstRow1{
+  align-items:flex-start;
+}
+.typhoonForecastSide .fcstTime{
+  min-width:0;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  font-size:14px;
+  line-height:1.35;
+}
+.typhoonForecastSide .fcstBadge{
+  flex:0 0 auto;
+  max-width:88px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  justify-content:center;
+}
+.typhoonForecastSide .fcstKv{
+  font-size:12px;
+  grid-template-columns:46px 1fr;
+}
+@media (max-width:520px){
+  .typhoonForecastSide .fcstCard{ width:240px; }
+  .typhoonForecastSide .fcstTime{ font-size:13px; }
+  .typhoonForecastSide .fcstBadge{ max-width:78px; font-size:10px; padding:5px 7px; }
 }
 
 /* ===== Print / Save as PDF Fix ===== */
@@ -3584,6 +3639,29 @@ button{ -webkit-tap-highlight-color:transparent; }
   .twCountyPill{ max-width:100% !important; }
 }
 
+
+/* ===== v52 Mobile Typhoon Label Size Fix ===== */
+@media (max-width:520px){
+  .tlabel{
+    font-size:10px !important;
+    padding:5px 8px !important;
+    gap:5px !important;
+    max-width:160px;
+  }
+  .tlabel .miniDot{
+    width:7px !important;
+    height:7px !important;
+  }
+  .ty-error-label{
+    font-size:9px !important;
+    padding:3px 6px !important;
+  }
+  .leaflet-tooltip,
+  .leaflet-popup-content{
+    font-size:11px !important;
+  }
+}
+
 </style>
 </head>
 
@@ -3732,7 +3810,7 @@ button{ -webkit-tap-highlight-color:transparent; }
                   <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <span class="chip" id="twSelected">未選取</span>
                     <button class="btn" id="twCopy" type="button">複製內容</button>
-                    <button class="btn" id="twRawBtn" type="button">顯示 Raw CAP</button>
+                    
                   </div>
                 </div>
 
@@ -3864,23 +3942,23 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       <label class="toggle">
         <input type="checkbox" id="toggleLabels" checked>
-        顯示名稱/時間
+        顯示時間
       </label>
 
       <label class="toggle">
         <input type="checkbox" id="toggleCone" checked>
-        陰影帶
+        預測誤差
       </label>
 
       <label class="toggle">
-        <input type="checkbox" id="toggleRings" checked>
-        預測偏差
+        <input type="checkbox" id="toggleRings">
+        暴風圈
       </label>
 
       <button class="btn refreshJsonBtn" id="refreshTyphoonBtn" data-refresh-typhoon type="button">刷新</button>
       <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
-      <button class="btn" id="printBtn" type="button">下載單一颱風 PNG</button>
-      <button class="btn" id="printAllBtn" type="button">下載全部颱風 PNG</button>
+      <button class="btn" id="printBtn" type="button">下載 PNG</button>
+      <button class="btn" id="printAllBtn" type="button" style="display:none;">產生全部颱風 PNG</button>
     </div>
   </div>
 </div>
@@ -3944,8 +4022,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         <div class="mapLegend" aria-label="map legend">
           <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
           <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
-          <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 70%預測偏差範圍</span>
-          <span class="legendItem">🌀 颱風名稱</span>
+          <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 70%預測誤差範圍</span>
+          <span class="legendItem"><span class="dot" style="background:#94a3b8;"></span> 暴風圈(可選)</span>
           <span class="legendItem"><span class="dot" style="background:#6b7280;"></span> 低壓</span>
           <span class="legendItem"><span class="dot" style="background:#536ab8;"></span> 熱帶低壓</span>
           <span class="legendItem"><span class="dot" style="background:#22c55e;"></span> 輕度颱風</span>
@@ -3983,6 +4061,11 @@ button{ -webkit-tap-highlight-color:transparent; }
       3) weather.json 可以用舊格式 { title, source, points: [] }，也可以用新格式 { source, typhoons: [] }。
     */
     const CWA_TY_API_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=CWA-BC6BF68E-0B38-43B1-A5F5-811E1C06742B&sort=CwaTdNo";
+    const CWA_TY_API_URLS = [
+      `${CWA_TY_API_URL}&format=XML`,
+      `${CWA_TY_API_URL}&format=JSON`,
+      CWA_TY_API_URL
+    ];
 
     const levelStyle = {
       LOW: { color: "#6b7280", label: "低壓/殘餘 LOW" },
@@ -4136,7 +4219,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         wind: firstValue(p, ["wind", "maxWind", "maxWindSpeed", "MaxWindSpeed", "最大風速"]) === null ? null : Number(firstValue(p, ["wind", "maxWind", "maxWindSpeed", "MaxWindSpeed", "最大風速"])),
         pressure: firstValue(p, ["pressure", "airPressure", "centralPressure", "Pressure", "中心氣壓"]) === null ? null : Number(firstValue(p, ["pressure", "airPressure", "centralPressure", "Pressure", "中心氣壓"])),
         note: String(firstValue(p, ["note", "remark", "description", "MovingPrediction", "StateTransfer", "備註"]) ?? ""),
-        fcst_radius_km: firstValue(p, ["fcst_radius_km", "forecastRadius", "Radius70PercentProbability", "radius", "誤差半徑"]) === null ? 0 : Number(firstValue(p, ["fcst_radius_km", "forecastRadius", "Radius70PercentProbability", "radius", "誤差半徑"])),
+        fcst_radius_km: firstValue(p, ["fcst_radius_km", "forecastRadius", "forecast_error_km", "errorRadiusKm", "Radius70PercentProbability", "radius70PercentProbability", "radius", "誤差半徑", "預測誤差"]) === null ? 0 : Number(firstValue(p, ["fcst_radius_km", "forecastRadius", "forecast_error_km", "errorRadiusKm", "Radius70PercentProbability", "radius70PercentProbability", "radius", "誤差半徑", "預測誤差"])),
         storm_radius_km: firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"]) === null ? 0 : Number(firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"]))
       };
     }
@@ -4257,6 +4340,19 @@ button{ -webkit-tap-highlight-color:transparent; }
       return isFinite(radius) ? radius : 0;
     }
 
+    function fallbackForecastErrorRadiusKm(forecastHour){
+      const h = Number(forecastHour || 0);
+      if(!Number.isFinite(h) || h <= 0) return 0;
+      if(h <= 6) return 50;
+      if(h <= 12) return 100;
+      if(h <= 24) return 140;
+      if(h <= 36) return 150;
+      if(h <= 48) return 200;
+      if(h <= 72) return 330;
+      if(h <= 96) return 350;
+      return 540;
+    }
+
     function parseCwaXmlFix(fixEl, kind, id, name){
       const lat = Number(childText(fixEl, "CoordinateLatitude"));
       const lon = Number(childText(fixEl, "CoordinateLongitude"));
@@ -4272,7 +4368,8 @@ button{ -webkit-tap-highlight-color:transparent; }
       const dateTime = childText(fixEl, "DateTime");
       const validTime = kind === "fcst" ? addHoursToCwaTime(initialTime, Number(forecastHour || 0)) : dateTime;
       const stormRadius = parseCwaCircleRadiusKm(fixEl, "Circle15ms");
-      const fcstRadius = Number(childText(fixEl, "Radius70PercentProbability"));
+      const rawFcstRadius = Number(childText(fixEl, "Radius70PercentProbability"));
+      const fcstRadius = Number.isFinite(rawFcstRadius) && rawFcstRadius > 0 ? rawFcstRadius : fallbackForecastErrorRadiusKm(forecastHour);
       const noteParts = [];
       if(kind === "fcst" && forecastHour) noteParts.push(`${forecastHour}小時預報`);
       if(prediction) noteParts.push(prediction);
@@ -4323,12 +4420,125 @@ button{ -webkit-tap-highlight-color:transparent; }
       }).filter(t => t.points.length);
     }
 
+    function asArray(v){
+      if(v === undefined || v === null) return [];
+      return Array.isArray(v) ? v : [v];
+    }
+
+    function getJsonText(obj, keys){
+      const v = firstValue(obj, keys);
+      if(v === null || v === undefined) return "";
+      if(typeof v === "object" && "#text" in v) return String(v["#text"] || "").trim();
+      return String(v).trim();
+    }
+
+    function getJsonLangText(obj, key, langNeed="zh-hant"){
+      const v = obj ? obj[key] : null;
+      if(v === null || v === undefined) return "";
+      if(typeof v === "string" || typeof v === "number") return String(v).trim();
+      const arr = asArray(v);
+      const found = arr.find(x => String(x?.lang || x?.Language || x?.['@lang'] || "").toLowerCase() === langNeed);
+      const pick = found || arr[0];
+      if(pick && typeof pick === "object") return String(pick["#text"] ?? pick.text ?? pick.value ?? "").trim();
+      return String(pick || "").trim();
+    }
+
+    function cwaRadiusFromJsonFix(fix, key){
+      const circle = fix ? fix[key] : null;
+      if(!circle) return 0;
+      const c = Array.isArray(circle) ? circle[0] : circle;
+      const r = Number(c?.Radius ?? c?.radius ?? c?.['#text'] ?? 0);
+      return isFinite(r) ? r : 0;
+    }
+
+    function parseCwaJsonFix(fix, kind, id, name){
+      const lat = Number(getJsonText(fix, ["CoordinateLatitude", "coordinateLatitude", "lat", "Latitude"]));
+      const lon = Number(getJsonText(fix, ["CoordinateLongitude", "coordinateLongitude", "lon", "lng", "Longitude"]));
+      const wind = Number(getJsonText(fix, ["MaxWindSpeed", "maxWindSpeed", "wind"]));
+      const pressure = Number(getJsonText(fix, ["Pressure", "pressure"]));
+      const gust = getJsonText(fix, ["MaxGustSpeed", "maxGustSpeed"]);
+      const movingSpeed = getJsonText(fix, ["MovingSpeed", "movingSpeed"]);
+      const movingDirection = getJsonText(fix, ["MovingDirection", "movingDirection"]);
+      const prediction = getJsonLangText(fix, "MovingPrediction") || getJsonText(fix, ["MovingPrediction"]);
+      const transfer = getJsonLangText(fix, "StateTransfer") || getJsonText(fix, ["StateTransfer"]);
+      const forecastHour = getJsonText(fix, ["ForecastHour", "forecastHour"]);
+      const initialTime = getJsonText(fix, ["InitialTime", "initialTime"]);
+      const dateTime = getJsonText(fix, ["DateTime", "dateTime"]);
+      const validTime = kind === "fcst" ? addHoursToCwaTime(initialTime, Number(forecastHour || 0)) : dateTime;
+      const stormRadius = cwaRadiusFromJsonFix(fix, "Circle15ms");
+      const rawFcstRadius = Number(getJsonText(fix, ["Radius70PercentProbability", "radius70PercentProbability", "forecast_error_km", "errorRadiusKm"]));
+      const fcstRadius = Number.isFinite(rawFcstRadius) && rawFcstRadius > 0 ? rawFcstRadius : fallbackForecastErrorRadiusKm(forecastHour);
+      const noteParts = [];
+      if(kind === "fcst" && forecastHour) noteParts.push(`${forecastHour}小時預報`);
+      if(prediction) noteParts.push(prediction);
+      if(transfer) noteParts.push(transfer);
+      if(movingDirection || movingSpeed) noteParts.push(`移向 ${movingDirection || "—"}，速度 ${movingSpeed || "—"} km/h`);
+      if(gust) noteParts.push(`最大陣風 ${gust} m/s`);
+      return {
+        typhoonId:id,
+        typhoonName:name,
+        lat,
+        lon,
+        time:validTime,
+        kind,
+        level:levelFromWindMs(wind),
+        wind:isFinite(wind) ? wind : null,
+        pressure:isFinite(pressure) ? pressure : null,
+        note:noteParts.join("｜"),
+        fcst_radius_km:isFinite(fcstRadius) ? fcstRadius : 0,
+        storm_radius_km:stormRadius
+      };
+    }
+
+    function findCwaJsonStorms(data){
+      const found = [];
+      const seen = new WeakSet();
+      const walk = (v) => {
+        if(!v || typeof v !== "object") return;
+        if(seen.has(v)) return;
+        seen.add(v);
+        if(v.Year !== undefined && (v.CwaTdNo !== undefined || v.TyphoonNo !== undefined) && (v.AnalysisData || v.ForecastData)){
+          found.push(v);
+          return;
+        }
+        if(v.TropicalCyclone){
+          asArray(v.TropicalCyclone).forEach(walk);
+        }
+        Object.values(v).forEach(walk);
+      };
+      walk(data);
+      return found;
+    }
+
+    function parseCwaTyphoonJson(data){
+      const storms = findCwaJsonStorms(data);
+      if(!storms.length) return [];
+      return storms.map((storm, i) => {
+        const year = getJsonText(storm, ["Year", "year"]);
+        const tdNo = getJsonText(storm, ["CwaTdNo", "TyphoonNo", "cwaTdNo", "typhoonNo"]) || String(i + 1);
+        const nameZh = getJsonText(storm, ["TyphoonName", "Name", "typhoonName", "name"]) || (tdNo ? `熱帶氣旋 ${tdNo}` : `熱帶氣旋 ${i + 1}`);
+        const id = `cwa-${year || "ty"}-${tdNo}`;
+        const name = `CWA｜${nameZh}`;
+        const analysis = storm.AnalysisData || storm.analysisData || {};
+        const forecast = storm.ForecastData || storm.forecastData || {};
+        const obsFixes = asArray(analysis.Fix || analysis.fix);
+        const fcstFixes = asArray(forecast.Fix || forecast.fix);
+        const obsPoints = obsFixes.map(fix => parseCwaJsonFix(fix, "obs", id, name));
+        const fcstPoints = fcstFixes.map(fix => parseCwaJsonFix(fix, "fcst", id, name));
+        const points = [...obsPoints, ...fcstPoints].filter(p => isFinite(p.lat) && isFinite(p.lon));
+        return { id, name, source:"CWA W-C0034-005 熱帶氣旋路徑", points };
+      }).filter(t => t.points.length);
+    }
+
     function normalizeCwaTyphoonData(data){
       if(!data || typeof data !== "object") return [];
 
       if(data.nodeType === 9 || localNameOf(data.documentElement) === "cwaopendata"){
         return parseCwaTyphoonXml(data);
       }
+
+      const cwaJsonStorms = parseCwaTyphoonJson(data);
+      if(cwaJsonStorms.length) return cwaJsonStorms;
 
       const candidates = [];
       const records = data.records || data.Record || data;
@@ -4382,15 +4592,35 @@ button{ -webkit-tap-highlight-color:transparent; }
       const keep = selectedTyphoonId;
       sel.innerHTML = `<option value="all">全部颱風</option>`;
 
-      allTyphoons.forEach(t => {
-        const opt = document.createElement("option");
-        opt.value = t.id;
-        opt.textContent = `${t.name}（${t.points.length}點）`;
-        sel.appendChild(opt);
-      });
+      const cwaList = allTyphoons.filter(t => String(t.id).startsWith("cwa-"));
+      const manualList = allTyphoons.filter(t => !String(t.id).startsWith("cwa-"));
+
+      const addGroup = (label, list) => {
+        if(!list.length) return;
+        const group = document.createElement("optgroup");
+        group.label = label;
+        list.forEach(t => {
+          const opt = document.createElement("option");
+          opt.value = t.id;
+          opt.textContent = `${t.name.replace(/^CWA｜/, "")}（${t.points.length}點）`;
+          group.appendChild(opt);
+        });
+        sel.appendChild(group);
+      };
+
+      addGroup("CWA 官方 W-C0034-005", cwaList);
+      addGroup("weather.json 自訂資料", manualList);
 
       selectedTyphoonId = allTyphoons.some(t => t.id === keep) ? keep : "all";
       sel.value = selectedTyphoonId;
+    }
+
+    function compareTime(a, b){
+      const da = parseLocalDateTime(a);
+      const db = parseLocalDateTime(b);
+      const ta = da ? da.getTime() : 0;
+      const tb = db ? db.getTime() : 0;
+      return ta - tb;
     }
 
     function sortTyphoonPoints(arr){
@@ -4415,6 +4645,21 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       $("pageTitle").textContent = weatherMeta.title;
       $("sourceText").innerHTML = `<b>來源：${escapeHtml(weatherMeta.source)}</b><br>${selectedTyphoonId === "all" ? `共 ${allTyphoons.length} 個颱風資料` : ""}`;
+      updateDownloadPngButtonText();
+    }
+
+    async function fetchFirstAvailable(urls){
+      for(const url of urls){
+        try{
+          const data = await fetchJsonSafe(url);
+          const normalized = normalizeCwaTyphoonData(data);
+          if(normalized.length) return { data, normalized, url };
+          console.warn("CWA 颱風資料沒有解析到 TropicalCyclone：", url);
+        }catch(err){
+          console.warn("CWA 颱風資料載入失敗：", url, err);
+        }
+      }
+      return { data:null, normalized:[], url:"" };
     }
 
     async function loadWeatherData(){
@@ -4423,13 +4668,12 @@ button{ -webkit-tap-highlight-color:transparent; }
         return null;
       });
 
-      const cwaData = CWA_TY_API_URL ? await fetchJsonSafe(CWA_TY_API_URL).catch(err => {
-        console.warn("CWA API 載入失敗：", err);
-        return null;
-      }) : null;
-
       const manualTyphoons = normalizeManualWeatherJson(manualData || {});
-      const cwaTyphoons = cwaData ? normalizeCwaTyphoonData(cwaData) : [];
+      const cwaResult = CWA_TY_API_URLS?.length ? await fetchFirstAvailable(CWA_TY_API_URLS) : { normalized:[] };
+      const cwaTyphoons = cwaResult.normalized || [];
+
+      // CWA 與 weather.json 分開解析，但同時存在於下拉選單與地圖。
+      // weather.json 空陣列不會影響 CWA 顯示；CWA 空資料也不會影響自訂資料。
       allTyphoons = [...cwaTyphoons, ...manualTyphoons];
 
       if(!allTyphoons.length){
@@ -4438,6 +4682,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         weatherMeta.source = "沒有可用資料";
         $("pageTitle").textContent = weatherMeta.title;
         $("sourceText").innerHTML = `<b>來源：${escapeHtml(weatherMeta.source)}</b><br>`;
+        rebuildTyphoonSelect();
         return;
       }
 
@@ -4447,7 +4692,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
     function popupHtml(p){
       const st = getStyle(p.level);
-      const sr = (typeof p.fcst_radius_km === "number" && p.fcst_radius_km > 0) ? `${p.fcst_radius_km} km` : "—";
+      const sr = (typeof p.storm_radius_km === "number" && p.storm_radius_km > 0) ? `${p.storm_radius_km} km` : "—";
 
       return `
         <div class="popup-card">
@@ -4463,7 +4708,7 @@ button{ -webkit-tap-highlight-color:transparent; }
             <div>座標</div><div>${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}</div>
             <div>風速</div><div>${escapeHtml(fmtWindMs(p.wind))}</div>
             <div>氣壓</div><div>${p.pressure ? escapeHtml(p.pressure + " hPa") : "—"}</div>
-            <div>預測偏差</div><div>${escapeHtml(sr)}</div>
+            <div>暴風圈</div><div>${escapeHtml(sr)}</div>
             <div>備註</div><div>${escapeHtml(p.note || "—")}</div>
           </div>
         </div>
@@ -4527,10 +4772,17 @@ button{ -webkit-tap-highlight-color:transparent; }
       return (toDeg(Math.atan2(y, x)) + 360) % 360;
     }
 
-    function buildForecastConePolygonSmooth(){
-      const latestObsIdx = getLatestObsIndex();
-      const obs = points[latestObsIdx];
-      const fcst = points.filter(p => p.kind === "fcst");
+    function buildForecastConePolygonSmooth(srcPoints = points){
+      const list = (srcPoints || []).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+      let latestObsIdx = -1;
+      for(let i = list.length - 1; i >= 0; i--){
+        if(list[i].kind === "obs"){
+          latestObsIdx = i;
+          break;
+        }
+      }
+      const obs = latestObsIdx >= 0 ? list[latestObsIdx] : list[0];
+      const fcst = list.filter(p => p.kind === "fcst");
 
       if(!obs || fcst.length < 2) return null;
 
@@ -4610,11 +4862,13 @@ button{ -webkit-tap-highlight-color:transparent; }
     const pointMarkers = [];
     const timeLabels = [];
     const stormRings = [];
+    const forecastErrorCircles = [];
     let forecastCone = null;
     let currentPulse = null;
     let latestObsIdxCurrent = 0;
     const labelItems = [];
     let moveRaf = false;
+    let typhoonCountyBoundaryLayer = null;
 
     function clearLayerArr(arr){
       arr.forEach(x => x.remove());
@@ -4622,9 +4876,17 @@ button{ -webkit-tap-highlight-color:transparent; }
     }
 
     function ensurePanes(){
+      if(!map.getPane("countyBoundaryPane")){
+        map.createPane("countyBoundaryPane");
+        map.getPane("countyBoundaryPane").style.zIndex = 325;
+        map.getPane("countyBoundaryPane").style.pointerEvents = "none";
+      }
       if(!map.getPane("conePane")){
         map.createPane("conePane");
-        map.getPane("conePane").style.zIndex = 200;
+        /* 預測誤差範圍必須在底圖上方、路徑下方；原本 200 會被 Leaflet tile 蓋住。 */
+        map.getPane("conePane").style.zIndex = 330;
+      }else{
+        map.getPane("conePane").style.zIndex = 330;
       }
       if(!map.getPane("linePane")){
         map.createPane("linePane");
@@ -4648,51 +4910,79 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
     }
 
-    function drawForecastCone(){
-      const showCone = $("toggleCone")?.checked !== false;
 
-      // 全部颱風模式避免不同颱風的預報圈被合併成同一片陰影帶。
-      // 想看陰影帶時，請在下拉選單選單個颱風。
-      if(selectedTyphoonId === "all"){
-        if(forecastCone){
-          forecastCone.remove();
-          forecastCone = null;
-        }
-        return;
-      }
-
-      if(!showCone){
-        if(forecastCone){
-          forecastCone.remove();
-          forecastCone = null;
-        }
-        return;
-      }
-
-      if(forecastCone){
-        forecastCone.remove();
-        forecastCone = null;
-      }
-
-      const poly = buildForecastConePolygonSmooth();
-
-      if(!poly || poly.length < 4) return;
-
-      forecastCone = L.polygon(poly, {
-        pane:"conePane",
-        stroke:true,
-        color:"#60a5fa",
-        weight:1,
-        opacity:.2,
-        fillColor:"#60a5fa",
-        fillOpacity:.17,
-        smoothFactor:1.2,
-        interactive:false
-      }).addTo(map);
-
+    async function addTyphoonCountyBoundaryOverlay(){
+      if(!map || typhoonCountyBoundaryLayer) return;
       try{
-        forecastCone.bringToBack();
-      }catch(e){}
+        const data = await twAreaLoadGeoJson("./tw-county.geojson");
+        typhoonCountyBoundaryLayer = L.geoJSON(data, {
+          pane:"countyBoundaryPane",
+          interactive:false,
+          style(){
+            return {
+              color:"#1f4054",
+              weight:1.45,
+              opacity:.86,
+              fill:false,
+              fillOpacity:0
+            };
+          }
+        }).addTo(map);
+      }catch(err){
+        console.warn("tw-county.geojson optional load failed for typhoon map", err);
+      }
+    }
+
+    function updateDownloadPngButtonText(){
+      const btn = $("printBtn");
+      if(!btn) return;
+      btn.textContent = selectedTyphoonId === "all" ? "產生全部颱風 PNG" : "產生單一颱風 PNG";
+      btn.title = selectedTyphoonId === "all" ? "下載目前全部颱風的地圖 PNG" : "下載目前選取颱風的 PNG";
+    }
+
+    function drawForecastCone(){
+      clearLayerArr(forecastErrorCircles);
+
+      const showCone = $("toggleCone")?.checked !== false;
+      if(!showCone) return;
+
+      const groups = [];
+      if(selectedTyphoonId === "all"){
+        const mapById = new Map();
+        points.forEach(p => {
+          const key = p.typhoonId || p.typhoonName || "storm";
+          if(!mapById.has(key)) mapById.set(key, []);
+          mapById.get(key).push(p);
+        });
+        mapById.forEach(arr => groups.push(arr));
+      }else{
+        groups.push(points);
+      }
+
+      groups.forEach(arr => {
+        const polygon = buildForecastConePolygonSmooth(arr);
+        if(!polygon || polygon.length < 4) return;
+
+        const layer = L.polygon(polygon, {
+          pane:"conePane",
+          color:"#60a5fa",
+          weight:1.8,
+          opacity:.78,
+          dashArray:null,
+          fillColor:"#60a5fa",
+          fillOpacity:.16,
+          interactive:false
+        }).addTo(map);
+
+        forecastErrorCircles.push(layer);
+      });
+    }
+
+
+    function drawForecastErrorCircles(){
+      // v50: 70% 預測誤差範圍改回 CWA/JMA 風格的藍色 Error Area，
+      // 不再畫每一個預報點的圈圈，也不再顯示 ±km label。
+      // 實際繪製由 drawForecastCone() 處理。
     }
 
     function getLineWeight(level){
@@ -4712,7 +5002,6 @@ button{ -webkit-tap-highlight-color:transparent; }
 
         if(a.typhoonId && b.typhoonId && a.typhoonId !== b.typhoonId) continue;
 
-        if(a.typhoonId && b.typhoonId && a.typhoonId !== b.typhoonId) continue;
         const st = getStyle(b.level);
         const isForecastSeg = (a.kind === "fcst" || b.kind === "fcst");
 
@@ -4778,12 +5067,10 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       clearLayerArr(stormRings);
 
-      // 不再顯示 15m/s / 25m/s 風圈；改顯示 CWA ForecastData 的 70% 預測偏差範圍。
       points.forEach((p) => {
-        if(p.kind !== "fcst") return;
-        const rKm = Number(p.fcst_radius_km || 0);
+        const rKm = p.storm_radius_km;
 
-        if(!isFinite(rKm) || rKm <= 0) return;
+        if(typeof rKm !== "number" || !isFinite(rKm) || rKm <= 0) return;
 
         const st = getStyle(p.level);
 
@@ -4791,11 +5078,10 @@ button{ -webkit-tap-highlight-color:transparent; }
           pane:"ringPane",
           radius:kmToMeters(rKm),
           color:st.color,
-          weight:1.6,
-          opacity:.72,
-          dashArray:"7 7",
+          weight:1.5,
+          opacity:.65,
           fillColor:st.color,
-          fillOpacity:.075,
+          fillOpacity:.06,
           interactive:false
         }).addTo(map);
 
@@ -4879,29 +5165,10 @@ button{ -webkit-tap-highlight-color:transparent; }
       });
     }
 
-    function cleanTyphoonName(name){
-      const raw = String(name || "颱風").replace(/^CWA[｜|]/, "").replace(/^weather\.json[｜|]/, "").trim();
-      return raw || "颱風";
-    }
-
-    function getLatestObsIndexesByTyphoon(src = points){
-      const groups = new Map();
-      src.forEach((p, idx) => {
-        const id = p.typhoonId || "single";
-        if(!groups.has(id)) groups.set(id, []);
-        groups.get(id).push({ p, idx });
-      });
-
-      const indexes = [];
-      groups.forEach(arr => {
-        const obs = [...arr].reverse().find(x => x.p.kind === "obs");
-        indexes.push((obs || arr[arr.length - 1]).idx);
-      });
-
-      return indexes.filter(i => i >= 0 && i < src.length);
-    }
-
-    function makeLabelHtml(labelText, color, isCurrent=false){
+    function makeLabelHtml(timeText, color, isCurrent=false, p=null){
+      const labelText = (isCurrent && p && p.typhoonName)
+        ? `${p.typhoonName}｜${fmtTime(timeText,"full")}`
+        : fmtTime(timeText,"full");
       return `
         <div class="tlabel-wrap">
           <span class="tlabel ${isCurrent ? "current" : ""}" ${isCurrent ? `style="border-color:${color}66;"` : ""}>
@@ -4987,10 +5254,10 @@ button{ -webkit-tap-highlight-color:transparent; }
       });
     }
 
-    function createLabelItem(idx, isCurrent, dx, dyTop, labelText=null){
+    function createLabelItem(idx, isCurrent, dx, dyTop){
       const p = points[idx];
       const st = getStyle(p.level);
-      const html = makeLabelHtml(labelText ?? fmtTime(p.time,"full"), st.color, isCurrent);
+      const html = makeLabelHtml(p.time, st.color, isCurrent, p);
       const size = measureLabel(html);
 
       const item = {
@@ -5141,47 +5408,64 @@ button{ -webkit-tap-highlight-color:transparent; }
         };
       }
 
-      function addAutoLabel(idx, isCurrent, usedRects, preferSet, labelText=null){
+      function addAutoLabel(idx, isCurrent, usedRects, preferSet){
         const p = points[idx];
         const st = getStyle(p.level);
-        const label = labelText ?? fmtTime(p.time,"full");
-        const html = makeLabelHtml(label, st.color, isCurrent);
+        const html = makeLabelHtml(p.time, st.color, isCurrent, p);
         const size = measureLabel(html);
         const picked = pickNonOverlapOffset(idx, size.w, size.h, usedRects, preferSet);
 
-        createLabelItem(idx, isCurrent, picked.dx, picked.dyTop, label);
+        createLabelItem(idx, isCurrent, picked.dx, picked.dyTop);
       }
 
       const usedRects = [];
 
-      // 多颱風模式：每個颱風目前位置固定顯示颱風名稱。
-      // 單一颱風模式：目前位置也顯示名稱，預報點才顯示時間。
-      getLatestObsIndexesByTyphoon(points).forEach((idx, n) => {
-        const p = points[idx];
-        addAutoLabel(idx, true, usedRects, [
-          { dx:95, dy:10 + n * 8 },
-          { dx:120, dy:-22 - n * 8 },
-          { dx:-165, dy:16 + n * 8 },
-          { dx:145, dy:46 + n * 8 }
-        ], `🌀 ${cleanTyphoonName(p.typhoonName)}`);
+      const currentLabelOffsets = [
+        { dx:95, dy:10 },
+        { dx:120, dy:-22 },
+        { dx:-165, dy:16 },
+        { dx:145, dy:46 },
+        { dx:95, dy:58 },
+        { dx:-190, dy:-32 }
+      ];
+
+      let currentIndexes = [latestObsIdx];
+      if(selectedTyphoonId === "all"){
+        const byId = new Map();
+        points.forEach((p, idx) => {
+          if(p.kind === "fcst") return;
+          const key = p.typhoonId || p.typhoonName || "default";
+          const prev = byId.get(key);
+          if(prev === undefined || compareTime(p.time, points[prev].time) >= 0) byId.set(key, idx);
+        });
+        currentIndexes = Array.from(byId.values());
+      }
+
+      currentIndexes.forEach((idx, i) => {
+        const shifted = currentLabelOffsets.map(o => ({ dx:o.dx + (i % 3) * 18, dy:o.dy + Math.floor(i / 3) * 18 }));
+        addAutoLabel(idx, true, usedRects, shifted);
       });
 
-      // 選擇單一颱風時，才在部分預報點顯示時間；全部颱風模式避免文字過密。
-      if(selectedTyphoonId !== "all"){
-        let fcstCount = 1;
-        const STEP = 2;
+      /* v60：依地圖縮放程度調整時間標籤密度。
+         縮到總覽時只顯示少量時間，放大到颱風路徑附近才逐步顯示更多。 */
+      const zoomNow = map && map.getZoom ? map.getZoom() : 5;
+      let fcstCount = 1;
+      let STEP = 4;
+      if(zoomNow >= 6.6) STEP = 1;
+      else if(zoomNow >= 5.2) STEP = 2;
+      else if(zoomNow >= 4.1) STEP = 3;
+      else STEP = 5;
 
-        points.forEach((p, idx) => {
-          if(p.kind !== "fcst") return;
+      points.forEach((p, idx) => {
+        if(p.kind !== "fcst") return;
 
-          const shouldShow = (fcstCount % STEP === 0);
-          fcstCount += 1;
+        const shouldShow = (fcstCount % STEP === 0);
+        fcstCount += 1;
 
-          if(!shouldShow) return;
+        if(!shouldShow) return;
 
-          addAutoLabel(idx, false, usedRects, preferredOffsets, fmtTime(p.time,"full"));
-        });
-      }
+        addAutoLabel(idx, false, usedRects, preferredOffsets);
+      });
 
       updateLabelLines();
     }
@@ -5199,6 +5483,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       if(!map || !points || !points.length) return;
 
       drawForecastCone();
+      drawForecastErrorCircles();
       drawSegments();
 
       latestObsIdxCurrent = getLatestObsIndex();
@@ -5239,8 +5524,9 @@ button{ -webkit-tap-highlight-color:transparent; }
 
         await loadWeatherData();
 
-        if(!points || points.length < 2){
-          alert("颱風資料至少需要 2 個點。");
+        if(!points || !points.length){
+          console.warn("目前沒有可繪製的颱風點，已略過地圖更新。");
+          renderForecastList();
           return;
         }
 
@@ -5382,20 +5668,27 @@ button{ -webkit-tap-highlight-color:transparent; }
         return Math.max(min, Math.min(max, v));
       }
 
-      /* PNG 專用：把70%預測偏差範圍直接畫在匯出圖內，避免 Leaflet layer 截圖時消失 */
+      /* PNG 專用：70% 預測誤差範圍使用整片藍色 Error Area，不畫一顆顆圈圈。 */
       let coneShape = "";
       try{
-        const coneLatLngs = buildForecastConePolygonSmooth();
-        if(coneLatLngs && coneLatLngs.length > 3){
-          const pts = coneLatLngs.map(ll => {
-            const p = toScreenPoint(ll[0], ll[1]);
-            return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
-          }).join(" ");
+        const groups = [];
+        const mapById = new Map();
+        visiblePoints.forEach(p => {
+          const key = p.typhoonId || p.typhoonName || "storm";
+          if(!mapById.has(key)) mapById.set(key, []);
+          mapById.get(key).push(p);
+        });
+        mapById.forEach(arr => groups.push(arr));
 
-          coneShape = `
-            <polygon points="${pts}" fill="#8b5cf6" fill-opacity="0.16" stroke="#8b5cf6" stroke-opacity="0.22" stroke-width="1.5"/>
-          `;
-        }
+        coneShape = groups.map(arr => {
+          const rawPolygon = buildForecastConePolygonSmooth(arr);
+          if(!rawPolygon || rawPolygon.length < 4) return "";
+          const pts = rawPolygon.map(([lat, lon]) => {
+            const q = toScreenPoint(lat, lon);
+            return `${q.x.toFixed(1)},${q.y.toFixed(1)}`;
+          }).join(" ");
+          return `<polygon points="${pts}" fill="#60a5fa" fill-opacity="0.16" stroke="#60a5fa" stroke-opacity="0.78" stroke-width="1.8"/>`;
+        }).join("");
       }catch(e){
         coneShape = "";
       }
@@ -5576,9 +5869,8 @@ button{ -webkit-tap-highlight-color:transparent; }
       });
     }
 
-    async function exportTyphoonPng(options = {}){
-      const btn = $(options.buttonId || "printBtn");
-      const filenameSuffix = options.filenameSuffix || "颱風警報圖";
+    async function exportTyphoonPng(btnId="printBtn", filenameSuffix="颱風警報圖"){
+      const btn = $(btnId);
       const oldText = btn ? btn.textContent : "";
       const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -5601,7 +5893,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           1. 地圖底層仍然是你的 Mapbox 自訂底圖
           2. 不會再因為 Leaflet tile CORS 失敗
           3. 不會有暴風圈
-          4. 路徑、點位、70%預測偏差、時間標記都會跟底圖對齊
+          4. 路徑、點位、不確定範圍、時間標記都會跟底圖對齊
         */
 
         await wait(120);
@@ -5882,7 +6174,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           color:"#102d40"
         });
 
-        drawText("颱風路徑、70%預測偏差範圍與未來移動趨勢", 36, 139, {
+        drawText("颱風路徑、預報不確定範圍與未來移動趨勢", 36, 139, {
           size:16,
           weight:800,
           color:"#617785"
@@ -6085,7 +6377,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           roundRect(ctx, x, y - 10, 30, 18, 9);
           ctx.fill();
           ctx.stroke();
-          drawText("70%預測偏差", x + 40, y + 5, { size:12, weight:900, color:"#617785" });
+          drawText("不確定範圍", x + 40, y + 5, { size:12, weight:900, color:"#617785" });
           x += 140;
 
           const levels = [
@@ -6184,21 +6476,26 @@ button{ -webkit-tap-highlight-color:transparent; }
             clipBox = null
           } = opts;
 
-          if(drawCone && selectedTyphoonId !== "all"){
-            const cone = buildForecastConePolygonSmooth();
-            if(cone && cone.length > 3){
+          if(drawCone){
+            /* v52: 單個颱風 PNG 也使用藍色 70% 預測誤差範圍面，不再畫一顆顆誤差圈。 */
+            const conePoly = buildForecastConePolygonSmooth(points);
+            if(conePoly && conePoly.length >= 4){
+              ctx.save();
               ctx.beginPath();
-              cone.forEach((ll, i) => {
-                const pt = project(ll[0], ll[1]);
-                if(i === 0) ctx.moveTo(pt.x, pt.y);
-                else ctx.lineTo(pt.x, pt.y);
+              conePoly.forEach(([lat, lon], idx) => {
+                const q = project(lat, lon);
+                if(idx === 0) ctx.moveTo(q.x, q.y);
+                else ctx.lineTo(q.x, q.y);
               });
               ctx.closePath();
-              ctx.fillStyle = small ? "rgba(96,165,250,.16)" : "rgba(96,165,250,.20)";
+              ctx.fillStyle = small ? "rgba(96,165,250,.10)" : "rgba(96,165,250,.16)";
               ctx.fill();
-              ctx.lineWidth = small ? 1.4 : 2;
-              ctx.strokeStyle = small ? "rgba(96,165,250,.38)" : "rgba(96,165,250,.48)";
+              ctx.strokeStyle = small ? "rgba(96,165,250,.55)" : "rgba(96,165,250,.82)";
+              ctx.lineWidth = small ? 1.2 : 1.8;
+              ctx.setLineDash(small ? [6,6] : [8,7]);
               ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.restore();
             }
           }
 
@@ -6226,32 +6523,10 @@ button{ -webkit-tap-highlight-color:transparent; }
             ctx.restore();
           }
 
-          // PNG：畫 70% 預測偏差範圍，而不是 15m/s / 25m/s 風圈。
-          points.forEach((p) => {
-            if(p.kind !== "fcst") return;
-            const rKm = Number(p.fcst_radius_km || 0);
-            if(!isFinite(rKm) || rKm <= 0) return;
-            const st = getStyle(p.level);
-            const pt = project(p.lat, p.lon);
-            const edgePt = project(p.lat, p.lon + (rKm / (111 * Math.max(.25, Math.cos(toRad(p.lat))))));
-            const pxR = Math.max(5, Math.abs(edgePt.x - pt.x));
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, pxR, 0, Math.PI * 2);
-            ctx.fillStyle = small ? `${st.color}14` : `${st.color}18`;
-            ctx.strokeStyle = small ? `${st.color}75` : `${st.color}99`;
-            ctx.lineWidth = small ? 1.2 : 1.8;
-            ctx.setLineDash(small ? [5,5] : [8,7]);
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
-          });
-
           points.forEach((p, i) => {
             const st = getStyle(p.level);
             const pt = project(p.lat, p.lon);
-            const isLatestForStorm = getLatestObsIndexesByTyphoon(points).includes(i);
-            drawDot(pt.x, pt.y, st.color, isLatestForStorm ? (small ? 5.5 : 8) : (p.kind === "fcst" ? (small ? 4.2 : 5.5) : (small ? 4 : 5)), isLatestForStorm && !small);
+            drawDot(pt.x, pt.y, st.color, i === latestObsIdx ? (small ? 5.5 : 8) : (p.kind === "fcst" ? (small ? 4.2 : 5.5) : (small ? 4 : 5)), i === latestObsIdx && !small);
           });
 
           if(!drawLabels) return;
@@ -6316,14 +6591,6 @@ button{ -webkit-tap-highlight-color:transparent; }
             drawLabel(anchorX, anchorY, text, color, best.align);
           }
 
-          // 每個颱風目前位置顯示名稱。
-          getLatestObsIndexesByTyphoon(points).forEach((idx) => {
-            const p = points[idx];
-            const st = getStyle(p.level);
-            const pt = project(p.lat, p.lon);
-            placeMapLabel(pt, `🌀 ${cleanTyphoonName(p.typhoonName)}`, st.color);
-          });
-
           function getPng24hLabelIndexes(){
             const fcstIndexes = [];
             points.forEach((p, i) => {
@@ -6337,14 +6604,12 @@ button{ -webkit-tap-highlight-color:transparent; }
             return Array.from(new Set([first, middle, last])).sort((a,b) => a - b);
           }
 
-          if(selectedTyphoonId !== "all"){
-            getPng24hLabelIndexes().forEach((idx) => {
-              const p = points[idx];
-              const st = getStyle(p.level);
-              const pt = project(p.lat, p.lon);
-              placeMapLabel(pt, fmtTime(p.time, "short"), st.color);
-            });
-          }
+          getPng24hLabelIndexes().forEach((idx) => {
+            const p = points[idx];
+            const st = getStyle(p.level);
+            const pt = project(p.lat, p.lon);
+            placeMapLabel(pt, fmtTime(p.time, "short"), st.color);
+          });
         }
 
         const showTaiwanInset = shouldShowTaiwanInset();
@@ -6411,28 +6676,552 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
     }
 
-    async function exportAllTyphoonPng(){
+
+
+    async function exportAllTyphoonMapOnlyPng(){
+      const btn = $("printBtn");
+      const oldText = btn ? btn.textContent : "";
+      const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
       if(!allTyphoons || !allTyphoons.length){
-        alert("目前沒有全部颱風資料可下載。");
+        alert("目前沒有可下載的颱風資料。");
         return;
       }
 
-      const oldSelected = selectedTyphoonId;
-      const oldSelectValue = $("typhoonSelect")?.value;
+      const prev = selectedTyphoonId;
+      const sel = $("typhoonSelect");
+
+      function clampLocal(v, min, max){ return Math.max(min, Math.min(max, v)); }
+      function loadImageLocal(url){
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.referrerPolicy = "no-referrer";
+          img.onload = () => resolve(img);
+          /* 全部颱風 PNG 不再因 Mapbox Static 失敗而中斷。 */
+          img.onerror = () => resolve(null);
+          img.src = url;
+        });
+      }
+      function mercatorXLocal(lon){ return (lon + 180) / 360; }
+      function mercatorYLocal(lat){
+        const sin = Math.sin(lat * Math.PI / 180);
+        return 0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI);
+      }
+      function inverseMercatorYLocal(y){
+        const n = Math.PI - 2 * Math.PI * y;
+        return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+      }
+      function buildViewForAll(srcPoints, w, h, pad){
+        const arr = (srcPoints || []).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+        const lats = arr.map(p => p.lat);
+        const lons = arr.map(p => p.lon);
+        let minLat = Math.min(...lats), maxLat = Math.max(...lats);
+        let minLon = Math.min(...lons), maxLon = Math.max(...lons);
+        if(Math.abs(maxLat-minLat)<1.4){ minLat-=.7; maxLat+=.7; }
+        if(Math.abs(maxLon-minLon)<1.4){ minLon-=.7; maxLon+=.7; }
+        const minX = mercatorXLocal(minLon), maxX = mercatorXLocal(maxLon);
+        const minY = mercatorYLocal(maxLat), maxY = mercatorYLocal(minLat);
+        const zoomX = Math.log2((w - pad * 2) / (512 * Math.max(0.00001, maxX-minX)));
+        const zoomY = Math.log2((h - pad * 2) / (512 * Math.max(0.00001, maxY-minY)));
+        const zoom = clampLocal(Math.min(zoomX, zoomY), 1, 8.8);
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        return { lon:cx*360-180, lat:inverseMercatorYLocal(cy), zoom };
+      }
+      function makeProjectorLocal(view, x, y, w, h){
+        const scale = 512 * Math.pow(2, view.zoom);
+        const cx = mercatorXLocal(view.lon) * scale;
+        const cy = mercatorYLocal(view.lat) * scale;
+        return (lat, lon) => {
+          const px = mercatorXLocal(lon) * scale;
+          const py = mercatorYLocal(lat) * scale;
+          return { x:x + w/2 + (px-cx), y:y + h/2 + (py-cy) };
+        };
+      }
+      async function drawMapboxTileBackgroundLocal(ctx, view, x, y, w, h){
+        /* v57: 全部颱風 PNG 不再使用 OSM fallback。改用與互動式地圖相同的 Mapbox Style 圖磚，避免底圖樣式不同。 */
+        const tileZ = Math.max(1, Math.min(14, Math.floor(view.zoom)));
+        const worldAtView = 512 * Math.pow(2, view.zoom);
+        const worldAtTile = 512 * Math.pow(2, tileZ);
+        const scaleToView = worldAtView / worldAtTile;
+        const centerX = mercatorXLocal(view.lon) * worldAtView;
+        const centerY = mercatorYLocal(view.lat) * worldAtView;
+        const left = centerX - w / 2;
+        const top = centerY - h / 2;
+
+        const tileSizeView = 512 * scaleToView;
+        const minTx = Math.floor(left / tileSizeView);
+        const maxTx = Math.floor((left + w) / tileSizeView);
+        const minTy = Math.floor(top / tileSizeView);
+        const maxTy = Math.floor((top + h) / tileSizeView);
+        const n = Math.pow(2, tileZ);
+        const tasks = [];
+
+        for(let tx = minTx; tx <= maxTx; tx++){
+          for(let ty = minTy; ty <= maxTy; ty++){
+            if(ty < 0 || ty >= n) continue;
+            const wrappedTx = ((tx % n) + n) % n;
+            const url = `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/${tileZ}/${wrappedTx}/${ty}@2x?access_token=${MAPBOX_TOKEN}`;
+            tasks.push(loadImageLocal(url).then(img => ({ img, tx, ty })).catch(() => null));
+          }
+        }
+
+        const tiles = await Promise.all(tasks);
+        let drawn = 0;
+        tiles.forEach(t => {
+          if(!t || !t.img) return;
+          const dx = x + (t.tx * tileSizeView - left);
+          const dy = y + (t.ty * tileSizeView - top);
+          try{
+            ctx.drawImage(t.img, dx, dy, tileSizeView + 1, tileSizeView + 1);
+            drawn++;
+          }catch(e){}
+        });
+
+        if(!drawn){
+          /* 仍然不能載入時只顯示柔和海色，不再混用 OSM 預設底圖。 */
+          const seaGrad = ctx.createLinearGradient(x, y, x, y + h);
+          seaGrad.addColorStop(0, "#dff4fb");
+          seaGrad.addColorStop(1, "#cfeaf4");
+          ctx.fillStyle = seaGrad;
+          ctx.fillRect(x, y, w, h);
+        }
+      }
+      function roundRectLocal(ctx, x, y, w, h, r){
+        const rr = Math.min(r, w/2, h/2);
+        ctx.beginPath();
+        ctx.moveTo(x+rr,y);
+        ctx.arcTo(x+w,y,x+w,y+h,rr);
+        ctx.arcTo(x+w,y+h,x,y+h,rr);
+        ctx.arcTo(x,y+h,x,y,rr);
+        ctx.arcTo(x,y,x+w,y,rr);
+        ctx.closePath();
+      }
+      function drawTextLocal(ctx, text, x, y, opt={}){
+        ctx.save();
+        ctx.font = `${opt.weight || 900} ${opt.size || 14}px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+        ctx.fillStyle = opt.color || "#102d40";
+        ctx.textAlign = opt.align || "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(String(text ?? ""), x, y);
+        ctx.restore();
+      }
+      function drawLabelLocal(ctx, x, y, label, color){
+        ctx.save();
+        ctx.font = `900 15px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+        const w = Math.ceil(ctx.measureText(label).width) + 44;
+        const h = 34;
+        roundRectLocal(ctx, x, y-h/2, w, h, 17);
+        ctx.fillStyle = "rgba(255,255,255,.96)";
+        ctx.fill();
+        ctx.strokeStyle = `${color}77`;
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x+17, y, 5, 0, Math.PI*2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.fillStyle = "#102d40";
+        ctx.fillText(label, x+30, y+5);
+        ctx.restore();
+      }
+      function drawMiniTimeLabelLocal(ctx, x, y, text, fromX=null, fromY=null){
+        ctx.save();
+        ctx.font = `900 11px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+        const padX = 7;
+        const w = Math.ceil(ctx.measureText(text).width) + padX * 2;
+        const h = 22;
+        const bx = x;
+        const by = y - h/2;
+        if(Number.isFinite(fromX) && Number.isFinite(fromY)){
+          const anchorX = Math.max(bx, Math.min(bx + w, fromX < bx ? bx : bx + w));
+          const anchorY = by + h / 2;
+          ctx.beginPath();
+          ctx.moveTo(fromX, fromY);
+          ctx.lineTo(anchorX, anchorY);
+          ctx.strokeStyle = "rgba(15,76,92,.34)";
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([4,4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        roundRectLocal(ctx, bx, by, w, h, 11);
+        ctx.fillStyle = "rgba(255,255,255,.94)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(25,42,58,.18)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = "#31566a";
+        ctx.fillText(text, bx + padX, y + 4);
+        ctx.restore();
+      }
 
       try{
+        if(btn){
+          btn.disabled = true;
+          btn.textContent = "PNG 產生中...";
+        }
+
         selectedTyphoonId = "all";
-        if($("typhoonSelect")) $("typhoonSelect").value = "all";
+        if(sel) sel.value = "all";
         applySelectedTyphoon();
-        renderTyphoonLayers({ fit:true });
-        await new Promise(r => setTimeout(r, 350));
-        await exportTyphoonPng({ buttonId:"printAllBtn", filenameSuffix:"全部颱風警報圖" });
+        addTyphoonCountyBoundaryOverlay();
+      renderTyphoonLayers({ fit:true });
+        await wait(350);
+
+        const allPts = points.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+        const latestUpdateTime = allPts
+          .map(p => p.time)
+          .filter(Boolean)
+          .sort(compareTime)
+          .pop() || "";
+        if(!allPts.length){
+          alert("目前沒有可繪製的颱風點。");
+          return;
+        }
+
+        const W = 1600, H = 1000, DPR = 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = W * DPR;
+        canvas.height = H * DPR;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(DPR, DPR);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+
+        const grad = ctx.createLinearGradient(0,0,0,H);
+        grad.addColorStop(0,"#fbfdff");
+        grad.addColorStop(1,"#edf7fa");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0,0,W,H);
+
+        // v55:「產生全部颱風 PNG」只輸出地圖本體，不顯示上方標題、資料來源或右側資訊欄。
+        // 互動式地圖維持 v52 的單一颱風資訊版，這裡只改 PNG 產生結果。
+        const mapX = 24, mapY = 24, mapW = W - 48, mapH = H - 94;
+        roundRectLocal(ctx, mapX, mapY, mapW, mapH, 28);
+        ctx.fillStyle = "#e9f8fb";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(25,42,58,.13)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        const view = buildViewForAll(allPts, mapW, mapH, 96);
+        // 使用和 Mapbox Static URL 完全一致的 zoom，避免 SVG/canvas 疊圖與底圖有細微偏移。
+        view.zoom = Number(view.zoom.toFixed(2));
+        ctx.save();
+        roundRectLocal(ctx, mapX, mapY, mapW, mapH, 28);
+        ctx.clip();
+        /* v57: 全部颱風 PNG 使用 Mapbox 圖磚方式輸出，避開 Static API 尺寸限制，並與互動式地圖/單颱風底圖保持一致。 */
+        await drawMapboxTileBackgroundLocal(ctx, view, mapX, mapY, mapW, mapH);
+        ctx.fillStyle = "rgba(255,255,255,.04)";
+        ctx.fillRect(mapX, mapY, mapW, mapH);
+
+        const project = makeProjectorLocal(view, mapX, mapY, mapW, mapH);
+
+        // Forecast Error Area：使用 70% 預測誤差範圍的藍色包絡區，不畫一顆顆圈圈。
+        const groupMapForErrorArea = new Map();
+        allPts.forEach(p => {
+          const key = p.typhoonId || p.typhoonName || "storm";
+          if(!groupMapForErrorArea.has(key)) groupMapForErrorArea.set(key, []);
+          groupMapForErrorArea.get(key).push(p);
+        });
+        groupMapForErrorArea.forEach(arr => {
+          const poly = buildForecastConePolygonSmooth(arr);
+          if(!poly || poly.length < 4) return;
+          ctx.save();
+          ctx.beginPath();
+          poly.forEach(([lat, lon], idx) => {
+            const q = project(lat, lon);
+            if(idx === 0) ctx.moveTo(q.x, q.y);
+            else ctx.lineTo(q.x, q.y);
+          });
+          ctx.closePath();
+          ctx.fillStyle = "rgba(96,165,250,.16)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(96,165,250,.82)";
+          ctx.lineWidth = 1.8;
+          ctx.setLineDash([]);
+          ctx.stroke();
+          ctx.restore();
+        });
+
+        for(let i=0;i<allPts.length-1;i++){
+          const a = allPts[i], b = allPts[i+1];
+          if(a.typhoonId && b.typhoonId && a.typhoonId !== b.typhoonId) continue;
+          const pa = project(a.lat,a.lon), pb = project(b.lat,b.lon);
+          const st = getStyle(b.level);
+          const isForecast = a.kind === "fcst" || b.kind === "fcst";
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(pa.x,pa.y);
+          ctx.lineTo(pb.x,pb.y);
+          ctx.strokeStyle = st.color;
+          ctx.lineWidth = isForecast ? 3.6 : 4.8;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          if(isForecast) ctx.setLineDash([11,9]);
+          ctx.shadowColor = "rgba(255,255,255,.95)";
+          ctx.shadowBlur = 3;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 點位
+        allPts.forEach(p => {
+          const st = getStyle(p.level);
+          const q = project(p.lat,p.lon);
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(q.x,q.y,p.kind==="fcst"?5:6,0,Math.PI*2);
+          ctx.fillStyle = "#fff";
+          ctx.fill();
+          ctx.strokeStyle = st.color;
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.restore();
+        });
+
+        // v59：全部颱風 PNG 的時間與名稱標籤自動避讓，不壓住路徑或 70% 預測誤差範圍。
+        const occupiedLabelBoxes = [];
+        const routeProtectBoxes = [];
+        function addBox(arr, x, y, w, h, pad=0){
+          arr.push({ x:x-pad, y:y-pad, w:w+pad*2, h:h+pad*2 });
+        }
+        function boxOverlap(a,b){
+          return !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y);
+        }
+        function boxFits(b){
+          return b.x >= mapX + 6 && b.y >= mapY + 6 && b.x + b.w <= mapX + mapW - 6 && b.y + b.h <= mapY + mapH - 6;
+        }
+        function boxBad(b){
+          return !boxFits(b) || occupiedLabelBoxes.some(o => boxOverlap(b,o)) || routeProtectBoxes.some(o => boxOverlap(b,o));
+        }
+        function chooseBox(candidates, w, h){
+          let fallback = null;
+          for(const c of candidates){
+            const x = clampLocal(c.x, mapX + 10, mapX + mapW - w - 10);
+            const y = clampLocal(c.y, mapY + 10, mapY + mapH - h - 10);
+            const b = {x,y,w,h};
+            if(!fallback) fallback = b;
+            if(!boxBad(b)) return b;
+          }
+          // Second pass: ignore route protection but still avoid other labels.
+          for(const c of candidates){
+            const x = clampLocal(c.x, mapX + 10, mapX + mapW - w - 10);
+            const y = clampLocal(c.y, mapY + 10, mapY + mapH - h - 10);
+            const b = {x,y,w,h};
+            if(boxFits(b) && !occupiedLabelBoxes.some(o => boxOverlap(b,o))) return b;
+          }
+          return fallback || {x:mapX+12,y:mapY+12,w,h};
+        }
+        function drawNameLeaderLabel(text, x, y, anchorX, anchorY, color){
+          const w = Math.max(98, Math.min(230, String(text).length * 13 + 34));
+          const h = 28;
+          ctx.save();
+          ctx.strokeStyle = "rgba(47,84,104,.40)";
+          ctx.lineWidth = 1.15;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(anchorX, anchorY);
+          ctx.lineTo(x + (anchorX < x ? 10 : w - 10), y + h/2);
+          ctx.stroke();
+          ctx.restore();
+          drawLabelLocal(ctx, x, y, text, color);
+          addBox(occupiedLabelBoxes, x, y, w, h, 5);
+        }
+
+        // Protect the visual route and points from labels.
+        allPts.forEach(p => {
+          const q = project(p.lat, p.lon);
+          addBox(routeProtectBoxes, q.x - 14, q.y - 14, 28, 28, 2);
+        });
+        for(let i=0;i<allPts.length-1;i++){
+          const a = allPts[i], b = allPts[i+1];
+          if(a.typhoonId && b.typhoonId && a.typhoonId !== b.typhoonId) continue;
+          const pa = project(a.lat,a.lon), pb = project(b.lat,b.lon);
+          addBox(routeProtectBoxes, Math.min(pa.x,pb.x)-10, Math.min(pa.y,pb.y)-10, Math.abs(pa.x-pb.x)+20, Math.abs(pa.y-pb.y)+20, 2);
+        }
+
+        const timeGroupMap = new Map();
+        allPts.forEach(p => {
+          const key = p.typhoonId || p.typhoonName || "storm";
+          if(!timeGroupMap.has(key)) timeGroupMap.set(key, []);
+          timeGroupMap.get(key).push(p);
+        });
+
+        const conePixelBoxes = new Map();
+        timeGroupMap.forEach((arr, key) => {
+          const poly = buildForecastConePolygonSmooth(arr);
+          if(poly && poly.length >= 4){
+            const ps = poly.map(([lat,lon]) => project(lat,lon));
+            const minX = Math.min(...ps.map(p=>p.x));
+            const maxX = Math.max(...ps.map(p=>p.x));
+            const minY = Math.min(...ps.map(p=>p.y));
+            const maxY = Math.max(...ps.map(p=>p.y));
+            conePixelBoxes.set(key, {minX,maxX,minY,maxY,cx:(minX+maxX)/2,cy:(minY+maxY)/2});
+            addBox(routeProtectBoxes, minX, minY, maxX-minX, maxY-minY, 2);
+          }
+        });
+
+        timeGroupMap.forEach((arr, groupIdx) => {
+          arr.forEach((p, idx) => {
+            if(idx % 2 !== 0) return;
+            const q = project(p.lat, p.lon);
+            const label = fmtTime(p.time, "short");
+            const w = 82, h = 24;
+            const flip = ((idx / 2 + groupIdx) % 2 === 0) ? 1 : -1;
+            const candidates = [
+              {x:q.x + 28, y:q.y - 42},
+              {x:q.x - w - 28, y:q.y - 42},
+              {x:q.x + 28, y:q.y + 26},
+              {x:q.x - w - 28, y:q.y + 26},
+              {x:q.x + flip*44, y:q.y - 68},
+              {x:q.x - w/2, y:q.y + 48},
+              {x:q.x + flip*58, y:q.y - 8}
+            ];
+            const b = chooseBox(candidates, w, h);
+            drawMiniTimeLabelLocal(ctx, b.x, b.y + 12, label, q.x, q.y);
+            addBox(occupiedLabelBoxes, b.x, b.y, w, h, 4);
+          });
+        });
+
+        // 每個颱風只顯示名稱，名稱盡量放到 forecast cone 外側，並用細線連回目前位置。
+        const latestById = new Map();
+        allPts.forEach(p => {
+          if(p.kind === "fcst") return;
+          const key = p.typhoonId || p.typhoonName || "storm";
+          const old = latestById.get(key);
+          if(!old || compareTime(p.time, old.time) >= 0) latestById.set(key, p);
+        });
+        let labelNo = 0;
+        latestById.forEach((p, key) => {
+          const st = getStyle(p.level);
+          const q = project(p.lat,p.lon);
+          const name = String(p.typhoonName || "颱風").replace(/^CWA｜/,"");
+          const w = Math.max(104, Math.min(230, name.length * 13 + 38));
+          const h = 30;
+          const coneBox = conePixelBoxes.get(key);
+          let candidates = [];
+          const nearCandidates = [
+            {x:q.x + 16, y:q.y - 38},
+            {x:q.x - w - 16, y:q.y - 38},
+            {x:q.x + 16, y:q.y + 18},
+            {x:q.x - w - 16, y:q.y + 18},
+            {x:q.x - w/2, y:q.y - 56},
+            {x:q.x - w/2, y:q.y + 38}
+          ];
+          if(coneBox){
+            const rightFirst = q.x >= coneBox.cx;
+            /* v61：名稱先嘗試靠近颱風，再退到 70% 預測誤差範圍外側。 */
+            const gap = 4;
+            const right = {x:coneBox.maxX + gap, y:q.y - 15};
+            const left = {x:coneBox.minX - w - gap, y:q.y - 15};
+            const top = {x:q.x - w/2, y:coneBox.minY - h - gap};
+            const bottom = {x:q.x - w/2, y:coneBox.maxY + gap};
+            candidates = nearCandidates.concat(rightFirst ? [right,left,top,bottom] : [left,right,top,bottom]);
+          }else{
+            candidates = nearCandidates;
+          }
+          const b = chooseBox(candidates, w, h);
+          drawNameLeaderLabel(name, b.x, b.y, q.x, q.y, st.color);
+          labelNo++;
+        });
+
+        ctx.restore();
+
+        // v60：全部颱風 PNG 加上更新時間，不佔用上方資料欄。
+        if(latestUpdateTime){
+          const upText = `更新時間：${fmtTime(latestUpdateTime, "full")}`;
+          ctx.save();
+          ctx.font = `900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif`;
+          const tw = ctx.measureText(upText).width;
+          const bx = W - tw - 70;
+          const by = 24;
+          ctx.fillStyle = "rgba(255,255,255,.92)";
+          roundRectLocal(ctx, bx, by, tw + 26, 30, 15);
+          ctx.fill();
+          ctx.strokeStyle = "rgba(25,42,58,.10)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          drawTextLocal(ctx, upText, bx + 13, by + 20, {size:13,weight:900,color:"#617785"});
+          ctx.restore();
+        }
+
+        // v55: 使用中文 Legend，與互動式地圖/先前版本一致。
+        const ly = H - 36;
+        let lx = 48;
+        ctx.save();
+        ctx.lineCap = "round";
+        ctx.lineWidth = 5;
+
+        ctx.strokeStyle = "#0f4c5c";
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx+42,ly); ctx.stroke();
+        drawTextLocal(ctx,"歷史路徑",lx+54,ly+5,{size:12,weight:900,color:"#617785"});
+        lx += 150;
+
+        ctx.strokeStyle = "#2a9d8f";
+        ctx.setLineDash([10,8]);
+        ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(lx+42,ly); ctx.stroke();
+        ctx.setLineDash([]);
+        drawTextLocal(ctx,"預報路徑",lx+54,ly+5,{size:12,weight:900,color:"#617785"});
+        lx += 150;
+
+        ctx.strokeStyle = "#60a5fa";
+        ctx.fillStyle = "rgba(96,165,250,.15)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(lx+2, ly+5);
+        ctx.bezierCurveTo(lx+12, ly-17, lx+37, ly-15, lx+49, ly-2);
+        ctx.bezierCurveTo(lx+36, ly+12, lx+14, ly+14, lx+2, ly+5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.setLineDash([]);
+        drawTextLocal(ctx,"70%預測誤差範圍",lx+58,ly+5,{size:12,weight:900,color:"#617785"});
+        lx += 210;
+
+        const levelLegend = [
+          ["低壓","#94a3b8"],
+          ["熱帶低壓","#38bdf8"],
+          ["輕度颱風","#22c55e"],
+          ["中度颱風","#f59e0b"],
+          ["強烈颱風","#ef4444"]
+        ];
+        levelLegend.forEach(([name,color]) => {
+          ctx.beginPath();
+          ctx.arc(lx+7, ly, 6, 0, Math.PI*2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.strokeStyle = "rgba(255,255,255,.92)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          drawTextLocal(ctx,name,lx+19,ly+5,{size:12,weight:900,color:"#617785"});
+          lx += name.length >= 4 ? 92 : 68;
+        });
+
+        ctx.restore();
+
+        downloadDataUrl(`全部颱風路徑_預測誤差範圍.png`, canvas.toDataURL("image/png"));
+      }catch(e){
+        console.error(e);
+        alert("全部颱風 PNG 產生失敗：請重新整理後再試。");
       }finally{
-        selectedTyphoonId = oldSelected || oldSelectValue || "all";
-        if($("typhoonSelect")) $("typhoonSelect").value = selectedTyphoonId;
+        selectedTyphoonId = prev;
+        if(sel) sel.value = prev;
         applySelectedTyphoon();
-        renderTyphoonLayers({ fit:false });
+        if(points && points.length) renderTyphoonLayers({ fit:false });
+        if(btn){
+          btn.disabled = false;
+          updateDownloadPngButtonText();
+        }
       }
+    }
+
+    async function exportAllTyphoonPng(){
+      return exportAllTyphoonMapOnlyPng();
     }
 
     async function initTyphoonTracker(){
@@ -6449,8 +7238,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         return;
       }
 
-      if(!points || points.length < 2){
-        alert("颱風資料至少需要 2 個點。");
+      if(!points || !points.length){
+        console.warn("目前沒有可繪製的颱風資料，地圖暫不初始化。");
         return;
       }
 
@@ -6493,21 +7282,27 @@ button{ -webkit-tap-highlight-color:transparent; }
         }).addTo(map);
       }
 
+      addTyphoonCountyBoundaryOverlay();
       renderTyphoonLayers({ fit:true });
+      setTimeout(() => { try{ addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 600);
+      setTimeout(() => { try{ addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 1500);
+      updateDownloadPngButtonText();
       enableHorizontalWheelScroll();
 
       $("typhoonSelect")?.addEventListener("change", (e) => {
         selectedTyphoonId = e.target.value;
         applySelectedTyphoon();
-        if(!points || points.length < 2){
-          alert("這個颱風資料至少需要 2 個點。");
+        updateDownloadPngButtonText();
+        if(!points || !points.length){
+          console.warn("這個選項目前沒有可繪製的颱風點。");
+          renderForecastList();
           return;
         }
         renderTyphoonLayers({ fit:true });
       });
 
       $("toggleLabels").addEventListener("change", () => drawTimeLabels(latestObsIdxCurrent));
-      $("toggleCone").addEventListener("change", drawForecastCone);
+      $("toggleCone").addEventListener("change", () => { drawForecastCone(); drawForecastErrorCircles(); });
       $("toggleRings").addEventListener("change", drawStormRings);
       document.querySelectorAll("[data-refresh-typhoon]").forEach(btn => {
         btn.addEventListener("click", refreshTyphoonData);
@@ -6517,9 +7312,10 @@ button{ -webkit-tap-highlight-color:transparent; }
       map.on("zoom", scheduleUpdateLabelLines);
       map.on("moveend", scheduleUpdateLabelLines);
       map.on("zoomend", () => {
-        updateLabelLines();
         drawForecastCone();
+        drawForecastErrorCircles();
         drawStormRings();
+        drawTimeLabels(latestObsIdxCurrent);
       });
 
       function safeFit(){
@@ -6543,6 +7339,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           if($("toggleRings")) $("toggleRings").checked = false;
           drawStormRings();
           drawForecastCone();
+          drawForecastErrorCircles();
           drawTimeLabels(latestObsIdxCurrent);
 
           map.invalidateSize(true);
@@ -6559,6 +7356,7 @@ button{ -webkit-tap-highlight-color:transparent; }
               map.invalidateSize(true);
               updateLabelLines();
               drawForecastCone();
+              drawForecastErrorCircles();
               drawStormRings();
             }catch(e){}
           }, 250);
@@ -6572,6 +7370,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           }
 
           drawForecastCone();
+          drawForecastErrorCircles();
           drawStormRings();
           drawTimeLabels(latestObsIdxCurrent);
           map.invalidateSize(true);
@@ -6583,11 +7382,8 @@ button{ -webkit-tap-highlight-color:transparent; }
       window.addEventListener("afterprint", afterPrint);
 
       $("printBtn").addEventListener("click", () => {
-        if(selectedTyphoonId === "all"){
-          alert("請先在下拉選單選擇單一颱風，或使用『下載全部颱風 PNG』。");
-          return;
-        }
-        exportTyphoonPng({ buttonId:"printBtn", filenameSuffix:"單一颱風警報圖" });
+        if(selectedTyphoonId === "all") exportAllTyphoonPng();
+        else exportTyphoonPng("printBtn", "單一颱風警報圖");
       });
 
       $("printAllBtn")?.addEventListener("click", () => {
@@ -9879,6 +10675,217 @@ function renderTwLegend(kind){
     const areaEl = document.getElementById('twArea');
     if(areaEl && window.__twSelectedAlert) areaEl.innerHTML = window.renderAreaPills(window.__twSelectedAlert);
   }, 60), true);
+})();
+</script>
+
+
+<script>
+/* ===== v49 final patch: restore warning map fill colors and keep forecast-error range visible ===== */
+(function(){
+  function safeAlphaColor(c, a){
+    c = String(c || '#8b5cf6').trim();
+    const rgb = c.match(/^(\d+)\s*,\s*(\d+)\s*,\s*(\d+)$/);
+    if(rgb) return `rgba(${rgb[1]},${rgb[2]},${rgb[3]},${a})`;
+    const hex = c.match(/^#?([0-9a-f]{6})$/i);
+    if(hex){
+      const h = hex[1];
+      const r = parseInt(h.slice(0,2),16);
+      const g = parseInt(h.slice(2,4),16);
+      const b = parseInt(h.slice(4,6),16);
+      return `rgba(${r},${g},${b},${a})`;
+    }
+    return c;
+  }
+
+  function rank(a){
+    try{ return window.twAreaAlertRank ? window.twAreaAlertRank(a) : Number(a?.levelRank || 0); }
+    catch(e){ return Number(a?.levelRank || 0); }
+  }
+
+  function colorOf(a){
+    return a?.color || a?.parameters?.website_color || a?.parameters?.alert_color || '#8b5cf6';
+  }
+
+  function bestTown(feature){
+    if(!window.twAreaBestAlertForFeature) return null;
+    return window.twAreaBestAlertForFeature(feature, 'town');
+  }
+
+  function bestCounty(feature){
+    if(!window.twAreaBestAlertForFeature) return null;
+    return window.twAreaBestAlertForFeature(feature, 'county');
+  }
+
+  function bestCountyAny(feature){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    const names = window.twAreaFeatureNames ? window.twAreaFeatureNames(feature) : {};
+    let best = null;
+    alerts.forEach(a => {
+      const areas = window.twAreaAlertAreas ? window.twAreaAlertAreas(a) : (a.areaNames || []);
+      const hit = areas.some(n => {
+        try{ return window.twAreaResolveCountyName(n) === names.countyNorm; }
+        catch(e){ return false; }
+      });
+      if(hit && (!best || rank(a) > rank(best))) best = a;
+    });
+    return best;
+  }
+
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = window.twAreaFeatureNames ? window.twAreaFeatureNames(feature) : {};
+    const whole = bestCounty(feature);
+    const any = bestCountyAny(feature);
+    const picked = whole || any;
+    const color = colorOf(picked);
+    const focused = window.twAreaFocusedCounty && names.countyNorm === window.twAreaFocusedCounty;
+    return {
+      color: picked ? safeAlphaColor(color, focused ? .98 : .82) : 'rgba(8,47,61,.68)',
+      weight: focused ? 3.2 : (picked ? 2.05 : 1.35),
+      fillColor: whole ? color : '#ffffff',
+      fillOpacity: whole ? (focused ? .46 : .34) : 0,
+      opacity:1,
+      dashArray: whole ? null : (any ? '5 5' : null),
+      lineJoin:'round',
+      lineCap:'round',
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+
+  window.twAreaOfficialTownStyle = function(feature){
+    const picked = bestTown(feature);
+    const color = colorOf(picked);
+    return {
+      color: picked ? safeAlphaColor(color,.88) : 'rgba(15,76,92,.10)',
+      weight: picked ? 1.15 : .22,
+      fillColor: picked ? color : 'transparent',
+      fillOpacity: picked ? .40 : 0,
+      opacity: picked ? .90 : .18,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round'
+    };
+  };
+
+  const oldRefresh = window.twAreaRefreshHighlight;
+  window.twAreaRefreshHighlight = function(){
+    try{
+      if(window.twAreaCountyLayer && window.twAreaOfficialCountyStyle){
+        window.twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle);
+      }
+      if(window.twAreaTownLayer && window.twAreaOfficialTownStyle){
+        window.twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle);
+        window.twAreaTownLayer.bringToFront();
+      }
+    }catch(e){}
+    if(typeof oldRefresh === 'function'){
+      try{ oldRefresh(); }catch(e){}
+    }
+    try{
+      if(window.twAreaCountyLayer && window.twAreaOfficialCountyStyle) window.twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle);
+      if(window.twAreaTownLayer && window.twAreaOfficialTownStyle){
+        window.twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle);
+        window.twAreaTownLayer.bringToFront();
+      }
+    }catch(e){}
+  };
+
+  window.addEventListener('load', () => {
+    setTimeout(() => { try{ window.twAreaRefreshHighlight && window.twAreaRefreshHighlight(); }catch(e){} }, 1500);
+    setTimeout(() => { try{ window.twAreaRefreshHighlight && window.twAreaRefreshHighlight(); }catch(e){} }, 3000);
+  });
+})();
+</script>
+
+
+
+<style>
+/* v58: hide raw CAP from users and keep map labels compact */
+#twRawBtn, #twRaw{ display:none !important; }
+@media (max-width:780px){
+  .tlabel{ font-size:10px !important; padding:5px 8px !important; gap:5px !important; }
+  .ty-error-label{ font-size:9px !important; padding:3px 6px !important; }
+}
+</style>
+
+<script>
+/* ===== v58: PNG label leaders, short interactive time, Taiwan boundary, CAP map fill fix ===== */
+(function(){
+  function escPatch(s){
+    try{ return escapeHtml(s); }catch(e){
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+  }
+
+  // Interactive typhoon labels: no year, shorter label.
+  try{
+    makeLabelHtml = function(timeText, color, isCurrent=false, p=null){
+      const labelTime = (typeof fmtTime === 'function') ? fmtTime(timeText, 'short') : String(timeText || '—');
+      const labelText = (isCurrent && p && p.typhoonName) ? `${p.typhoonName}｜${labelTime}` : labelTime;
+      return `
+        <div class="tlabel-wrap">
+          <span class="tlabel ${isCurrent ? 'current' : ''}" ${isCurrent ? `style="border-color:${color}66;"` : ''}>
+            <span class="miniDot" style="background:${color};"></span>
+            ${escPatch(labelText)}
+          </span>
+        </div>
+      `;
+    };
+  }catch(e){ console.warn('v58 label override failed', e); }
+
+  // Typhoon interactive map: make Taiwan boundary and county borders stronger.
+  try{
+    addTyphoonCountyBoundaryOverlay = async function(){
+      if(!map || typhoonCountyBoundaryLayer) return;
+      try{
+        if(!map.getPane('taiwanStrongBoundaryPane')){
+          map.createPane('taiwanStrongBoundaryPane');
+          map.getPane('taiwanStrongBoundaryPane').style.zIndex = 326;
+          map.getPane('taiwanStrongBoundaryPane').style.pointerEvents = 'none';
+        }
+        if(!map.getPane('countyBoundaryPane')){
+          map.createPane('countyBoundaryPane');
+          map.getPane('countyBoundaryPane').style.zIndex = 327;
+          map.getPane('countyBoundaryPane').style.pointerEvents = 'none';
+        }
+        const data = await twAreaLoadGeoJson('./tw-county.geojson');
+        const outer = L.geoJSON(data, {
+          pane:'taiwanStrongBoundaryPane',
+          interactive:false,
+          style(){ return { color:'#062f3f', weight:2.8, opacity:.78, fill:false, fillOpacity:0, lineJoin:'round', lineCap:'round' }; }
+        }).addTo(map);
+        const county = L.geoJSON(data, {
+          pane:'countyBoundaryPane',
+          interactive:false,
+          style(){ return { color:'#f8fdff', weight:2.3, opacity:.65, fill:false, fillOpacity:0, lineJoin:'round', lineCap:'round' }; }
+        }).addTo(map);
+        const countyDark = L.geoJSON(data, {
+          pane:'countyBoundaryPane',
+          interactive:false,
+          style(){ return { color:'#123d52', weight:1.05, opacity:.96, fill:false, fillOpacity:0, lineJoin:'round', lineCap:'round' }; }
+        }).addTo(map);
+        typhoonCountyBoundaryLayer = L.layerGroup([outer, county, countyDark]).addTo(map);
+      }catch(err){
+        console.warn('tw-county.geojson optional load failed for typhoon map', err);
+      }
+    };
+    if(map){ setTimeout(() => { try{ addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 300); }
+  }catch(e){ console.warn('v58 typhoon boundary patch failed', e); }
+
+  // Raw CAP is not exposed to user.
+  try{
+    const hideRaw = () => {
+      const btn = document.getElementById('twRawBtn');
+      const raw = document.getElementById('twRaw');
+      if(btn) btn.remove();
+      if(raw){ raw.style.display='none'; raw.textContent=''; }
+    };
+    hideRaw();
+    document.addEventListener('DOMContentLoaded', hideRaw);
+    setTimeout(hideRaw, 800);
+  }catch(e){}
+
+  // v59: CAP map fill logic is restored to the stable pre-v58 implementation.
+
 })();
 </script>
 
