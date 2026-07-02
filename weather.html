@@ -782,6 +782,80 @@ button{ -webkit-tap-highlight-color:transparent; }
   white-space:pre-wrap;
 }
 
+
+
+/* ===== Malaysia Warning Map v66 ===== */
+.myWarningGrid{
+  display:grid;
+  grid-template-columns:1.08fr .92fr;
+  gap:16px;
+  align-items:stretch;
+}
+.myMapBox{
+  min-height:560px;
+  border:1px solid var(--line);
+  border-radius:24px;
+  background:rgba(255,255,255,.86);
+  box-shadow:0 10px 24px rgba(31,53,72,.07);
+  overflow:hidden;
+}
+.myMapHead{
+  min-height:54px;
+  padding:14px 16px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  background:linear-gradient(135deg, rgba(249,252,252,.96), rgba(231,242,243,.78));
+}
+.myMapHead strong{
+  color:#122c3c;
+  font-size:13px;
+  font-weight:900;
+}
+.myMapLegend{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.myMapLegend span{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  color:#647983;
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.myMapLegend i{
+  width:12px;
+  height:12px;
+  border-radius:4px;
+  display:inline-block;
+  border:1px solid rgba(25,42,58,.14);
+}
+#myMap{
+  width:100%;
+  height:506px;
+  background:#e9f8fb;
+}
+.myMapHint{
+  padding:10px 14px;
+  color:#647983;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.55;
+  border-top:1px solid var(--line);
+  background:rgba(255,255,255,.78);
+}
+@media (max-width:1100px){
+  .myWarningGrid{ grid-template-columns:1fr; }
+  #myMap{ height:460px; }
+}
+
 /* ===== Typhoon Tracker Header ===== */
 
 .trackerHead{
@@ -3885,7 +3959,21 @@ button{ -webkit-tap-highlight-color:transparent; }
             </div>
           </div>
 
-          <div class="warningSimpleList" id="myList"></div>
+          <div class="myWarningGrid">
+            <div class="myMapBox">
+              <div class="myMapHead">
+                <strong>🗺️ 馬來西亞警報地圖</strong>
+                <div class="myMapLegend">
+                  <span><i style="background:#fff35a;border-color:#c9a500;"></i> 注意</span>
+                  <span><i style="background:#ffa733;border-color:#cf6400;"></i> 警戒</span>
+                  <span><i style="background:#e53935;border-color:#960000;"></i> 危險</span>
+                </div>
+              </div>
+              <div id="myMap"></div>
+              <div class="myMapHint" id="myMapHint">讀取 Malaysia GeoJSON 中…</div>
+            </div>
+            <div class="warningSimpleList" id="myList"></div>
+          </div>
         </div>
 
         <div class="warningPanel" id="warnPanelHk">
@@ -4315,6 +4403,32 @@ button{ -webkit-tap-highlight-color:transparent; }
       return Array.from(node.getElementsByTagName("*")).filter(el => localNameOf(el) === name);
     }
 
+
+    function hasChineseText(v){
+      return /[\u3400-\u9fff]/.test(String(v || ""));
+    }
+
+    function childTextPreferZh(node, names){
+      const list = [];
+      names.forEach(name => childElementsByName(node, name).forEach(el => list.push(el)));
+      const zh = list.find(el => {
+        const lang = String(el.getAttribute("lang") || el.getAttribute("xml:lang") || el.getAttribute("language") || "").toLowerCase();
+        const txt = String(el.textContent || "").trim();
+        return lang.includes("zh") || lang.includes("hant") || hasChineseText(txt);
+      });
+      const picked = zh || list[0];
+      return picked ? String(picked.textContent || "").trim() : "";
+    }
+
+    function makeCwaChineseTyphoonName(storm, tdNo, fallbackIndex){
+      const zh = childTextPreferZh(storm, [
+        "TyphoonNameZh", "TyphoonNameChinese", "ChineseName", "NameZh", "NameChinese", "ChineseTyphoonName", "TyphoonName", "Name"
+      ]);
+      if(zh && hasChineseText(zh)) return zh;
+      const no = String(tdNo || fallbackIndex || "").padStart(2, "0");
+      return no ? `熱帶低氣壓 ${no}` : `熱帶低氣壓 ${fallbackIndex || ""}`.trim();
+    }
+
     function addHoursToCwaTime(initialTime, hours){
       const d = parseLocalDateTime(initialTime);
       if(!d || !isFinite(Number(hours))) return initialTime || "";
@@ -4397,7 +4511,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       return storms.map((storm, i) => {
         const year = childText(storm, "Year") || "";
         const tdNo = childText(storm, "CwaTdNo") || childText(storm, "TyphoonNo") || String(i + 1);
-        const nameZh = childText(storm, "TyphoonName") || childText(storm, "Name") || (tdNo ? `熱帶氣旋 ${tdNo}` : `熱帶氣旋 ${i + 1}`);
+        const nameZh = makeCwaChineseTyphoonName(storm, tdNo, i + 1);
         const id = `cwa-${year || "ty"}-${tdNo}`;
         const name = `CWA｜${nameZh}`;
 
@@ -4447,6 +4561,40 @@ button{ -webkit-tap-highlight-color:transparent; }
       const c = Array.isArray(circle) ? circle[0] : circle;
       const r = Number(c?.Radius ?? c?.radius ?? c?.['#text'] ?? 0);
       return isFinite(r) ? r : 0;
+    }
+
+
+
+    function getJsonChineseName(obj, keys){
+      const candidates = [];
+      keys.forEach(k => {
+        const v = obj ? obj[k] : null;
+        if(v === null || v === undefined) return;
+        if(Array.isArray(v)) candidates.push(...v);
+        else candidates.push(v);
+      });
+      for(const v of candidates){
+        if(typeof v === "string" || typeof v === "number"){
+          const s = String(v).trim();
+          if(hasChineseText(s)) return s;
+          continue;
+        }
+        if(v && typeof v === "object"){
+          const lang = String(v.lang || v.Language || v["@lang"] || v.language || "").toLowerCase();
+          const s = String(v["#text"] ?? v.text ?? v.value ?? v.name ?? "").trim();
+          if((lang.includes("zh") || lang.includes("hant") || hasChineseText(s)) && s) return s;
+        }
+      }
+      return "";
+    }
+
+    function makeCwaChineseTyphoonNameJson(storm, tdNo, fallbackIndex){
+      const zh = getJsonChineseName(storm, [
+        "TyphoonNameZh", "typhoonNameZh", "TyphoonNameChinese", "typhoonNameChinese", "ChineseName", "chineseName", "NameZh", "nameZh", "NameChinese", "nameChinese", "TyphoonName", "typhoonName", "Name", "name"
+      ]);
+      if(zh) return zh;
+      const no = String(tdNo || fallbackIndex || "").padStart(2, "0");
+      return no ? `熱帶低氣壓 ${no}` : `熱帶低氣壓 ${fallbackIndex || ""}`.trim();
     }
 
     function parseCwaJsonFix(fix, kind, id, name){
@@ -4514,7 +4662,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       return storms.map((storm, i) => {
         const year = getJsonText(storm, ["Year", "year"]);
         const tdNo = getJsonText(storm, ["CwaTdNo", "TyphoonNo", "cwaTdNo", "typhoonNo"]) || String(i + 1);
-        const nameZh = getJsonText(storm, ["TyphoonName", "Name", "typhoonName", "name"]) || (tdNo ? `熱帶氣旋 ${tdNo}` : `熱帶氣旋 ${i + 1}`);
+        const nameZh = makeCwaChineseTyphoonNameJson(storm, tdNo, i + 1);
         const id = `cwa-${year || "ty"}-${tdNo}`;
         const name = `CWA｜${nameZh}`;
         const analysis = storm.AnalysisData || storm.analysisData || {};
@@ -8178,26 +8326,265 @@ button{ -webkit-tap-highlight-color:transparent; }
 
     function initMalaysiaWarnings(){
       const API = "https://api.data.gov.my/weather/warning";
+      const STATE_GEOJSON_URL = "./malaysia.state.geojson";
+      const DISTRICT_GEOJSON_URL = "./malaysia.district.geojson";
       const q = (id) => document.getElementById(id);
 
       let allData = [];
+      let myMap = null;
+      let myMapLayer = null;
+      let myStateGeoJSON = null;
+      let myDistrictGeoJSON = null;
+      let myGeoLoading = null;
+      const myRenderer = L.svg({ padding:0.35 });
 
-      function getCategory(text){
-        const s = (text || "").toLowerCase();
-        if(s.includes("wind")) return "wind";
-        if(s.includes("rain")) return "rain";
-        if(s.includes("sea")) return "sea";
-        return "other";
-      }
+      const myLevelStyle = {
+        yellow:{ fill:"#fff35a", stroke:"#c9a500", label:"注意" },
+        orange:{ fill:"#ffa733", stroke:"#cf6400", label:"警戒" },
+        red:{ fill:"#e53935", stroke:"#960000", label:"危險" },
+        none:{ fill:"#ffffff", stroke:"#9fb0b8", label:"無警報" }
+      };
+
+      const malaysiaStateAliases = {
+        "johor":"johor", "kedah":"kedah", "kelantan":"kelantan", "melaka":"melaka", "malacca":"melaka",
+        "negeri sembilan":"negeri sembilan", "pahang":"pahang", "perak":"perak", "perlis":"perlis",
+        "pulau pinang":"pulau pinang", "penang":"pulau pinang", "sabah":"sabah", "sarawak":"sarawak",
+        "selangor":"selangor", "terengganu":"terengganu", "kuala lumpur":"kuala lumpur", "wp kuala lumpur":"kuala lumpur",
+        "wilayah persekutuan kuala lumpur":"kuala lumpur", "putrajaya":"putrajaya", "wp putrajaya":"putrajaya",
+        "labuan":"labuan", "wp labuan":"labuan"
+      };
 
       function escapeSimple(s){
         return String(s ?? "").replace(/[&<>"']/g, m => ({
-          "&":"&amp;",
-          "<":"&lt;",
-          ">":"&gt;",
-          '"':"&quot;",
-          "'":"&#39;"
+          "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
         }[m]));
+      }
+
+      function normMyName(s){
+        return String(s || "")
+          .toLowerCase()
+          .normalize("NFKD")
+          .replace(/\b(daerah|district|bahagian|division|state|negeri|wilayah persekutuan|wp)\b/g," ")
+          .replace(/[^a-z0-9]+/g," ")
+          .trim()
+          .replace(/\s+/g," ");
+      }
+
+      function normMyText(s){
+        return String(s || "")
+          .toLowerCase()
+          .normalize("NFKD")
+          .replace(/[^a-z0-9]+/g," ")
+          .trim()
+          .replace(/\s+/g," ");
+      }
+
+      function getCategory(text){
+        const s = (text || "").toLowerCase();
+        if(s.includes("wind") || s.includes("angin")) return "wind";
+        if(s.includes("rain") || s.includes("hujan") || s.includes("thunderstorm")) return "rain";
+        if(s.includes("sea") || s.includes("laut") || s.includes("wave")) return "sea";
+        return "other";
+      }
+
+      function getWarningLevel(w){
+        const s = [
+          w.severity, w.warning_level, w.level, w.status, w.category,
+          w.heading_en, w.heading_bm, w.text_en, w.text_bm, w.instruction_en, w.instruction_bm
+        ].map(v => String(v || "").toLowerCase()).join(" ");
+        if(/danger|bahaya|red|merah|amaran/.test(s)) return "red";
+        if(/severe|buruk|orange|jingga|waspada/.test(s)) return "orange";
+        if(/alert|yellow|kuning|advisory|watch|hati-hati/.test(s)) return "yellow";
+        if(/warning|amaran|rain|hujan|wind|angin|sea|laut/.test(s)) return "yellow";
+        return "yellow";
+      }
+
+      function levelRank(level){
+        return level === "red" ? 3 : level === "orange" ? 2 : level === "yellow" ? 1 : 0;
+      }
+
+      function strongerLevel(a, b){
+        return levelRank(a) >= levelRank(b) ? a : b;
+      }
+
+      function getPropAny(props, keys){
+        for(const k of keys){
+          if(props && props[k] !== undefined && props[k] !== null && String(props[k]).trim() !== "") return String(props[k]).trim();
+        }
+        const lower = Object.fromEntries(Object.entries(props || {}).map(([k,v]) => [k.toLowerCase(), v]));
+        for(const k of keys){
+          const v = lower[String(k).toLowerCase()];
+          if(v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+        }
+        return "";
+      }
+
+      function getMyStateName(feature){
+        const p = feature?.properties || {};
+        const raw = getPropAny(p, ["state", "STATE", "name", "NAME", "negeri", "NEGERI", "State_Name", "state_name", "adm1_en", "ADM1_EN"]);
+        const n = raw.toLowerCase().trim();
+        return malaysiaStateAliases[n] || raw;
+      }
+
+      function getMyDistrictName(feature){
+        const p = feature?.properties || {};
+        return getPropAny(p, ["district", "DISTRICT", "daerah", "DAERAH", "name", "NAME", "District", "district_name", "DISTRICT_N", "adm2_en", "ADM2_EN"]);
+      }
+
+      function warningSearchText(w){
+        const vals = [];
+        const walk = (v) => {
+          if(v === null || v === undefined) return;
+          if(typeof v === "string" || typeof v === "number") vals.push(String(v));
+          else if(Array.isArray(v)) v.forEach(walk);
+          else if(typeof v === "object") Object.values(v).forEach(walk);
+        };
+        walk(w);
+        return normMyText(vals.join(" "));
+      }
+
+      function collectWarningAreas(){
+        const stateWarnings = new Map();
+        const districtWarnings = new Map();
+        const warningTexts = allData.map(w => ({ raw:w, text:warningSearchText(w), level:getWarningLevel(w) }));
+
+        const districtFeatures = myDistrictGeoJSON?.features || [];
+        const stateFeatures = myStateGeoJSON?.features || [];
+
+        warningTexts.forEach(item => {
+          districtFeatures.forEach(f => {
+            const stateName = getMyStateName(f);
+            const districtName = getMyDistrictName(f);
+            const dk = normMyName(districtName);
+            const sk = normMyName(stateName);
+            if(!dk) return;
+            const districtHit = item.text.includes(dk);
+            const stateOk = !sk || item.text.includes(sk) || !districtHit;
+            if(districtHit && stateOk){
+              const key = `${sk}|${dk}`;
+              const old = districtWarnings.get(key);
+              districtWarnings.set(key, {
+                level: old ? strongerLevel(old.level, item.level) : item.level,
+                warnings:[...(old?.warnings || []), item.raw]
+              });
+            }
+          });
+
+          stateFeatures.forEach(f => {
+            const stateName = getMyStateName(f);
+            const sk = normMyName(stateName);
+            if(!sk) return;
+            if(item.text.includes(sk)){
+              const old = stateWarnings.get(sk);
+              stateWarnings.set(sk, {
+                level: old ? strongerLevel(old.level, item.level) : item.level,
+                warnings:[...(old?.warnings || []), item.raw]
+              });
+            }
+          });
+        });
+
+        return { stateWarnings, districtWarnings };
+      }
+
+      async function loadMalaysiaGeoJSON(){
+        if(myStateGeoJSON || myDistrictGeoJSON) return;
+        if(myGeoLoading) return myGeoLoading;
+        myGeoLoading = Promise.allSettled([
+          fetch(STATE_GEOJSON_URL, { cache:"force-cache" }).then(r => { if(!r.ok) throw new Error("state geojson"); return r.json(); }),
+          fetch(DISTRICT_GEOJSON_URL, { cache:"force-cache" }).then(r => { if(!r.ok) throw new Error("district geojson"); return r.json(); })
+        ]).then(([stateRes, districtRes]) => {
+          if(stateRes.status === "fulfilled") myStateGeoJSON = stateRes.value;
+          if(districtRes.status === "fulfilled") myDistrictGeoJSON = districtRes.value;
+        }).finally(() => { myGeoLoading = null; });
+        return myGeoLoading;
+      }
+
+      function ensureMalaysiaMap(){
+        if(myMap || !q("myMap")) return;
+        myMap = L.map("myMap", {
+          zoomControl:true,
+          attributionControl:false,
+          preferCanvas:false
+        }).setView([4.25, 109.5], 6);
+
+        L.tileLayer(`https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`, {
+          maxZoom:18,
+          tileSize:256,
+          crossOrigin:true
+        }).addTo(myMap);
+      }
+
+      function renderMalaysiaMap(){
+        ensureMalaysiaMap();
+        if(!myMap) return;
+        if(myMapLayer){
+          myMap.removeLayer(myMapLayer);
+          myMapLayer = null;
+        }
+
+        if(!myStateGeoJSON && !myDistrictGeoJSON){
+          if(q("myMapHint")) q("myMapHint").textContent = "請把 malaysia.state.geojson 和 malaysia.district.geojson 放在 HTML 同一個資料夾。";
+          setTimeout(() => myMap.invalidateSize(), 80);
+          return;
+        }
+
+        const { stateWarnings, districtWarnings } = collectWarningAreas();
+        const hasDistrictWarnings = districtWarnings.size > 0 && myDistrictGeoJSON;
+        const baseGeo = hasDistrictWarnings ? myDistrictGeoJSON : myStateGeoJSON;
+
+        myMapLayer = L.geoJSON(baseGeo, {
+          renderer:myRenderer,
+          smoothFactor:1.2,
+          interactive:true,
+          style:(feature) => {
+            const stateName = getMyStateName(feature);
+            const districtName = getMyDistrictName(feature);
+            const sk = normMyName(stateName);
+            const dk = normMyName(districtName);
+            const key = hasDistrictWarnings ? `${sk}|${dk}` : sk;
+            const record = hasDistrictWarnings ? districtWarnings.get(key) : stateWarnings.get(key);
+            const level = record?.level || "none";
+            const st = myLevelStyle[level] || myLevelStyle.none;
+            return {
+              color: level === "none" ? "#78909c" : st.stroke,
+              weight: level === "none" ? 0.75 : 2.15,
+              opacity: level === "none" ? 0.5 : 0.92,
+              fillColor: st.fill,
+              fillOpacity: level === "none" ? 0.04 : 0.42
+            };
+          },
+          onEachFeature:(feature, layer) => {
+            const stateName = getMyStateName(feature);
+            const districtName = getMyDistrictName(feature);
+            const sk = normMyName(stateName);
+            const dk = normMyName(districtName);
+            const key = hasDistrictWarnings ? `${sk}|${dk}` : sk;
+            const record = hasDistrictWarnings ? districtWarnings.get(key) : stateWarnings.get(key);
+            const level = record?.level || "none";
+            const st = myLevelStyle[level] || myLevelStyle.none;
+            const title = hasDistrictWarnings ? `${stateName || "—"} ${districtName || ""}`.trim() : (stateName || districtName || "Malaysia");
+            layer.bindTooltip(`<b>${escapeSimple(title)}</b><br>${escapeSimple(st.label)}${record ? `｜${record.warnings.length} 項` : ""}`, {
+              sticky:true,
+              direction:"top",
+              className:"twCountyLabel"
+            });
+            layer.on({
+              mouseover:() => layer.setStyle({ weight:2.8, opacity:1, fillOpacity: level === "none" ? 0.08 : 0.55 }),
+              mouseout:() => myMapLayer && myMapLayer.resetStyle(layer)
+            });
+          }
+        }).addTo(myMap);
+
+        requestAnimationFrame(() => {
+          myMap.invalidateSize();
+          try{ myMap.fitBounds(myMapLayer.getBounds(), { padding:[18,18] }); }catch(e){}
+        });
+
+        const matched = hasDistrictWarnings ? districtWarnings.size : stateWarnings.size;
+        if(q("myMapHint")) q("myMapHint").textContent = matched
+          ? `已標示 ${matched} 個${hasDistrictWarnings ? "縣區" : "州屬"}警報。`
+          : "已載入地圖；目前警報資料未提供可比對的州/縣區名稱。";
       }
 
       function renderMalaysia(){
@@ -8206,63 +8593,67 @@ button{ -webkit-tap-highlight-color:transparent; }
         box.innerHTML = "";
 
         const filtered = allData.filter(w => {
-          const cat = getCategory(w.heading_en || "");
+          const cat = getCategory([w.heading_en, w.heading_bm, w.text_en, w.text_bm].join(" "));
           return type === "all" || cat === type;
         });
 
         q("myStatus").textContent = `${filtered.length} 項警告`;
 
         if(filtered.length === 0){
-          box.innerHTML = `<div class="warningEmpty">No matching warnings</div>`;
-          return;
+          box.innerHTML = `<div class="warningEmpty">目前沒有符合條件的警報</div>`;
+        }else{
+          filtered.forEach(w => {
+            const headline = w.heading_en || w.heading_bm || "—";
+            const text = w.text_en || w.text_bm || w.instruction_en || w.instruction_bm || "";
+            const cat = getCategory(`${headline} ${text}`);
+            const level = getWarningLevel(w);
+            const st = myLevelStyle[level] || myLevelStyle.yellow;
+
+            const el = document.createElement("div");
+            el.className = "warningCard";
+            el.innerHTML = `
+              <div class="warningCardHead">
+                <div class="warningHeadline">${escapeSimple(headline)}</div>
+                <span class="warningTag ${cat}" style="border-color:${st.stroke};color:${st.stroke};background:${st.fill}33;">
+                  ${cat === "wind" ? "強風" : cat === "rain" ? "豪雨" : cat === "sea" ? "海象" : "其他"}
+                </span>
+              </div>
+              <div class="warningMeta">
+                Issued: ${escapeSimple(w.warning_issue__issued || w.issued || "—")}<br>
+                Valid from: ${escapeSimple(w.valid_from || "—")}<br>
+                Valid to: ${escapeSimple(w.valid_to || "—")}
+              </div>
+              <div class="warningDesc">${escapeSimple(text)}</div>
+            `;
+            box.appendChild(el);
+          });
         }
 
-        filtered.forEach(w => {
-          const headline = w.heading_en || w.heading_bm || "—";
-          const text = w.text_en || w.text_bm || "";
-          const cat = getCategory(headline);
-
-          const el = document.createElement("div");
-          el.className = "warningCard";
-          el.innerHTML = `
-            <div class="warningCardHead">
-              <div class="warningHeadline">${escapeSimple(headline)}</div>
-              <span class="warningTag ${cat}">
-                ${cat === "wind" ? "強風" :
-                  cat === "rain" ? "豪雨" :
-                  cat === "sea" ? "海象" : "其他"}
-              </span>
-            </div>
-            <div class="warningMeta">
-              Issued: ${escapeSimple(w.warning_issue__issued || "—")}<br>
-              Valid from: ${escapeSimple(w.valid_from || "—")}<br>
-              Valid to: ${escapeSimple(w.valid_to || "—")}
-            </div>
-            <div class="warningDesc">${escapeSimple(text)}</div>
-          `;
-
-          box.appendChild(el);
-        });
+        requestAnimationFrame(renderMalaysiaMap);
       }
 
       async function refreshMalaysia(){
         q("myStatus").textContent = "Loading…";
-
+        if(q("myMapHint")) q("myMapHint").textContent = "讀取 Malaysia GeoJSON 中…";
         try{
+          await loadMalaysiaGeoJSON();
           const res = await fetch(API, { cache:"no-store" });
           if(!res.ok) throw new Error(`HTTP ${res.status}`);
-          allData = await res.json();
+          const data = await res.json();
+          allData = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
           renderMalaysia();
         }catch(e){
           console.error(e);
           q("myStatus").textContent = "錯誤";
           q("myList").innerHTML = `<div class="warningEmpty">馬來西亞警報讀取失敗</div>`;
+          renderMalaysiaMap();
         }
       }
 
       q("myRefresh").addEventListener("click", refreshMalaysia);
       q("myTypeFilter").addEventListener("change", renderMalaysia);
 
+      ensureMalaysiaMap();
       refreshMalaysia();
     }
 
@@ -11044,6 +11435,398 @@ function renderTwLegend(kind){
   window.addEventListener('load', () => {
     setTimeout(() => { try{ window.twAreaRefreshHighlight && window.twAreaRefreshHighlight(); }catch(e){} }, 600);
     setTimeout(() => { try{ window.addTyphoonCountyBoundaryOverlay && window.addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 700);
+  });
+})();
+</script>
+
+
+<script>
+/* ===== v67: Malaysia warning area parser + softer Taiwan typhoon borders ===== */
+(function(){
+  function escMy67(s){
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function normMy67(s){
+    return String(s || '')
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/\b(daerah|district|bahagian|division|state|negeri|wilayah persekutuan|wp)\b/g,' ')
+      .replace(/[^a-z0-9]+/g,' ')
+      .trim()
+      .replace(/\s+/g,' ');
+  }
+  function walkText67(v, arr=[]){
+    if(v === null || v === undefined) return arr;
+    if(typeof v === 'string' || typeof v === 'number') arr.push(String(v));
+    else if(Array.isArray(v)) v.forEach(x => walkText67(x, arr));
+    else if(typeof v === 'object') Object.values(v).forEach(x => walkText67(x, arr));
+    return arr;
+  }
+
+  window.initMalaysiaWarnings = function(){
+    const API = 'https://api.data.gov.my/weather/warning';
+    const STATE_GEOJSON_URL = './malaysia.state.geojson';
+    const DISTRICT_GEOJSON_URL = './malaysia.district.geojson';
+    const q = (id) => document.getElementById(id);
+    if(!q('warnPanelMy')) return;
+
+    let allData = [];
+    let myMap = null;
+    let myStateLayer = null;
+    let myDistrictLayer = null;
+    let myStateGeoJSON = null;
+    let myDistrictGeoJSON = null;
+    let myGeoLoading = null;
+    const myRenderer = L.svg({ padding:.25 });
+
+    const states = [
+      'johor','kedah','kelantan','melaka','negeri sembilan','pahang','perak','perlis','pulau pinang',
+      'sabah','sarawak','selangor','terengganu','kuala lumpur','putrajaya','labuan'
+    ];
+    const stateAliases = {
+      'malacca':'melaka','penang':'pulau pinang','pinang':'pulau pinang','penang island':'pulau pinang',
+      'wp kuala lumpur':'kuala lumpur','wilayah persekutuan kuala lumpur':'kuala lumpur',
+      'wp putrajaya':'putrajaya','wilayah persekutuan putrajaya':'putrajaya',
+      'wp labuan':'labuan','wilayah persekutuan labuan':'labuan'
+    };
+
+    const levelStyle = {
+      blue:{ fill:'#38bdf8', stroke:'#0369a1', label:'豪雨警報' },
+      yellow:{ fill:'#fff35a', stroke:'#c9a500', label:'黃色' },
+      orange:{ fill:'#ffa733', stroke:'#cf6400', label:'橙色' },
+      red:{ fill:'#e53935', stroke:'#960000', label:'紅色' },
+      none:{ fill:'#ffffff', stroke:'#8fa2ad', label:'無警報' }
+    };
+
+    function setupControls(){
+      const sel = q('myTypeFilter');
+      if(sel){
+        const old = sel.value || 'all';
+        sel.innerHTML = `
+          <option value="all">全部警報</option>
+          <option value="thunderstorm">豪雨警報</option>
+          <option value="continuous">長命雨警報</option>
+          <option value="sea">海象警報</option>
+          <option value="typhoon">颱風警報</option>`;
+        sel.value = ['all','thunderstorm','continuous','sea','typhoon'].includes(old) ? old : 'all';
+      }
+      const legend = document.querySelector('#warnPanelMy .myMapLegend');
+      if(legend){
+        legend.innerHTML = `
+          <span><i style="background:#38bdf8;border-color:#0369a1;"></i> 豪雨警報</span>
+          <span><i style="background:#fff35a;border-color:#c9a500;"></i> 黃色</span>
+          <span><i style="background:#ffa733;border-color:#cf6400;"></i> 橙色</span>
+          <span><i style="background:#e53935;border-color:#960000;"></i> 紅色</span>`;
+      }
+    }
+
+    function getPropAny(props, keys){
+      props = props || {};
+      for(const k of keys){
+        if(props[k] !== undefined && props[k] !== null && String(props[k]).trim() !== '') return String(props[k]).trim();
+      }
+      const lower = Object.fromEntries(Object.entries(props).map(([k,v]) => [String(k).toLowerCase(), v]));
+      for(const k of keys){
+        const v = lower[String(k).toLowerCase()];
+        if(v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+      }
+      return '';
+    }
+    function getStateName(feature){
+      const raw = getPropAny(feature?.properties, ['state','STATE','name','NAME','negeri','NEGERI','State_Name','state_name','adm1_en','ADM1_EN']);
+      const n = normMy67(raw);
+      return stateAliases[n] || n || raw;
+    }
+    function getDistrictName(feature){
+      return getPropAny(feature?.properties, ['district','DISTRICT','daerah','DAERAH','name','NAME','District','district_name','DISTRICT_N','adm2_en','ADM2_EN']);
+    }
+    function allText(w){ return walkText67(w, []).join(' '); }
+    function warningKind(w){
+      const s = allText(w).toLowerCase();
+      if(s.includes('tropical depression advisory') || s.includes('tropical depression')) return 'typhoon';
+      if(s.includes('warning on strong wind and rough seas') || (s.includes('strong wind') && s.includes('rough seas'))) return 'sea';
+      if(s.includes('continuous rain')) return 'continuous';
+      if(s.includes('thunderstorms warning') || s.includes('thunderstorm')) return 'thunderstorm';
+      if(s.includes('rain')) return 'continuous';
+      if(s.includes('sea') || s.includes('wind')) return 'sea';
+      return 'other';
+    }
+    function warningDisplay(w){
+      const kind = warningKind(w);
+      if(kind === 'thunderstorm') return { name:'豪雨警報', tag:'豪雨', level:'blue', map:true };
+      if(kind === 'continuous') return { name:'長命雨警報', tag:'長命雨', level:warningLevel(w), map:true };
+      if(kind === 'sea') return { name:'海象警報', tag:'海象', level:warningLevel(w), map:true };
+      if(kind === 'typhoon') return { name:'颱風警報', tag:'颱風', level:'red', map:false };
+      return { name:(w.heading_en || w.heading_bm || '其他警報'), tag:'其他', level:warningLevel(w), map:true };
+    }
+    function warningLevel(w){
+      const s = allText(w).toLowerCase();
+      if(/red|danger|bahaya|merah|very dangerous|severe/.test(s)) return 'red';
+      if(/orange|jingga|buruk/.test(s)) return 'orange';
+      if(/yellow|kuning|alert|advisory|watch|waspada/.test(s)) return 'yellow';
+      return 'yellow';
+    }
+    function levelRank(level){ return level === 'red' ? 4 : level === 'orange' ? 3 : level === 'yellow' ? 2 : level === 'blue' ? 1 : 0; }
+    function strongerLevel(a,b){ return levelRank(a) >= levelRank(b) ? a : b; }
+    function normalizedWarningText(w){ return normMy67(allText(w)); }
+
+    function explicitStateNames(text){
+      const found = new Set();
+      const n = normMy67(text);
+      states.forEach(st => { if(n.includes(st)) found.add(st); });
+      Object.entries(stateAliases).forEach(([alias, real]) => { if(n.includes(alias)) found.add(real); });
+      return found;
+    }
+
+    function collectAreas(){
+      const stateWarnings = new Map();
+      const districtWarnings = new Map();
+      const districtFeatures = myDistrictGeoJSON?.features || [];
+      const stateFeatures = myStateGeoJSON?.features || [];
+
+      allData.forEach(w => {
+        const info = warningDisplay(w);
+        if(!info.map) return;
+        const text = normalizedWarningText(w);
+        const level = info.level || 'yellow';
+        const statesHit = explicitStateNames(text);
+        const districtsHitByState = new Map();
+
+        districtFeatures.forEach(f => {
+          const st = getStateName(f);
+          const dn = getDistrictName(f);
+          const sk = normMy67(st);
+          const dk = normMy67(dn);
+          if(!dk) return;
+          if(text.includes(dk)){
+            const key = `${sk}|${dk}`;
+            const old = districtWarnings.get(key);
+            districtWarnings.set(key, { level: old ? strongerLevel(old.level, level) : level, warnings:[...(old?.warnings || []), w] });
+            if(sk){
+              if(!districtsHitByState.has(sk)) districtsHitByState.set(sk, 0);
+              districtsHitByState.set(sk, districtsHitByState.get(sk) + 1);
+            }
+          }
+        });
+
+        stateFeatures.forEach(f => {
+          const sk = normMy67(getStateName(f));
+          if(!sk || !statesHit.has(sk)) return;
+          // If districts are listed for this state, do not fill the whole state; only fill listed districts.
+          if((districtsHitByState.get(sk) || 0) > 0) return;
+          const old = stateWarnings.get(sk);
+          stateWarnings.set(sk, { level: old ? strongerLevel(old.level, level) : level, warnings:[...(old?.warnings || []), w] });
+        });
+      });
+      return { stateWarnings, districtWarnings };
+    }
+
+    async function loadGeo(){
+      if(myStateGeoJSON || myDistrictGeoJSON) return;
+      if(myGeoLoading) return myGeoLoading;
+      myGeoLoading = Promise.allSettled([
+        fetch(STATE_GEOJSON_URL, { cache:'force-cache' }).then(r => { if(!r.ok) throw new Error('state geojson'); return r.json(); }),
+        fetch(DISTRICT_GEOJSON_URL, { cache:'force-cache' }).then(r => { if(!r.ok) throw new Error('district geojson'); return r.json(); })
+      ]).then(([s,d]) => {
+        if(s.status === 'fulfilled') myStateGeoJSON = s.value;
+        if(d.status === 'fulfilled') myDistrictGeoJSON = d.value;
+      }).finally(() => { myGeoLoading = null; });
+      return myGeoLoading;
+    }
+
+    function ensureMap(){
+      if(myMap || !q('myMap')) return;
+      myMap = L.map('myMap', { zoomControl:true, attributionControl:false, preferCanvas:false }).setView([4.25,109.5],6);
+      L.tileLayer(`https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`, {
+        maxZoom:18, tileSize:256, crossOrigin:true
+      }).addTo(myMap);
+    }
+
+    function renderMap(){
+      ensureMap();
+      if(!myMap) return;
+      if(myStateLayer){ myMap.removeLayer(myStateLayer); myStateLayer = null; }
+      if(myDistrictLayer){ myMap.removeLayer(myDistrictLayer); myDistrictLayer = null; }
+      if(!myStateGeoJSON && !myDistrictGeoJSON){
+        if(q('myMapHint')) q('myMapHint').textContent = '請把 malaysia.state.geojson 和 malaysia.district.geojson 放在 HTML 同一個資料夾。';
+        setTimeout(() => myMap.invalidateSize(), 80);
+        return;
+      }
+      const { stateWarnings, districtWarnings } = collectAreas();
+      const boundsGroup = L.featureGroup();
+
+      if(myStateGeoJSON){
+        myStateLayer = L.geoJSON(myStateGeoJSON, {
+          renderer:myRenderer, smoothFactor:1.2, interactive:true,
+          style:(feature) => {
+            const sk = normMy67(getStateName(feature));
+            const rec = stateWarnings.get(sk);
+            const level = rec?.level || 'none';
+            const st = levelStyle[level] || levelStyle.none;
+            return {
+              color: level === 'none' ? '#78909c' : st.stroke,
+              weight: level === 'none' ? .85 : 2.2,
+              opacity: level === 'none' ? .48 : .96,
+              fillColor: st.fill,
+              fillOpacity: level === 'none' ? .035 : .46,
+              dashArray:null,
+              lineJoin:'round', lineCap:'round'
+            };
+          },
+          onEachFeature:(feature, layer) => {
+            const sk = normMy67(getStateName(feature));
+            const rec = stateWarnings.get(sk);
+            const level = rec?.level || 'none';
+            const st = levelStyle[level] || levelStyle.none;
+            const title = getStateName(feature) || 'Malaysia';
+            layer.bindTooltip(`<b>${escMy67(title)}</b><br>${escMy67(st.label)}${rec ? `｜${rec.warnings.length} 項` : ''}`, { sticky:true, direction:'top', className:'twCountyLabel' });
+            layer.on({
+              mouseover:() => layer.setStyle({ weight: level === 'none' ? 1.1 : 2.8, opacity:1, fillOpacity: level === 'none' ? .08 : .58 }),
+              mouseout:() => myStateLayer && myStateLayer.resetStyle(layer)
+            });
+          }
+        }).addTo(myMap);
+        boundsGroup.addLayer(myStateLayer);
+      }
+
+      if(myDistrictGeoJSON){
+        myDistrictLayer = L.geoJSON(myDistrictGeoJSON, {
+          renderer:myRenderer, smoothFactor:1.2, interactive:true,
+          style:(feature) => {
+            const sk = normMy67(getStateName(feature));
+            const dk = normMy67(getDistrictName(feature));
+            const rec = districtWarnings.get(`${sk}|${dk}`);
+            const level = rec?.level || 'none';
+            const st = levelStyle[level] || levelStyle.none;
+            return {
+              color: level === 'none' ? 'rgba(55,75,86,.34)' : st.stroke,
+              weight: level === 'none' ? .45 : 1.65,
+              opacity: level === 'none' ? .38 : .94,
+              fillColor: st.fill,
+              fillOpacity: level === 'none' ? 0 : .50,
+              dashArray:null,
+              lineJoin:'round', lineCap:'round'
+            };
+          },
+          onEachFeature:(feature, layer) => {
+            const sk = normMy67(getStateName(feature));
+            const dk = normMy67(getDistrictName(feature));
+            const rec = districtWarnings.get(`${sk}|${dk}`);
+            const level = rec?.level || 'none';
+            const st = levelStyle[level] || levelStyle.none;
+            const title = `${getStateName(feature) || ''} ${getDistrictName(feature) || ''}`.trim() || 'Malaysia';
+            layer.bindTooltip(`<b>${escMy67(title)}</b><br>${escMy67(st.label)}${rec ? `｜${rec.warnings.length} 項` : ''}`, { sticky:true, direction:'top', className:'twCountyLabel' });
+            layer.on({
+              mouseover:() => layer.setStyle({ weight: level === 'none' ? .9 : 2.4, opacity:1, fillOpacity: level === 'none' ? .04 : .62 }),
+              mouseout:() => myDistrictLayer && myDistrictLayer.resetStyle(layer)
+            });
+          }
+        }).addTo(myMap);
+        boundsGroup.addLayer(myDistrictLayer);
+      }
+
+      requestAnimationFrame(() => {
+        myMap.invalidateSize();
+        try{ myMap.fitBounds(boundsGroup.getBounds(), { padding:[18,18] }); }catch(e){}
+      });
+      const matched = stateWarnings.size + districtWarnings.size;
+      if(q('myMapHint')) q('myMapHint').textContent = matched ? `已標示 ${matched} 個受影響地區。` : '已載入地圖；目前沒有可標示的馬來西亞地區警報。';
+    }
+
+    function renderCards(){
+      const type = q('myTypeFilter')?.value || 'all';
+      const box = q('myList');
+      if(!box) return;
+      box.innerHTML = '';
+      const filtered = allData.filter(w => {
+        const kind = warningKind(w);
+        return type === 'all' || type === kind;
+      });
+      if(q('myStatus')) q('myStatus').textContent = `${filtered.length} 項警報`;
+      if(!filtered.length){
+        box.innerHTML = `<div class="warningEmpty">目前沒有符合條件的警報</div>`;
+        requestAnimationFrame(renderMap);
+        return;
+      }
+      filtered.forEach(w => {
+        const info = warningDisplay(w);
+        const st = levelStyle[info.level] || levelStyle.yellow;
+        const rawHeadline = w.heading_en || w.heading_bm || info.name || '—';
+        const text = w.text_en || w.text_bm || w.instruction_en || w.instruction_bm || '';
+        const el = document.createElement('div');
+        el.className = 'warningCard';
+        el.innerHTML = `
+          <div class="warningCardHead">
+            <div class="warningHeadline">${escMy67(info.name)}</div>
+            <span class="warningTag ${info.map ? 'rain' : 'tc'}" style="border-color:${st.stroke};color:${st.stroke};background:${st.fill}33;">${escMy67(info.tag)}</span>
+          </div>
+          <div class="warningMeta">
+            原文：${escMy67(rawHeadline)}<br>
+            發布：${escMy67(w.warning_issue__issued || w.issued || '—')}<br>
+            有效時間：${escMy67(w.valid_from || '—')} → ${escMy67(w.valid_to || '—')}
+          </div>
+          <div class="warningDesc">${escMy67(text)}</div>
+        `;
+        box.appendChild(el);
+      });
+      requestAnimationFrame(renderMap);
+    }
+
+    async function refresh(){
+      setupControls();
+      if(q('myStatus')) q('myStatus').textContent = '讀取中…';
+      if(q('myMapHint')) q('myMapHint').textContent = '讀取 Malaysia GeoJSON 中…';
+      try{
+        await loadGeo();
+        const res = await fetch(API, { cache:'no-store' });
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        allData = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+        renderCards();
+      }catch(e){
+        console.error(e);
+        if(q('myStatus')) q('myStatus').textContent = '錯誤';
+        if(q('myList')) q('myList').innerHTML = `<div class="warningEmpty">馬來西亞警報讀取失敗</div>`;
+        renderMap();
+      }
+    }
+
+    setupControls();
+    q('myRefresh')?.addEventListener('click', refresh);
+    q('myTypeFilter')?.addEventListener('change', renderCards);
+    ensureMap();
+    refresh();
+  };
+
+  // Remove the rough hand-drawn Taiwan coastline on the typhoon map. Use a soft real county GeoJSON outline instead.
+  window.addTyphoonCountyBoundaryOverlay = async function(){
+    if(!window.map && typeof map === 'undefined') return;
+    const m = window.map || map;
+    try{ if(window.typhoonCountyBoundaryLayer){ m.removeLayer(window.typhoonCountyBoundaryLayer); } }catch(e){}
+    try{
+      if(!m.getPane('countyBoundaryPane')){
+        m.createPane('countyBoundaryPane');
+        m.getPane('countyBoundaryPane').style.zIndex = 327;
+        m.getPane('countyBoundaryPane').style.pointerEvents = 'none';
+      }
+      const loader = window.twAreaLoadGeoJson || (typeof twAreaLoadGeoJson === 'function' ? twAreaLoadGeoJson : null);
+      if(!loader) return;
+      const data = await loader('./tw-county.geojson');
+      const halo = L.geoJSON(data, {
+        pane:'countyBoundaryPane', interactive:false, smoothFactor:1.35,
+        style(){ return { color:'#ffffff', weight:1.25, opacity:.38, fill:false, fillOpacity:0, dashArray:null, lineJoin:'round', lineCap:'round' }; }
+      });
+      const county = L.geoJSON(data, {
+        pane:'countyBoundaryPane', interactive:false, smoothFactor:1.35,
+        style(){ return { color:'#20384a', weight:.62, opacity:.46, fill:false, fillOpacity:0, dashArray:null, lineJoin:'round', lineCap:'round' }; }
+      });
+      window.typhoonCountyBoundaryLayer = L.layerGroup([halo, county]).addTo(m);
+    }catch(err){ console.warn('tw-county.geojson optional load failed for typhoon map', err); }
+  };
+
+  window.addEventListener('load', () => {
+    setTimeout(() => { try{ window.addTyphoonCountyBoundaryOverlay && window.addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 900);
+    setTimeout(() => { try{ window.addTyphoonCountyBoundaryOverlay && window.addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 2200);
   });
 })();
 </script>
