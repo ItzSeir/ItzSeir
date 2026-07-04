@@ -2722,7 +2722,7 @@ function renderPlayer(){
   $("playBtn").onclick = async () => {
     if(audio.paused){
       try{ await audio.play(); }
-      catch{ showToast("無法播放（可能跨域或連結失效）"); }
+      catch{ showToast("無法播放"); }
     }else{
       audio.pause();
     }
