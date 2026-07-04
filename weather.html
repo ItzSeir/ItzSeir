@@ -5852,8 +5852,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="#fff" stroke="${st.color}" stroke-width="3"/>`;
       }).join("");
 
-      /* PNG 專用：時間標記以「目前位置時間」為基準，每 24 小時標一次。
-         例如目前位置 24日 08:00，則標記 25日08:00、26日08:00、27日08:00。 */
+      /* PNG 專用：時間標記每 24 小時一個，從第 3 個預報點開始，避免密集重疊。 */
       const fcstVisible = visiblePoints.filter(p => p.kind === "fcst");
       const labelCandidates = [];
 
@@ -5862,43 +5861,20 @@ button{ -webkit-tap-highlight-color:transparent; }
         return d ? d.getTime() : NaN;
       }
 
-      function fmtPngTargetTime(d){
-        if(!d) return "—";
-        return `${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-      }
+      if(fcstVisible.length >= 3){
+        let lastLabelTime = getDateValue(fcstVisible[2]);
+        labelCandidates.push({ p:fcstVisible[2], kind:"fcst24" });
 
-      const baseObs = points[getLatestObsIndex()] || visiblePoints.find(p => p.kind !== "fcst") || visiblePoints[0];
-      const baseDate = parseLocalDateTime(baseObs?.time);
-      const fcstWithTime = fcstVisible
-        .map(p => ({ p, t:getDateValue(p) }))
-        .filter(x => Number.isFinite(x.t))
-        .sort((a,b) => a.t - b.t);
-
-      if(baseDate && fcstWithTime.length){
-        const used = new Set();
-        const maxT = fcstWithTime[fcstWithTime.length - 1].t;
-        for(let k = 1; k <= 10; k++){
-          const target = new Date(baseDate.getTime() + k * 24 * 60 * 60 * 1000);
-          const targetT = target.getTime();
-          if(targetT > maxT + 3 * 60 * 60 * 1000) break;
-
-          let best = null;
-          fcstWithTime.forEach((x, idx) => {
-            if(used.has(idx)) return;
-            const diff = Math.abs(x.t - targetT);
-            if(!best || diff < best.diff) best = { ...x, idx, diff, target };
-          });
-
-          // accept nearest point within 13 hours to support 6h / 12h forecast intervals
-          if(best && best.diff <= 13 * 60 * 60 * 1000){
-            used.add(best.idx);
-            labelCandidates.push({ p:best.p, kind:"fcst24", label:fmtPngTargetTime(best.target) });
+        for(let i = 3; i < fcstVisible.length; i++){
+          const t = getDateValue(fcstVisible[i]);
+          if(!isFinite(t) || !isFinite(lastLabelTime)) continue;
+          if(t - lastLabelTime >= 23 * 60 * 60 * 1000){
+            labelCandidates.push({ p:fcstVisible[i], kind:"fcst24" });
+            lastLabelTime = t;
           }
         }
-      }
-
-      if(!labelCandidates.length){
-        fcstVisible.forEach(p => labelCandidates.push({ p, kind:"fcst24", label:fmtTime(p.time, "short") }));
+      }else{
+        fcstVisible.forEach(p => labelCandidates.push({ p, kind:"fcst24" }));
       }
 
       const usedBoxes = [];
@@ -5908,7 +5884,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       const labels = labelCandidates.map((item, idx) => {
         const p = item.p;
-        const label = esc(item.label || fmtTime(p.time,"short"));
+        const label = esc(fmtTime(p.time,"short"));
         const st = getStyle(p.level);
         const labelW = 112;
         const labelH = 30;
@@ -6758,51 +6734,41 @@ button{ -webkit-tap-highlight-color:transparent; }
             drawLabel(anchorX, anchorY, text, color, best.align);
           }
 
-          function getPng24hLabelItems(){
-            const fcst = points
-              .map((p, i) => ({ p, i, d:parseLocalDateTime(p.time) }))
-              .filter(x => x.p.kind === "fcst" && x.d)
-              .sort((a,b) => a.d - b.d);
+          function getPng24hLabelIndexes(){
+            const obsTime = parseLocalDateTime(latestObs?.time);
+            const fcstIndexes = [];
+            points.forEach((p, i) => { if(p.kind === "fcst") fcstIndexes.push(i); });
+            if(!fcstIndexes.length) return [];
+            if(!obsTime) return fcstIndexes.slice(0, 6);
 
-            const base = parseLocalDateTime(latestObs?.time);
-            if(!base || !fcst.length){
-              return points
-                .map((p, i) => ({ p, i }))
-                .filter(x => x.p.kind === "fcst")
-                .map(x => ({ index:x.i, label:fmtTime(x.p.time, "short") }));
-            }
-
+            const picked = [];
             const used = new Set();
-            const items = [];
-            const maxT = fcst[fcst.length - 1].d.getTime();
-            const fmtTarget = (d) => `${d.getMonth()+1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-
-            for(let k = 1; k <= 10; k++){
-              const target = new Date(base.getTime() + k * 24 * 60 * 60 * 1000);
-              const targetT = target.getTime();
-              if(targetT > maxT + 3 * 60 * 60 * 1000) break;
-
-              let best = null;
-              fcst.forEach((x, pos) => {
-                if(used.has(pos)) return;
-                const diff = Math.abs(x.d.getTime() - targetT);
-                if(!best || diff < best.diff) best = { ...x, pos, diff, target };
+            for(let day = 1; day <= 7; day++){
+              const target = obsTime.getTime() + day * 24 * 60 * 60 * 1000;
+              let bestIdx = -1;
+              let bestDiff = Infinity;
+              fcstIndexes.forEach(idx => {
+                if(used.has(idx)) return;
+                const d = parseLocalDateTime(points[idx]?.time);
+                if(!d) return;
+                const dt = d.getTime();
+                if(dt < target - 60 * 60 * 1000) return;
+                const diff = Math.abs(dt - target);
+                if(diff < bestDiff){ bestDiff = diff; bestIdx = idx; }
               });
-
-              if(best && best.diff <= 13 * 60 * 60 * 1000){
-                used.add(best.pos);
-                items.push({ index:best.i, label:fmtTarget(best.target) });
+              if(bestIdx >= 0 && bestDiff <= 12 * 60 * 60 * 1000){
+                used.add(bestIdx);
+                picked.push(bestIdx);
               }
             }
-
-            return items.length ? items : fcst.map(x => ({ index:x.i, label:fmtTime(x.p.time, "short") }));
+            return picked.length ? picked.sort((a,b) => a - b) : fcstIndexes.slice(0, 6);
           }
 
-          getPng24hLabelItems().forEach((item) => {
-            const p = points[item.index];
+          getPng24hLabelIndexes().forEach((idx) => {
+            const p = points[idx];
             const st = getStyle(p.level);
             const pt = project(p.lat, p.lon);
-            placeMapLabel(pt, item.label, st.color);
+            placeMapLabel(pt, fmtTime(p.time, "short"), st.color);
           });
         }
 
@@ -7784,7 +7750,15 @@ button{ -webkit-tap-highlight-color:transparent; }
           info.querySelectorAll("parameter").forEach(param => {
             const name = (param.querySelector("valueName")?.textContent || "").trim();
             const val = (param.querySelector("value")?.textContent || "").trim();
-            if(name) parameters[name] = val;
+            if(name){
+              parameters[name] = val;
+              const key = name.replace(/\s+/g, "").toLowerCase();
+              parameters[key] = val;
+              if(/alert[_-]?color|警戒顏色|警示顏色|顏色|燈號/.test(key + name)) parameters.alert_color = val;
+              if(/website[_-]?color|網頁顏色|網站顏色/.test(key + name)) parameters.website_color = val;
+              if(/severity[_-]?level|警戒等級|嚴重程度|等級/.test(key + name)) parameters.severity_level = val;
+              if(/alert[_-]?title|警戒事項|警報標題|標題/.test(key + name)) parameters.alert_title = val;
+            }
           });
 
           return { infoIndex, sent, identifier, headline, event, effective, expires, description, instruction, area, parameters };
@@ -7802,10 +7776,27 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       async function fetchCap(datasetId){
-        const url = `${CAP_BASE}${encodeURIComponent(datasetId)}.cap`;
-        const res = await fetch(url, { cache:"force-cache" });
-        if(!res.ok) throw new Error(`HTTP ${res.status} (${datasetId})`);
-        return await res.text();
+        const AUTH = "CWA-BC6BF68E-0B38-43B1-A5F5-811E1C06742B";
+        const urls = [
+          `${CAP_BASE}${encodeURIComponent(datasetId)}.cap?ts=${Date.now()}`,
+          `https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/${encodeURIComponent(datasetId)}?Authorization=${AUTH}&downloadType=WEB&format=CAP`,
+          `https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/${encodeURIComponent(datasetId)}?Authorization=${AUTH}&format=CAP`
+        ];
+
+        let lastErr = null;
+        for(const url of urls){
+          try{
+            const res = await fetch(url, { cache:"no-store" });
+            if(!res.ok) throw new Error(`HTTP ${res.status}`);
+            const text = await res.text();
+            if(text && /<alert[\s>]|<cap:alert[\s>]/i.test(text)) return text;
+            throw new Error("回傳內容不是 CAP XML");
+          }catch(err){
+            lastErr = err;
+            console.warn("CWA CAP fetch fallback failed", datasetId, url, err);
+          }
+        }
+        throw lastErr || new Error(`CWA CAP 讀取失敗 (${datasetId})`);
       }
 
       function buildFilters(){
@@ -7845,103 +7836,117 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function getAlertLevel(a){
         const params = a?.parameters || {};
-        const sev = String(params.severity_level || params.alert_title || params.alert_color || "").replace(/\s+/g, "");
-        const webColor = String(params.website_color || "").replace(/\s+/g, "");
-        const title = String(params.alert_title || a.headline || a.datasetName || "").replace(/\s+/g, "");
+        const getParam = (...keys) => {
+          for(const key of keys){
+            if(params[key] !== undefined && params[key] !== null && String(params[key]).trim() !== "") return String(params[key]).trim();
+          }
+          const entries = Object.entries(params);
+          for(const key of keys){
+            const normKey = String(key).replace(/\s+/g, "").toLowerCase();
+            const hit = entries.find(([k,v]) => String(k).replace(/\s+/g, "").toLowerCase() === normKey && String(v ?? "").trim() !== "");
+            if(hit) return String(hit[1]).trim();
+          }
+          return "";
+        };
+        const sev = String(getParam("severity_level", "severityLevel", "警戒等級", "嚴重程度") || "").replace(/\s+/g, "");
+        const alertTitle = String(getParam("alert_title", "alertTitle", "警戒事項", "警報標題") || "").replace(/\s+/g, "");
+        const alertColor = String(getParam("alert_color", "alertColor", "警戒顏色", "顏色", "燈號") || "").replace(/\s+/g, "");
+        const webColor = String(getParam("website_color", "websiteColor", "網頁顏色", "網站顏色") || "").replace(/\s+/g, "");
+        const title = String(alertTitle || a.headline || a.event || a.datasetName || "").replace(/\s+/g, "");
+        const hay = `${title} ${sev} ${alertColor} ${webColor} ${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.instruction || ""} ${a.datasetName || ""} ${Object.values(params).join(" ")}`;
+        const norm = hay.replace(/\s+/g, "");
+        const colorText = `${alertColor} ${webColor}`.replace(/\s+/g, "");
+        const isRain = /雨|豪雨/.test(norm) || a.kind === "rain";
+        const isHeat = /高溫|酷熱|炎熱/.test(norm) || a.kind === "heat";
+        const isCold = /低溫|寒冷|嚴寒/.test(norm) || a.kind === "cold";
+        const isWind = /強風|陸上|海上強風/.test(norm) || a.kind === "wind";
+        const isTy = /颱風|熱帶性低氣壓|熱帶低氣壓/.test(norm) || a.kind === "typhoon";
 
-        // v69: Taiwan rain warning color follows CWA CAP color first.
-        // Do not force 「超大豪雨」 to purple anymore; CWA CAP normally uses 黃/橙/紅 levels.
-        const capColorText = String(params.alert_color || "") + " " + webColor;
-        const isRainCap = /雨|豪雨/.test(title + sev + (a.datasetName || "") + (a.headline || ""));
-        if(/紅色|紅燈|255,0,0|#?e60012|#?ff0000/i.test(capColorText)){
-          if(isRainCap) return "redRain";
-          if(/高溫/.test(title)) return "redHeat";
-          if(/低溫|寒冷|嚴寒/.test(title + sev)) return "redCold";
-          if(/強風/.test(title)) return "redWind";
+        // 1) Prefer official CAP color / website_color when provided by CWA.
+        if(/紫色|紫燈|d600d6|cc00cc|204,0,204|214,0,214/i.test(colorText)) return isRain ? "purpleRain" : "officialPurple";
+        if(/紅色|紅燈|e60012|ff0000|230,0,18|255,0,0/i.test(colorText)){
+          if(isRain) return "redRain";
+          if(isHeat) return "redHeat";
+          if(isCold) return "redCold";
+          if(isWind) return "redWind";
+          if(isTy) return "redTyphoon";
+          if(/海嘯/.test(norm)) return "redTsunami";
           return "officialRed";
         }
-        if(/橙色|橘色|橙燈|橘燈|255,128,0|255,127,0|#?ff7f00|#?ff8000/i.test(capColorText)){
-          if(isRainCap) return "orangeRain";
-          if(/高溫/.test(title)) return "orangeHeat";
-          if(/低溫|寒冷|非常寒冷/.test(title + sev)) return "orangeCold";
-          if(/強風/.test(title)) return "orangeWind";
+        if(/橙色|橘色|橙燈|橘燈|ff7f00|ff8000|255,127,0|255,128,0/i.test(colorText)){
+          if(isRain) return "orangeRain";
+          if(isHeat) return "orangeHeat";
+          if(isCold) return "orangeCold";
+          if(isWind) return "orangeWind";
+          if(isTy) return "orangeTyphoon";
+          if(/海嘯/.test(norm)) return "orangeTsunami";
           return "officialOrange";
         }
-        if(/黃色|黃燈|255,255,0|#?fff100|#?ffff00/i.test(capColorText)){
-          if(isRainCap) return "yellowRain";
-          if(/高溫/.test(title)) return "yellowHeat";
-          if(/低溫|寒冷/.test(title + sev)) return "yellowCold";
-          if(/強風/.test(title)) return "yellowWind";
+        if(/黃色|黃燈|fff100|ffff00|255,241,0|255,255,0/i.test(colorText)){
+          if(isRain) return "yellowRain";
+          if(isHeat) return "yellowHeat";
+          if(isCold) return "yellowCold";
+          if(isWind) return "yellowWind";
+          if(isTy) return "yellowTD";
+          if(/濃霧|霧/.test(norm)) return "yellowFog";
+          if(/長浪/.test(norm)) return "yellowWave";
+          if(/海嘯/.test(norm)) return "yellowTsunami";
           return "officialYellow";
         }
+        if(/綠色|綠燈|00e833|00c853|0,232,51/i.test(colorText)) return "greenClear";
 
-        // Fallback only when CAP color is missing.
-        if(/超大豪雨|大豪雨/.test(sev + title)) return "redRain";
-        if(/豪雨/.test(sev + title)) return "orangeRain";
-        if(/大雨/.test(sev + title)) return "yellowRain";
-
-        const hay = `${a.headline || ""} ${a.event || ""} ${a.description || ""} ${a.instruction || ""} ${a.datasetName || ""} ${Object.values(params).join(" ")}`;
-        const norm = hay.replace(/\s+/g, "");
-
-        // Rain warning fallback: CWA CAP no longer uses purple here.
-        if(/超大豪雨|大豪雨/.test(norm)) return "redRain";
-        if(/豪雨/.test(norm)) return "orangeRain";
-        if(/大雨/.test(norm)) return "yellowRain";
-
-        // Typhoon warning levels.
-        if(/解除/.test(norm) && /颱風/.test(norm)) return "greenClear";
-        if(/海上陸上颱風|海陸|陸上颱風/.test(norm)) return "redTyphoon";
-        if(/海上颱風/.test(norm) || /颱風/.test(norm)) return "orangeTyphoon";
-        if(/熱帶性低氣壓|熱帶低氣壓/.test(norm)) return "yellowTD";
-
-        // Low temperature levels.
-        if(/嚴寒|紅燈|紅色燈號|紅色警戒/.test(norm) && /低溫|寒冷|嚴寒/.test(norm)) return "redCold";
-        if(/非常寒冷|橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒/.test(norm) && /低溫|寒冷|非常寒冷/.test(norm)) return "orangeCold";
-        if(/寒冷|黃燈|黃色燈號|黃色警戒|低溫/.test(norm)) return "yellowCold";
-
-        // High temperature levels.
-        if(/高溫/.test(norm)){
-          if(/紅燈|紅色燈號|紅色警戒|紅色/.test(norm)) return "redHeat";
-          if(/橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒|橙色|橘色/.test(norm)) return "orangeHeat";
-          if(/黃燈|黃色燈號|黃色警戒|黃色/.test(norm)) return "yellowHeat";
-          if(/38(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天/.test(norm)) return "redHeat";
-          if(/36(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天|38(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "orangeHeat";
-          if(/36(?:\.0)?(?:°C|℃|度)以上/.test(norm)) return "yellowHeat";
+        // 2) Text fallback by CWA warning type.
+        if(isRain){
+          if(/超大豪雨/.test(norm)) return "purpleRain";
+          if(/大豪雨/.test(norm)) return "redRain";
+          if(/豪雨/.test(norm)) return "orangeRain";
+          if(/大雨/.test(norm)) return "yellowRain";
+          return "yellowRain";
+        }
+        if(isHeat){
+          if(/紅燈|紅色|38(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天/.test(norm)) return "redHeat";
+          if(/橙燈|橘燈|橙色|橘色|38(?:\.0)?(?:°C|℃|度)以上|36(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天/.test(norm)) return "orangeHeat";
           return "yellowHeat";
         }
-
-        // Wind levels.
-        if(/強風|陸上|海上強風/.test(norm)){
-          if(/紅燈|紅色燈號|紅色警戒|紅色|平均風達?12級以上|陣風達?14級以上/.test(norm)) return "redWind";
-          if(/橙燈|橙色燈號|橘燈|橘色燈號|橙色警戒|橘色警戒|橙色|橘色|平均風達?9級以上|陣風達?11級以上/.test(norm)) return "orangeWind";
-          if(/黃燈|黃色燈號|黃色警戒|黃色|平均風達?6級以上|陣風達?8級以上/.test(norm)) return "yellowWind";
+        if(isCold){
+          if(/嚴寒|紅燈|紅色|6(?:\.0)?(?:°C|℃|度)以下.{0,20}連續?24小時/.test(norm)) return "redCold";
+          if(/非常寒冷|橙燈|橘燈|橙色|橘色|6(?:\.0)?(?:°C|℃|度)以下/.test(norm)) return "orangeCold";
+          return "yellowCold";
+        }
+        if(isWind){
+          if(/紅燈|紅色|平均風達?12級以上|陣風達?14級以上/.test(norm)) return "redWind";
+          if(/橙燈|橘燈|橙色|橘色|平均風達?9級以上|陣風達?11級以上/.test(norm)) return "orangeWind";
           return "yellowWind";
         }
-
+        if(isTy){
+          if(/解除/.test(norm)) return "greenClear";
+          if(/海上陸上颱風|海陸|陸上颱風/.test(norm)) return "redTyphoon";
+          if(/海上颱風/.test(norm)) return "orangeTyphoon";
+          return "yellowTD";
+        }
         if(/濃霧|霧/.test(norm)) return "yellowFog";
         if(/長浪/.test(norm)) return "yellowWave";
         if(/海嘯警報/.test(norm)) return "redTsunami";
         if(/海嘯警訊/.test(norm)) return "orangeTsunami";
         if(/海嘯/.test(norm)) return "yellowTsunami";
-
         return a.kind || "other";
       }
 
       function getLevelColor(level){
         return ({
-          purpleRain:"#e60012",
+          officialPurple:"#d600d6",
           officialRed:"#e60012",
           officialOrange:"#ff7f00",
           officialYellow:"#fff100",
-          officialGreen:"#00e833",
-          purpleRain:"#e60012",
+          officialGreen:"#00c853",
+          purpleRain:"#d600d6",
           redRain:"#e60012",
           orangeRain:"#ff7f00",
           yellowRain:"#fff100",
           redTyphoon:"#e60012",
           orangeTyphoon:"#ff7f00",
           yellowTD:"#fff100",
-          greenClear:"#00e833",
+          greenClear:"#00c853",
           redCold:"#e60012",
           orangeCold:"#ff7f00",
           yellowCold:"#fff100",
@@ -7980,11 +7985,12 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       function getLevelRank(level){
         return ({
-          purpleRain:90, redRain:90, redTyphoon:90, redCold:90, redHeat:90, redWind:90, redTsunami:90,
-          orangeRain:70, orangeTyphoon:70, orangeCold:70, orangeHeat:70, orangeWind:70, orangeTsunami:70,
-          yellowRain:50, yellowTD:50, yellowCold:50, yellowHeat:50, yellowWind:50, yellowFog:50, yellowWave:50, yellowTsunami:50,
-          greenClear:10,
-          rain:50, typhoon:70, heat:70, cold:50, wind:50, other:20
+          officialPurple:95, purpleRain:95,
+          officialRed:90, redRain:90, redTyphoon:90, redCold:90, redHeat:90, redWind:90, redTsunami:90,
+          officialOrange:70, orangeRain:70, orangeTyphoon:70, orangeCold:70, orangeHeat:70, orangeWind:70, orangeTsunami:70,
+          officialYellow:50, yellowRain:50, yellowTD:50, yellowCold:50, yellowHeat:50, yellowWind:50, yellowFog:50, yellowWave:50, yellowTsunami:50,
+          officialGreen:10, greenClear:10,
+          rain:50, typhoon:70, heat:50, cold:50, wind:50, other:20
         })[level] || 20;
       }
 
@@ -8884,17 +8890,6 @@ button{ -webkit-tap-highlight-color:transparent; }
     function twAreaResolveCountyName(name){
       const norm = twAreaNormalizeName(name);
       if(twCountyNameSet.has(norm)) return norm;
-
-      // v70 fix: CWA rain CAP often lists areas such as 「臺北市山區」,
-      // 「新北市山區」 or town names. After the previous map-fill change,
-      // county polygons only filled when the CAP area was exactly a county name,
-      // so 豪雨特報 looked like it failed to load. Resolve county prefixes first.
-      const countyByPrefix = twCountyNameList
-        .map(twAreaNormalizeName)
-        .sort((a,b) => b.length - a.length)
-        .find(c => norm.startsWith(c));
-      if(countyByPrefix) return countyByPrefix;
-
       if(twAreaTownToCounty.has(norm)) return twAreaTownToCounty.get(norm);
       for(const [town, county] of twAreaTownToCounty.entries()){
         if(norm.includes(town) || town.includes(norm)) return county;
@@ -8978,7 +8973,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
     function twAreaOfficialCountyStyle(feature){
       const names = twAreaFeatureNames(feature);
-      const best = twAreaBestAlertForFeature(feature, "any");
+      const best = twAreaBestAlertForFeature(feature, "county");
       const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
       return {
         color: focused ? "#0b2f3d" : (best ? twAreaHexToRgba(twAreaAlertColor(best), .82) : "rgba(8,47,61,.62)"),
@@ -12266,6 +12261,149 @@ function renderTwLegend(kind){
     ensureMap();
     refresh();
   };
+})();
+</script>
+
+
+
+<!-- ===== v70 CWA warning normalization + map color recovery + PNG 24h labels ===== -->
+<script>
+(function(){
+  function norm(v){ return String(v ?? '').replace(/台/g,'臺').replace(/[()（）]/g,'').replace(/\s+/g,'').trim(); }
+  function param(a, ...keys){
+    const p = a?.parameters || {};
+    for(const k of keys){ if(p[k] !== undefined && p[k] !== null && String(p[k]).trim() !== '') return String(p[k]).trim(); }
+    const entries = Object.entries(p);
+    for(const k of keys){
+      const nk = String(k).replace(/\s+/g,'').toLowerCase();
+      const hit = entries.find(([kk,v]) => String(kk).replace(/\s+/g,'').toLowerCase() === nk && String(v ?? '').trim() !== '');
+      if(hit) return String(hit[1]).trim();
+    }
+    return '';
+  }
+  function cwaLevel(a){
+    const p = a?.parameters || {};
+    const color = norm(param(a,'alert_color','alertColor','警戒顏色','顏色','燈號') + ' ' + param(a,'website_color','websiteColor','網頁顏色','網站顏色'));
+    const text = norm([
+      param(a,'severity_level','警戒等級','嚴重程度'), param(a,'alert_title','警戒事項','警報標題'),
+      a?.headline, a?.event, a?.description, a?.instruction, a?.datasetName, Object.values(p).join(' ')
+    ].join(' '));
+    const isRain = /雨|豪雨/.test(text) || a?.kind === 'rain';
+    const isHeat = /高溫|酷熱|炎熱/.test(text) || a?.kind === 'heat';
+    const isCold = /低溫|寒冷|嚴寒/.test(text) || a?.kind === 'cold';
+    const isWind = /強風|陸上|海上強風/.test(text) || a?.kind === 'wind';
+    const isTy = /颱風|熱帶性低氣壓|熱帶低氣壓/.test(text) || a?.kind === 'typhoon';
+    if(/紫色|紫燈|d600d6|cc00cc|204,0,204|214,0,214/i.test(color)) return isRain ? 'purpleRain' : 'officialPurple';
+    if(/紅色|紅燈|e60012|ff0000|230,0,18|255,0,0/i.test(color)) return isRain?'redRain':isHeat?'redHeat':isCold?'redCold':isWind?'redWind':isTy?'redTyphoon':/海嘯/.test(text)?'redTsunami':'officialRed';
+    if(/橙色|橘色|橙燈|橘燈|ff7f00|ff8000|255,127,0|255,128,0/i.test(color)) return isRain?'orangeRain':isHeat?'orangeHeat':isCold?'orangeCold':isWind?'orangeWind':isTy?'orangeTyphoon':/海嘯/.test(text)?'orangeTsunami':'officialOrange';
+    if(/黃色|黃燈|fff100|ffff00|255,241,0|255,255,0/i.test(color)) return isRain?'yellowRain':isHeat?'yellowHeat':isCold?'yellowCold':isWind?'yellowWind':isTy?'yellowTD':/濃霧|霧/.test(text)?'yellowFog':/長浪/.test(text)?'yellowWave':/海嘯/.test(text)?'yellowTsunami':'officialYellow';
+    if(/綠色|綠燈|00e833|00c853|0,232,51/i.test(color)) return 'greenClear';
+    if(isRain){ if(/超大豪雨/.test(text)) return 'purpleRain'; if(/大豪雨/.test(text)) return 'redRain'; if(/豪雨/.test(text)) return 'orangeRain'; return 'yellowRain'; }
+    if(isHeat){ if(/紅燈|紅色|38(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天/.test(text)) return 'redHeat'; if(/橙燈|橘燈|橙色|橘色|38(?:\.0)?(?:°C|℃|度)以上|36(?:\.0)?(?:°C|℃|度)以上.{0,20}持續?3天/.test(text)) return 'orangeHeat'; return 'yellowHeat'; }
+    if(isCold){ if(/嚴寒|紅燈|紅色/.test(text)) return 'redCold'; if(/非常寒冷|橙燈|橘燈|橙色|橘色/.test(text)) return 'orangeCold'; return 'yellowCold'; }
+    if(isWind){ if(/紅燈|紅色|平均風達?12級以上|陣風達?14級以上/.test(text)) return 'redWind'; if(/橙燈|橘燈|橙色|橘色|平均風達?9級以上|陣風達?11級以上/.test(text)) return 'orangeWind'; return 'yellowWind'; }
+    if(isTy){ if(/解除/.test(text)) return 'greenClear'; if(/海上陸上颱風|海陸|陸上颱風/.test(text)) return 'redTyphoon'; if(/海上颱風/.test(text)) return 'orangeTyphoon'; return 'yellowTD'; }
+    if(/濃霧|霧/.test(text)) return 'yellowFog';
+    if(/長浪/.test(text)) return 'yellowWave';
+    if(/海嘯警報/.test(text)) return 'redTsunami';
+    if(/海嘯警訊/.test(text)) return 'orangeTsunami';
+    if(/海嘯/.test(text)) return 'yellowTsunami';
+    return a?.kind || 'other';
+  }
+  const colorMap = {
+    officialPurple:'#d600d6', purpleRain:'#d600d6',
+    officialRed:'#e60012', redRain:'#e60012', redTyphoon:'#e60012', redCold:'#e60012', redHeat:'#e60012', redWind:'#e60012', redTsunami:'#e60012',
+    officialOrange:'#ff7f00', orangeRain:'#ff7f00', orangeTyphoon:'#ff7f00', orangeCold:'#ff7f00', orangeHeat:'#ff7f00', orangeWind:'#ff7f00', orangeTsunami:'#ff7f00',
+    officialYellow:'#fff100', yellowRain:'#fff100', yellowTD:'#fff100', yellowCold:'#fff100', yellowHeat:'#fff100', yellowWind:'#fff100', yellowFog:'#fff100', yellowWave:'#fff100', yellowTsunami:'#fff100',
+    officialGreen:'#00c853', greenClear:'#00c853', other:'#8b5cf6'
+  };
+  const rankMap = {officialPurple:95,purpleRain:95,officialRed:90,redRain:90,redTyphoon:90,redCold:90,redHeat:90,redWind:90,redTsunami:90,officialOrange:70,orangeRain:70,orangeTyphoon:70,orangeCold:70,orangeHeat:70,orangeWind:70,orangeTsunami:70,officialYellow:50,yellowRain:50,yellowTD:50,yellowCold:50,yellowHeat:50,yellowWind:50,yellowFog:50,yellowWave:50,yellowTsunami:50,officialGreen:10,greenClear:10,other:20};
+  function level(a){ return cwaLevel(a); }
+  function color(a){ return a ? (a.color || colorMap[level(a)] || '#8b5cf6') : '#173a52'; }
+  function rank(a){ return rankMap[level(a)] || Number(a?.levelRank || 0) || 20; }
+  function rgba(c, alpha){
+    c = String(c || '#173a52').trim().toLowerCase();
+    const rgb = c.match(/^(?:rgb\()?\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)?$/);
+    if(rgb) return `rgba(${rgb[1]},${rgb[2]},${rgb[3]},${alpha})`;
+    const h = c.replace('#','');
+    if(/^[0-9a-f]{6}$/i.test(h)){ const n=parseInt(h,16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`; }
+    return c;
+  }
+  function outline(c){
+    const raw = String(c||'').toLowerCase().replace(/\s+/g,'');
+    if(raw.includes('d600d6') || raw.includes('204,0,204') || raw.includes('214,0,214')) return '#8a008f';
+    if(raw.includes('e60012') || raw.includes('255,0,0') || raw.includes('230,0,18')) return '#9b0000';
+    if(raw.includes('ff7f00') || raw.includes('255,127,0') || raw.includes('255,128,0')) return '#cf6400';
+    if(raw.includes('fff100') || raw.includes('ffff00') || raw.includes('255,241,0') || raw.includes('255,255,0')) return '#c9a500';
+    if(raw.includes('00c853') || raw.includes('00e833')) return '#009b2f';
+    return rgba(c, .85);
+  }
+  window.twAreaAlertLevel = level;
+  window.twAreaAlertColor = color;
+  window.twAreaAlertRank = rank;
+
+  function best(feature, mode){ try{ return window.twAreaBestAlertForFeature ? window.twAreaBestAlertForFeature(feature, mode) : null; }catch(e){ return null; } }
+  function namesOf(feature){ try{ return window.twAreaFeatureNames ? window.twAreaFeatureNames(feature) : {}; }catch(e){ return {}; } }
+  function bestAnyCounty(feature){
+    const alerts = Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : [];
+    const names = namesOf(feature);
+    let picked = null;
+    alerts.forEach(a => {
+      let hit = false;
+      try{ hit = (window.twAreaAlertAreas ? window.twAreaAlertAreas(a) : (a.areaNames || [])).some(n => (window.twAreaResolveCountyName ? window.twAreaResolveCountyName(n) : n) === names.countyNorm); }catch(e){}
+      if(hit && (!picked || rank(a) > rank(picked))) picked = a;
+    });
+    return picked;
+  }
+  window.twAreaOfficialCountyStyle = function(feature){
+    const names = namesOf(feature);
+    const whole = best(feature, 'county');
+    const any = best(feature, 'any') || bestAnyCounty(feature);
+    const picked = whole || any;
+    const c = color(picked);
+    const focused = window.twAreaFocusedCounty && names.countyNorm === window.twAreaFocusedCounty;
+    return {
+      color: picked ? outline(c) : 'rgba(8,47,61,.42)',
+      weight: focused ? 2.8 : (picked ? 2.15 : .95),
+      // Important: if the CAP only names towns but tw-town.geojson is missing or not matched, county still gets a soft fill.
+      fillColor: picked ? c : '#ffffff',
+      fillOpacity: whole ? (focused ? .44 : .32) : (any ? (window.twAreaTownLayer ? .12 : .28) : .025),
+      opacity:1,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round',
+      className: focused ? 'twAreaFocusedShape' : ''
+    };
+  };
+  window.twAreaOfficialTownStyle = function(feature){
+    const picked = best(feature, 'town');
+    const c = color(picked);
+    const names = namesOf(feature);
+    const focused = window.twAreaFocusedCounty && names.countyNorm === window.twAreaFocusedCounty;
+    return {
+      color: picked ? outline(c) : 'rgba(15,76,92,.08)',
+      weight: picked ? (focused ? 1.55 : 1.15) : .16,
+      fillColor: picked ? c : 'transparent',
+      fillOpacity: picked ? (focused ? .52 : .42) : 0,
+      opacity: picked ? .96 : .12,
+      dashArray:null,
+      lineJoin:'round',
+      lineCap:'round'
+    };
+  };
+  const oldRefresh = window.twAreaRefreshHighlight;
+  window.twAreaRefreshHighlight = function(){
+    try{ if(window.twAreaCountyLayer) window.twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle); }catch(e){}
+    try{ if(window.twAreaTownLayer){ window.twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle); window.twAreaTownLayer.bringToFront(); } }catch(e){}
+    try{ if(window.twAreaCountyLayer) window.twAreaCountyLayer.bringToFront(); }catch(e){}
+    if(typeof oldRefresh === 'function'){ try{ oldRefresh(); }catch(e){} }
+    try{ if(window.twAreaCountyLayer) window.twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle); }catch(e){}
+    try{ if(window.twAreaTownLayer){ window.twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle); window.twAreaTownLayer.bringToFront(); } }catch(e){}
+    try{ if(window.twAreaCountyLayer) window.twAreaCountyLayer.bringToFront(); }catch(e){}
+  };
+  window.addEventListener('load', () => {
+    [900,1800,3200,5000].forEach(ms => setTimeout(() => { try{ window.twAreaRefreshHighlight && window.twAreaRefreshHighlight(); }catch(e){} }, ms));
+  });
 })();
 </script>
 
