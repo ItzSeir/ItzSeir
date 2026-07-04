@@ -1495,6 +1495,406 @@ button{ -webkit-tap-highlight-color:transparent; }
     max-height:220px;
   }
 }
+
+
+/* ===== Spotify-like redesign: left list + center player + right lyrics ===== */
+:root{
+  --cover1:#eaf8fb;
+  --cover2:#dff5ef;
+  --deep:#122c3c;
+}
+.appSection{
+  background:rgba(255,255,255,.72);
+}
+.app{
+  grid-template-columns:280px minmax(0, 1fr);
+  gap:20px;
+  min-height:720px;
+}
+.sidebar{
+  position:sticky;
+  top:96px;
+  max-height:calc(100vh - 118px);
+  overflow:hidden;
+  background:rgba(255,255,255,.68);
+  backdrop-filter:blur(22px);
+}
+.song-list{
+  max-height:calc(100vh - 230px);
+}
+.song-item{
+  position:relative;
+  min-height:68px;
+  padding:12px 12px 12px 56px;
+  justify-content:flex-start;
+  overflow:hidden;
+}
+.song-item::before{
+  content:"♪";
+  position:absolute;
+  left:13px;
+  top:50%;
+  width:32px;
+  height:32px;
+  transform:translateY(-50%);
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-weight:900;
+  background:linear-gradient(135deg, var(--sea), var(--teal));
+  box-shadow:0 10px 18px rgba(15,76,92,.16);
+}
+.songText{
+  min-width:0;
+  display:grid;
+  gap:4px;
+}
+.songName{
+  color:var(--heading);
+  font-size:13px;
+  font-weight:900;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.songMeta{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.songDate{
+  margin-left:auto;
+  color:var(--muted2);
+  font-size:10px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.main{
+  padding:0;
+  background:transparent;
+  border:0;
+  box-shadow:none;
+}
+.playerShell{
+  grid-template-columns:minmax(0, 1fr) minmax(320px, 390px);
+  align-items:stretch;
+  gap:20px;
+}
+.redesign-player,
+.lyricsCard{
+  border-radius:32px;
+  background:rgba(255,255,255,.78);
+  backdrop-filter:blur(22px);
+  box-shadow:0 24px 60px rgba(31,53,72,.12);
+}
+.redesign-player{
+  min-height:650px;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(123,223,242,.35), transparent 28%),
+    radial-gradient(circle at 88% 0%, rgba(42,157,143,.20), transparent 28%),
+    linear-gradient(135deg, rgba(255,255,255,.96), rgba(238,247,247,.86));
+}
+.nowPlaying{
+  grid-template-columns:1fr;
+  padding:24px;
+  gap:20px;
+}
+.coverDisc{
+  min-height:330px;
+  border-radius:34px;
+}
+.coverDisc::before{
+  width:210px;
+  height:210px;
+}
+.trackPanel{
+  justify-content:start;
+}
+.redesign-player .trackTitle{
+  font-size:clamp(34px, 4.2vw, 58px);
+  max-width:720px;
+}
+.playerMetaGrid{
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+.controlDock{
+  margin-top:4px;
+  border-radius:28px;
+}
+.lyricsCard{
+  position:sticky;
+  top:96px;
+  height:calc(100vh - 118px);
+  min-height:650px;
+  display:flex;
+  flex-direction:column;
+  padding:20px;
+  overflow:hidden;
+}
+.lyricsHead{
+  flex:0 0 auto;
+  padding:4px 2px 12px;
+}
+.lyricsTitle{
+  font-size:18px;
+}
+.lyricsBox{
+  flex:1 1 auto;
+  height:auto;
+  max-height:none;
+  border-radius:26px;
+  padding:20px 14px;
+  background:linear-gradient(180deg, rgba(15,76,92,.035), rgba(255,255,255,.64));
+}
+.lyLine{
+  font-size:16px;
+  padding:15px 16px;
+}
+.lyLine.active{
+  font-size:24px;
+  line-height:1.45;
+}
+@media (max-width:1180px){
+  .app{ grid-template-columns:1fr; }
+  .sidebar{ position:relative; top:auto; max-height:none; }
+  .song-list{ max-height:none; grid-template-columns:repeat(2, minmax(0, 1fr)); overflow:visible; }
+  .playerShell{ grid-template-columns:1fr; }
+  .lyricsCard{ position:relative; top:auto; height:auto; min-height:520px; }
+}
+@media (max-width:780px){
+  .song-list{ grid-template-columns:1fr; }
+  .redesign-player{ min-height:auto; }
+  .playerMetaGrid{ grid-template-columns:1fr; }
+  .coverDisc{ min-height:240px; }
+  .coverDisc::before{ width:160px; height:160px; }
+  .lyricsCard{ min-height:420px; }
+  .redesign-player .trackTitle{ font-size:30px; }
+}
+
+
+
+/* ===== Final music dashboard redesign: keep theme color + top navigation ===== */
+body{ padding-bottom:118px; }
+.page{ padding-bottom:140px; }
+.hero{ display:none; }
+.appSection{
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  overflow:visible;
+}
+.sectionHead{
+  border:0;
+  padding:10px 4px 18px;
+  background:transparent;
+}
+.sectionTitle{ font-size:clamp(30px, 4vw, 54px); }
+.sectionDesc::before{
+  content:"選擇歌曲後可直接播放，右側同步顯示歌詞，底部控制器會固定在畫面下方。";
+}
+.app{
+  padding:0;
+  grid-template-columns:280px minmax(0, 1fr);
+  gap:22px;
+  min-height:720px;
+}
+.sidebar{
+  position:sticky;
+  top:96px;
+  height:calc(100vh - 118px);
+  padding:18px;
+  border-radius:34px;
+  background:rgba(255,255,255,.68);
+  backdrop-filter:blur(24px);
+  box-shadow:0 22px 60px rgba(31,53,72,.10);
+}
+.side-title span{ font-size:18px; }
+.search{ height:46px; }
+.song-list{ max-height:calc(100vh - 230px); }
+.song-item{
+  min-height:74px;
+  padding:12px 12px 12px 58px;
+  border-radius:22px;
+  background:rgba(255,255,255,.78);
+}
+.song-item::before{
+  width:36px;
+  height:36px;
+  border-radius:14px;
+}
+.song-item.active{
+  background:linear-gradient(135deg, rgba(15,76,92,.12), rgba(42,157,143,.10));
+  box-shadow:0 16px 30px rgba(15,76,92,.10);
+}
+.main{ padding:0; background:transparent; border:0; box-shadow:none; }
+.playerShell{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) minmax(330px, 390px);
+  gap:22px;
+  align-items:stretch;
+}
+.redesign-player,
+.lyricsCard{
+  border-radius:38px;
+  background:rgba(255,255,255,.76);
+  backdrop-filter:blur(26px);
+  box-shadow:0 28px 70px rgba(31,53,72,.13);
+}
+.redesign-player{
+  min-height:660px;
+  padding:0;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(123,223,242,.34), transparent 28%),
+    radial-gradient(circle at 90% 0%, rgba(42,157,143,.22), transparent 28%),
+    linear-gradient(135deg, rgba(255,255,255,.96), rgba(238,247,247,.84));
+}
+.nowPlaying{ grid-template-columns:1fr; padding:28px; gap:22px; }
+.coverDisc{
+  min-height:360px;
+  border-radius:38px;
+}
+.coverDisc::before{ width:220px; height:220px; }
+.redesign-player .trackTitle{
+  font-size:clamp(36px, 4.4vw, 62px);
+  letter-spacing:-.06em;
+}
+.redesign-player .trackDesc{ font-size:15px; }
+.playerMetaGrid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+.controlDock{ display:none; }
+.lyricsCard{
+  position:sticky;
+  top:96px;
+  height:calc(100vh - 118px);
+  min-height:660px;
+  display:flex;
+  flex-direction:column;
+  padding:22px;
+  overflow:hidden;
+}
+.lyricsTitle{ font-size:20px; }
+.lyricsBox{
+  flex:1 1 auto;
+  height:auto;
+  max-height:none;
+  border-radius:30px;
+  padding:22px 14px;
+  background:linear-gradient(180deg, rgba(15,76,92,.035), rgba(255,255,255,.66));
+}
+.lyLine{ font-size:16px; padding:15px 16px; }
+.lyLine.active{ font-size:25px; line-height:1.45; }
+.bottomPlayer{
+  position:fixed;
+  left:50%;
+  bottom:18px;
+  transform:translateX(-50%);
+  z-index:1000;
+  width:min(1180px, calc(100% - 28px));
+  border:1px solid rgba(25,42,58,.12);
+  border-radius:28px;
+  background:rgba(255,255,255,.82);
+  backdrop-filter:blur(24px);
+  box-shadow:0 24px 70px rgba(31,53,72,.20);
+  padding:12px 14px;
+  display:grid;
+  grid-template-columns:minmax(180px, 1fr) auto minmax(220px, 1fr);
+  gap:14px;
+  align-items:center;
+}
+.bottomTrack{
+  min-width:0;
+  display:grid;
+  grid-template-columns:46px minmax(0, 1fr);
+  gap:11px;
+  align-items:center;
+}
+.bottomCover{
+  width:46px;
+  height:46px;
+  border-radius:16px;
+  background:linear-gradient(135deg, var(--sea), var(--teal));
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-weight:900;
+  box-shadow:0 12px 24px rgba(15,76,92,.18);
+}
+.bottomName{
+  color:var(--heading);
+  font-size:14px;
+  font-weight:900;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.bottomDesc{
+  margin-top:3px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.bottomControls{ display:flex; align-items:center; justify-content:center; gap:8px; }
+.bottomBtn{
+  width:40px;
+  height:40px;
+  border:1px solid var(--line-strong);
+  border-radius:999px;
+  background:#fff;
+  color:#244150;
+  font-weight:900;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(31,53,72,.07);
+}
+.bottomBtn.play{
+  width:52px;
+  background:linear-gradient(135deg, var(--sea), var(--teal));
+  border-color:transparent;
+  color:#fff;
+}
+.bottomProgress{
+  min-width:0;
+  display:grid;
+  grid-template-columns:44px minmax(0, 1fr) 44px;
+  gap:8px;
+  align-items:center;
+}
+.bottomProgress .time{ font-size:12px; }
+.bottomProgress input{ width:100%; accent-color:var(--sea); }
+@media (max-width:1180px){
+  .app{ grid-template-columns:1fr; }
+  .sidebar{ position:relative; top:auto; height:auto; }
+  .song-list{ max-height:none; grid-template-columns:repeat(2, minmax(0, 1fr)); overflow:visible; }
+  .playerShell{ grid-template-columns:1fr; }
+  .lyricsCard{ position:relative; top:auto; height:auto; min-height:520px; }
+}
+@media (max-width:780px){
+  body{ padding-bottom:158px; }
+  .page{ padding-bottom:175px; }
+  .sectionHead{ padding-left:4px; padding-right:4px; }
+  .song-list{ grid-template-columns:1fr; }
+  .redesign-player{ min-height:auto; }
+  .nowPlaying{ padding:18px; }
+  .coverDisc{ min-height:250px; border-radius:28px; }
+  .coverDisc::before{ width:160px; height:160px; }
+  .playerMetaGrid{ grid-template-columns:1fr; }
+  .lyricsCard{ min-height:420px; }
+  .redesign-player .trackTitle{ font-size:32px; }
+  .bottomPlayer{
+    bottom:10px;
+    border-radius:24px;
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  .bottomControls{ order:2; }
+  .bottomProgress{ order:3; }
+}
+
 </style>
 </head>
 
@@ -1516,7 +1916,6 @@ button{ -webkit-tap-highlight-color:transparent; }
         <a class="active" href="cover">翻唱</a>
         <a href="weather">天氣情報</a>
         <a href="earthquake">地震情報</a>
-      </nav>
     </nav>
   </header>
 
@@ -1524,9 +1923,7 @@ button{ -webkit-tap-highlight-color:transparent; }
     <div class="heroCard">
       <div class="eyebrow"><span class="dot"></span>翻唱作品</div>
       <h1 class="heroTitle">翻唱清單<span></span></h1>
-      <p class="heroDesc">這邊將整合在K歌APP的音樂到此頁面。<span></span></h1>
-        
-      </p>
+      <p class="heroDesc">這邊將整合在 K 歌 APP 的音樂到此頁面，支援歌曲列表、播放控制與同步歌詞。</p>
       <div class="heroActions">
         <a class="actionBtn" href="#player-section">開始聆聽</a>
         <a class="actionBtn ghostBtn" href="ItzSeir/">返回首頁</a>
@@ -1900,7 +2297,10 @@ function renderList(){
   filtered.forEach(s => {
     const div = document.createElement("div");
     div.className = "song-item" + (s.id === currentId ? " active" : "");
-    div.innerHTML = `<span>${escapeHtml(s.name)}</span><small>${escapeHtml(s.createdAt)}</small>`;
+    div.innerHTML = `<div class="songText">
+      <div class="songName">${escapeHtml(s.name)}</div>
+      <div class="songMeta">${escapeHtml(s.desc || "翻唱作品")}</div>
+    </div><div class="songDate">${escapeHtml(String(s.createdAt || "").slice(5))}</div>`;
     div.onclick = () => loadById(s.id, false);
     box.appendChild(div);
   });
@@ -1964,7 +2364,9 @@ function syncLoopBtn(){
 
 function syncPlayBtn(){
   const b = $("playBtn");
+  const mb = $("miniPlayBtn");
   if(b) b.textContent = audio.paused ? "播放" : "暫停";
+  if(mb) mb.textContent = audio.paused ? "▶" : "Ⅱ";
 }
 
 function syncPlayerStateClass(){
@@ -2099,11 +2501,7 @@ function syncLyricsActive(forceScroll){
 function renderPlayer(){
   const s = currentSong();
   if(!s){
-    $("playerArea").innerHTML = `<div class="player"><div class="hint">目前沒有歌曲</div></div>`;
-    return;
-  }
-
-  $("playerArea").innerHTML = `
+    $("playerArea").innerHTML = `
     <div class="player redesign-player paused" id="playerRoot">
       <div class="nowPlaying">
         <div class="coverDisc" aria-label="播放器封面">
@@ -2115,6 +2513,7 @@ function renderPlayer(){
           <div class="trackHeader">
             <div class="trackLabelRow">
               <div class="wave" title="播放中"><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="metaPills"><span class="pill"><span class="dot"></span>翻唱作品</span></div>
             </div>
 
             <div class="trackTitle" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
@@ -2130,9 +2529,13 @@ function renderPlayer(){
               <div class="metaTileLabel">播放模式</div>
               <div class="metaTileValue" id="loopPill">${escapeHtml(loopLabel())}</div>
             </div>
+            <div class="metaTile">
+              <div class="metaTileLabel">音源狀態</div>
+              <div class="metaTileValue">${String(s.mp3Url || "").trim() ? "可播放" : "未上傳"}</div>
+            </div>
           </div>
 
-          <div class="controlDock">
+          <div class="controlDock" aria-hidden="true">
             <div class="progress">
               <div class="progressRow">
                 <span class="time" id="cur">00:00</span>
@@ -2140,18 +2543,15 @@ function renderPlayer(){
                 <span class="time" id="dur">00:00</span>
               </div>
             </div>
-
             <div class="mainControls">
               <button class="btn ghost" id="prevBtn">上一首</button>
               <button class="btn primary bigPlay" id="playBtn">播放</button>
               <button class="btn ghost" id="nextBtn">下一首</button>
             </div>
-
             <div class="extraControls">
               <button class="btn" id="loopBtn">${escapeHtml(loopLabel())}</button>
               <button class="btn" id="copyBtn">複製音檔連結</button>
             </div>
-
             <div class="volRow">
               <span class="label">音量</span>
               <input type="range" id="vol" class="vol" min="0" max="1" step="0.01" value="${audio.volume}" />
@@ -2163,19 +2563,41 @@ function renderPlayer(){
 
     <div class="lyricsCard">
       <div class="lyricsHead">
-        <div class="lyricsTitle">歌詞</div>
+        <div class="lyricsTitle">同步歌詞</div>
         <div class="lyricsTools">
-          <button class="smallBtn active" id="lyAutoBtn">跟隨歌詞</button>
-          <button class="smallBtn" id="lyFoldBtn">收合歌詞</button>
-          <button class="smallBtn" id="lyReloadBtn">重載歌詞</button>
+          <button class="smallBtn active" id="lyAutoBtn">跟隨</button>
+          <button class="smallBtn" id="lyFoldBtn">收合</button>
+          <button class="smallBtn" id="lyReloadBtn">重載</button>
         </div>
       </div>
       <div class="lyricsBox" id="lyricsBox"></div>
+    </div>
+
+    <div class="bottomPlayer" id="bottomPlayer">
+      <div class="bottomTrack">
+        <div class="bottomCover">♪</div>
+        <div class="bottomInfo">
+          <div class="bottomName">${escapeHtml(s.name)}</div>
+          <div class="bottomDesc">${escapeHtml(s.desc || "翻唱作品")}</div>
+        </div>
+      </div>
+      <div class="bottomControls">
+        <button class="bottomBtn" id="miniPrevBtn" title="上一首">‹</button>
+        <button class="bottomBtn play" id="miniPlayBtn" title="播放/暫停">▶</button>
+        <button class="bottomBtn" id="miniNextBtn" title="下一首">›</button>
+      </div>
+      <div class="bottomProgress">
+        <span class="time" id="miniCur">00:00</span>
+        <input type="range" id="miniSeek" min="0" max="1000" value="0" />
+        <span class="time" id="miniDur">00:00</span>
+      </div>
     </div>
   `;
 
   $("prevBtn").onclick = prevSong;
   $("nextBtn").onclick = nextSong;
+  if($("miniPrevBtn")) $("miniPrevBtn").onclick = prevSong;
+  if($("miniNextBtn")) $("miniNextBtn").onclick = nextSong;
 
   $("playBtn").onclick = async () => {
     if(audio.paused){
@@ -2187,6 +2609,7 @@ function renderPlayer(){
     syncPlayBtn();
     syncPlayerStateClass();
   };
+  if($("miniPlayBtn")) $("miniPlayBtn").onclick = $("playBtn").onclick;
 
   $("loopBtn").onclick = () => {
     if(loopMode === "list") loopMode = "single";
@@ -2231,6 +2654,12 @@ function renderPlayer(){
       syncLyricsActive(false);
     }
   };
+  if($("miniSeek")) $("miniSeek").oninput = () => {
+    if(isFinite(audio.duration) && audio.duration > 0){
+      audio.currentTime = (Number($("miniSeek").value) / 1000) * audio.duration;
+      syncLyricsActive(false);
+    }
+  };
 
   const lyBox = $("lyricsBox");
   if(lyBox){
@@ -2255,17 +2684,25 @@ function renderPlayer(){
 
 audio.addEventListener("timeupdate", () => {
   const cur = $("cur"), dur = $("dur"), seek = $("seek");
+  const miniCur = $("miniCur"), miniDur = $("miniDur"), miniSeek = $("miniSeek");
   if(cur) cur.textContent = fmt(audio.currentTime);
+  if(miniCur) miniCur.textContent = fmt(audio.currentTime);
   if(dur && isFinite(audio.duration) && audio.duration > 0) dur.textContent = fmt(audio.duration);
+  if(miniDur && isFinite(audio.duration) && audio.duration > 0) miniDur.textContent = fmt(audio.duration);
   if(seek && isFinite(audio.duration) && audio.duration > 0){
     seek.value = String(Math.floor((audio.currentTime / audio.duration) * 1000));
+  }
+  if(miniSeek && isFinite(audio.duration) && audio.duration > 0){
+    miniSeek.value = String(Math.floor((audio.currentTime / audio.duration) * 1000));
   }
   syncLyricsActive(false);
 });
 
 audio.addEventListener("loadedmetadata", () => {
   const dur = $("dur");
+  const miniDur = $("miniDur");
   if(dur && isFinite(audio.duration) && audio.duration > 0) dur.textContent = fmt(audio.duration);
+  if(miniDur && isFinite(audio.duration) && audio.duration > 0) miniDur.textContent = fmt(audio.duration);
   syncLyricsActive(true);
 });
 
