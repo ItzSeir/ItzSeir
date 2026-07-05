@@ -12409,233 +12409,226 @@ function renderTwLegend(kind){
 
 
 
-<style>
-/* ===== v71: Typhoon map fullscreen + Taiwan county hover/warning fill ===== */
-.typhoonMapFullscreenBtn{
-  height:30px;
-  padding:0 10px;
-  border:1px solid rgba(25,42,58,.16);
-  border-radius:999px;
-  background:#fff;
-  color:#163042;
-  font-size:12px;
-  font-weight:900;
-  cursor:pointer;
-  box-shadow:0 6px 14px rgba(31,53,72,.08);
-}
-.typhoonMapFullscreenBtn:hover{ transform:translateY(-1px); }
-.mapShell:fullscreen,
-.mapShell.typhoonFullscreenFallback{
-  width:100vw !important;
-  height:100vh !important;
-  max-width:none !important;
-  border-radius:0 !important;
-  background:#fff !important;
-  z-index:999999 !important;
-}
-.mapShell:fullscreen #map,
-.mapShell.typhoonFullscreenFallback #map{
-  height:calc(100vh - 49px) !important;
-  min-height:calc(100vh - 49px) !important;
-}
-.mapShell.typhoonFullscreenFallback{
-  position:fixed !important;
-  inset:0 !important;
-}
-.typhoonCountyTooltip{
-  border:1px solid rgba(25,42,58,.12) !important;
-  border-radius:12px !important;
-  box-shadow:0 10px 22px rgba(31,53,72,.12) !important;
-  font-weight:900 !important;
-  color:#163042 !important;
-}
-</style>
 <script>
-/* ===== v71: interactive typhoon map improvements =====
-   - Taiwan counties highlight on hover
-   - Taiwan county fill when CWA typhoon warning area exists
-   - Fullscreen map button
-   - Forecast error area uses Radius70PercentProbability as 70% error radius, without clipping to 350 km
-*/
+/* ===== v72: green clear warning + repaired forecast cone + no Taiwan coastline ===== */
 (function(){
-  function safeEscapeV71(s){
+  const GREEN_CLEAR = '#00c853';
+  const GREEN_CLEAR_STROKE = '#008f3a';
+
+  function escV72(s){
     return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
-  function hexToRgbaV71(hex, alpha){
+  function normV72(s){
+    return String(s ?? '').replace(/台/g,'臺').replace(/[()（）\s]/g,'').trim();
+  }
+  function hexToRgbaV72(hex, alpha){
+    hex = String(hex || '#000000').replace('#','').trim();
+    if(hex.length === 3) hex = hex.split('').map(x => x+x).join('');
+    const r = parseInt(hex.slice(0,2),16) || 0;
+    const g = parseInt(hex.slice(2,4),16) || 0;
+    const b = parseInt(hex.slice(4,6),16) || 0;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  function textOfV72(obj){
+    const out=[];
+    (function walk(v){
+      if(v===null || v===undefined) return;
+      if(typeof v==='string' || typeof v==='number') out.push(String(v));
+      else if(Array.isArray(v)) v.forEach(walk);
+      else if(typeof v==='object') Object.values(v).forEach(walk);
+    })(obj);
+    return out.join(' ');
+  }
+  function isClearWarningV72(a){
+    const t = normV72(textOfV72(a));
+    const p = a?.parameters || {};
+    const paramText = normV72(Object.values(p).join(' '));
+    return /解除|取消|解除警報|警報解除/.test(t + paramText) || /綠色|綠燈|00e833|00c853|0,232,51/.test(t + paramText);
+  }
+
+  /* Make cleared warning cards / badges visibly green even when the official data has no explicit green color. */
+  function applyClearWarningGreenV72(root=document){
     try{
-      const h = String(hex || '#60a5fa').replace('#','').trim();
-      const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
-      const n = parseInt(full, 16);
-      if(Number.isNaN(n)) return hex || '#60a5fa';
-      return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`;
-    }catch(e){ return hex || '#60a5fa'; }
-  }
-  function normTwV71(s){
-    return String(s || '').replace(/臺/g,'台').replace(/\s+/g,'').trim();
-  }
-  function isTyphoonCapAlertV71(a){
-    const params = a && a.parameters ? Object.values(a.parameters).join(' ') : '';
-    const hay = `${a?.headline || ''} ${a?.event || ''} ${a?.description || ''} ${a?.instruction || ''} ${a?.datasetName || ''} ${params}`;
-    return /颱風|熱帶性低氣壓|熱帶低氣壓|海上陸上|海上颱風|陸上颱風/.test(hay) || a?.kind === 'typhoon';
-  }
-  function typhoonAlertColorV71(a){
-    const hay = `${a?.headline || ''} ${a?.event || ''} ${a?.description || ''} ${a?.instruction || ''} ${a?.datasetName || ''}`;
-    if(/海上陸上|陸上颱風/.test(hay)) return '#ef4444';
-    if(/海上颱風/.test(hay)) return '#f97316';
-    if(/熱帶性低氣壓|熱帶低氣壓/.test(hay)) return '#facc15';
-    try{
-      if(typeof window.twAreaAlertColor === 'function') return window.twAreaAlertColor(a);
+      root.querySelectorAll('.warningItem,.warningCard,.warningBadge,.warningTag,.twOfficialWarnCard,.twOfficialLevel,.twCountyPill').forEach(el => {
+        const txt = normV72(el.textContent || '');
+        if(/解除|取消/.test(txt)){
+          el.style.borderColor = GREEN_CLEAR_STROKE;
+          if(el.classList.contains('warningBadge') || el.classList.contains('warningTag') || el.classList.contains('twOfficialLevel') || el.classList.contains('twCountyPill')){
+            el.style.background = GREEN_CLEAR;
+            el.style.color = '#fff';
+          }
+        }
+      });
     }catch(e){}
-    return '#f97316';
   }
-  function featureNamesV71(feature){
-    try{
-      if(typeof window.twAreaFeatureNames === 'function') return window.twAreaFeatureNames(feature) || {};
-    }catch(e){}
-    const p = feature?.properties || {};
-    const county = p.COUNTYNAME || p.COUNTY || p.county || p.NAME_1 || p.name || p.TOWNNAME || '';
-    return { countyNorm:normTwV71(county), countyRaw:county, townNorm:normTwV71(p.TOWNNAME || p.TOWN || p.name || '') };
+  const obs = new MutationObserver(() => applyClearWarningGreenV72());
+  try{ obs.observe(document.body, {childList:true, subtree:true}); }catch(e){}
+  window.addEventListener('load', () => setTimeout(applyClearWarningGreenV72, 800));
+
+  /* Rebuild forecast cone from forecast fixes using a stable CWA-like envelope.
+     This avoids the previous convex-hull error area becoming distorted while still reading
+     Radius70PercentProbability / other possible radius fields. */
+  const R = Math.PI / 180;
+  const D = 180 / Math.PI;
+  function toRad(v){ return Number(v) * R; }
+  function toDeg(v){ return Number(v) * D; }
+  function kmToMetersLocal(km){ return Number(km) * 1000; }
+  function bearingLocal(lat1, lon1, lat2, lon2){
+    const p1 = toRad(lat1), p2 = toRad(lat2);
+    const dLon = toRad(lon2-lon1);
+    const y = Math.sin(dLon) * Math.cos(p2);
+    const x = Math.cos(p1)*Math.sin(p2) - Math.sin(p1)*Math.cos(p2)*Math.cos(dLon);
+    return (toDeg(Math.atan2(y,x)) + 360) % 360;
   }
-  function alertAreasV71(a){
-    try{
-      if(typeof window.twAreaAlertAreas === 'function') return window.twAreaAlertAreas(a) || [];
-    }catch(e){}
-    return Array.isArray(a?.areaNames) ? a.areaNames : String(a?.area || '').split(/[、,，;；\s]+/).filter(Boolean);
+  function destLocal(lat, lon, brng, meters){
+    const radius = 6371008.8;
+    const delta = Number(meters) / radius;
+    const theta = toRad(brng);
+    const phi1 = toRad(lat);
+    const lambda1 = toRad(lon);
+    const phi2 = Math.asin(Math.sin(phi1)*Math.cos(delta) + Math.cos(phi1)*Math.sin(delta)*Math.cos(theta));
+    const lambda2 = lambda1 + Math.atan2(Math.sin(theta)*Math.sin(delta)*Math.cos(phi1), Math.cos(delta)-Math.sin(phi1)*Math.sin(phi2));
+    return { lat: toDeg(phi2), lon: ((toDeg(lambda2)+540)%360)-180 };
   }
-  function resolveCountyV71(name){
-    try{
-      if(typeof window.twAreaResolveCountyName === 'function') return window.twAreaResolveCountyName(name);
-    }catch(e){}
-    return normTwV71(name);
+  function avgAngleLocal(a,b){
+    const ax=Math.cos(toRad(a)), ay=Math.sin(toRad(a));
+    const bx=Math.cos(toRad(b)), by=Math.sin(toRad(b));
+    const x=ax+bx, y=ay+by;
+    if(Math.abs(x)<1e-9 && Math.abs(y)<1e-9) return a;
+    return (toDeg(Math.atan2(y,x))+360)%360;
   }
-  function typhoonAlertForFeatureV71(feature){
-    const alerts = (Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : []).filter(isTyphoonCapAlertV71);
-    if(!alerts.length) return null;
-    const names = featureNamesV71(feature);
-    const county = normTwV71(names.countyNorm || names.countyRaw || '');
-    const town = normTwV71(names.townNorm || names.townRaw || '');
-    let picked = null;
-    let bestRank = -1;
-    for(const a of alerts){
-      const areas = alertAreasV71(a);
-      let hit = false;
-      for(const area of areas){
-        const raw = normTwV71(area);
-        const resolved = normTwV71(resolveCountyV71(area));
-        if(county && (resolved === county || raw === county || raw.includes(county) || county.includes(raw))){ hit = true; break; }
-        if(town && (raw === town || raw.includes(town))){ hit = true; break; }
-      }
-      if(!hit) continue;
-      const hay = `${a?.headline || ''} ${a?.event || ''} ${a?.description || ''}`;
-      const r = /海上陸上|陸上颱風/.test(hay) ? 3 : (/海上颱風/.test(hay) ? 2 : 1);
-      if(r > bestRank){ bestRank = r; picked = a; }
+  function getForecastHourV72(p, idx){
+    const keys = ['ForecastHour','forecastHour','fcst_hour','forecast_hour','hour','預報時數'];
+    for(const k of keys){
+      const v = p?.[k];
+      if(v !== undefined && v !== null && String(v).trim() !== '' && Number.isFinite(Number(v))) return Number(v);
     }
-    return picked;
+    const note = String(p?.note || p?.label || p?.timeLabel || '');
+    const m = note.match(/(\d+)\s*(?:小時|h|hr|hour)/i);
+    if(m) return Number(m[1]);
+    return (idx + 1) * 12;
+  }
+  function radiusV72(p, idx){
+    const keys = [
+      'fcst_radius_km','forecastRadius','forecast_error_km','errorRadiusKm','Radius70PercentProbability',
+      'radius70PercentProbability','radius70','error_radius','errorRadius','probabilityRadius','Radius','radius',
+      '誤差半徑','預測誤差','70percent','radius70Percent'
+    ];
+    for(const k of keys){
+      const v = p?.[k];
+      if(v !== undefined && v !== null && String(v).trim() !== '' && Number.isFinite(Number(v)) && Number(v) > 0) return Number(v);
+    }
+    const h = getForecastHourV72(p, idx);
+    if(h <= 6) return 50;
+    if(h <= 12) return 80;
+    if(h <= 24) return 120;
+    if(h <= 36) return 150;
+    if(h <= 48) return 200;
+    if(h <= 72) return 300;
+    if(h <= 96) return 420;
+    return 520;
   }
 
-  // Replace the old approximate cone. This uses each forecast fix's 70% error radius
-  // (Radius70PercentProbability, km) and returns the outer envelope.
-  window.buildForecastConePolygonSmooth = function(srcPoints = points){
-    const list = (srcPoints || []).filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)));
-    const fcst = list.filter(p => p.kind === 'fcst' && Number.isFinite(Number(p.fcst_radius_km)) && Number(p.fcst_radius_km) > 0);
-    if(!fcst.length) return null;
+  window.buildForecastConePolygonSmooth = function(srcPoints){
+    const src = srcPoints || (window.points || (typeof points !== 'undefined' ? points : []));
+    const list = (src || [])
+      .filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)))
+      .map(p => ({...p, lat:Number(p.lat), lon:Number(p.lon)}));
+    if(!list.length) return null;
 
-    const lat0 = fcst.reduce((s,p) => s + Number(p.lat), 0) / fcst.length;
-    const cos0 = Math.max(0.18, Math.cos(lat0 * Math.PI / 180));
-    function toXY(p){ return { x:Number(p.lon) * 111.32 * cos0, y:Number(p.lat) * 110.574 }; }
-    function toLL(pt){ return [pt.y / 110.574, pt.x / (111.32 * cos0)]; }
-    const samples = [];
-    const stepDeg = fcst.length === 1 ? 6 : 8;
-    fcst.forEach(p => {
-      const c = toXY(p);
-      // Keep CWA/JMA 70% error radii. Do not clip normal large values such as 540 km.
-      const r = Math.max(1, Math.min(Number(p.fcst_radius_km), 1200));
-      for(let a = 0; a < 360; a += stepDeg){
-        const t = a * Math.PI / 180;
-        samples.push({ x:c.x + Math.cos(t) * r, y:c.y + Math.sin(t) * r });
-      }
+    let latestObsIdx = -1;
+    for(let i=list.length-1;i>=0;i--){ if(list[i].kind === 'obs'){ latestObsIdx = i; break; } }
+    const obs = latestObsIdx >= 0 ? list[latestObsIdx] : list.find(p => p.kind !== 'fcst') || list[0];
+    const fcst = list.filter(p => p.kind === 'fcst');
+    if(!obs || !fcst.length) return null;
+
+    const maxRadius = 900;
+    const raw = fcst.map((p,i) => Math.max(8, Math.min(radiusV72(p,i), maxRadius)));
+    const startRadius = Math.max(12, Math.min((raw[0] || 60) * 0.32, 100));
+    const smooth = raw.map((r,i) => {
+      const prev = raw[i-1] ?? r;
+      const next = raw[i+1] ?? r;
+      return Math.max(8, Math.min((prev+r+next)/3, maxRadius));
     });
-    if(samples.length < 3) return null;
-    samples.sort((a,b) => a.x === b.x ? a.y - b.y : a.x - b.x);
-    function cross(o,a,b){ return (a.x-o.x)*(b.y-o.y) - (a.y-o.y)*(b.x-o.x); }
-    const lower = [];
-    for(const p of samples){
-      while(lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
-      lower.push(p);
+    const path = [{lat:obs.lat, lon:obs.lon, rKm:startRadius}, ...fcst.map((p,i) => ({lat:p.lat, lon:p.lon, rKm:smooth[i]}))];
+    if(path.length === 1) return null;
+
+    function heading(i){
+      if(path.length === 2) return bearingLocal(path[0].lat,path[0].lon,path[1].lat,path[1].lon);
+      if(i === 0) return bearingLocal(path[0].lat,path[0].lon,path[1].lat,path[1].lon);
+      if(i === path.length-1) return bearingLocal(path[i-1].lat,path[i-1].lon,path[i].lat,path[i].lon);
+      const b1 = bearingLocal(path[i-1].lat,path[i-1].lon,path[i].lat,path[i].lon);
+      const b2 = bearingLocal(path[i].lat,path[i].lon,path[i+1].lat,path[i+1].lon);
+      return avgAngleLocal(b1,b2);
     }
-    const upper = [];
-    for(let i=samples.length-1; i>=0; i--){
-      const p = samples[i];
-      while(upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
-      upper.push(p);
+
+    const left=[], right=[];
+    for(let i=0;i<path.length;i++){
+      const p=path[i], h=heading(i), r=kmToMetersLocal(p.rKm);
+      const l=destLocal(p.lat,p.lon,(h-90+360)%360,r);
+      const rr=destLocal(p.lat,p.lon,(h+90)%360,r);
+      left.push([l.lat,l.lon]);
+      right.push([rr.lat,rr.lon]);
     }
-    const hull = lower.slice(0,-1).concat(upper.slice(0,-1));
-    if(hull.length < 3) return null;
-    const poly = hull.map(toLL);
+    const start=path[0], startH=heading(0), startR=kmToMetersLocal(start.rKm), startArc=[];
+    for(let a=90;a<=270;a+=10){ const pt=destLocal(start.lat,start.lon,(startH+a+360)%360,startR); startArc.push([pt.lat,pt.lon]); }
+    const end=path[path.length-1], endH=heading(path.length-1), endR=kmToMetersLocal(end.rKm), endArc=[];
+    for(let a=-90;a<=90;a+=6){ const pt=destLocal(end.lat,end.lon,(endH+a+360)%360,endR); endArc.push([pt.lat,pt.lon]); }
+    const poly = [...startArc, ...left.slice(1), ...endArc, ...right.slice(1).reverse()];
+    if(poly.length < 4) return null;
     poly.push(poly[0]);
     return poly;
   };
   try{ buildForecastConePolygonSmooth = window.buildForecastConePolygonSmooth; }catch(e){}
 
-  function ensureTyphoonFullscreenButtonV71(){
-    const header = document.querySelector('.typhoonMainGrid .mapHeader');
-    const shell = document.querySelector('.typhoonMainGrid .mapShell');
-    if(!header || !shell || document.getElementById('typhoonFullscreenBtn')) return;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = 'typhoonFullscreenBtn';
-    btn.className = 'typhoonMapFullscreenBtn';
-    btn.textContent = '全螢幕';
-    btn.addEventListener('click', async () => {
-      try{
-        if(document.fullscreenElement){ await document.exitFullscreen(); }
-        else if(shell.requestFullscreen){ await shell.requestFullscreen(); }
-        else shell.classList.toggle('typhoonFullscreenFallback');
-      }catch(e){ shell.classList.toggle('typhoonFullscreenFallback'); }
-      setTimeout(() => { try{ map?.invalidateSize(true); fitAll && fitAll(); updateLabelLines && updateLabelLines(); }catch(err){} }, 180);
-    });
-    header.appendChild(btn);
+  function colorForTyphoonAlertV72(a){
+    if(!a) return '#0f4c5c';
+    if(isClearWarningV72(a)) return GREEN_CLEAR;
+    if(typeof typhoonAlertColorV71 === 'function') return typhoonAlertColorV71(a);
+    const t = normV72(textOfV72(a));
+    if(/海上陸上|陸上颱風|紅色|紅燈/.test(t)) return '#e60012';
+    if(/海上颱風|橙色|橘色|橙燈|橘燈/.test(t)) return '#ff7f00';
+    return '#fff100';
   }
-  document.addEventListener('fullscreenchange', () => {
-    setTimeout(() => { try{ map?.invalidateSize(true); updateLabelLines && updateLabelLines(); }catch(e){} }, 180);
-  });
+  function featureNamesV72(feature){
+    try{ if(typeof featureNamesV71 === 'function') return featureNamesV71(feature); }catch(e){}
+    const p = feature?.properties || {};
+    const vals = Object.fromEntries(Object.entries(p).map(([k,v]) => [String(k).toLowerCase(), v]));
+    const countyRaw = p.COUNTYNAME || p.COUNTY || p.county || p.COUNTY_N || p.COUNTYNAME || vals.countyname || vals.county || vals.name || '';
+    const townRaw = p.TOWNNAME || p.TOWN || p.town || vals.townname || vals.town || '';
+    return { countyRaw:String(countyRaw||''), townRaw:String(townRaw||''), countyNorm:normV72(countyRaw), townNorm:normV72(townRaw) };
+  }
 
+  /* Override Taiwan overlay on typhoon map: county hover + warning fill, but NO separate coastline polyline. */
   window.addTyphoonCountyBoundaryOverlay = async function(){
-    if(!map) return;
-    try{ if(window.typhoonCountyBoundaryLayer){ map.removeLayer(window.typhoonCountyBoundaryLayer); } }catch(e){}
-    try{ if(typeof typhoonCountyBoundaryLayer !== 'undefined' && typhoonCountyBoundaryLayer){ map.removeLayer(typhoonCountyBoundaryLayer); } }catch(e){}
+    const m = window.map || (typeof map !== 'undefined' ? map : null);
+    if(!m || typeof L === 'undefined') return;
+    try{ if(window.typhoonCountyBoundaryLayer){ m.removeLayer(window.typhoonCountyBoundaryLayer); } }catch(e){}
+    try{ if(typeof typhoonCountyBoundaryLayer !== 'undefined' && typhoonCountyBoundaryLayer){ m.removeLayer(typhoonCountyBoundaryLayer); } }catch(e){}
     try{
-      if(!map.getPane('typhoonTaiwanWarningPane')){
-        map.createPane('typhoonTaiwanWarningPane');
-        map.getPane('typhoonTaiwanWarningPane').style.zIndex = 324;
+      if(!m.getPane('typhoonTaiwanWarningPane')){
+        m.createPane('typhoonTaiwanWarningPane');
+        m.getPane('typhoonTaiwanWarningPane').style.zIndex = 324;
+        m.getPane('typhoonTaiwanWarningPane').style.pointerEvents = 'none';
       }
-      if(!map.getPane('countyBoundaryPane')){
-        map.createPane('countyBoundaryPane');
-        map.getPane('countyBoundaryPane').style.zIndex = 327;
-        map.getPane('countyBoundaryPane').style.pointerEvents = 'auto';
-      }else{
-        map.getPane('countyBoundaryPane').style.pointerEvents = 'auto';
+      if(!m.getPane('countyBoundaryPane')){
+        m.createPane('countyBoundaryPane');
+        m.getPane('countyBoundaryPane').style.zIndex = 327;
       }
-      if(!map.getPane('taiwanStrongBoundaryPane')){
-        map.createPane('taiwanStrongBoundaryPane');
-        map.getPane('taiwanStrongBoundaryPane').style.zIndex = 326;
-        map.getPane('taiwanStrongBoundaryPane').style.pointerEvents = 'none';
-      }
+      m.getPane('countyBoundaryPane').style.pointerEvents = 'auto';
       const loader = window.twAreaLoadGeoJson || (async url => (await fetch(url, {cache:'force-cache'})).json());
       const data = await loader('./tw-county.geojson');
       const fillLayer = L.geoJSON(data, {
-        pane:'typhoonTaiwanWarningPane',
-        interactive:false,
-        smoothFactor:1.2,
+        pane:'typhoonTaiwanWarningPane', interactive:false, smoothFactor:1.25,
         style(feature){
-          const a = typhoonAlertForFeatureV71(feature);
-          const color = typhoonAlertColorV71(a);
+          const a = (typeof typhoonAlertForFeatureV71 === 'function') ? typhoonAlertForFeatureV71(feature) : null;
+          const c = colorForTyphoonAlertV72(a);
           return {
-            color: a ? hexToRgbaV71(color, .88) : 'rgba(15,76,92,.16)',
-            weight: a ? 1.1 : .45,
-            opacity: a ? .95 : .42,
-            fillColor: a ? color : 'transparent',
-            fillOpacity: a ? .24 : 0,
+            color: a ? hexToRgbaV72(c,.86) : 'rgba(15,76,92,.16)',
+            weight: a ? 1.05 : .42,
+            opacity: a ? .9 : .38,
+            fillColor: a ? c : 'transparent',
+            fillOpacity: a ? (isClearWarningV72(a) ? .30 : .24) : 0,
             dashArray:null,
             lineJoin:'round',
             lineCap:'round'
@@ -12643,78 +12636,38 @@ function renderTwLegend(kind){
         }
       });
       const countyLayer = L.geoJSON(data, {
-        pane:'countyBoundaryPane',
-        interactive:true,
-        smoothFactor:1.2,
-        style(){
-          return { color:'#405866', weight:.58, opacity:.42, fill:false, fillOpacity:0, dashArray:null, lineJoin:'round', lineCap:'round' };
-        },
+        pane:'countyBoundaryPane', interactive:true, smoothFactor:1.25,
+        style(){ return { color:'#405866', weight:.62, opacity:.45, fill:false, fillOpacity:0, dashArray:null, lineJoin:'round', lineCap:'round' }; },
         onEachFeature(feature, layer){
-          const names = featureNamesV71(feature);
-          const alert = typhoonAlertForFeatureV71(feature);
+          const names = featureNamesV72(feature);
+          const alert = (typeof typhoonAlertForFeatureV71 === 'function') ? typhoonAlertForFeatureV71(feature) : null;
           const title = names.countyRaw || names.countyNorm || names.townRaw || '台灣';
           const alertName = alert ? (alert.headline || alert.event || '颱風警報') : '無颱風警戒';
-          layer.bindTooltip(`<b>${safeEscapeV71(title)}</b><br>${safeEscapeV71(alertName)}`, {
-            sticky:true,
-            direction:'top',
-            className:'typhoonCountyTooltip'
-          });
+          layer.bindTooltip(`<b>${escV72(title)}</b><br>${escV72(alertName)}`, {sticky:true, direction:'top', className:'typhoonCountyTooltip'});
           layer.on('mouseover', () => {
-            const c = alert ? typhoonAlertColorV71(alert) : '#0f4c5c';
-            layer.setStyle({ color:c, weight:1.65, opacity:.92, fillColor:alert ? c : '#0f4c5c', fillOpacity:alert ? .32 : .08 });
+            const c = colorForTyphoonAlertV72(alert);
+            layer.setStyle({ color:c, weight:1.55, opacity:.9, fillColor:alert ? c : '#0f4c5c', fillOpacity:alert ? .32 : .08 });
             try{ layer.bringToFront(); }catch(e){}
           });
-          layer.on('mouseout', () => {
-            countyLayer.resetStyle(layer);
-          });
+          layer.on('mouseout', () => { try{ countyLayer.resetStyle(layer); }catch(e){} });
         }
       });
-      const outline = L.polyline([
-        [25.30,121.55],[25.18,121.80],[24.98,121.94],[24.72,121.87],[24.47,121.84],[24.21,121.76],
-        [23.95,121.66],[23.70,121.55],[23.47,121.48],[23.18,121.40],[22.88,121.31],[22.62,121.18],
-        [22.35,120.98],[22.15,120.78],[21.92,120.86],[21.91,120.65],[22.10,120.43],[22.32,120.30],
-        [22.60,120.18],[22.88,120.10],[23.15,120.08],[23.42,120.10],[23.70,120.18],[24.00,120.30],
-        [24.29,120.48],[24.56,120.68],[24.82,120.88],[25.05,121.12],[25.22,121.35],[25.30,121.55]
-      ], {
-        pane:'taiwanStrongBoundaryPane',
-        interactive:false,
-        color:'#20384a',
-        weight:1.55,
-        opacity:.72,
-        lineJoin:'round',
-        lineCap:'round'
-      });
-      const group = L.layerGroup([fillLayer, countyLayer, outline]).addTo(map);
+      const group = L.layerGroup([fillLayer, countyLayer]).addTo(m);
       window.typhoonCountyBoundaryLayer = group;
       try{ typhoonCountyBoundaryLayer = group; }catch(e){}
-    }catch(err){
-      console.warn('v71 Taiwan county highlight optional load failed', err);
-    }
+    }catch(err){ console.warn('v72 Taiwan county layer optional load failed', err); }
   };
 
-  // Refresh county warning fill when CAP refresh completes and when typhoon map renders.
-  const oldRender = window.renderTyphoonLayers || (typeof renderTyphoonLayers === 'function' ? renderTyphoonLayers : null);
-  if(oldRender){
-    window.renderTyphoonLayers = function(options){
-      const ret = oldRender.call(this, options || {});
-      setTimeout(() => { try{ ensureTyphoonFullscreenButtonV71(); window.addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 120);
-      return ret;
-    };
-    try{ renderTyphoonLayers = window.renderTyphoonLayers; }catch(e){}
+  function refreshV72(){
+    try{ window.addTyphoonCountyBoundaryOverlay(); }catch(e){}
+    try{ if(typeof drawForecastCone === 'function') drawForecastCone(); }catch(e){}
+    try{ if(typeof updateLabelLines === 'function') updateLabelLines(); }catch(e){}
   }
-  const oldRefreshTaiwan = window.refreshTaiwan || (typeof refreshTaiwan === 'function' ? refreshTaiwan : null);
-  if(oldRefreshTaiwan){
-    window.refreshTaiwan = async function(opts){
-      const r = await oldRefreshTaiwan.call(this, opts || {});
-      setTimeout(() => { try{ window.addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 250);
-      return r;
-    };
-    try{ refreshTaiwan = window.refreshTaiwan; }catch(e){}
-  }
-
   window.addEventListener('load', () => {
-    setTimeout(() => { try{ ensureTyphoonFullscreenButtonV71(); window.addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 1000);
+    setTimeout(refreshV72, 900);
+    setTimeout(refreshV72, 2400);
   });
+  document.addEventListener('fullscreenchange', () => setTimeout(refreshV72, 250));
 })();
 </script>
 
