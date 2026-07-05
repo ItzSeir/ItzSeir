@@ -3736,6 +3736,48 @@ button{ -webkit-tap-highlight-color:transparent; }
   }
 }
 
+
+
+/* ===== v74.1: Typhoon map fullscreen uses v73 browser fullscreen style ===== */
+.tyFullscreenControl{
+  width:34px;
+  height:34px;
+  display:grid !important;
+  place-items:center;
+  border:0 !important;
+  border-radius:8px !important;
+  background:#fff !important;
+  color:#163042 !important;
+  font-size:18px !important;
+  line-height:1 !important;
+  font-weight:900 !important;
+  box-shadow:0 8px 18px rgba(31,53,72,.16) !important;
+  cursor:pointer;
+  text-decoration:none !important;
+}
+.tyFullscreenControl:hover{ background:#f1f8fa !important; }
+#map:fullscreen,
+.mapShell:fullscreen{
+  width:100vw !important;
+  height:100vh !important;
+  border-radius:0 !important;
+  background:#e9f8fb;
+}
+#map:fullscreen{ min-height:100vh !important; }
+.mapShell:fullscreen #map{
+  height:calc(100vh - 49px) !important;
+  min-height:calc(100vh - 49px) !important;
+}
+.typhoonCountyTooltip{
+  border:1px solid rgba(15,76,92,.16) !important;
+  border-radius:999px !important;
+  padding:5px 9px !important;
+  color:#0f4c5c !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+  box-shadow:0 8px 18px rgba(31,53,72,.12) !important;
+}
+
 </style>
 </head>
 
@@ -5025,7 +5067,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       if(!map.getPane("countyBoundaryPane")){
         map.createPane("countyBoundaryPane");
         map.getPane("countyBoundaryPane").style.zIndex = 325;
-        map.getPane("countyBoundaryPane").style.pointerEvents = "none";
+        map.getPane("countyBoundaryPane").style.pointerEvents = "auto";
       }
       if(!map.getPane("conePane")){
         map.createPane("conePane");
@@ -5061,22 +5103,105 @@ button{ -webkit-tap-highlight-color:transparent; }
       if(!map || typhoonCountyBoundaryLayer) return;
       try{
         const data = await twAreaLoadGeoJson("./tw-county.geojson");
+
+        function countyStyle(){
+          return {
+            color:"rgba(38, 63, 82, .52)",
+            weight:.85,
+            opacity:.75,
+            fill:true,
+            fillColor:"#f8fbfd",
+            fillOpacity:.035
+          };
+        }
+
         typhoonCountyBoundaryLayer = L.geoJSON(data, {
           pane:"countyBoundaryPane",
-          interactive:false,
-          style(){
-            return {
-              color:"#1f4054",
-              weight:1.45,
-              opacity:.86,
-              fill:false,
-              fillOpacity:0
-            };
+          interactive:true,
+          style:countyStyle,
+          onEachFeature(feature, layer){
+            const names = (typeof twAreaGetFeatureNames === "function")
+              ? twAreaGetFeatureNames(feature)
+              : { county: feature?.properties?.COUNTYNAME || feature?.properties?.COUNTY || "" };
+            const countyName = names.county || names.full || "台灣縣市";
+
+            layer.bindTooltip(countyName, {
+              sticky:true,
+              direction:"top",
+              opacity:.92,
+              className:"typhoonCountyTooltip"
+            });
+
+            layer.on("mouseover", () => {
+              layer.setStyle({
+                color:"#0f4c5c",
+                weight:1.6,
+                opacity:.95,
+                fillColor:"#7bdff2",
+                fillOpacity:.22
+              });
+              try{ layer.bringToFront(); }catch(e){}
+            });
+
+            layer.on("mouseout", () => {
+              if(typhoonCountyBoundaryLayer) typhoonCountyBoundaryLayer.resetStyle(layer);
+            });
           }
         }).addTo(map);
       }catch(err){
         console.warn("tw-county.geojson optional load failed for typhoon map", err);
       }
+    }
+
+
+    function addTyphoonFullscreenControl(){
+      if(!map || map.__typhoonFullscreenControlAdded) return;
+      map.__typhoonFullscreenControlAdded = true;
+
+      const FullscreenControl = L.Control.extend({
+        options:{ position:"topright" },
+        onAdd(mapObj){
+          const btn = L.DomUtil.create("a", "leaflet-control tyFullscreenControl");
+          btn.href = "#";
+          btn.title = "全螢幕地圖";
+          btn.setAttribute("aria-label", "全螢幕地圖");
+          btn.innerHTML = "⛶";
+
+          L.DomEvent.disableClickPropagation(btn);
+          L.DomEvent.on(btn, "click", (ev) => {
+            L.DomEvent.preventDefault(ev);
+            const shell = document.querySelector(".typhoonMainGrid > .mapShell") || mapObj.getContainer();
+            try{
+              if(!document.fullscreenElement){
+                const target = shell || mapObj.getContainer();
+                (target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen)?.call(target);
+              }else{
+                (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen)?.call(document);
+              }
+            }catch(e){}
+            setTimeout(() => {
+              try{
+                mapObj.invalidateSize(true);
+                if(fullBounds && fullBounds.isValid && fullBounds.isValid()) fitAll();
+                updateLabelLines();
+              }catch(e){}
+            }, 300);
+          });
+          return btn;
+        }
+      });
+
+      map.addControl(new FullscreenControl());
+
+      document.addEventListener("fullscreenchange", () => {
+        setTimeout(() => {
+          try{
+            map.invalidateSize(true);
+            if(fullBounds && fullBounds.isValid && fullBounds.isValid()) fitAll();
+            updateLabelLines();
+          }catch(e){}
+        }, 260);
+      });
     }
 
     function updateDownloadPngButtonText(){
@@ -7409,6 +7534,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
       map.setView([points[0].lat, points[0].lon], 5);
       ensurePanes();
+      addTyphoonFullscreenControl();
 
       if(MAPBOX_TOKEN !== "YOUR_MAPBOX_TOKEN" && MAPBOX_STYLE !== "YOUR_USERNAME/YOUR_STYLE_ID"){
         const mb = L.tileLayer(
