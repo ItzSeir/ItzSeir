@@ -5339,6 +5339,9 @@ button{ -webkit-tap-highlight-color:transparent; }
       clearLayerArr(stormRings);
 
       points.forEach((p) => {
+        // v75: 暴風圈只顯示預測點位，不顯示現在/過去分析點位。
+        if(p.kind !== "fcst") return;
+
         const rKm = p.storm_radius_km;
 
         if(typeof rKm !== "number" || !isFinite(rKm) || rKm <= 0) return;
@@ -12529,6 +12532,129 @@ function renderTwLegend(kind){
   };
   window.addEventListener('load', () => {
     [900,1800,3200,5000].forEach(ms => setTimeout(() => { try{ window.twAreaRefreshHighlight && window.twAreaRefreshHighlight(); }catch(e){} }, ms));
+  });
+})();
+</script>
+
+
+
+<script>
+/* ===== v75 final: typhoon map county hover highlight, no coastline, forecast-only storm rings ===== */
+(function(){
+  function safeRemoveLayer(layer){
+    try{
+      if(layer && map && map.removeLayer) map.removeLayer(layer);
+    }catch(e){}
+  }
+
+  window.addTyphoonCountyBoundaryOverlay = async function(){
+    try{
+      if(typeof map === 'undefined' || !map) return;
+
+      // remove any previous county / coastline overlays created by earlier patches
+      try{ if(typeof typhoonCountyBoundaryLayer !== 'undefined' && typhoonCountyBoundaryLayer){ safeRemoveLayer(typhoonCountyBoundaryLayer); typhoonCountyBoundaryLayer = null; } }catch(e){}
+      try{ if(window.typhoonCountyBoundaryLayer){ safeRemoveLayer(window.typhoonCountyBoundaryLayer); window.typhoonCountyBoundaryLayer = null; } }catch(e){}
+
+      if(!map.getPane('countyBoundaryPane')){
+        map.createPane('countyBoundaryPane');
+      }
+      const pane = map.getPane('countyBoundaryPane');
+      pane.style.zIndex = 327;
+      pane.style.pointerEvents = 'auto';
+
+      const loader = window.twAreaLoadGeoJson || (typeof twAreaLoadGeoJson === 'function' ? twAreaLoadGeoJson : null);
+      if(!loader) return;
+
+      const data = await loader('./tw-county.geojson');
+      const getNames = (feature) => {
+        try{
+          if(typeof twAreaGetFeatureNames === 'function') return twAreaGetFeatureNames(feature);
+        }catch(e){}
+        const p = feature?.properties || {};
+        return { county:p.COUNTYNAME || p.COUNTY || p.COUNTY_NAME || p.name || p.NAME || '', full:p.COUNTYNAME || p.COUNTY || p.name || p.NAME || '' };
+      };
+
+      const baseStyle = () => ({
+        color:'rgba(32,56,74,.52)',
+        weight:.72,
+        opacity:.64,
+        fill:true,
+        fillColor:'#f8fbfd',
+        fillOpacity:.035,
+        dashArray:null,
+        lineJoin:'round',
+        lineCap:'round'
+      });
+
+      const layer = L.geoJSON(data, {
+        pane:'countyBoundaryPane',
+        interactive:true,
+        smoothFactor:1.15,
+        style:baseStyle,
+        onEachFeature(feature, lyr){
+          const names = getNames(feature);
+          const countyName = names.county || names.full || '台灣縣市';
+          lyr.bindTooltip(countyName, {
+            sticky:true,
+            direction:'top',
+            opacity:.94,
+            className:'typhoonCountyTooltip'
+          });
+          lyr.on('mouseover', () => {
+            lyr.setStyle({
+              color:'#0f4c5c',
+              weight:1.65,
+              opacity:.98,
+              fillColor:'#7bdff2',
+              fillOpacity:.22
+            });
+            try{ lyr.bringToFront(); }catch(e){}
+          });
+          lyr.on('mouseout', () => {
+            try{ layer.resetStyle(lyr); }catch(e){}
+          });
+        }
+      }).addTo(map);
+
+      try{ typhoonCountyBoundaryLayer = layer; }catch(e){}
+      window.typhoonCountyBoundaryLayer = layer;
+    }catch(err){
+      console.warn('tw-county.geojson optional load failed for typhoon map', err);
+    }
+  };
+
+  // Keep storm rings forecast-only even if older code calls drawStormRings again.
+  try{
+    const oldDrawStormRings = window.drawStormRings || (typeof drawStormRings === 'function' ? drawStormRings : null);
+    if(oldDrawStormRings && typeof clearLayerArr === 'function'){
+      window.drawStormRings = drawStormRings = function(){
+        const showRings = document.getElementById('toggleRings')?.checked !== false;
+        if(!showRings){ clearLayerArr(stormRings); return; }
+        clearLayerArr(stormRings);
+        points.forEach((p) => {
+          if(p.kind !== 'fcst') return;
+          const rKm = p.storm_radius_km;
+          if(typeof rKm !== 'number' || !isFinite(rKm) || rKm <= 0) return;
+          const st = getStyle(p.level);
+          const ring = L.circle([p.lat, p.lon], {
+            pane:'ringPane',
+            radius:kmToMeters(rKm),
+            color:st.color,
+            weight:1.5,
+            opacity:.65,
+            fillColor:st.color,
+            fillOpacity:.06,
+            interactive:false
+          }).addTo(map);
+          stormRings.push(ring);
+        });
+      };
+    }
+  }catch(e){}
+
+  window.addEventListener('load', () => {
+    setTimeout(() => { try{ window.addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 800);
+    setTimeout(() => { try{ window.addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 2200);
   });
 })();
 </script>
