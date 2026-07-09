@@ -1029,6 +1029,106 @@
         min-height:0;
       }
     }
+  /* ==========================================================
+   Global Announcement Banner
+========================================================== */
+
+#siteAnnouncement{
+  margin-bottom:20px;
+}
+
+.announcementBar{
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  padding:16px 18px;
+  border-radius:24px;
+  border:1px solid rgba(255,193,7,.26);
+  background:linear-gradient(135deg,#fffdf5,#fff9e8);
+  box-shadow:0 12px 28px rgba(31,53,72,.08);
+}
+
+.announcementIcon{
+  flex:0 0 auto;
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:#fff3c4;
+  font-size:20px;
+}
+
+.announcementContent{
+  flex:1;
+  min-width:0;
+}
+
+.announcementTitle{
+  margin:2px 0 10px;
+  font-size:16px;
+  font-weight:900;
+  color:#9a6700;
+  line-height:1.2;
+}
+
+.announcementList{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.announcementItem{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:32px;
+  padding:7px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(154,103,0,.14);
+  color:#374151;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.45;
+}
+
+.announcementItem strong{
+  color:#9a6700;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.announcementTime{
+  margin-top:12px;
+  font-size:11px;
+  color:#8a8a8a;
+  font-weight:800;
+}
+
+@media (max-width:768px){
+  .announcementBar{
+    padding:14px;
+    gap:12px;
+  }
+
+  .announcementIcon{
+    width:36px;
+    height:36px;
+    font-size:18px;
+  }
+
+  .announcementList{
+    flex-direction:column;
+    gap:7px;
+  }
+
+  .announcementItem{
+    width:100%;
+    align-items:flex-start;
+    border-radius:16px;
+  }
+}
   </style>
 </head>
 
@@ -1053,7 +1153,7 @@
     </nav>
       </nav>
     </header>
-
+<div id="siteAnnouncement"></div>
     <section class="hero" id="top">
       <div class="heroCard">
         <div class="eyebrow"><span class="dot"></span> 地震即時情報</div>
@@ -2045,5 +2145,60 @@
 
     window.addEventListener("load", init);
   </script>
+<script>
+(async () => {
+  const box = document.getElementById("siteAnnouncement");
+  if(!box) return;
+
+  try{
+    const res = await fetch("data/announcement.json?t=" + Date.now());
+    const data = await res.json();
+
+    if(!data.enabled){
+      box.remove();
+      return;
+    }
+
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    box.innerHTML = `
+      <div class="announcementBar">
+        <div class="announcementIcon">📢</div>
+
+        <div class="announcementContent">
+          <div class="announcementTitle">${escapeHtml(data.title || "重要公告")}</div>
+
+          <div class="announcementList">
+            ${
+              items.map(item => `
+                <div class="announcementItem">
+                  <strong>${escapeHtml(item.label || "")}</strong>
+                  <span>${escapeHtml(item.text || "")}</span>
+                </div>
+              `).join("")
+            }
+          </div>
+
+          <div class="announcementTime">
+            更新時間：${escapeHtml(data.updated || "")}
+          </div>
+        </div>
+      </div>
+    `;
+  }catch(e){
+    console.log(e);
+    box.remove();
+  }
+
+  function escapeHtml(text){
+    return String(text || "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+})();
+</script>
 </body>
 </html>
