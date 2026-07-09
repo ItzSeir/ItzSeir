@@ -120,56 +120,81 @@
 3. </body> 前面
 <script>
 (async () => {
-  const box = document.getElementById("siteAnnouncement");
-  if(!box) return;
 
-  try{
-    const res = await fetch("data/announcement.json?t=" + Date.now());
-    const data = await res.json();
+const box = document.getElementById("siteAnnouncement");
+if(!box) return;
 
-    if(!data.enabled){
-      box.remove();
-      return;
-    }
+function parseBold(text){
+    return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+}
 
-    const items = Array.isArray(data.items) ? data.items : [];
+try{
+
+const res = await fetch("/WhereWindMeet/data/announcement.json?t=" + Date.now());
+const data = await res.json();
+
+if(!data.enabled){
+    box.remove();
+    return;
+}
+
+const announcements = Array.isArray(data.announcements) ? data.announcements : [];
+
+if(!announcements.length){
+    box.remove();
+    return;
+}
+
+let current = 0;
+
+function render(index){
+    const item = announcements[index];
+    const content = parseBold(item.content || item.message || "");
 
     box.innerHTML = `
-      <div class="announcementBar">
-        <div class="announcementIcon">📢</div>
+    <div class="announcementBar">
+
+        <div class="announcementIcon">
+            📢
+        </div>
 
         <div class="announcementContent">
-          <div class="announcementTitle">${escapeHtml(data.title || "重要公告")}</div>
 
-          <div class="announcementList">
-            ${
-              items.map(item => `
-                <div class="announcementItem">
-                  <strong>${escapeHtml(item.label || "")}</strong>
-                  <span>${escapeHtml(item.text || "")}</span>
-                </div>
-              `).join("")
-            }
-          </div>
+            <div class="announcementTitle">
+                ${item.title || "重要公告"}
+            </div>
 
-          <div class="announcementTime">
-            更新時間：${escapeHtml(data.updated || "")}
-          </div>
+            <div class="announcementText">
+                ${content}
+            </div>
+
+            <div class="announcementTime">
+                更新時間：${item.updated || ""}
+            </div>
+
         </div>
-      </div>
+
+    </div>
     `;
-  }catch(e){
+}
+
+render(current);
+
+if(announcements.length > 1){
+    setInterval(() => {
+        current = (current + 1) % announcements.length;
+        render(current);
+    }, 5000);
+}
+
+}catch(e){
     console.log(e);
     box.remove();
-  }
+}
 
-  function escapeHtml(text){
-    return String(text || "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
 })();
 </script>
