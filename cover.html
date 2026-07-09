@@ -1495,7 +1495,74 @@ button{ -webkit-tap-highlight-color:transparent; }
     max-height:220px;
   }
 }
+/* ==========================================================
+   Global Announcement Banner
+========================================================== */
 
+#siteAnnouncement{
+  margin-bottom:20px;
+}
+
+.announcementBar{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:14px 18px;
+  border-radius:22px;
+  border:1px solid rgba(255,193,7,.28);
+  background:linear-gradient(135deg,#fffdf4,#fff8df);
+  box-shadow:0 12px 28px rgba(31,53,72,.08);
+}
+
+.announcementIcon{
+  flex:0 0 auto;
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff4c2;
+  font-size:20px;
+}
+
+.announcementContent{
+  flex:1;
+  min-width:0;
+}
+
+.announcementTitle{
+  font-size:15px;
+  font-weight:900;
+  color:#9a6700;
+  margin-bottom:4px;
+}
+
+.announcementText{
+  font-size:13px;
+  color:#444;
+  line-height:1.6;
+}
+
+.announcementTime{
+  margin-top:6px;
+  font-size:11px;
+  color:#888;
+}
+
+@media (max-width:768px){
+
+.announcementBar{
+  align-items:flex-start;
+}
+
+.announcementIcon{
+  width:36px;
+  height:36px;
+  font-size:18px;
+}
+
+}
 
 /* =========================
    Cover Music Player V3.2
@@ -2051,6 +2118,8 @@ body{
     </nav>
   </header>
 
+  <div id="siteAnnouncement"></div>
+  
   <section class="hero" id="top">
     <div class="heroCard">
       <div class="eyebrow"><span class="dot"></span>翻唱作品</div>
@@ -2915,6 +2984,59 @@ if(document.readyState === "loading"){
 }else{
   initCoverPlayer();
 }
+
+</script>
+<script>
+(async () => {
+
+const box = document.getElementById("siteAnnouncement");
+
+if(!box) return;
+
+try{
+
+const res = await fetch("data/announcement.json?t="+Date.now());
+
+const data = await res.json();
+
+if(!data.enabled){
+    box.remove();
+    return;
+}
+
+box.innerHTML=`
+<div class="announcementBar">
+
+    <div class="announcementIcon">
+        📢
+    </div>
+
+    <div class="announcementContent">
+
+        <div class="announcementTitle">
+            重要公告
+        </div>
+
+        <div class="announcementText">
+            ${data.message}
+        </div>
+
+        <div class="announcementTime">
+            更新時間：${data.updated}
+        </div>
+
+    </div>
+
+</div>
+`;
+
+}catch(e){
+
+console.log(e);
+
+}
+
+})();
 </script>
 </body>
 </html>
