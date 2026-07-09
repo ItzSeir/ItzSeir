@@ -2235,6 +2235,53 @@ button{ -webkit-tap-highlight-color:transparent; }
   }
 }
 
+
+
+/* ===== v68 Typhoon legend/header repair ===== */
+.mapShell{
+  display:flex;
+  flex-direction:column;
+}
+.mapHeader{
+  flex:0 0 auto;
+  align-items:flex-start;
+  flex-wrap:wrap;
+  min-height:auto;
+  padding:12px 16px;
+}
+.mapHeader strong{
+  flex:0 0 auto;
+  min-height:28px;
+}
+.mapLegend{
+  flex:1 1 560px;
+  max-width:none;
+  justify-content:flex-start;
+  align-items:center;
+  gap:7px 8px;
+  overflow:visible;
+}
+.legendItem{
+  min-height:24px;
+  padding:3px 7px;
+  border:1px solid rgba(25,42,58,.09);
+  border-radius:999px;
+  background:rgba(255,255,255,.78);
+  box-shadow:0 4px 12px rgba(31,53,72,.05);
+}
+.typhoonMainGrid > .mapShell #map{
+  flex:1 1 auto;
+  height:auto;
+  min-height:0;
+}
+@media (max-width:780px){
+  .mapLegend{
+    flex-basis:100%;
+    max-height:none;
+  }
+  .legendItem{ font-size:10.5px; }
+}
+
 /* ===== Map PNG Capture Mode ===== */
 .map-png-capture-mode .leaflet-control-attribution{
   display:none !important;
@@ -5285,29 +5332,49 @@ button{ -webkit-tap-highlight-color:transparent; }
         return [];
       }
 
+      function makePath(ring){
+        ctx.beginPath();
+        let started = false;
+        ring.forEach((coord) => {
+          const lon = Number(coord[0]);
+          const lat = Number(coord[1]);
+          if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+          const q = project(lat, lon);
+          if(!started){ ctx.moveTo(q.x, q.y); started = true; }
+          else ctx.lineTo(q.x, q.y);
+        });
+        if(started) ctx.closePath();
+        return started;
+      }
+
       withTyphoonAlertsOnly(() => {
         features.forEach(feature => {
           const alert = twAreaBestAlertForFeature(feature, styleMode);
           if(!alert) return;
           const color = (typeof twAreaAlertColor === "function") ? twAreaAlertColor(alert) : (alert.color || "#ff7a00");
           const rings = ringsFromGeometry(feature.geometry);
-          rings.forEach((ring, ringIdx) => {
+          rings.forEach((ring) => {
             if(!Array.isArray(ring) || ring.length < 3) return;
             ctx.save();
-            ctx.beginPath();
-            ring.forEach((coord, idx) => {
-              const lon = Number(coord[0]);
-              const lat = Number(coord[1]);
-              if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-              const q = project(lat, lon);
-              if(idx === 0) ctx.moveTo(q.x, q.y);
-              else ctx.lineTo(q.x, q.y);
-            });
-            ctx.closePath();
-            ctx.fillStyle = styleMode === "town" ? hexToRgbaForCanvas(color, .32) : hexToRgbaForCanvas(color, .18);
-            ctx.strokeStyle = hexToRgbaForCanvas(color, styleMode === "town" ? .80 : .70);
-            ctx.lineWidth = styleMode === "town" ? 1.0 : 1.4;
+            if(!makePath(ring)){ ctx.restore(); return; }
+
+            // County = broader warning block. Town = sharper local boundary.
+            const isTown = styleMode === "town";
+            ctx.fillStyle = isTown ? hexToRgbaForCanvas(color, .26) : hexToRgbaForCanvas(color, .14);
             ctx.fill("evenodd");
+
+            // White halo first, then color stroke. This separates adjacent warning districts clearly in PNG.
+            ctx.lineJoin = "round";
+            ctx.lineCap = "round";
+            ctx.strokeStyle = "rgba(255,255,255,.92)";
+            ctx.lineWidth = isTown ? 3.4 : 4.2;
+            ctx.setLineDash([]);
+            ctx.stroke();
+
+            if(!makePath(ring)){ ctx.restore(); return; }
+            ctx.strokeStyle = hexToRgbaForCanvas(color, isTown ? .95 : .88);
+            ctx.lineWidth = isTown ? 1.55 : 2.15;
+            ctx.setLineDash(isTown ? [5, 4] : []);
             ctx.stroke();
             ctx.restore();
           });
@@ -7481,7 +7548,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        const view = buildViewForAll(allPts, mapW, mapH, 96);
+        const pngFocusPts = getPngFocusPoints(allPts);
+        const view = buildViewForAll(pngFocusPts.length ? pngFocusPts : allPts, mapW, mapH, 112);
         // 使用和 Mapbox Static URL 完全一致的 zoom，避免 SVG/canvas 疊圖與底圖有細微偏移。
         view.zoom = Number(view.zoom.toFixed(2));
         ctx.save();
@@ -7763,13 +7831,20 @@ button{ -webkit-tap-highlight-color:transparent; }
         drawTextLocal(ctx,"70%預測誤差範圍",lx+58,ly+5,{size:12,weight:900,color:"#617785"});
         lx += 210;
 
-        ctx.strokeStyle = "#ff7a00";
+        ctx.strokeStyle = "rgba(255,255,255,.95)";
         ctx.fillStyle = "rgba(255,122,0,.18)";
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.roundRect ? ctx.roundRect(lx, ly-12, 38, 24, 8) : ctx.rect(lx, ly-12, 38, 24);
         ctx.fill();
         ctx.stroke();
+        ctx.strokeStyle = "#ff7a00";
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([5,4]);
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(lx, ly-12, 38, 24, 8) : ctx.rect(lx, ly-12, 38, 24);
+        ctx.stroke();
+        ctx.setLineDash([]);
         drawTextLocal(ctx,"颱風警報範圍",lx+50,ly+5,{size:12,weight:900,color:"#617785"});
         lx += 160;
 
