@@ -1508,22 +1508,21 @@ button{ -webkit-tap-highlight-color:transparent; }
   display:flex;
   align-items:flex-start;
   gap:14px;
-  padding:16px 20px;
-  border-radius:22px;
-  border:1px solid rgba(255,193,7,.25);
-  background:linear-gradient(135deg,#fffdf5,#fff8e6);
+  padding:16px 18px;
+  border-radius:24px;
+  border:1px solid rgba(255,193,7,.26);
+  background:linear-gradient(135deg,#fffdf5,#fff9e8);
   box-shadow:0 12px 28px rgba(31,53,72,.08);
 }
 
 .announcementIcon{
   flex:0 0 auto;
-  width:44px;
-  height:44px;
+  width:42px;
+  height:42px;
   border-radius:50%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:#fff4c2;
+  display:grid;
+  place-items:center;
+  background:#fff3c4;
   font-size:20px;
 }
 
@@ -1533,64 +1532,70 @@ button{ -webkit-tap-highlight-color:transparent; }
 }
 
 .announcementTitle{
+  margin:2px 0 10px;
   font-size:16px;
   font-weight:900;
   color:#9a6700;
-  margin-bottom:8px;
   line-height:1.2;
 }
 
-.announcementText{
-  font-size:14px;
-  color:#444;
-  line-height:1.8;
-  white-space:pre-wrap;
-  word-break:break-word;
+.announcementList{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
 }
 
-/* Markdown **粗體** */
+.announcementItem{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:32px;
+  padding:7px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(154,103,0,.14);
+  color:#374151;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.45;
+}
 
-.announcementText strong{
-  font-weight:900;
+.announcementItem strong{
   color:#9a6700;
+  font-weight:900;
+  white-space:nowrap;
 }
 
 .announcementTime{
-  margin-top:10px;
-  font-size:12px;
-  color:#888;
+  margin-top:12px;
+  font-size:11px;
+  color:#8a8a8a;
+  font-weight:800;
 }
 
 @media (max-width:768px){
+  .announcementBar{
+    padding:14px;
+    gap:12px;
+  }
 
-#siteAnnouncement{
-  margin-bottom:16px;
+  .announcementIcon{
+    width:36px;
+    height:36px;
+    font-size:18px;
+  }
+
+  .announcementList{
+    flex-direction:column;
+    gap:7px;
+  }
+
+  .announcementItem{
+    width:100%;
+    align-items:flex-start;
+    border-radius:16px;
+  }
 }
-
-.announcementBar{
-  padding:14px 16px;
-  gap:12px;
-}
-
-.announcementIcon{
-  width:38px;
-  height:38px;
-  font-size:18px;
-}
-
-.announcementTitle{
-  font-size:15px;
-}
-
-.announcementText{
-  font-size:13px;
-  line-height:1.7;
-}
-
-.announcementTime{
-  font-size:11px;
-}
-
 }
 }
 
@@ -3018,64 +3023,57 @@ if(document.readyState === "loading"){
 </script>
 <script>
 (async () => {
+  const box = document.getElementById("siteAnnouncement");
+  if(!box) return;
 
-const box = document.getElementById("siteAnnouncement");
+  try{
+    const res = await fetch("data/announcement.json?t=" + Date.now());
+    const data = await res.json();
 
-if(!box) return;
+    if(!data.enabled){
+      box.remove();
+      return;
+    }
 
-function parseBold(text){
-    return String(text || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-}
+    const items = Array.isArray(data.items) ? data.items : [];
 
-try{
+    box.innerHTML = `
+      <div class="announcementBar">
+        <div class="announcementIcon">📢</div>
 
-const res = await fetch("data/announcement.json?t="+Date.now());
+        <div class="announcementContent">
+          <div class="announcementTitle">${escapeHtml(data.title || "重要公告")}</div>
 
-const data = await res.json();
+          <div class="announcementList">
+            ${
+              items.map(item => `
+                <div class="announcementItem">
+                  <strong>${escapeHtml(item.label || "")}</strong>
+                  <span>${escapeHtml(item.text || "")}</span>
+                </div>
+              `).join("")
+            }
+          </div>
 
-if(!data.enabled){
+          <div class="announcementTime">
+            更新時間：${escapeHtml(data.updated || "")}
+          </div>
+        </div>
+      </div>
+    `;
+  }catch(e){
+    console.log(e);
     box.remove();
-    return;
-}
+  }
 
-const content = parseBold(data.content || data.message || "");
-
-box.innerHTML=`
-<div class="announcementBar">
-
-    <div class="announcementIcon">
-        📢
-    </div>
-
-    <div class="announcementContent">
-
-        <div class="announcementTitle">
-            ${data.title || "重要公告"}
-        </div>
-
-        <div class="announcementText">
-            ${content}
-        </div>
-
-        <div class="announcementTime">
-            更新時間：${data.updated || ""}
-        </div>
-
-    </div>
-
-</div>
-`;
-
-}catch(e){
-
-console.log(e);
-
-}
-
+  function escapeHtml(text){
+    return String(text || "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
 })();
 </script>
 </body>
