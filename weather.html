@@ -9227,7 +9227,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       try{
-        const townData = await twAreaLoadGeoJson("./tw-town.geojson");
+        const townData = await twAreaLoadGeoJson("./tw-towns.geojson");
         twAreaTownLayer = L.geoJSON(townData, {
           style: twAreaOfficialTownStyle,
           onEachFeature(feature, layer){
@@ -9246,7 +9246,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         }).addTo(twAreaLeafletMap);
         loadedTown = true;
       }catch(err){
-        console.warn("tw-town.geojson optional load failed", err);
+        console.warn("tw-towns.geojson optional load failed", err);
       }
 
       if(status){
@@ -9584,7 +9584,7 @@ ${a.instruction}` : ''
     }catch(err){ console.warn('tw-county.geojson optional load failed', err); }
 
     try{
-      const townData = await twAreaLoadGeoJson('./tw-town.geojson');
+      const townData = await twAreaLoadGeoJson('./tw-towns.geojson');
       window.__twAreaCountyToTowns = new Map();
       twAreaTownLayer = L.geoJSON(townData, {
         style: twAreaOfficialTownStyle,
@@ -9605,7 +9605,7 @@ ${a.instruction}` : ''
         }
       }).addTo(twAreaLeafletMap);
       loadedTown = true;
-    }catch(err){ console.warn('tw-town.geojson optional load failed', err); }
+    }catch(err){ console.warn('tw-towns.geojson optional load failed', err); }
 
     if(status){
       if(loadedTown && loadedCounty) status.textContent = '鄉鎮 + 縣市分區已載入';
@@ -11831,7 +11831,7 @@ ${a.instruction}` : ''
     return {
       color: picked ? outline(c) : 'rgba(8,47,61,.42)',
       weight: focused ? 2.8 : (picked ? 2.15 : .95),
-      // Important: if the CAP only names towns but tw-town.geojson is missing or not matched, county still gets a soft fill.
+      // Important: if the CAP only names towns but tw-towns.geojson is missing or not matched, county still gets a soft fill.
       fillColor: picked ? c : '#ffffff',
       fillOpacity: whole ? (focused ? .44 : .32) : (any ? (window.twAreaTownLayer ? .12 : .28) : .025),
       opacity:1,
