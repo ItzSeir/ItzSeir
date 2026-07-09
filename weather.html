@@ -8157,7 +8157,17 @@ button{ -webkit-tap-highlight-color:transparent; }
 
           // If it is not a whole county, display the town / district name under the county pill.
           let town = norm;
-          if(county && town.startsWith(county)) town = town.slice(county.length);
+          // Display only town/district name. Strip county prefix even when 台/臺 differs.
+          if(county){
+            const townKey = String(town).replace(/台/g, "臺");
+            const countyKey = String(county).replace(/台/g, "臺");
+            if(townKey.startsWith(countyKey)){
+              town = town.slice(county.length);
+              if(String(town).replace(/台/g, "臺").startsWith(countyKey)){
+                town = townKey.slice(countyKey.length);
+              }
+            }
+          }
           if(!town) town = norm;
           if(!g.whole && !g.towns.includes(town)) g.towns.push(town);
         });
@@ -9091,13 +9101,17 @@ button{ -webkit-tap-highlight-color:transparent; }
 
     function twAreaOfficialCountyStyle(feature){
       const names = twAreaFeatureNames(feature);
-      const best = twAreaBestAlertForFeature(feature, "county");
+      const wholeBest = twAreaBestAlertForFeature(feature, "county");
+      const anyBest = twAreaBestAlertForFeature(feature, "any");
+      const picked = wholeBest || anyBest;
       const focused = twAreaFocusedCounty && names.countyNorm === twAreaFocusedCounty;
+      const color = picked ? twAreaAlertColor(picked) : "#ffffff";
       return {
-        color: focused ? "#0b2f3d" : (best ? twAreaHexToRgba(twAreaAlertColor(best), .82) : "rgba(8,47,61,.62)"),
-        weight: focused ? 3.6 : (best ? 2.15 : 1.45),
-        fillColor: best ? twAreaAlertColor(best) : "#ffffff",
-        fillOpacity: best ? .30 : .035,
+        color: focused ? "#0b2f3d" : (picked ? twAreaHexToRgba(color, wholeBest ? .82 : .58) : "rgba(8,47,61,.62)"),
+        weight: focused ? 3.6 : (wholeBest ? 2.15 : (picked ? 1.65 : 1.45)),
+        fillColor: picked ? color : "#ffffff",
+        // Whole-county alert = stronger fill; town-only alert = light county background.
+        fillOpacity: wholeBest ? .30 : (picked ? .105 : .035),
         opacity:1,
         dashArray:null,
         className: focused ? "twAreaFocusedShape" : ""
@@ -9401,8 +9415,8 @@ button{ -webkit-tap-highlight-color:transparent; }
     return {
       color: focused ? (wholeBest || anyBest ? color : '#2a9d8f') : (wholeBest ? color : (anyBest ? twAreaHexToRgba(color,.58) : 'rgba(15,76,92,.26)')),
       weight: focused ? 2.4 : (wholeBest ? 1.65 : (anyBest ? 1.35 : .75)),
-      fillColor: wholeBest ? color : '#ffffff',
-      fillOpacity: wholeBest ? (focused ? .30 : .20) : 0,
+      fillColor: (wholeBest || anyBest) ? color : '#ffffff',
+      fillOpacity: wholeBest ? (focused ? .30 : .20) : (anyBest ? .10 : 0),
       opacity: focused ? .96 : (wholeBest || anyBest ? .72 : .30),
       dashArray: wholeBest ? null : (anyBest ? '5 5' : null),
       className: focused ? 'twAreaFocusedShape' : ''
@@ -10656,8 +10670,8 @@ ${a.instruction}` : ''
     return {
       color: picked ? safeAlphaColor(color, focused ? .98 : .82) : 'rgba(8,47,61,.68)',
       weight: focused ? 3.2 : (picked ? 2.05 : 1.35),
-      fillColor: whole ? color : '#ffffff',
-      fillOpacity: whole ? (focused ? .46 : .34) : 0,
+      fillColor: picked ? color : '#ffffff',
+      fillOpacity: whole ? (focused ? .46 : .34) : (picked ? .11 : 0),
       opacity:1,
       dashArray: whole ? null : (any ? '5 5' : null),
       lineJoin:'round',
@@ -12251,5 +12265,80 @@ ${a.instruction}` : ''
   });
 })();
 </script>
+
+<script>
+/* ===== final fix: light county fill for town warnings + town pills without county prefix ===== */
+(function(){
+  const COUNTIES = ['基隆市','臺北市','台北市','新北市','桃園市','新竹市','新竹縣','苗栗縣','臺中市','台中市','彰化縣','南投縣','雲林縣','嘉義市','嘉義縣','臺南市','台南市','高雄市','屏東縣','宜蘭縣','花蓮縣','臺東縣','台東縣','澎湖縣','金門縣','連江縣'];
+  const key = v => String(v || '').trim().replace(/台/g,'臺');
+  const esc = v => String(v ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+  const countyKeys = new Set(COUNTIES.map(key));
+  const displayCounty = k => COUNTIES.find(c => key(c) === k) || k;
+  const stripCountyPrefix = (county, area) => {
+    const ck = key(county);
+    const raw = String(area || '').trim();
+    const ak = key(raw);
+    if(ck && ak.startsWith(ck)) return ak.slice(ck.length) || raw;
+    return raw;
+  };
+  const areaList = a => {
+    if(a && Array.isArray(a.areaNames) && a.areaNames.length) return a.areaNames.map(x => String(x || '').trim()).filter(Boolean);
+    return String(a?.area || '').split(/[;；,，、\\n\\r]+/).map(x => x.trim()).filter(Boolean);
+  };
+  const resolveCounty = name => {
+    const k = key(name);
+    if(countyKeys.has(k)) return k;
+    const found = Array.from(countyKeys).find(c => k.startsWith(c));
+    if(found) return found;
+    try{
+      if(typeof window.twAreaResolveCountyName === 'function') return key(window.twAreaResolveCountyName(name));
+    }catch(e){}
+    return '';
+  };
+
+  window.getAlertAreaGroups = function(a){
+    const groups = new Map();
+    let pendingCounty = '';
+    areaList(a).forEach(area => {
+      const ak = key(area);
+      if(!ak) return;
+      if(countyKeys.has(ak)){
+        pendingCounty = ak;
+        if(!groups.has(ak)) groups.set(ak, { county: displayCounty(ak), whole: true, towns: [] });
+        else { const g = groups.get(ak); g.whole = true; g.towns = []; }
+        return;
+      }
+      const cKey = resolveCounty(area) || pendingCounty;
+      if(!cKey) return;
+      if(!groups.has(cKey)) groups.set(cKey, { county: displayCounty(cKey), whole: false, towns: [] });
+      const g = groups.get(cKey);
+      const town = stripCountyPrefix(g.county, area);
+      if(!g.whole && town && !countyKeys.has(key(town)) && !g.towns.includes(town)) g.towns.push(town);
+    });
+    return Array.from(groups.values()).map(g => ({...g, towns:g.towns.sort((a,b)=>a.localeCompare(b,'zh-Hant'))})).sort((a,b)=>a.county.localeCompare(b.county,'zh-Hant'));
+  };
+
+  window.renderAreaPills = function(a){
+    const groups = window.getAlertAreaGroups(a);
+    if(!groups.length) return '<span class="twAreaMuted">—</span>';
+    return `<div class="twAreaGroups">${groups.map(g => `<section class="twAreaGroup"><span class="twCountyPill" style="--warn:${esc(a?.color || '#2a9d8f')}" title="${esc(g.county)}">${esc(g.county)}</span><div class="twTownLine">${g.whole ? '<span class="twWholeCounty">整個縣市</span>' : (g.towns.length ? g.towns.map(t=>`<span class="twTownPill">${esc(t)}</span>`).join('') : '<span class="twAreaMuted">未列出鄉鎮</span>')}</div></section>`).join('')}</div>`;
+  };
+
+  function refreshAreaDetail(){
+    const el = document.getElementById('twArea');
+    const a = window.__twSelectedAlert || null;
+    if(el && a) el.innerHTML = window.renderAreaPills(a);
+  }
+  const oldRender = window.renderDetails;
+  window.renderDetails = function(a){
+    window.__twSelectedAlert = a || null;
+    if(typeof oldRender === 'function') try{ oldRender(a); }catch(e){}
+    refreshAreaDetail();
+  };
+  document.addEventListener('click', () => setTimeout(refreshAreaDetail, 80), true);
+  window.addEventListener('load', () => setTimeout(refreshAreaDetail, 1200));
+})();
+</script>
+
 </body>
 </html>
