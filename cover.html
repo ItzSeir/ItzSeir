@@ -3014,15 +3014,15 @@ box.innerHTML=`
     <div class="announcementContent">
 
         <div class="announcementTitle">
-            重要公告
+            ${data.title || "重要公告"}
         </div>
 
         <div class="announcementText">
-            ${data.message}
+            ${data.content || data.message || ""}
         </div>
 
         <div class="announcementTime">
-            更新時間：${data.updated}
+            更新時間：${data.updated || ""}
         </div>
 
     </div>
@@ -3037,6 +3037,7 @@ console.log(e);
 }
 
 })();
+</script>
 </script>
 </body>
 </html>
