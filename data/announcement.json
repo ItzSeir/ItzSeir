@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "title": "停班停課消息",
+  "content": "【10日停班停課】基隆 新北 臺北 桃園 新竹 苗栗 宜蘭 花蓮(光復鄉、萬榮鄉、鳳林鎮) 【18：00停班停課】臺中 南投 【11日停班停課】臺中 南投",
+  "type": "warning",
+  "buttonText": "查看停班停課",
+  "buttonLink": "https://www.dgpa.gov.tw/typh/daily/nds.html",
+  "updated": "2026-07-09 20:30"
+}
