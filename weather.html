@@ -7946,20 +7946,12 @@ button{ -webkit-tap-highlight-color:transparent; }
         renderTwLegend(typeSel.value);
       }
 
-      function twNormalizeNameLocal(v){
-        return String(v || "")
-          .replace(/台/g, "臺")
-          .replace(/\s+/g, "")
-          .replace(/[()（）]/g, "")
-          .trim();
-      }
-
       function splitAreaNames(areaText){
         const text = String(areaText || "").replace(/\s+/g, "");
         if(!text || text === "—") return [];
         return text
           .split(/[;；,，、\n\r]+/)
-          .map(s => twNormalizeNameLocal(s))
+          .map(s => s.trim())
           .filter(Boolean);
       }
 
@@ -8145,7 +8137,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         const groups = new Map();
 
         names.forEach(raw => {
-          const norm = twNormalizeNameLocal(raw);
+          const norm = raw.trim();
           if(!norm) return;
 
           const county = (typeof twAreaResolveCountyName === "function")
@@ -8265,7 +8257,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         const half = Math.ceil(counties.length / 2);
 
         function rowHtml(county){
-          const norm = twNormalizeNameLocal(county);
+          const norm = county.trim();
           const alerts = warnMap.get(norm) || warnMap.get(county) || [];
           const badges = alerts.length ? alerts.map((a, idx) => `
             <span class="twOfficialWarnBadge" data-county="${twEscape(norm)}" data-alert="${twEscape(String(allAlerts.indexOf(a)))}" title="${twEscape(a.headline || a.event || "")}">
@@ -9439,7 +9431,7 @@ button{ -webkit-tap-highlight-color:transparent; }
     const names = (a?.areaNames?.length ? a.areaNames : splitAreaNames(a?.area || ''));
     const groups = new Map();
     names.forEach(raw => {
-      const norm = twNormalizeNameLocal(raw);
+      const norm = raw.trim();
       if(!norm) return;
       const county = (typeof twAreaResolveCountyName === 'function') ? twAreaResolveCountyName(norm) : norm;
       if(!groups.has(county)) groups.set(county, { county, whole:false, towns:[] });
