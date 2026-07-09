@@ -3840,12 +3840,12 @@ button{ -webkit-tap-highlight-color:transparent; }
           <h2 class="sectionTitle">天氣警報中心</h2>
 
           <p class="sectionDesc">
-            整合台灣中央氣象署 CWA CAP、馬來西亞 data.gov.my 與香港天文台 HKO Open Data。台灣颱風部分只顯示海上／陸上颱風警報，不顯示颱風路徑。
+            整合臺灣中央氣象署 CWA CAP、馬來西亞 data.gov.my 與香港天文臺 HKO Open Data。臺灣颱風部分只顯示海上／陸上颱風警報，不顯示颱風路徑。
           </p>
         </div>
 
         <div class="toolbar">
-          <button class="btn activeWarnTab" type="button" data-warn-tab="tw">台灣</button>
+          <button class="btn activeWarnTab" type="button" data-warn-tab="tw">臺灣</button>
           <button class="btn" type="button" data-warn-tab="my">馬來西亞</button>
           <button class="btn" type="button" data-warn-tab="hk">香港</button>
         </div>
@@ -3855,8 +3855,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         <div class="warningPanel active" id="warnPanelTw">
           <div class="warningTop">
             <div>
-              <span class="warningPill"><span class="dot" style="background:#ef4444;"></span> 台灣</span>
-              <h3>台灣天氣警報</h3>
+              <span class="warningPill"><span class="dot" style="background:#ef4444;"></span> 臺灣</span>
+              <h3>臺灣天氣警報</h3>
               <p>資料來源：中央氣象署 CWA CAP。颱風警報使用 W-C0034-001 CAP；只標示警戒區，不繪製颱風路徑。</p>
             </div>
 
@@ -4023,7 +4023,7 @@ button{ -webkit-tap-highlight-color:transparent; }
             <div>
               <span class="warningPill"><span class="dot" style="background:#0ea5e9;"></span> 香港</span>
               <h3>香港天氣警告</h3>
-              <p>資料來源：香港天文台 HKO Open Data</p>
+              <p>資料來源：香港天文臺 HKO Open Data</p>
             </div>
 
             <div class="warningControls">
@@ -5123,7 +5123,7 @@ button{ -webkit-tap-highlight-color:transparent; }
             const names = (typeof twAreaGetFeatureNames === "function")
               ? twAreaGetFeatureNames(feature)
               : { county: feature?.properties?.COUNTYNAME || feature?.properties?.COUNTY || "" };
-            const countyName = names.county || names.full || "台灣縣市";
+            const countyName = names.county || names.full || "臺灣縣市";
 
             layer.bindTooltip(countyName, {
               sticky:true,
@@ -9731,7 +9731,7 @@ ${a.instruction}` : ''
   const COUNTY_LIST = [
     '基隆市','臺北市','新北市','桃園市','新竹市','新竹縣','苗栗縣','臺中市','彰化縣','南投縣','雲林縣','嘉義市','嘉義縣','臺南市','高雄市','屏東縣','宜蘭縣','花蓮縣','臺東縣','澎湖縣','金門縣','連江縣'
   ];
-  const norm = v => String(v || '').replace(/台/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim();
+  const norm = v => String(v || '').replace(/臺/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim();
   const COUNTY_SET = new Set(COUNTY_LIST.map(norm));
   function esc(s){
     if(typeof twEscape === 'function') return twEscape(s);
@@ -9842,7 +9842,7 @@ ${a.instruction}` : ''
 
   function norm32(v){
     try{ return twAreaNormalizeName(v); }
-    catch(e){ return String(v || '').replace(/台/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim(); }
+    catch(e){ return String(v || '').replace(/臺/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim(); }
   }
   function countySet32(){
     try{ return (typeof twCountyNameSet !== 'undefined' && twCountyNameSet) ? twCountyNameSet : new Set(); }
@@ -10097,14 +10097,14 @@ ${a.instruction}` : ''
 
 
 /* ===== Taiwan area matching: no district/county normalization =====
-   Uses GeoJSON/API names directly. No 台→臺 conversion, no old county alias,
+   Uses GeoJSON/API names directly. No 臺→臺 conversion, no old county alias,
    no 桃園鄉鎮→區 conversion, and no 三民區 special mapping.
 */
 (function(){
   const RAW_COUNTIES = [
-    '基隆市','臺北市','台北市','新北市','桃園市','新竹市','新竹縣','苗栗縣',
-    '臺中市','台中市','彰化縣','南投縣','雲林縣','嘉義市','嘉義縣','臺南市','台南市',
-    '高雄市','屏東縣','宜蘭縣','花蓮縣','臺東縣','台東縣','澎湖縣','金門縣','連江縣'
+    '基隆市','臺北市','臺北市','新北市','桃園市','新竹市','新竹縣','苗栗縣',
+    '臺中市','臺中市','彰化縣','南投縣','雲林縣','嘉義市','嘉義縣','臺南市','臺南市',
+    '高雄市','屏東縣','宜蘭縣','花蓮縣','臺東縣','臺東縣','澎湖縣','金門縣','連江縣'
   ];
   const rawCountySet = new Set(RAW_COUNTIES);
   const rawCountyRE = new RegExp('(' + RAW_COUNTIES.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')');
@@ -10525,7 +10525,7 @@ ${a.instruction}` : ''
   }
   function normV42(v){
     try{ return window.twAreaNormalizeName(v); }
-    catch(e){ return String(v || '').replace(/台/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim(); }
+    catch(e){ return String(v || '').replace(/臺/g,'臺').replace(/\s+/g,'').replace(/[()（）]/g,'').trim(); }
   }
   function alertKeyV42(a){
     const id = String(a?.identifier || '').trim();
@@ -11735,7 +11735,7 @@ ${a.instruction}` : ''
 <!-- ===== v70 CWA warning normalization + map color recovery + PNG 24h labels ===== -->
 <script>
 (function(){
-  function norm(v){ return String(v ?? '').replace(/台/g,'臺').replace(/[()（）]/g,'').replace(/\s+/g,'').trim(); }
+  function norm(v){ return String(v ?? '').replace(/臺/g,'臺').replace(/[()（）]/g,'').replace(/\s+/g,'').trim(); }
   function param(a, ...keys){
     const p = a?.parameters || {};
     for(const k of keys){ if(p[k] !== undefined && p[k] !== null && String(p[k]).trim() !== '') return String(p[k]).trim(); }
@@ -11930,7 +11930,7 @@ ${a.instruction}` : ''
         style:baseStyle,
         onEachFeature(feature, lyr){
           const names = getNames(feature);
-          const countyName = names.county || names.full || '台灣縣市';
+          const countyName = names.county || names.full || '臺灣縣市';
           lyr.bindTooltip(countyName, {
             sticky:true,
             direction:'top',
