@@ -4264,6 +4264,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
           <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
           <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 70%預測誤差範圍</span>
+          <span class="legendItem"><span class="dot" style="background:#ff7a00;"></span> 颱風警報範圍</span>
           <span class="legendItem"><span class="dot" style="background:#94a3b8;"></span> 暴風圈(可選)</span>
           <span class="legendItem"><span class="dot" style="background:#6b7280;"></span> 低壓</span>
           <span class="legendItem"><span class="dot" style="background:#536ab8;"></span> 熱帶低壓</span>
@@ -5170,6 +5171,157 @@ button{ -webkit-tap-highlight-color:transparent; }
     const labelItems = [];
     let moveRaf = false;
     let typhoonCountyBoundaryLayer = null;
+    let typhoonWarningCountyLayer = null;
+    let typhoonWarningTownLayer = null;
+    let typhoonWarningCountyData = null;
+    let typhoonWarningTownData = null;
+
+    function getTyphoonCapAlerts(){
+      const src = Array.isArray(window.__twAllCapAlerts) ? window.__twAllCapAlerts : (Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : []);
+      return src.filter(a => a && (a.kind === "typhoon" || /颱風|熱帶性低氣壓|熱帶低氣壓/.test(`${a.datasetName || ""} ${a.event || ""} ${a.headline || ""}`)));
+    }
+
+    function withTyphoonAlertsOnly(fn){
+      const old = window.__twCapAlerts;
+      window.__twCapAlerts = getTyphoonCapAlerts();
+      try{ return fn(window.__twCapAlerts); }
+      finally{ window.__twCapAlerts = old; }
+    }
+
+    function typhoonWarningBestAlert(feature, mode){
+      if(typeof twAreaBestAlertForFeature !== "function") return null;
+      return withTyphoonAlertsOnly(() => twAreaBestAlertForFeature(feature, mode));
+    }
+
+    function typhoonWarningStyle(feature, mode="any"){
+      const a = feature ? typhoonWarningBestAlert(feature, mode) : null;
+      const color = (typeof twAreaAlertColor === "function") ? twAreaAlertColor(a) : (a?.color || "#ff7a00");
+      return {
+        pane:"typhoonWarningPane",
+        color: a ? color : "rgba(15,76,92,.22)",
+        weight: a ? (mode === "town" ? 1.0 : 1.5) : .35,
+        opacity: a ? .86 : .22,
+        fillColor: a ? color : "transparent",
+        fillOpacity: a ? (mode === "town" ? .36 : .20) : 0,
+        dashArray: a ? null : "4 6",
+        interactive:false
+      };
+    }
+
+    async function refreshTyphoonWarningOverlay(){
+      if(!map || typeof L === "undefined") return;
+      const alerts = getTyphoonCapAlerts();
+      if(!alerts.length){
+        if(typhoonWarningCountyLayer) typhoonWarningCountyLayer.setStyle(() => typhoonWarningStyle(null));
+        if(typhoonWarningTownLayer) typhoonWarningTownLayer.setStyle(() => typhoonWarningStyle(null));
+        return;
+      }
+
+      try{
+        if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-county.geojson");
+        if(!typhoonWarningCountyLayer){
+          typhoonWarningCountyLayer = L.geoJSON(typhoonWarningCountyData, {
+            pane:"typhoonWarningPane",
+            interactive:false,
+            style:(feature) => typhoonWarningStyle(feature, "county")
+          }).addTo(map);
+        }else{
+          typhoonWarningCountyLayer.setStyle((feature) => typhoonWarningStyle(feature, "county"));
+        }
+      }catch(err){
+        console.warn("typhoon warning county overlay failed", err);
+      }
+
+      try{
+        if(!typhoonWarningTownData) typhoonWarningTownData = await twAreaLoadGeoJson("./tw-towns.geojson");
+        if(!typhoonWarningTownLayer){
+          typhoonWarningTownLayer = L.geoJSON(typhoonWarningTownData, {
+            pane:"typhoonWarningPane",
+            interactive:false,
+            style:(feature) => typhoonWarningStyle(feature, "town")
+          }).addTo(map);
+        }else{
+          typhoonWarningTownLayer.setStyle((feature) => typhoonWarningStyle(feature, "town"));
+        }
+      }catch(err){
+        console.warn("typhoon warning town overlay failed", err);
+      }
+    }
+
+    function getPngFocusPoints(srcPoints = points){
+      const src = (srcPoints || []).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+      if(!src.length) return [];
+      const groups = new Map();
+      src.forEach(p => {
+        const key = p.typhoonId || p.typhoonName || "storm";
+        if(!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(p);
+      });
+      const out = [];
+      groups.forEach(arr => {
+        const sorted = sortTyphoonPoints(arr);
+        let latestObs = null;
+        for(let i = sorted.length - 1; i >= 0; i--){
+          if(sorted[i].kind === "obs"){
+            latestObs = sorted[i];
+            break;
+          }
+        }
+        if(latestObs) out.push(latestObs);
+        out.push(...sorted.filter(p => p.kind === "fcst"));
+      });
+      return out.length ? out : src;
+    }
+
+    function drawGeoJsonWarningToCanvas(ctx, geojson, project, styleMode="county"){
+      const alerts = getTyphoonCapAlerts();
+      if(!geojson || !alerts.length || typeof twAreaBestAlertForFeature !== "function") return;
+      const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
+
+      function ringsFromGeometry(geom){
+        if(!geom) return [];
+        if(geom.type === "Polygon") return geom.coordinates || [];
+        if(geom.type === "MultiPolygon") return (geom.coordinates || []).flat();
+        return [];
+      }
+
+      withTyphoonAlertsOnly(() => {
+        features.forEach(feature => {
+          const alert = twAreaBestAlertForFeature(feature, styleMode);
+          if(!alert) return;
+          const color = (typeof twAreaAlertColor === "function") ? twAreaAlertColor(alert) : (alert.color || "#ff7a00");
+          const rings = ringsFromGeometry(feature.geometry);
+          rings.forEach((ring, ringIdx) => {
+            if(!Array.isArray(ring) || ring.length < 3) return;
+            ctx.save();
+            ctx.beginPath();
+            ring.forEach((coord, idx) => {
+              const lon = Number(coord[0]);
+              const lat = Number(coord[1]);
+              if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+              const q = project(lat, lon);
+              if(idx === 0) ctx.moveTo(q.x, q.y);
+              else ctx.lineTo(q.x, q.y);
+            });
+            ctx.closePath();
+            ctx.fillStyle = styleMode === "town" ? hexToRgbaForCanvas(color, .32) : hexToRgbaForCanvas(color, .18);
+            ctx.strokeStyle = hexToRgbaForCanvas(color, styleMode === "town" ? .80 : .70);
+            ctx.lineWidth = styleMode === "town" ? 1.0 : 1.4;
+            ctx.fill("evenodd");
+            ctx.stroke();
+            ctx.restore();
+          });
+        });
+      });
+    }
+
+    function hexToRgbaForCanvas(hex, alpha){
+      const raw = String(hex || "#ff7a00").trim();
+      const m = raw.match(/^#?([a-f0-9]{6})$/i);
+      if(!m) return raw.startsWith("rgb") ? raw : `rgba(255,122,0,${alpha})`;
+      const n = parseInt(m[1], 16);
+      return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`;
+    }
 
     function clearLayerArr(arr){
       arr.forEach(x => x.remove());
@@ -5189,6 +5341,12 @@ button{ -webkit-tap-highlight-color:transparent; }
       }else{
         map.getPane("conePane").style.zIndex = 330;
       }
+      if(!map.getPane("typhoonWarningPane")){
+        map.createPane("typhoonWarningPane");
+        map.getPane("typhoonWarningPane").style.zIndex = 340;
+        map.getPane("typhoonWarningPane").style.pointerEvents = "none";
+      }
+
       if(!map.getPane("linePane")){
         map.createPane("linePane");
         map.getPane("linePane").style.zIndex = 350;
@@ -5877,6 +6035,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       drawStormRings();
       drawTimeLabels(latestObsIdxCurrent);
       renderForecastList();
+      refreshTyphoonWarningOverlay();
 
       if(options.fit){
         setTimeout(() => {
@@ -6853,6 +7012,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         }
 
         function drawRouteOnMap(project, opts = {}){
+          const focusPoints = getPngFocusPoints(points);
+          const focusSet = new Set(focusPoints);
           const {
             drawCone = true,
             drawLabels = true,
@@ -6862,7 +7023,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 
           if(drawCone){
             /* v52: 單個颱風 PNG 也使用藍色 70% 預測誤差範圍面，不再畫一顆顆誤差圈。 */
-            const conePoly = buildForecastConePolygonSmooth(points);
+            const conePoly = buildForecastConePolygonSmooth(focusPoints);
             if(conePoly && conePoly.length >= 4){
               ctx.save();
               ctx.beginPath();
@@ -6883,9 +7044,9 @@ button{ -webkit-tap-highlight-color:transparent; }
             }
           }
 
-          for(let i = 0; i < points.length - 1; i++){
-            const a = points[i];
-            const b = points[i + 1];
+          for(let i = 0; i < focusPoints.length - 1; i++){
+            const a = focusPoints[i];
+            const b = focusPoints[i + 1];
             if(a.typhoonId && b.typhoonId && a.typhoonId !== b.typhoonId) continue;
             const pa = project(a.lat, a.lon);
             const pb = project(b.lat, b.lon);
@@ -6907,10 +7068,11 @@ button{ -webkit-tap-highlight-color:transparent; }
             ctx.restore();
           }
 
-          points.forEach((p, i) => {
+          focusPoints.forEach((p) => {
             const st = getStyle(p.level);
             const pt = project(p.lat, p.lon);
-            drawDot(pt.x, pt.y, st.color, i === latestObsIdx ? (small ? 5.5 : 8) : (p.kind === "fcst" ? (small ? 4.2 : 5.5) : (small ? 4 : 5)), i === latestObsIdx && !small);
+            const isLatestObs = p === latestObs;
+            drawDot(pt.x, pt.y, st.color, isLatestObs ? (small ? 5.5 : 8) : (p.kind === "fcst" ? (small ? 4.2 : 5.5) : (small ? 4 : 5)), isLatestObs && !small);
           });
 
           if(!drawLabels) return;
@@ -6934,7 +7096,7 @@ button{ -webkit-tap-highlight-color:transparent; }
               { x:pt.x - 92, y:pt.y - 8, align:"right" }
             ];
 
-            const routeBlocks = points.map(p => {
+            const routeBlocks = focusPoints.map(p => {
               const q = project(p.lat, p.lon);
               return { x:q.x - 24, y:q.y - 24, w:48, h:48 };
             });
@@ -7018,7 +7180,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         const mainMapY = innerMapY;
         const mainMapW = innerMapW;
         const mainMapH = innerMapH;
-        const mainView = buildViewForPoints(points, mainMapW, mainMapH, 92);
+        const mainView = buildViewForPoints(getPngFocusPoints(points), mainMapW, mainMapH, 92);
         const mainMapImg = await loadStaticMapImage(mainView, mainMapW, mainMapH);
 
         ctx.save();
@@ -7026,6 +7188,12 @@ button{ -webkit-tap-highlight-color:transparent; }
         ctx.clip();
         ctx.drawImage(mainMapImg, mainMapX, mainMapY, mainMapW, mainMapH);
         const mainProject = makeProjector(mainView, mainMapX, mainMapY, mainMapW, mainMapH);
+        try{
+          if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-county.geojson");
+          if(!typhoonWarningTownData) typhoonWarningTownData = await twAreaLoadGeoJson("./tw-towns.geojson");
+          drawGeoJsonWarningToCanvas(ctx, typhoonWarningCountyData, mainProject, "county");
+          drawGeoJsonWarningToCanvas(ctx, typhoonWarningTownData, mainProject, "town");
+        }catch(e){ console.warn("PNG typhoon warning overlay skipped", e); }
         drawRouteOnMap(mainProject, { drawCone:true, drawLabels:true, small:false, clipBox:{ x:mainMapX, y:mainMapY, w:mainMapW, h:mainMapH } });
         ctx.restore();
 
@@ -7049,6 +7217,10 @@ button{ -webkit-tap-highlight-color:transparent; }
           ctx.clip();
           ctx.drawImage(insetImg, insetX + 8, insetY + 8, insetW - 16, insetH - 16);
           const insetProject = makeProjector(insetView, insetX + 8, insetY + 8, insetW - 16, insetH - 16);
+          try{
+            drawGeoJsonWarningToCanvas(ctx, typhoonWarningCountyData, insetProject, "county");
+            drawGeoJsonWarningToCanvas(ctx, typhoonWarningTownData, insetProject, "town");
+          }catch(e){}
           drawRouteOnMap(insetProject, { drawCone:true, drawLabels:false, small:true, clipBox:{ x:insetX + 8, y:insetY + 8, w:insetW - 16, h:insetH - 16 } });
           ctx.restore();
         }
@@ -7268,11 +7440,13 @@ button{ -webkit-tap-highlight-color:transparent; }
         if(sel) sel.value = "all";
         applySelectedTyphoon();
         addTyphoonCountyBoundaryOverlay();
+      refreshTyphoonWarningOverlay();
       renderTyphoonLayers({ fit:true });
         await wait(350);
 
-        const allPts = points.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
-        const latestUpdateTime = allPts
+        const allPtsRaw = points.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+        const allPts = getPngFocusPoints(allPtsRaw);
+        const latestUpdateTime = allPtsRaw
           .map(p => p.time)
           .filter(Boolean)
           .sort(compareTime)
@@ -7319,6 +7493,12 @@ button{ -webkit-tap-highlight-color:transparent; }
         ctx.fillRect(mapX, mapY, mapW, mapH);
 
         const project = makeProjectorLocal(view, mapX, mapY, mapW, mapH);
+        try{
+          if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-county.geojson");
+          if(!typhoonWarningTownData) typhoonWarningTownData = await twAreaLoadGeoJson("./tw-towns.geojson");
+          drawGeoJsonWarningToCanvas(ctx, typhoonWarningCountyData, project, "county");
+          drawGeoJsonWarningToCanvas(ctx, typhoonWarningTownData, project, "town");
+        }catch(e){ console.warn("all PNG typhoon warning overlay skipped", e); }
 
         // Forecast Error Area：使用 70% 預測誤差範圍的藍色包絡區，不畫一顆顆圈圈。
         const groupMapForErrorArea = new Map();
@@ -7583,6 +7763,16 @@ button{ -webkit-tap-highlight-color:transparent; }
         drawTextLocal(ctx,"70%預測誤差範圍",lx+58,ly+5,{size:12,weight:900,color:"#617785"});
         lx += 210;
 
+        ctx.strokeStyle = "#ff7a00";
+        ctx.fillStyle = "rgba(255,122,0,.18)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(lx, ly-12, 38, 24, 8) : ctx.rect(lx, ly-12, 38, 24);
+        ctx.fill();
+        ctx.stroke();
+        drawTextLocal(ctx,"颱風警報範圍",lx+50,ly+5,{size:12,weight:900,color:"#617785"});
+        lx += 160;
+
         const levelLegend = [
           ["低壓","#94a3b8"],
           ["熱帶低壓","#38bdf8"],
@@ -7684,6 +7874,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       }
 
       addTyphoonCountyBoundaryOverlay();
+      refreshTyphoonWarningOverlay();
       renderTyphoonLayers({ fit:true });
       setTimeout(() => { try{ addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 600);
       setTimeout(() => { try{ addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 1500);
@@ -8420,6 +8611,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         renderCountyTables();
 
         window.__twCapAlerts = filteredAlerts;
+        if(Array.isArray(allAlerts)) window.__twAllCapAlerts = allAlerts;
+        if(typeof refreshTyphoonWarningOverlay === "function") refreshTyphoonWarningOverlay();
         if(typeof twAreaRefreshHighlight === "function"){
           twAreaRefreshHighlight();
         }
@@ -8530,6 +8723,7 @@ button{ -webkit-tap-highlight-color:transparent; }
           ok.sort((a,b) => String(b.sent || b.effective || "").localeCompare(String(a.sent || a.effective || "")));
 
           allAlerts = ok.filter(isCapAlertActive);
+          window.__twAllCapAlerts = allAlerts;
           selectedAlert = null;
 
           buildFilters();
