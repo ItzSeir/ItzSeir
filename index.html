@@ -712,112 +712,206 @@
 ========================================================== */
 
 #siteAnnouncement{
-  margin-bottom:20px;
+  margin:0 0 22px;
 }
 
 .announcementBar{
+  position:relative;
   display:flex;
   align-items:flex-start;
   gap:14px;
-  padding:16px 18px;
-  border-radius:24px;
-  border:1px solid rgba(255,193,7,.26);
-  background:linear-gradient(135deg,#fffdf5,#fff9e8);
-  box-shadow:0 12px 28px rgba(31,53,72,.08);
+  min-height:112px;
+  padding:18px 104px 18px 18px;
+  border:1px solid rgba(15,76,92,.14);
+  border-radius:26px;
+  color:var(--text);
+  background:
+    radial-gradient(circle at 93% 8%, rgba(123,223,242,.22), transparent 30%),
+    radial-gradient(circle at 8% 110%, rgba(42,157,143,.16), transparent 32%),
+    linear-gradient(135deg, rgba(255,255,255,.98), rgba(235,246,247,.94));
+  box-shadow:0 16px 38px rgba(31,53,72,.10);
+  overflow:hidden;
   animation:announcementSlideIn .35s ease;
 }
 
+.announcementBar::after{
+  content:"";
+  position:absolute;
+  right:-42px;
+  top:-54px;
+  width:170px;
+  height:170px;
+  border-radius:50%;
+  border:24px solid rgba(15,76,92,.045);
+  pointer-events:none;
+}
+
 @keyframes announcementSlideIn{
-  from{
-    opacity:0;
-    transform:translateY(8px);
-  }
-  to{
-    opacity:1;
-    transform:translateY(0);
-  }
+  from{ opacity:0; transform:translateY(8px); }
+  to{ opacity:1; transform:translateY(0); }
 }
 
 .announcementIcon{
+  position:relative;
+  z-index:1;
+  width:44px;
+  height:44px;
   flex:0 0 auto;
-  width:42px;
-  height:42px;
-  border-radius:50%;
+  border-radius:16px;
   display:grid;
   place-items:center;
-  background:#fff3c4;
+  color:#fff;
+  background:linear-gradient(135deg, var(--sea), var(--teal));
+  box-shadow:0 12px 24px rgba(15,76,92,.22);
   font-size:20px;
 }
 
 .announcementContent{
+  position:relative;
+  z-index:1;
   flex:1;
   min-width:0;
 }
 
 .announcementTitle{
-  margin:2px 0 10px;
-  font-size:16px;
+  margin:1px 0 8px;
+  color:var(--heading);
+  font-size:15px;
+  line-height:1.35;
   font-weight:900;
-  color:#9a6700;
-  line-height:1.2;
 }
 
-.announcementList{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-}
-
-.announcementItem{
+.announcementPill{
   display:inline-flex;
   align-items:center;
-  gap:6px;
-  min-height:32px;
-  padding:7px 11px;
+  width:max-content;
+  max-width:100%;
+  min-height:27px;
+  padding:5px 10px;
+  margin-bottom:8px;
+  border:1px solid rgba(15,76,92,.12);
   border-radius:999px;
-  background:rgba(255,255,255,.72);
-  border:1px solid rgba(154,103,0,.14);
-  color:#374151;
-  font-size:13px;
-  font-weight:800;
-  line-height:1.45;
+  color:var(--sea);
+  background:linear-gradient(135deg, rgba(15,76,92,.08), rgba(42,157,143,.12));
+  font-size:11px;
+  font-weight:900;
+  box-shadow:0 7px 16px rgba(31,53,72,.05);
 }
 
-.announcementItem strong{
-  color:#9a6700;
+.announcementText{
+  max-width:920px;
+  color:#536b77;
+  font-size:13px;
+  font-weight:750;
+  line-height:1.75;
+  overflow-wrap:anywhere;
+}
+
+.announcementText strong{
+  color:var(--sea);
   font-weight:900;
-  white-space:nowrap;
 }
 
 .announcementTime{
-  margin-top:12px;
+  margin-top:9px;
+  color:var(--muted2);
   font-size:11px;
-  color:#8a8a8a;
-  font-weight:800;
+  font-weight:850;
+}
+
+.announcementControls{
+  position:absolute;
+  z-index:2;
+  top:14px;
+  right:14px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+
+.announcementArrow{
+  width:31px;
+  height:31px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid rgba(15,76,92,.14);
+  border-radius:999px;
+  background:rgba(255,255,255,.82);
+  color:var(--sea);
+  box-shadow:0 8px 18px rgba(31,53,72,.06);
+  font-size:18px;
+  line-height:1;
+  font-weight:900;
+  cursor:pointer;
+  transition:.16s ease;
+}
+
+.announcementArrow:hover{
+  color:#fff;
+  border-color:transparent;
+  background:linear-gradient(135deg, var(--sea), var(--teal));
+  transform:translateY(-1px);
+}
+
+.announcementDots{
+  position:absolute;
+  z-index:2;
+  right:18px;
+  bottom:16px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.announcementDot{
+  width:7px;
+  height:7px;
+  padding:0;
+  border:0;
+  border-radius:999px;
+  background:rgba(15,76,92,.22);
+  cursor:pointer;
+  transition:.16s ease;
+}
+
+.announcementDot.active{
+  width:20px;
+  background:linear-gradient(90deg, var(--sea), var(--teal));
 }
 
 @media (max-width:768px){
+  #siteAnnouncement{ margin-bottom:16px; }
+
   .announcementBar{
-    padding:14px;
+    min-height:0;
+    padding:14px 14px 46px;
     gap:12px;
+    border-radius:22px;
   }
 
   .announcementIcon{
-    width:36px;
-    height:36px;
+    width:38px;
+    height:38px;
+    border-radius:14px;
     font-size:18px;
   }
 
-  .announcementList{
-    flex-direction:column;
-    gap:7px;
+  .announcementControls{
+    top:auto;
+    right:14px;
+    bottom:10px;
   }
 
-  .announcementItem{
-    width:100%;
-    align-items:flex-start;
-    border-radius:16px;
+  .announcementDots{
+    left:64px;
+    right:auto;
+    bottom:21px;
   }
+
+  .announcementTitle{ font-size:14px; }
+  .announcementText{ font-size:12px; line-height:1.7; }
+}
 }
   </style>
 </head>
@@ -945,82 +1039,109 @@
   </main>
 <script>
 (async () => {
+  const box = document.getElementById("siteAnnouncement");
+  if(!box) return;
 
-const box = document.getElementById("siteAnnouncement");
-if(!box) return;
+  function escapeHtml(text){
+    return String(text ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
-function parseBold(text){
-    return String(text || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-}
+  function parseBold(text){
+    return escapeHtml(text).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  }
 
-try{
+  try{
+    const res = await fetch("/WhereWindMeet/data/announcement.json?t=" + Date.now(), { cache:"no-store" });
+    if(!res.ok) throw new Error(`公告資料載入失敗：HTTP ${res.status}`);
 
-const res = await fetch("/WhereWindMeet/data/announcement.json?t=" + Date.now());
-const data = await res.json();
+    const data = await res.json();
+    const announcements = Array.isArray(data.announcements) ? data.announcements : [];
 
-if(!data.enabled){
-    box.remove();
-    return;
-}
+    if(!data.enabled || !announcements.length){
+      box.remove();
+      return;
+    }
 
-const announcements = Array.isArray(data.announcements) ? data.announcements : [];
+    let current = 0;
+    let timer = null;
 
-if(!announcements.length){
-    box.remove();
-    return;
-}
+    function render(index){
+      const item = announcements[index] || {};
+      const text = item.text || item.content || item.message || "";
 
-let current = 0;
+      box.innerHTML = `
+        <div class="announcementBar">
+          <div class="announcementIcon" aria-hidden="true">📢</div>
 
-function render(index){
-    const item = announcements[index];
-    const content = parseBold(item.content || item.message || "");
+          <div class="announcementContent">
+            <div class="announcementTitle">${escapeHtml(item.title || "重要公告")}</div>
 
-    box.innerHTML = `
-    <div class="announcementBar">
+            ${item.pill ? `
+              <div class="announcementPill">${escapeHtml(item.pill)}</div>
+            ` : ""}
 
-        <div class="announcementIcon">
-            📢
+            <div class="announcementText">${parseBold(text)}</div>
+
+            ${item.updated ? `
+              <div class="announcementTime">更新時間：${escapeHtml(item.updated)}</div>
+            ` : ""}
+          </div>
+
+          ${announcements.length > 1 ? `
+            <div class="announcementControls" aria-label="公告切換">
+              <button class="announcementArrow" id="annPrev" type="button" aria-label="上一則公告">‹</button>
+              <button class="announcementArrow" id="annNext" type="button" aria-label="下一則公告">›</button>
+            </div>
+
+            <div class="announcementDots" aria-label="公告頁面">
+              ${announcements.map((_, i) => `
+                <button
+                  class="announcementDot ${i === current ? "active" : ""}"
+                  data-index="${i}"
+                  type="button"
+                  aria-label="查看第 ${i + 1} 則公告"
+                ></button>
+              `).join("")}
+            </div>
+          ` : ""}
         </div>
+      `;
 
-        <div class="announcementContent">
+      box.querySelector("#annPrev")?.addEventListener("click", () => manualGo(current - 1));
+      box.querySelector("#annNext")?.addEventListener("click", () => manualGo(current + 1));
+      box.querySelectorAll(".announcementDot").forEach(dot => {
+        dot.addEventListener("click", () => manualGo(Number(dot.dataset.index)));
+      });
+    }
 
-            <div class="announcementTitle">
-                ${item.title || "重要公告"}
-            </div>
+    function go(index){
+      current = (index + announcements.length) % announcements.length;
+      render(current);
+    }
 
-            <div class="announcementText">
-                ${content}
-            </div>
+    function restartTimer(){
+      if(timer) clearInterval(timer);
+      if(announcements.length > 1){
+        timer = setInterval(() => go(current + 1), 5000);
+      }
+    }
 
-            <div class="announcementTime">
-                更新時間：${item.updated || ""}
-            </div>
+    function manualGo(index){
+      go(index);
+      restartTimer();
+    }
 
-        </div>
-
-    </div>
-    `;
-}
-
-render(current);
-
-if(announcements.length > 1){
-    setInterval(() => {
-        current = (current + 1) % announcements.length;
-        render(current);
-    }, 5000);
-}
-
-}catch(e){
-    console.log(e);
+    render(current);
+    restartTimer();
+  }catch(error){
+    console.error("Announcement error:", error);
     box.remove();
-}
-
+  }
 })();
 </script>
 </body>
