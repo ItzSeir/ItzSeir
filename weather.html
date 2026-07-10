@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
   
 <style>
 :root{
@@ -3982,6 +3983,18 @@ button{ -webkit-tap-highlight-color:transparent; }
 </head>
 
 <body>
+
+<!--
+Requested style changes:
+1. CAP warning polygons: opacity 1.0 (fully opaque).
+2. Typhoon sea warning: red diagonal hatch only over sea.
+3. Typhoon land warning: solid red over land.
+Implement by adjusting polygon style functions:
+- fillOpacity:1 for CAP.
+- sea: fillPattern/red hatch instead of yellow.
+- land: fillColor:'#d40000', fillOpacity:1.
+-->
+
   <main class="page">
     <header class="topbar" aria-label="page navigation">
       <a class="brand" href="https://itzseir.github.io/ItzSeir/" aria-label="首頁">
