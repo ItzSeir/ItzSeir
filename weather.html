@@ -2282,6 +2282,47 @@ button{ -webkit-tap-highlight-color:transparent; }
   .legendItem{ font-size:10.5px; }
 }
 
+
+/* ===== v69 Mobile interactive typhoon map restore ===== */
+.typhoonMainGrid > .mapShell{
+  min-height:760px;
+}
+.typhoonMainGrid > .mapShell #map{
+  height:calc(760px - 92px) !important;
+  min-height:560px !important;
+  flex:1 1 auto;
+}
+@media (max-width:1100px){
+  .typhoonMainGrid > .mapShell{
+    min-height:680px !important;
+  }
+  .typhoonMainGrid > .mapShell #map{
+    height:560px !important;
+    min-height:520px !important;
+    display:block !important;
+  }
+}
+@media (max-width:780px){
+  .typhoonMainGrid > .mapShell{
+    min-height:600px !important;
+  }
+  .typhoonMainGrid > .mapShell #map{
+    height:500px !important;
+    min-height:460px !important;
+    display:block !important;
+  }
+}
+@media (max-width:520px){
+  .typhoonMainGrid > .mapShell{
+    min-height:560px !important;
+  }
+  .typhoonMainGrid > .mapShell #map{
+    height:460px !important;
+    min-height:420px !important;
+    display:block !important;
+  }
+}
+
 /* ===== Map PNG Capture Mode ===== */
 .map-png-capture-mode .leaflet-control-attribution{
   display:none !important;
@@ -7079,8 +7120,8 @@ button{ -webkit-tap-highlight-color:transparent; }
         }
 
         function drawRouteOnMap(project, opts = {}){
-          const focusPoints = getPngFocusPoints(points);
-          const focusSet = new Set(focusPoints);
+          const focusPoints = getPngFocusPoints(points); // 用於預測誤差範圍與視覺重點
+          const routePoints = sortTyphoonPoints((points || []).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon))); // PNG 仍保留歷史路徑
           const {
             drawCone = true,
             drawLabels = true,
@@ -7111,9 +7152,9 @@ button{ -webkit-tap-highlight-color:transparent; }
             }
           }
 
-          for(let i = 0; i < focusPoints.length - 1; i++){
-            const a = focusPoints[i];
-            const b = focusPoints[i + 1];
+          for(let i = 0; i < routePoints.length - 1; i++){
+            const a = routePoints[i];
+            const b = routePoints[i + 1];
             if(a.typhoonId && b.typhoonId && a.typhoonId !== b.typhoonId) continue;
             const pa = project(a.lat, a.lon);
             const pb = project(b.lat, b.lon);
@@ -7135,7 +7176,7 @@ button{ -webkit-tap-highlight-color:transparent; }
             ctx.restore();
           }
 
-          focusPoints.forEach((p) => {
+          routePoints.forEach((p) => {
             const st = getStyle(p.level);
             const pt = project(p.lat, p.lon);
             const isLatestObs = p === latestObs;
@@ -7163,7 +7204,7 @@ button{ -webkit-tap-highlight-color:transparent; }
               { x:pt.x - 92, y:pt.y - 8, align:"right" }
             ];
 
-            const routeBlocks = focusPoints.map(p => {
+            const routeBlocks = routePoints.map(p => {
               const q = project(p.lat, p.lon);
               return { x:q.x - 24, y:q.y - 24, w:48, h:48 };
             });
@@ -7512,7 +7553,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         await wait(350);
 
         const allPtsRaw = points.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
-        const allPts = getPngFocusPoints(allPtsRaw);
+        const allPts = allPtsRaw;
         const latestUpdateTime = allPtsRaw
           .map(p => p.time)
           .filter(Boolean)
@@ -7548,8 +7589,7 @@ button{ -webkit-tap-highlight-color:transparent; }
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        const pngFocusPts = getPngFocusPoints(allPts);
-        const view = buildViewForAll(pngFocusPts.length ? pngFocusPts : allPts, mapW, mapH, 112);
+        const view = buildViewForAll(allPts, mapW, mapH, 112);
         // 使用和 Mapbox Static URL 完全一致的 zoom，避免 SVG/canvas 疊圖與底圖有細微偏移。
         view.zoom = Number(view.zoom.toFixed(2));
         ctx.save();
@@ -7561,13 +7601,6 @@ button{ -webkit-tap-highlight-color:transparent; }
         ctx.fillRect(mapX, mapY, mapW, mapH);
 
         const project = makeProjectorLocal(view, mapX, mapY, mapW, mapH);
-        try{
-          if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-county.geojson");
-          if(!typhoonWarningTownData) typhoonWarningTownData = await twAreaLoadGeoJson("./tw-towns.geojson");
-          drawGeoJsonWarningToCanvas(ctx, typhoonWarningCountyData, project, "county");
-          drawGeoJsonWarningToCanvas(ctx, typhoonWarningTownData, project, "town");
-        }catch(e){ console.warn("all PNG typhoon warning overlay skipped", e); }
-
         // Forecast Error Area：使用 70% 預測誤差範圍的藍色包絡區，不畫一顆顆圈圈。
         const groupMapForErrorArea = new Map();
         allPts.forEach(p => {
@@ -7831,23 +7864,6 @@ button{ -webkit-tap-highlight-color:transparent; }
         drawTextLocal(ctx,"70%預測誤差範圍",lx+58,ly+5,{size:12,weight:900,color:"#617785"});
         lx += 210;
 
-        ctx.strokeStyle = "rgba(255,255,255,.95)";
-        ctx.fillStyle = "rgba(255,122,0,.18)";
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(lx, ly-12, 38, 24, 8) : ctx.rect(lx, ly-12, 38, 24);
-        ctx.fill();
-        ctx.stroke();
-        ctx.strokeStyle = "#ff7a00";
-        ctx.lineWidth = 1.8;
-        ctx.setLineDash([5,4]);
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(lx, ly-12, 38, 24, 8) : ctx.rect(lx, ly-12, 38, 24);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        drawTextLocal(ctx,"颱風警報範圍",lx+50,ly+5,{size:12,weight:900,color:"#617785"});
-        lx += 160;
-
         const levelLegend = [
           ["低壓","#94a3b8"],
           ["熱帶低壓","#38bdf8"],
@@ -7992,7 +8008,28 @@ button{ -webkit-tap-highlight-color:transparent; }
         }catch(e){}
       }
 
+      function restoreMobileTyphoonMapSize(){
+        try{
+          if(!map) return;
+          const mapEl = $("map");
+          if(mapEl && mapEl.offsetHeight < 260){
+            mapEl.style.minHeight = window.innerWidth <= 520 ? "420px" : "460px";
+            mapEl.style.height = window.innerWidth <= 520 ? "460px" : "500px";
+          }
+          map.invalidateSize(true);
+          updateLabelLines();
+          drawForecastCone();
+          drawForecastErrorCircles();
+          drawStormRings();
+          drawTimeLabels(latestObsIdxCurrent);
+        }catch(e){}
+      }
+
       setTimeout(safeFit, 200);
+      setTimeout(restoreMobileTyphoonMapSize, 450);
+      setTimeout(restoreMobileTyphoonMapSize, 1200);
+      window.addEventListener("resize", () => setTimeout(restoreMobileTyphoonMapSize, 120));
+      window.addEventListener("orientationchange", () => setTimeout(restoreMobileTyphoonMapSize, 350));
       $("fitAllBtn").addEventListener("click", safeFit);
 
       let __printOldRingState = null;
