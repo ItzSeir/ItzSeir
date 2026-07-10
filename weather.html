@@ -5318,7 +5318,7 @@ Implement by adjusting polygon style functions:
       }
 
       try{
-        if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-county.geojson");
+        if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-countys.geojson");
         if(!typhoonWarningCountyLayer){
           typhoonWarningCountyLayer = L.geoJSON(typhoonWarningCountyData, {
             pane:"typhoonWarningPane",
@@ -5493,7 +5493,7 @@ Implement by adjusting polygon style functions:
     async function addTyphoonCountyBoundaryOverlay(){
       if(!map || typhoonCountyBoundaryLayer) return;
       try{
-        const data = await twAreaLoadGeoJson("./tw-county.geojson");
+        const data = await twAreaLoadGeoJson("./tw-countys.geojson");
 
         function countyStyle(){
           return {
@@ -5540,7 +5540,7 @@ Implement by adjusting polygon style functions:
           }
         }).addTo(map);
       }catch(err){
-        console.warn("tw-county.geojson optional load failed for typhoon map", err);
+        console.warn("tw-countys.geojson optional load failed for typhoon map", err);
       }
     }
 
@@ -7309,7 +7309,7 @@ Implement by adjusting polygon style functions:
         ctx.drawImage(mainMapImg, mainMapX, mainMapY, mainMapW, mainMapH);
         const mainProject = makeProjector(mainView, mainMapX, mainMapY, mainMapW, mainMapH);
         try{
-          if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-county.geojson");
+          if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-countys.geojson");
           if(!typhoonWarningTownData) typhoonWarningTownData = await twAreaLoadGeoJson("./tw-towns.geojson");
           drawGeoJsonWarningToCanvas(ctx, typhoonWarningCountyData, mainProject, "county");
           drawGeoJsonWarningToCanvas(ctx, typhoonWarningTownData, mainProject, "town");
@@ -9647,7 +9647,7 @@ Implement by adjusting polygon style functions:
       let loadedCounty = false;
 
       try{
-        const countyData = await twAreaLoadGeoJson("./tw-county.geojson");
+        const countyData = await twAreaLoadGeoJson("./tw-countys.geojson");
         twAreaCountyLayer = L.geoJSON(countyData, {
           style: twAreaOfficialCountyStyle,
           onEachFeature(feature, layer){
@@ -9668,7 +9668,7 @@ Implement by adjusting polygon style functions:
         }).addTo(twAreaLeafletMap);
         loadedCounty = true;
       }catch(err){
-        console.warn("tw-county.geojson optional load failed", err);
+        console.warn("tw-countys.geojson optional load failed", err);
       }
 
       try{
@@ -10009,7 +10009,7 @@ ${a.instruction}` : ''
     let loadedTown = false, loadedCounty = false;
 
     try{
-      const countyData = await twAreaLoadGeoJson('./tw-county.geojson');
+      const countyData = await twAreaLoadGeoJson('./tw-countys.geojson');
       twAreaCountyLayer = L.geoJSON(countyData, {
         style: twAreaOfficialCountyStyle,
         pane:'overlayPane',
@@ -10026,7 +10026,7 @@ ${a.instruction}` : ''
         }
       }).addTo(twAreaLeafletMap);
       loadedCounty = true;
-    }catch(err){ console.warn('tw-county.geojson optional load failed', err); }
+    }catch(err){ console.warn('tw-countys.geojson optional load failed', err); }
 
     try{
       const townData = await twAreaLoadGeoJson('./tw-towns.geojson');
@@ -11205,7 +11205,7 @@ ${a.instruction}` : ''
           map.getPane('countyBoundaryPane').style.zIndex = 327;
           map.getPane('countyBoundaryPane').style.pointerEvents = 'none';
         }
-        const data = await twAreaLoadGeoJson('./tw-county.geojson');
+        const data = await twAreaLoadGeoJson('./tw-countys.geojson');
         const outer = L.geoJSON(data, {
           pane:'taiwanStrongBoundaryPane',
           interactive:false,
@@ -11223,7 +11223,7 @@ ${a.instruction}` : ''
         }).addTo(map);
         typhoonCountyBoundaryLayer = L.layerGroup([outer, county, countyDark]).addTo(map);
       }catch(err){
-        console.warn('tw-county.geojson optional load failed for typhoon map', err);
+        console.warn('tw-countys.geojson optional load failed for typhoon map', err);
       }
     };
     if(map){ setTimeout(() => { try{ addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 300); }
@@ -11380,7 +11380,7 @@ ${a.instruction}` : ''
         map.getPane('countyBoundaryPane').style.zIndex = 327;
         map.getPane('countyBoundaryPane').style.pointerEvents = 'none';
       }
-      const data = await window.twAreaLoadGeoJson('./tw-county.geojson');
+      const data = await window.twAreaLoadGeoJson('./tw-countys.geojson');
       const islandOutline = L.polyline(taiwanMainIslandOutline, {
         pane:'taiwanStrongBoundaryPane',
         interactive:false,
@@ -11398,7 +11398,7 @@ ${a.instruction}` : ''
       });
       window.typhoonCountyBoundaryLayer = L.layerGroup([countySoft, islandOutline]).addTo(map);
     }catch(err){
-      console.warn('tw-county.geojson optional load failed for typhoon map', err);
+      console.warn('tw-countys.geojson optional load failed for typhoon map', err);
     }
   };
 
@@ -11781,7 +11781,7 @@ ${a.instruction}` : ''
       }
       const loader = window.twAreaLoadGeoJson || (typeof twAreaLoadGeoJson === 'function' ? twAreaLoadGeoJson : null);
       if(!loader) return;
-      const data = await loader('./tw-county.geojson');
+      const data = await loader('./tw-countys.geojson');
       const halo = L.geoJSON(data, {
         pane:'countyBoundaryPane', interactive:false, smoothFactor:1.35,
         style(){ return { color:'#ffffff', weight:1.25, opacity:.38, fill:false, fillOpacity:0, dashArray:null, lineJoin:'round', lineCap:'round' }; }
@@ -11791,7 +11791,7 @@ ${a.instruction}` : ''
         style(){ return { color:'#20384a', weight:.62, opacity:.46, fill:false, fillOpacity:0, dashArray:null, lineJoin:'round', lineCap:'round' }; }
       });
       window.typhoonCountyBoundaryLayer = L.layerGroup([halo, county]).addTo(m);
-    }catch(err){ console.warn('tw-county.geojson optional load failed for typhoon map', err); }
+    }catch(err){ console.warn('tw-countys.geojson optional load failed for typhoon map', err); }
   };
 
   window.addEventListener('load', () => {
@@ -12347,7 +12347,7 @@ ${a.instruction}` : ''
       const loader = window.twAreaLoadGeoJson || (typeof twAreaLoadGeoJson === 'function' ? twAreaLoadGeoJson : null);
       if(!loader) return;
 
-      const data = await loader('./tw-county.geojson');
+      const data = await loader('./tw-countys.geojson');
       const getNames = (feature) => {
         try{
           if(typeof twAreaGetFeatureNames === 'function') return twAreaGetFeatureNames(feature);
@@ -12401,7 +12401,7 @@ ${a.instruction}` : ''
       try{ typhoonCountyBoundaryLayer = layer; }catch(e){}
       window.typhoonCountyBoundaryLayer = layer;
     }catch(err){
-      console.warn('tw-county.geojson optional load failed for typhoon map', err);
+      console.warn('tw-countys.geojson optional load failed for typhoon map', err);
     }
   };
 
