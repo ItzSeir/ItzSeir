@@ -6357,7 +6357,7 @@ button{ -webkit-tap-highlight-color:transparent; }
       const circles = visiblePoints.map((p, i) => {
         const st = getStyle(p.level);
         const r = i === latestObsIdx ? 7.5 : (p.kind === "fcst" ? 5.5 : 4.8);
-        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="#fff" stroke="${st.color}" stroke-width="3"/>`;
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="#fff" stroke="${st.color}" stroke-width="1.5"/>`;
       }).join("");
 
       /* PNG 專用：時間標記每 24 小時一個，從第 3 個預報點開始，避免密集重疊。 */
