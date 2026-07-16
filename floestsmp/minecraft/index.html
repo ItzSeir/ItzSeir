@@ -100,14 +100,18 @@
     .brandMark{
       width:36px;
       height:36px;
-      display:grid;
-      place-items:center;
       flex:0 0 auto;
       border-radius:14px;
-      color:#fff;
-      font-weight:900;
+      overflow:hidden;
       background:linear-gradient(135deg, var(--sea), var(--teal));
       box-shadow:0 10px 22px rgba(15,76,92,.22);
+    }
+    
+    .brandMark img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
     }
 
     .brandText{
@@ -132,7 +136,6 @@
       font-weight:800;
       white-space:nowrap;
     }
-
     .navPills{
       display:flex;
       align-items:center;
