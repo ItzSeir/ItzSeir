@@ -97,62 +97,52 @@
 ========================= */
 
 .brand{
-    display:flex;
-    align-items:center;
-    gap:14px;
-    min-width:0;
-    text-decoration:none;
-}
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      text-decoration:none;
+    }
 
-/* Circular icon container */
-.brandMark{
-    width:58px;
-    height:58px;
-    flex:0 0 58px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
-    border-radius:50%;
-    background:#ffffff;
-    border:2px solid rgba(15,76,92,.10);
-    box-shadow:0 8px 18px rgba(31,53,72,.14);
-}
+    .brandMark{
+      width:36px;
+      height:36px;
+      flex:0 0 auto;
+      border-radius:14px;
+      overflow:hidden;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 10px 22px rgba(15,76,92,.22);
+    }
+    
+    .brandMark img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
 
-/* Make the image fit inside the circle */
-.brandMark img{
-    width:100%;
-    height:100%;
-    display:block;
-    object-fit:cover;
-    object-position:center;
-}
+    .brandText{
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      line-height:1.1;
+    }
 
-/* Text beside the icon */
-.brandText{
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    min-width:0;
-    line-height:1.15;
-}
+    .brandText strong{
+      font-size:14px;
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
 
-.brandText strong{
-    color:var(--heading);
-    font-size:19px;
-    font-weight:900;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-}
-
-.brandText span{
-    margin-top:5px;
-    color:var(--muted);
-    font-size:13px;
-    font-weight:800;
-    white-space:nowrap;
-}
+    .brandText span{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:800;
+      white-space:nowrap;
+    }
 
 /* Slightly larger navbar to fit the icon */
 .topbar{
