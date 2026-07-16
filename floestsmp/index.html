@@ -92,49 +92,107 @@
       box-shadow:0 10px 30px rgba(31,53,72,.08);
     }
 
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:0;
-      text-decoration:none;
-    }
+/* =========================
+   LOGO / PROFILE ICON AREA
+========================= */
 
+.brand{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    min-width:0;
+    text-decoration:none;
+}
+
+/* Circular icon container */
+.brandMark{
+    width:58px;
+    height:58px;
+    flex:0 0 58px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    border-radius:50%;
+    background:#ffffff;
+    border:2px solid rgba(15,76,92,.10);
+    box-shadow:0 8px 18px rgba(31,53,72,.14);
+}
+
+/* Make the image fit inside the circle */
+.brandMark img{
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit:cover;
+    object-position:center;
+}
+
+/* Text beside the icon */
+.brandText{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    min-width:0;
+    line-height:1.15;
+}
+
+.brandText strong{
+    color:var(--heading);
+    font-size:19px;
+    font-weight:900;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.brandText span{
+    margin-top:5px;
+    color:var(--muted);
+    font-size:13px;
+    font-weight:800;
+    white-space:nowrap;
+}
+
+/* Slightly larger navbar to fit the icon */
+.topbar{
+    position:sticky;
+    top:12px;
+    z-index:50;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:22px;
+    padding:14px 20px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:rgba(255,255,255,.80);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+    box-shadow:0 10px 30px rgba(31,53,72,.08);
+}
+
+/* Mobile adjustment */
+@media (max-width:780px){
     .brandMark{
-      width:36px;
-      height:36px;
-      display:grid;
-      place-items:center;
-      flex:0 0 auto;
-      border-radius:14px;
-      color:#fff;
-      font-weight:900;
-      background:linear-gradient(135deg, var(--sea), var(--teal));
-      box-shadow:0 10px 22px rgba(15,76,92,.22);
-    }
-
-    .brandText{
-      display:flex;
-      flex-direction:column;
-      min-width:0;
-      line-height:1.1;
+        width:52px;
+        height:52px;
+        flex-basis:52px;
     }
 
     .brandText strong{
-      font-size:14px;
-      font-weight:900;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+        font-size:17px;
     }
 
     .brandText span{
-      margin-top:4px;
-      color:var(--muted);
-      font-size:11px;
-      font-weight:800;
-      white-space:nowrap;
+        font-size:12px;
     }
+
+    .topbar{
+        padding:12px 14px;
+    }
+}
 
     .navPills{
       display:flex;
