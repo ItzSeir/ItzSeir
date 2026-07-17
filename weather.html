@@ -5412,7 +5412,7 @@ Implement by adjusting polygon style functions:
       }
 
       try{
-        if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-countys.geojson");
+        if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("data/./tw-countys.geojson");
         if(!typhoonWarningCountyLayer){
           typhoonWarningCountyLayer = L.geoJSON(typhoonWarningCountyData, {
             pane:"typhoonWarningPane",
@@ -5427,7 +5427,7 @@ Implement by adjusting polygon style functions:
       }
 
       try{
-        if(!typhoonWarningTownData) typhoonWarningTownData = await twAreaLoadGeoJson("./tw-towns.geojson");
+        if(!typhoonWarningTownData) typhoonWarningTownData = await twAreaLoadGeoJson("data/./tw-towns.geojson");
         if(!typhoonWarningTownLayer){
           typhoonWarningTownLayer = L.geoJSON(typhoonWarningTownData, {
             pane:"typhoonWarningPane",
@@ -5587,7 +5587,7 @@ Implement by adjusting polygon style functions:
     async function addTyphoonCountyBoundaryOverlay(){
       if(!map || typhoonCountyBoundaryLayer) return;
       try{
-        const data = await twAreaLoadGeoJson("./tw-countys.geojson");
+        const data = await twAreaLoadGeoJson("data/./tw-countys.geojson");
 
         function countyStyle(){
           return {
@@ -7403,8 +7403,8 @@ Implement by adjusting polygon style functions:
         ctx.drawImage(mainMapImg, mainMapX, mainMapY, mainMapW, mainMapH);
         const mainProject = makeProjector(mainView, mainMapX, mainMapY, mainMapW, mainMapH);
         try{
-          if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("./tw-countys.geojson");
-          if(!typhoonWarningTownData) typhoonWarningTownData = await twAreaLoadGeoJson("./tw-towns.geojson");
+          if(!typhoonWarningCountyData) typhoonWarningCountyData = await twAreaLoadGeoJson("data/./tw-countys.geojson");
+          if(!typhoonWarningTownData) typhoonWarningTownData = await twAreaLoadGeoJson("data/./tw-towns.geojson");
           drawGeoJsonWarningToCanvas(ctx, typhoonWarningCountyData, mainProject, "county");
           drawGeoJsonWarningToCanvas(ctx, typhoonWarningTownData, mainProject, "town");
         }catch(e){ console.warn("PNG typhoon warning overlay skipped", e); }
@@ -9041,8 +9041,8 @@ Implement by adjusting polygon style functions:
 
     function initMalaysiaWarnings(){
       const API = "https://api.data.gov.my/weather/warning";
-      const STATE_GEOJSON_URL = "./malaysia.state.geojson";
-      const DISTRICT_GEOJSON_URL = "./malaysia.district.geojson";
+      const STATE_GEOJSON_URL = "data/./malaysia.state.geojson";
+      const DISTRICT_GEOJSON_URL = "data/./malaysia.district.geojson";
       const q = (id) => document.getElementById(id);
 
       let allData = [];
@@ -9741,7 +9741,7 @@ Implement by adjusting polygon style functions:
       let loadedCounty = false;
 
       try{
-        const countyData = await twAreaLoadGeoJson("./tw-countys.geojson");
+        const countyData = await twAreaLoadGeoJson("data/./tw-countys.geojson");
         twAreaCountyLayer = L.geoJSON(countyData, {
           style: twAreaOfficialCountyStyle,
           onEachFeature(feature, layer){
@@ -9766,7 +9766,7 @@ Implement by adjusting polygon style functions:
       }
 
       try{
-        const townData = await twAreaLoadGeoJson("./tw-towns.geojson");
+        const townData = await twAreaLoadGeoJson("data/./tw-towns.geojson");
         twAreaTownLayer = L.geoJSON(townData, {
           style: twAreaOfficialTownStyle,
           onEachFeature(feature, layer){
@@ -10103,7 +10103,7 @@ ${a.instruction}` : ''
     let loadedTown = false, loadedCounty = false;
 
     try{
-      const countyData = await twAreaLoadGeoJson('./tw-countys.geojson');
+      const countyData = await twAreaLoadGeoJson('data/./tw-countys.geojson');
       twAreaCountyLayer = L.geoJSON(countyData, {
         style: twAreaOfficialCountyStyle,
         pane:'overlayPane',
@@ -10123,7 +10123,7 @@ ${a.instruction}` : ''
     }catch(err){ console.warn('tw-countys.geojson optional load failed', err); }
 
     try{
-      const townData = await twAreaLoadGeoJson('./tw-towns.geojson');
+      const townData = await twAreaLoadGeoJson('data/./tw-towns.geojson');
       window.__twAreaCountyToTowns = new Map();
       twAreaTownLayer = L.geoJSON(townData, {
         style: twAreaOfficialTownStyle,
@@ -11299,7 +11299,7 @@ ${a.instruction}` : ''
           map.getPane('countyBoundaryPane').style.zIndex = 327;
           map.getPane('countyBoundaryPane').style.pointerEvents = 'none';
         }
-        const data = await twAreaLoadGeoJson('./tw-countys.geojson');
+        const data = await twAreaLoadGeoJson('data/./tw-countys.geojson');
         const outer = L.geoJSON(data, {
           pane:'taiwanStrongBoundaryPane',
           interactive:false,
@@ -11474,7 +11474,7 @@ ${a.instruction}` : ''
         map.getPane('countyBoundaryPane').style.zIndex = 327;
         map.getPane('countyBoundaryPane').style.pointerEvents = 'none';
       }
-      const data = await window.twAreaLoadGeoJson('./tw-countys.geojson');
+      const data = await window.twAreaLoadGeoJson('data/./tw-countys.geojson');
       const islandOutline = L.polyline(taiwanMainIslandOutline, {
         pane:'taiwanStrongBoundaryPane',
         interactive:false,
@@ -11529,8 +11529,8 @@ ${a.instruction}` : ''
 
   window.initMalaysiaWarnings = function(){
     const API = 'https://api.data.gov.my/weather/warning';
-    const STATE_GEOJSON_URL = './malaysia.state.geojson';
-    const DISTRICT_GEOJSON_URL = './malaysia.district.geojson';
+    const STATE_GEOJSON_URL = 'data/./malaysia.state.geojson';
+    const DISTRICT_GEOJSON_URL = 'data/./malaysia.district.geojson';
     const q = (id) => document.getElementById(id);
     if(!q('warnPanelMy')) return;
 
@@ -11875,7 +11875,7 @@ ${a.instruction}` : ''
       }
       const loader = window.twAreaLoadGeoJson || (typeof twAreaLoadGeoJson === 'function' ? twAreaLoadGeoJson : null);
       if(!loader) return;
-      const data = await loader('./tw-countys.geojson');
+      const data = await loader('data/./tw-countys.geojson');
       const halo = L.geoJSON(data, {
         pane:'countyBoundaryPane', interactive:false, smoothFactor:1.35,
         style(){ return { color:'#ffffff', weight:1.25, opacity:.38, fill:false, fillOpacity:0, dashArray:null, lineJoin:'round', lineCap:'round' }; }
@@ -11934,8 +11934,8 @@ ${a.instruction}` : ''
   // Full override so sea warnings remain information-only while state/district borders are always visible.
   window.initMalaysiaWarnings = function(){
     const API = 'https://api.data.gov.my/weather/warning';
-    const STATE_GEOJSON_URL = './malaysia.state.geojson';
-    const DISTRICT_GEOJSON_URL = './malaysia.district.geojson';
+    const STATE_GEOJSON_URL = 'data/./malaysia.state.geojson';
+    const DISTRICT_GEOJSON_URL = 'data/./malaysia.district.geojson';
     const q = (id) => document.getElementById(id);
     if(!q('warnPanelMy')) return;
 
@@ -12441,7 +12441,7 @@ ${a.instruction}` : ''
       const loader = window.twAreaLoadGeoJson || (typeof twAreaLoadGeoJson === 'function' ? twAreaLoadGeoJson : null);
       if(!loader) return;
 
-      const data = await loader('./tw-countys.geojson');
+      const data = await loader('data/./tw-countys.geojson');
       const getNames = (feature) => {
         try{
           if(typeof twAreaGetFeatureNames === 'function') return twAreaGetFeatureNames(feature);
