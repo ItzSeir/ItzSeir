@@ -2234,6 +2234,50 @@ body{
   .v3Controls .v3ControlBtn.play{ width:44px; }
 }
 
+
+/* ===== Unified Light Scrollbar ===== */
+html{
+color-scheme:light;
+scrollbar-width:thin;
+scrollbar-color:#6f8793 #dce7ec;
+scrollbar-gutter:stable;
+}
+body,.navPills,.song-list,.lyricsBox{
+scrollbar-width:thin;
+scrollbar-color:#6f8793 #dce7ec;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.navPills::-webkit-scrollbar,
+.song-list::-webkit-scrollbar,
+.lyricsBox::-webkit-scrollbar{width:11px;height:11px;}
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.navPills::-webkit-scrollbar-track,
+.song-list::-webkit-scrollbar-track,
+.lyricsBox::-webkit-scrollbar-track{background:#dce7ec;border-radius:999px;}
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.navPills::-webkit-scrollbar-thumb,
+.song-list::-webkit-scrollbar-thumb,
+.lyricsBox::-webkit-scrollbar-thumb{
+background:linear-gradient(180deg,#7d98a4,#587480) padding-box;
+border:3px solid transparent;
+border-radius:999px;
+min-height:46px;
+}
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+.navPills::-webkit-scrollbar-thumb:hover,
+.song-list::-webkit-scrollbar-thumb:hover,
+.lyricsBox::-webkit-scrollbar-thumb:hover{
+background:linear-gradient(180deg,#6d8b98,#486773) padding-box;
+}
+@media(max-width:780px){
+.navPills{scrollbar-width:none;}
+.navPills::-webkit-scrollbar{display:none;}
+}
+
 </style>
 </head>
 
