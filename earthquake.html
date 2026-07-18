@@ -1235,7 +1235,53 @@
   .announcementText{ font-size:12px; line-height:1.7; }
 }
 }
-  </style>
+  
+/* ===== Unified Light Scrollbar ===== */
+html{
+color-scheme:light;
+scrollbar-width:thin;
+scrollbar-color:#6f8793 #dce7ec;
+scrollbar-gutter:stable;
+}
+body,.navPills,.list,.countyGrid{
+scrollbar-width:thin;
+scrollbar-color:#6f8793 #dce7ec;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.navPills::-webkit-scrollbar,
+.list::-webkit-scrollbar,
+.countyGrid::-webkit-scrollbar{width:11px;height:11px;}
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.navPills::-webkit-scrollbar-track,
+.list::-webkit-scrollbar-track,
+.countyGrid::-webkit-scrollbar-track{
+background:#dce7ec;border-radius:999px;}
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.navPills::-webkit-scrollbar-thumb,
+.list::-webkit-scrollbar-thumb,
+.countyGrid::-webkit-scrollbar-thumb{
+background:linear-gradient(180deg,#7d98a4,#587480);
+border:3px solid transparent;
+border-radius:999px;
+background-clip:padding-box;
+}
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+.navPills::-webkit-scrollbar-thumb:hover,
+.list::-webkit-scrollbar-thumb:hover,
+.countyGrid::-webkit-scrollbar-thumb:hover{
+background:linear-gradient(180deg,#6d8b98,#486773);
+background-clip:padding-box;
+}
+@media(max-width:780px){
+.navPills{scrollbar-width:none;}
+.navPills::-webkit-scrollbar{display:none;}
+}
+
+</style>
 </head>
 
 <body>
