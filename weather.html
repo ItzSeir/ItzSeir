@@ -4073,6 +4073,73 @@ button{ -webkit-tap-highlight-color:transparent; }
 }
 }
 
+
+/* ===== Unified Light Scrollbar ===== */
+html{
+  color-scheme:light;
+  scrollbar-width:thin;
+  scrollbar-color:#6f8793 #dce7ec;
+  scrollbar-gutter:stable;
+}
+body,
+.navPills,
+.fcstList,
+.warningSimpleList,
+.warningMono,
+.twOfficialDetailText{
+  scrollbar-width:thin;
+  scrollbar-color:#6f8793 #dce7ec;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.navPills::-webkit-scrollbar,
+.fcstList::-webkit-scrollbar,
+.warningSimpleList::-webkit-scrollbar,
+.warningMono::-webkit-scrollbar,
+.twOfficialDetailText::-webkit-scrollbar{
+  width:11px;
+  height:11px;
+}
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.navPills::-webkit-scrollbar-track,
+.fcstList::-webkit-scrollbar-track,
+.warningSimpleList::-webkit-scrollbar-track,
+.warningMono::-webkit-scrollbar-track,
+.twOfficialDetailText::-webkit-scrollbar-track{
+  background:#dce7ec;
+  border-radius:999px;
+}
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.navPills::-webkit-scrollbar-thumb,
+.fcstList::-webkit-scrollbar-thumb,
+.warningSimpleList::-webkit-scrollbar-thumb,
+.warningMono::-webkit-scrollbar-thumb,
+.twOfficialDetailText::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,#7d98a4,#587480) padding-box;
+  border:3px solid transparent;
+  border-radius:999px;
+  min-height:46px;
+}
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+.navPills::-webkit-scrollbar-thumb:hover,
+.fcstList::-webkit-scrollbar-thumb:hover,
+.warningSimpleList::-webkit-scrollbar-thumb:hover,
+.warningMono::-webkit-scrollbar-thumb:hover,
+.twOfficialDetailText::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(180deg,#6d8b98,#486773) padding-box;
+}
+@media(max-width:780px){
+  .navPills{
+    scrollbar-width:none;
+  }
+  .navPills::-webkit-scrollbar{
+    display:none;
+  }
+}
+
 </style>
 </head>
 
