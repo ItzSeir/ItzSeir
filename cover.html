@@ -2279,6 +2279,415 @@ background:linear-gradient(180deg,#6d8b98,#486773) padding-box;
 }
 
 </style>
+
+<style id="mobile-player-enhancement">
+/* ==========================================================
+   Mobile Player Enhancement
+   Keeps all existing songs, lyrics and desktop functions.
+========================================================== */
+
+@media (max-width: 720px){
+  :root{
+    --mobile-player-h: 112px;
+  }
+
+  html{
+    scroll-padding-bottom: calc(var(--mobile-player-h) + 26px);
+  }
+
+  body{
+    padding-bottom: calc(var(--mobile-player-h) + env(safe-area-inset-bottom) + 18px) !important;
+  }
+
+  .page{
+    width:100% !important;
+    padding:10px 10px 22px !important;
+  }
+
+  .topbar{
+    position:relative !important;
+    top:auto !important;
+    margin-bottom:12px !important;
+    padding:10px !important;
+    gap:10px !important;
+    border-radius:22px !important;
+  }
+
+  .brandMark{
+    width:34px !important;
+    height:34px !important;
+    border-radius:12px !important;
+  }
+
+  .navPills{
+    width:100%;
+    gap:5px !important;
+    padding:2px 0 0 !important;
+  }
+
+  .navPills a{
+    padding:8px 10px !important;
+    font-size:11px !important;
+  }
+
+  #siteAnnouncement{
+    margin-bottom:12px !important;
+  }
+
+  .app{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    grid-template-rows:auto auto !important;
+    grid-template-areas:
+      "main"
+      "sidebar" !important;
+    gap:12px !important;
+    height:auto !important;
+    min-height:0 !important;
+  }
+
+  .main{
+    grid-area:main !important;
+    order:1 !important;
+    min-width:0 !important;
+  }
+
+  .sidebar{
+    grid-area:sidebar !important;
+    order:2 !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    padding:13px !important;
+    border-radius:24px !important;
+    overflow:visible !important;
+  }
+
+  .side-title{
+    margin-bottom:9px !important;
+  }
+
+  .search{
+    height:42px !important;
+    min-height:42px !important;
+    font-size:13px !important;
+  }
+
+  .song-list{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:8px !important;
+    max-height:340px !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain !important;
+    padding-right:3px !important;
+  }
+
+  .song-item{
+    min-height:60px !important;
+    padding:10px 9px 10px 52px !important;
+    border-radius:17px !important;
+  }
+
+  .song-item::before{
+    width:34px !important;
+    height:34px !important;
+    left:9px !important;
+  }
+
+  .song-item::after{
+    left:21px !important;
+  }
+
+  .playerShell{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+    height:auto !important;
+  }
+
+  .player.v3-info,
+  .lyricsCard.v3-lyrics{
+    min-height:0 !important;
+    border-radius:24px !important;
+  }
+
+  .player.v3-info{
+    padding:16px !important;
+  }
+
+  .v3InfoInner{
+    display:grid !important;
+    grid-template-rows:auto auto auto !important;
+    gap:13px !important;
+  }
+
+  .v3Kicker{
+    padding:6px 10px !important;
+    font-size:10px !important;
+  }
+
+  .v3Title{
+    margin-top:10px !important;
+    font-size:28px !important;
+    line-height:1.12 !important;
+    -webkit-line-clamp:2 !important;
+  }
+
+  .v3Desc{
+    margin-top:6px !important;
+    font-size:12px !important;
+    line-height:1.5 !important;
+  }
+
+  .v3MainBlock{
+    display:grid !important;
+    grid-template-columns:96px minmax(0, 1fr) !important;
+    align-items:center !important;
+    align-content:initial !important;
+    justify-items:stretch !important;
+    gap:12px !important;
+  }
+
+  .v3Cover{
+    width:96px !important;
+    height:96px !important;
+    border-radius:22px !important;
+  }
+
+  .v3MetaGrid{
+    grid-template-columns:1fr !important;
+    gap:8px !important;
+  }
+
+  .v3Meta{
+    min-height:0 !important;
+    padding:9px 11px !important;
+    border-radius:15px !important;
+  }
+
+  .v3MetaLabel{
+    margin-bottom:4px !important;
+    font-size:9px !important;
+  }
+
+  .v3MetaValue{
+    font-size:11px !important;
+  }
+
+  .v3Buttons{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+
+  .v3Btn{
+    width:100% !important;
+    min-height:38px !important;
+    padding:0 10px !important;
+  }
+
+  .lyricsCard.v3-lyrics{
+    min-height:420px !important;
+    padding:14px !important;
+  }
+
+  .v3-lyrics .lyricsHead{
+    padding:0 1px 10px !important;
+    align-items:center !important;
+  }
+
+  .v3-lyrics .lyricsTitle{
+    font-size:15px !important;
+  }
+
+  .lyricsTools{
+    width:100%;
+    display:grid !important;
+    grid-template-columns:repeat(3, 1fr) !important;
+    gap:7px !important;
+    margin-top:8px !important;
+  }
+
+  .v3-lyrics .smallBtn{
+    width:100% !important;
+    height:34px !important;
+    padding:0 8px !important;
+  }
+
+  .v3-lyrics .lyricsBox{
+    min-height:330px !important;
+    max-height:390px !important;
+    padding:14px 9px !important;
+    border-radius:20px !important;
+  }
+
+  .v3-lyrics .lyLine{
+    padding:12px 11px !important;
+    border-radius:15px !important;
+    font-size:15px !important;
+  }
+
+  .v3-lyrics .lyLine.active{
+    font-size:20px !important;
+    line-height:1.45 !important;
+  }
+
+  /* Real mobile bottom player */
+  .bottomPlayerHost{
+    position:fixed !important;
+    z-index:1200 !important;
+    left:10px !important;
+    right:10px !important;
+    bottom:max(10px, env(safe-area-inset-bottom)) !important;
+    width:auto !important;
+    height:auto !important;
+    min-height:0 !important;
+    pointer-events:none;
+  }
+
+  .bottomPlayer.v3Bottom{
+    pointer-events:auto;
+    width:100% !important;
+    height:auto !important;
+    min-height:var(--mobile-player-h) !important;
+    padding:10px 11px !important;
+    border-radius:23px !important;
+    display:grid !important;
+    grid-template-columns:minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "track controls"
+      "progress progress" !important;
+    gap:9px 10px !important;
+    background:rgba(255,255,255,.92) !important;
+    -webkit-backdrop-filter:blur(24px) saturate(1.2) !important;
+    backdrop-filter:blur(24px) saturate(1.2) !important;
+    box-shadow:
+      0 18px 50px rgba(31,53,72,.22),
+      0 0 0 1px rgba(255,255,255,.38) inset !important;
+  }
+
+  .v3BottomTrack{
+    grid-area:track !important;
+    min-width:0 !important;
+    grid-template-columns:42px minmax(0, 1fr) !important;
+    gap:9px !important;
+  }
+
+  .v3BottomCover{
+    width:42px !important;
+    height:42px !important;
+    border-radius:14px !important;
+  }
+
+  .v3BottomName{
+    font-size:12px !important;
+  }
+
+  .v3BottomDesc{
+    margin-top:3px !important;
+    font-size:9px !important;
+  }
+
+  .v3Controls{
+    grid-area:controls !important;
+    gap:6px !important;
+  }
+
+  .v3ControlBtn{
+    width:34px !important;
+    height:34px !important;
+    padding:0 !important;
+    font-size:11px !important;
+    box-shadow:none !important;
+  }
+
+  .v3ControlBtn.play{
+    width:42px !important;
+    height:42px !important;
+    font-size:14px !important;
+    box-shadow:0 10px 22px rgba(15,76,92,.20) !important;
+  }
+
+  .v3ProgressWrap{
+    grid-area:progress !important;
+    display:grid !important;
+    grid-template-columns:38px minmax(0, 1fr) 38px !important;
+    gap:7px !important;
+    align-items:center !important;
+  }
+
+  .v3ProgressWrap .time{
+    font-size:10px !important;
+  }
+
+  .v3ProgressWrap .vol{
+    display:none !important;
+  }
+
+  .v3ProgressWrap .range{
+    min-width:0 !important;
+    height:22px !important;
+  }
+
+  .toast{
+    bottom:calc(var(--mobile-player-h) + env(safe-area-inset-bottom) + 26px) !important;
+    max-width:calc(100% - 30px) !important;
+    text-align:center !important;
+  }
+}
+
+@media (max-width: 390px){
+  :root{
+    --mobile-player-h:108px;
+  }
+
+  .v3MainBlock{
+    grid-template-columns:82px minmax(0, 1fr) !important;
+  }
+
+  .v3Cover{
+    width:82px !important;
+    height:82px !important;
+    border-radius:19px !important;
+  }
+
+  .v3Title{
+    font-size:25px !important;
+  }
+
+  .v3BottomTrack{
+    grid-template-columns:38px minmax(0, 1fr) !important;
+  }
+
+  .v3BottomCover{
+    width:38px !important;
+    height:38px !important;
+  }
+
+  .v3ControlBtn{
+    width:31px !important;
+    height:31px !important;
+  }
+
+  .v3ControlBtn.play{
+    width:39px !important;
+    height:39px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .v3Cover::before,
+  .song-item,
+  .v3Btn,
+  .v3ControlBtn,
+  .lyLine{
+    animation:none !important;
+    transition:none !important;
+  }
+}
+</style>
+
 </head>
 
 <body>
@@ -2300,7 +2709,6 @@ background:linear-gradient(180deg,#6d8b98,#486773) padding-box;
         <a href="weather">天氣情報</a>
         <a href="earthquake">地震情報</a>
       </nav>
-    </nav>
   </header>
 
   <div id="siteAnnouncement"></div>
