@@ -1551,6 +1551,41 @@ background-clip:padding-box;
       return eq?.EarthquakeInfo?.OriginTime ?? eq?.OriginTime ?? "";
     }
 
+    /* 將 CWA 的 ISO 時間轉成一般閱讀格式，例如：2026-07-27 10:14:49 */
+    function formatOriginTime(raw){
+      const value = String(raw ?? "").trim();
+      if(!value) return "—";
+
+      const match = value.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
+      if(match){
+        return `${match[1]}-${match[2]}-${match[3]} ${match[4]}:${match[5]}:${match[6] || "00"}`;
+      }
+
+      const d = new Date(value);
+      if(!Number.isNaN(d.getTime())){
+        const parts = new Intl.DateTimeFormat("zh-TW", {
+          timeZone:"Asia/Taipei",
+          year:"numeric",
+          month:"2-digit",
+          day:"2-digit",
+          hour:"2-digit",
+          minute:"2-digit",
+          second:"2-digit",
+          hour12:false
+        }).formatToParts(d).reduce((acc, part) => {
+          acc[part.type] = part.value;
+          return acc;
+        }, {});
+        return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+      }
+
+      return value.replace("T", " ").replace(/(?:Z|[+-]\d{2}:?\d{2})$/, "");
+    }
+
+    function getDisplayOriginTime(eq){
+      return formatOriginTime(getOriginTime(eq));
+    }
+
     function getMagnitude(eq){
       const mag = eq?.EarthquakeInfo?.EarthquakeMagnitude;
       const val = mag?.MagnitudeValue ?? mag?.Value ?? mag?.Magnitude;
@@ -1694,7 +1729,7 @@ background-clip:padding-box;
     }
 
     function formatSelectText(eq){
-      const time = getOriginTime(eq) || "—";
+      const time = getDisplayOriginTime(eq);
       const mag = getMagnitude(eq);
       const epi = getEpicenter(eq);
       const loc = epi.location || "—";
@@ -1728,7 +1763,7 @@ background-clip:padding-box;
       });
 
       cachedAll.slice(0, 10).forEach((eq, idx) => {
-        const time = getOriginTime(eq) || "—";
+        const time = getDisplayOriginTime(eq);
         const mag = getMagnitude(eq);
         const epi = getEpicenter(eq);
         const loc = epi.location || "—";
@@ -1762,6 +1797,59 @@ background-clip:padding-box;
       stationMarkers.length = 0;
     }
 
+    function getAdaptiveMapView(stations, epi, maxLabel, { exportMode=false } = {}){
+      const maxRank = rankLabel(maxLabel);
+      const maxBucket = Math.floor(maxRank / 10);
+
+      /*
+       * 只使用較明顯震度的測站計算主要視野，避免遠端震度 1 測站
+       * 把整個台灣縮得太小；所有測站仍然會繪製在地圖上。
+       */
+      let threshold = 1;
+      if(maxBucket >= 5) threshold = 3;
+      else if(maxBucket >= 4) threshold = 2;
+      else if(maxBucket >= 3) threshold = 2;
+      else if(maxBucket >= 2) threshold = 1;
+      else threshold = 0;
+
+      let focusStations = stations.filter(s => (s.bucket ?? 0) >= threshold);
+      if(focusStations.length < 3){
+        focusStations = stations.slice();
+      }
+
+      const points = focusStations.map(s => [s.lat, s.lon]);
+      if(epi?.lat != null && epi?.lon != null) points.push([epi.lat, epi.lon]);
+
+      const minZoom = exportMode
+        ? (maxBucket >= 5 ? 8.35 : maxBucket >= 4 ? 8.15 : maxBucket >= 3 ? 7.95 : maxBucket >= 2 ? 7.65 : 7.25)
+        : (maxBucket >= 5 ? 8.05 : maxBucket >= 4 ? 7.85 : maxBucket >= 3 ? 7.65 : maxBucket >= 2 ? 7.35 : 7.05);
+
+      const maxZoom = exportMode ? 9.15 : 8.85;
+      const padding = exportMode ? [70, 70] : [75, 75];
+
+      return { points, minZoom, maxZoom, padding };
+    }
+
+    function applyAdaptiveMapView(stations, epi, maxLabel, { exportMode=false } = {}){
+      const view = getAdaptiveMapView(stations, epi, maxLabel, { exportMode });
+
+      if(view.points.length >= 2){
+        map.fitBounds(L.latLngBounds(view.points), {
+          padding:view.padding,
+          maxZoom:view.maxZoom,
+          animate:false
+        });
+        const fittedZoom = map.getZoom();
+        if(fittedZoom < view.minZoom){
+          map.setZoom(view.minZoom, { animate:false });
+        }
+      }else if(view.points.length === 1){
+        map.setView(view.points[0], view.minZoom, { animate:false });
+      }else{
+        map.setView([23.7, 121.0], 7.2, { animate:false });
+      }
+    }
+
     function renderEarthquake(eq, { keepViewIfSame=false } = {}){
       const key = makeEqKey(eq);
       const same = (key && key === lastRenderedKey);
@@ -1770,7 +1858,7 @@ background-clip:padding-box;
       const maxLabel = getMaxIntensityLabel(stations);
 
       setTopCards({
-        time:getOriginTime(eq),
+        time:getDisplayOriginTime(eq),
         mag:getMagnitude(eq),
         depth:getDepth(eq),
         maxLabel
@@ -1783,7 +1871,7 @@ background-clip:padding-box;
       clearLayers();
 
       const epi = getEpicenter(eq);
-      const time = getOriginTime(eq);
+      const time = getDisplayOriginTime(eq);
       const mag = getMagnitude(eq);
       const depth = getDepth(eq);
 
@@ -1817,6 +1905,9 @@ background-clip:padding-box;
 
       const showStations = $("toggleStations")?.checked !== false;
       if(showStations && stations.length){
+        /* 互動式地圖的測站點固定維持 26px；只有輸出 PNG 時才會暫時縮小。 */
+        const stationSize = 26;
+
         for(const s of stations){
           const label = s.label ?? (s.bucket != null ? String(s.bucket) : "—");
           const color = intensityColor(label, s.bucket);
@@ -1857,15 +1948,7 @@ background-clip:padding-box;
         }
       }
 
-      const all = [];
-      if(epi.lat != null && epi.lon != null) all.push([epi.lat, epi.lon]);
-      for(const s of stations) all.push([s.lat, s.lon]);
-
-      if(all.length){
-        map.fitBounds(L.latLngBounds(all), { padding:[60,60] });
-      }else{
-        map.setView([23.7, 121.0], 7);
-      }
+      applyAdaptiveMapView(stations, epi, maxLabel, { exportMode:false });
 
       setTimeout(() => map.invalidateSize(), 80);
     }
@@ -2033,42 +2116,132 @@ background-clip:padding-box;
         btn.textContent = "輸出中…";
       }
 
+      let restoreMap = null;
+
       try{
         const stations = getIntensityStations(eq);
-        const countyRows = buildCountyMax(stations).slice(0, 8);
+        const countyRows = buildCountyMax(stations).slice(0, 12);
         const epi = getEpicenter(eq);
         const mag = getMagnitude(eq);
         const depth = getDepth(eq);
-        const time = getOriginTime(eq) || '—';
+        const time = getDisplayOriginTime(eq);
         const maxLabel = getMaxIntensityLabel(stations) || '—';
         const reportType = eq?._kind === 'local' ? '小區域地震報告' : '顯著有感地震報告';
 
-        /* 先確保頁面上的 Leaflet 地圖是最新尺寸，再直接擷取真正的地圖，不再手畫邊界 */
-        map.invalidateSize();
-        await new Promise(r => setTimeout(r, 450));
+        const W = 1600;
+        const H = 900;
+        const EXPORT_SCALE = 2;
+        const EXPORT_MAP_W = 1200;
+        const EXPORT_MAP_H = 798;
 
-        /* PNG 輸出時暫時隱藏 Leaflet 的 + / - 控制器與地圖 attribution */
         const mapEl = $("map");
-        const hiddenEls = Array.from(mapEl.querySelectorAll(".leaflet-control-zoom, .leaflet-control-attribution"));
+        const oldMapStyle = mapEl.getAttribute("style") || "";
+        const oldCenter = map.getCenter();
+        const oldZoom = map.getZoom();
+
+        const hiddenEls = Array.from(mapEl.querySelectorAll(
+          ".leaflet-control-zoom, .leaflet-control-attribution, .legend"
+        ));
         const oldDisplay = hiddenEls.map(el => el.style.display);
+
+        const stationEls = Array.from(mapEl.querySelectorAll('.stn'));
+        const stationOldStyles = stationEls.map(el => el.getAttribute('style') || '');
+
+        restoreMap = () => {
+          hiddenEls.forEach((el, i) => el.style.display = oldDisplay[i]);
+          stationEls.forEach((el, i) => {
+            if(stationOldStyles[i]) el.setAttribute('style', stationOldStyles[i]);
+            else el.removeAttribute('style');
+          });
+          if(oldMapStyle) mapEl.setAttribute("style", oldMapStyle);
+          else mapEl.removeAttribute("style");
+          map.invalidateSize(false);
+          map.setView(oldCenter, oldZoom, { animate:false });
+        };
+
+        mapEl.style.position = "fixed";
+        mapEl.style.left = "-12000px";
+        mapEl.style.top = "0";
+        mapEl.style.width = `${EXPORT_MAP_W}px`;
+        mapEl.style.height = `${EXPORT_MAP_H}px`;
+        mapEl.style.zIndex = "-9999";
+        map.invalidateSize(false);
+
+        /*
+         * PNG 必須完整顯示所有震度測站：
+         * 直接使用全部測站與震央計算 bounds，不再只取主要有感區，
+         * 也不再套用最低 zoom，避免外圍震度 1／2 測站被裁掉。
+         */
+        const exportPoints = stations
+          .filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lon))
+          .map(s => [s.lat, s.lon]);
+        if(epi?.lat != null && epi?.lon != null){
+          exportPoints.push([epi.lat, epi.lon]);
+        }
+
+        if(exportPoints.length >= 2){
+          const exportBounds = L.latLngBounds(exportPoints);
+          map.fitBounds(exportBounds, {
+            paddingTopLeft:[82, 72],
+            paddingBottomRight:[82, 72],
+            maxZoom:9.0,
+            animate:false
+          });
+        }else if(exportPoints.length === 1){
+          map.setView(exportPoints[0], 8.0, { animate:false });
+        }else{
+          map.setView([23.7, 121.0], 7.0, { animate:false });
+        }
+
+        /* 等待 Leaflet 完成移動及底圖圖磚載入後才截圖。 */
+        await new Promise(resolve => {
+          let finished = false;
+          const done = () => {
+            if(finished) return;
+            finished = true;
+            resolve();
+          };
+          map.once('moveend', done);
+          setTimeout(done, 1500);
+        });
+        await new Promise(r => setTimeout(r, 650));
         hiddenEls.forEach(el => el.style.display = "none");
+
+        /* 只縮小輸出圖片中的測站點，不影響互動式地圖。 */
+        const exportStationSize = stations.length > 180 ? 16
+          : stations.length > 120 ? 18
+          : stations.length > 80 ? 20
+          : stations.length > 45 ? 22
+          : 24;
+        const exportStationFont = exportStationSize <= 16 ? 8.5
+          : exportStationSize <= 18 ? 9.5
+          : exportStationSize <= 20 ? 10.5
+          : exportStationSize <= 22 ? 11.5
+          : 12.5;
+        const exportStationBorder = exportStationSize <= 18 ? 2.0 : 2.4;
+
+        stationEls.forEach(el => {
+          el.style.width = `${exportStationSize}px`;
+          el.style.height = `${exportStationSize}px`;
+          el.style.fontSize = `${exportStationFont}px`;
+          el.style.borderWidth = `${exportStationBorder}px`;
+          el.style.boxShadow = '0 4px 10px rgba(31,53,72,.12)';
+        });
 
         const html2canvasLib = await ensureHtml2Canvas();
         const mapCanvas = await html2canvasLib(mapEl, {
           useCORS:true,
           allowTaint:false,
-          backgroundColor:'#f4fafb',
-          scale:3,
+          backgroundColor:'#eaf7f9',
+          width:EXPORT_MAP_W,
+          height:EXPORT_MAP_H,
+          scale:2,
           logging:false
         });
 
-        hiddenEls.forEach((el, i) => el.style.display = oldDisplay[i]);
+        restoreMap();
+        restoreMap = null;
 
-        /* 手機避免超大比例導致 html2canvas 擠壓 */
-        const mobile = window.innerWidth < 900;
-        const W = mobile ? 1080 : 1600;
-        const H = mobile ? 1350 : 900;
-        const EXPORT_SCALE = mobile ? 1.6 : 2;
         const canvas = document.createElement('canvas');
         canvas.width = W * EXPORT_SCALE;
         canvas.height = H * EXPORT_SCALE;
@@ -2079,149 +2252,218 @@ background-clip:padding-box;
 
         const bg = ctx.createLinearGradient(0, 0, W, H);
         bg.addColorStop(0, '#dff3f4');
+        bg.addColorStop(.55, '#edf8f9');
         bg.addColorStop(1, '#f8fbfc');
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, W, H);
 
-        const leftX = 52, topY = 40;
-        const leftW = mobile ? (W - 104) : 430;
-        const rightX = mobile ? 52 : 520;
-        const rightW = mobile ? (W - 104) : 1028;
-        const cardH = mobile ? 560 : 820;
-        const rightY = mobile ? 630 : 40;
-        fillRoundRect(ctx, leftX, topY, leftW, cardH, 24, 'rgba(255,255,255,.96)', 'rgba(25,42,58,.14)');
-        fillRoundRect(ctx, rightX, rightY, rightW, mobile ? 660 : cardH, 24, 'rgba(255,255,255,.92)', 'rgba(25,42,58,.14)');
+        const leftX = 48;
+        const topY = 36;
+        const leftW = 320;
+        const gap = 24;
+        const rightX = leftX + leftW + gap;
+        const rightW = W - rightX - 48;
+        const cardH = H - 72;
 
-        /* 左側標題、地名與時間：把資訊拉到最上方並重新設計 */
+        fillRoundRect(ctx, leftX, topY, leftW, cardH, 26, 'rgba(255,255,255,.97)', 'rgba(25,42,58,.14)');
+        fillRoundRect(ctx, rightX, topY, rightW, cardH, 26, 'rgba(255,255,255,.94)', 'rgba(25,42,58,.14)');
+
+        /* 左側資訊卡 */
         ctx.fillStyle = '#0f4c5c';
-        ctx.font = '900 30px "Noto Sans TC", sans-serif';
-        ctx.fillText(reportType, leftX + 26, topY + 48);
+        ctx.font = '900 26px "Noto Sans TC", sans-serif';
+        ctx.fillText(reportType, leftX + 26, topY + 47);
 
-        /* 地名卡片 */
-        fillRoundRect(ctx, leftX + 26, topY + 68, leftW - 52, 86, 20, 'rgba(15,76,92,.055)', 'rgba(15,76,92,.10)');
+        fillRoundRect(ctx, leftX + 24, topY + 66, leftW - 48, 84, 19,
+          'rgba(15,76,92,.055)', 'rgba(15,76,92,.11)');
         ctx.fillStyle = '#0f4c5c';
         ctx.beginPath();
-        ctx.arc(leftX + 52, topY + 104, 14, 0, Math.PI * 2);
+        ctx.arc(leftX + 50, topY + 102, 13, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.arc(leftX + 52, topY + 104, 5, 0, Math.PI * 2);
+        ctx.arc(leftX + 50, topY + 102, 4.5, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.fillStyle = '#102f40';
-        ctx.font = '900 21px "Noto Sans TC", sans-serif';
-        wrapCanvasText(ctx, epi.location || '—', leftX + 78, topY + 96, leftW - 116, 25, 2);
+        ctx.font = '900 17px "Noto Sans TC", sans-serif';
+        wrapCanvasText(ctx, epi.location || '—', leftX + 70, topY + 93, leftW - 102, 22, 2);
 
-        /* 時間膠囊 */
-        fillRoundRect(ctx, leftX + 26, topY + 164, leftW - 52, 46, 23, 'rgba(42,157,143,.10)', 'rgba(42,157,143,.14)');
+        fillRoundRect(ctx, leftX + 24, topY + 160, leftW - 48, 44, 22,
+          'rgba(42,157,143,.10)', 'rgba(42,157,143,.15)');
         ctx.strokeStyle = '#0f4c5c';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2.6;
         ctx.beginPath();
-        ctx.arc(leftX + 50, topY + 187, 11, 0, Math.PI * 2);
+        ctx.arc(leftX + 48, topY + 182, 10, 0, Math.PI * 2);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(leftX + 50, topY + 187);
-        ctx.lineTo(leftX + 50, topY + 180);
-        ctx.moveTo(leftX + 50, topY + 187);
-        ctx.lineTo(leftX + 57, topY + 191);
+        ctx.moveTo(leftX + 48, topY + 182);
+        ctx.lineTo(leftX + 48, topY + 176);
+        ctx.moveTo(leftX + 48, topY + 182);
+        ctx.lineTo(leftX + 54, topY + 186);
         ctx.stroke();
+        ctx.fillStyle = '#102f40';
+        ctx.font = '900 14px "Noto Sans TC", sans-serif';
+        ctx.fillText(time, leftX + 67, topY + 188);
 
+        const magY = topY + 224;
+        fillRoundRect(ctx, leftX + 24, magY, leftW - 48, 84, 18,
+          '#f7fbfc', 'rgba(25,42,58,.11)');
+        ctx.fillStyle = magnitudeColor(mag);
+        ctx.font = '900 34px "Noto Sans TC", sans-serif';
+        ctx.fillText(mag != null ? `M${mag.toFixed(1)}` : 'M—', leftX + 45, magY + 54);
         ctx.fillStyle = '#102f40';
         ctx.font = '900 18px "Noto Sans TC", sans-serif';
-        ctx.fillText(time, leftX + 72, topY + 194);
+        ctx.fillText(maxLabel !== '—' ? `最大震度 ${maxLabel}` : '最大震度 —', leftX + 138, magY + 50);
 
-        const magBoxY = topY + 232;
-        const magColor = magnitudeColor(mag);
-        fillRoundRect(ctx, leftX + 26, magBoxY, leftW - 52, 82, 18, '#f7fbfc', 'rgba(25,42,58,.10)');
-        ctx.fillStyle = magColor;
-        ctx.font = '900 36px "Noto Sans TC", sans-serif';
-        ctx.fillText(mag != null ? `M${mag.toFixed(1)}` : 'M—', leftX + 48, magBoxY + 52);
-        ctx.fillStyle = '#102f40';
-        ctx.font = '900 23px "Noto Sans TC", sans-serif';
-        ctx.fillText(maxLabel !== '—' ? `最大震度 ${maxLabel}` : '最大震度 —', leftX + 178, magBoxY + 50);
-
-        const halfW = (leftW - 62) / 2;
-        function miniRow(label, value, x, y){
-          fillRoundRect(ctx, x, y, halfW, 64, 14, '#ffffff', 'rgba(25,42,58,.11)');
+        const statGap = 10;
+        const statW = (leftW - 48 - statGap) / 2;
+        function statCard(label, value, x, y){
+          fillRoundRect(ctx, x, y, statW, 62, 14, '#fff', 'rgba(25,42,58,.11)');
           ctx.fillStyle = '#6a7d89';
-          ctx.font = '900 13px "Noto Sans TC", sans-serif';
-          ctx.fillText(label, x + 16, y + 23);
+          ctx.font = '900 12px "Noto Sans TC", sans-serif';
+          ctx.fillText(label, x + 14, y + 22);
           ctx.fillStyle = '#102f40';
-          ctx.font = '900 19px "Noto Sans TC", sans-serif';
-          ctx.fillText(value, x + 16, y + 50);
+          ctx.font = '900 15px "Noto Sans TC", sans-serif';
+          ctx.fillText(value, x + 14, y + 48);
         }
 
-        let y = topY + 338;
-        miniRow('深度', depth != null ? `${depth.toFixed(1)} km` : '—', leftX + 26, y);
-        miniRow('座標', (epi.lat != null && epi.lon != null) ? `${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}` : '—', leftX + 36 + halfW, y);
-        y += 90;
+        const statY = topY + 330;
+        statCard('深度', depth != null ? `${depth.toFixed(1)} km` : '—', leftX + 24, statY);
+        statCard('座標', (epi.lat != null && epi.lon != null)
+          ? `${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}` : '—', leftX + 24 + statW + statGap, statY);
 
         ctx.fillStyle = '#102f40';
-        ctx.font = '900 20px "Noto Sans TC", sans-serif';
-        ctx.fillText('各縣市最大震度', leftX + 26, y);
-        y += 22;
+        ctx.font = '900 17px "Noto Sans TC", sans-serif';
+        ctx.fillText('各縣市最大震度', leftX + 24, topY + 425);
 
-        const chipW = 180, chipH = 36, gap = 10;
-        let cx = leftX + 26, cy = y;
-        countyRows.forEach((r) => {
-          if(cx + chipW > leftX + leftW - 26){ cx = leftX + 26; cy += chipH + gap; }
+        const chipX1 = leftX + 24;
+        const chipGap = 8;
+        const chipW = (leftW - 48 - chipGap) / 2;
+        const chipH = 34;
+        countyRows.forEach((r, i) => {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const x = chipX1 + col * (chipW + chipGap);
+          const y = topY + 446 + row * 42;
           const c = intensityColor(r.label, r.bucket);
-          fillRoundRect(ctx, cx, cy, chipW, chipH, 18, '#ffffff', 'rgba(25,42,58,.12)');
+          fillRoundRect(ctx, x, y, chipW, chipH, 17, '#fff', 'rgba(25,42,58,.12)');
           ctx.fillStyle = c;
-          ctx.beginPath(); ctx.arc(cx + 18, cy + 18, 6, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath();
+          ctx.arc(x + 16, y + 17, 5.2, 0, Math.PI * 2);
+          ctx.fill();
           ctx.fillStyle = '#102f40';
-          ctx.font = '800 12px "Noto Sans TC", sans-serif';
-          wrapCanvasText(ctx, `${r.county} 震度 ${r.label}`, cx + 32, cy + 23, chipW - 42, 14, 1);
-          cx += chipW + gap;
+          ctx.font = '800 10px "Noto Sans TC", sans-serif';
+          wrapCanvasText(ctx, `${r.county} 震度 ${r.label}`, x + 29, y + 22, chipW - 36, 12, 1);
         });
 
-        ctx.fillStyle = '#102f40';
-        ctx.font = '900 25px "Noto Sans TC", sans-serif';
-        ctx.fillText('震央與測站震度地圖', rightX + 28, rightY + 48);
+        ctx.strokeStyle = 'rgba(25,42,58,.10)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(leftX + 24, topY + cardH - 54);
+        ctx.lineTo(leftX + leftW - 24, topY + cardH - 54);
+        ctx.stroke();
+        ctx.fillStyle = '#7a8d98';
+        ctx.font = '800 11px "Noto Sans TC", sans-serif';
+        ctx.fillText(`測站 ${stations.length} 個`, leftX + 24, topY + cardH - 27);
+        ctx.textAlign = 'right';
+        ctx.fillText('資料來源：中央氣象署', leftX + leftW - 24, topY + cardH - 27);
+        ctx.textAlign = 'left';
 
-        const mapX = rightX + 38, mapY = rightY + 78, mapW = rightW - 76, mapH = mobile ? 520 : 686;
+        /* 右側地圖卡 */
+        ctx.fillStyle = '#102f40';
+        ctx.font = '900 26px "Noto Sans TC", sans-serif';
+        ctx.fillText('震央與測站震度地圖', rightX + 28, topY + 45);
+
+        const mapX = rightX + 28;
+        const mapY = topY + 66;
+        const mapW = rightW - 56;
+        const mapH = cardH - 94;
         fillRoundRect(ctx, mapX, mapY, mapW, mapH, 22, '#e8f6f8', 'rgba(15,76,92,.16)');
 
         ctx.save();
         drawRoundRect(ctx, mapX, mapY, mapW, mapH, 22);
         ctx.clip();
 
-        const imgRatio = mapCanvas.width / mapCanvas.height;
-        const boxRatio = mapW / mapH;
-        let sx = 0, sy = 0, sw = mapCanvas.width, sh = mapCanvas.height;
-        if(imgRatio > boxRatio){
-          sw = mapCanvas.height * boxRatio;
-          sx = (mapCanvas.width - sw) / 2;
-        }else{
-          sh = mapCanvas.width / boxRatio;
-          sy = (mapCanvas.height - sh) / 2;
-        }
-        ctx.drawImage(mapCanvas, sx, sy, sw, sh, mapX, mapY, mapW, mapH);
+        /*
+         * 完整縮放地圖到 PNG 地圖框，不再使用 cover 裁切。
+         * EXPORT_MAP_W / EXPORT_MAP_H 已與 PNG 地圖框比例一致，
+         * 因此台灣、離島與主要震度範圍都會完整保留。
+         */
+        ctx.drawImage(mapCanvas, 0, 0, mapCanvas.width, mapCanvas.height,
+          mapX, mapY, mapW, mapH);
         ctx.restore();
 
-        /* 右下角署名與來源：放進地圖右下角 */
-        const footW = 250, footH = 52;
-        const footX = mapX + mapW - footW - 18;
-        const footY = mapY + mapH - footH - 18;
-        fillRoundRect(ctx, footX, footY, footW, footH, 20, 'rgba(255,255,255,.90)', 'rgba(25,42,58,.14)');
+        /* PNG 專用直式圖例：保持與互動式地圖相同的左下角樣式。 */
+        const pngLegendItems = [
+          ['震度 0', palette[0]],
+          ['震度 1', palette[1]],
+          ['震度 2', palette[2]],
+          ['震度 3', palette[3]],
+          ['震度 4', palette[4]],
+          ['震度 5-', palette['5-']],
+          ['震度 5+', palette['5+']],
+          ['震度 6-', palette['6-']],
+          ['震度 6+', palette['6+']],
+          ['震度 7-', palette['7-']],
+          ['震度 7+', palette['7+']]
+        ];
+        const legendW = 112;
+        const legendPadX = 14;
+        const legendTopPad = 14;
+        const legendTitleH = 22;
+        const legendRowH = 26;
+        const legendBottomPad = 12;
+        const legendH = legendTopPad + legendTitleH + pngLegendItems.length * legendRowH + legendBottomPad;
+        const legendX = mapX + 16;
+        const legendY = mapY + mapH - legendH - 16;
 
-        const logoX = footX + 26;
-        const logoY = footY + 26;
+        ctx.save();
+        ctx.shadowColor = 'rgba(31,53,72,.15)';
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 7;
+        fillRoundRect(ctx, legendX, legendY, legendW, legendH, 17,
+          'rgba(255,255,255,.94)', 'rgba(25,42,58,.12)');
+        ctx.restore();
+
+        ctx.fillStyle = '#102f40';
+        ctx.font = '900 13px "Noto Sans TC", sans-serif';
+        ctx.fillText('圖例', legendX + legendPadX, legendY + 24);
+
+        pngLegendItems.forEach(([label, color], i) => {
+          const cy = legendY + legendTopPad + legendTitleH + i * legendRowH + legendRowH / 2;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(legendX + legendPadX + 7, cy, 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#102f40';
+          ctx.font = '900 12px "Noto Sans TC", sans-serif';
+          ctx.fillText(label, legendX + legendPadX + 22, cy + 4);
+        });
+
+        const footW = 238;
+        const footH = 50;
+        const footX = mapX + mapW - footW - 16;
+        const footY = mapY + mapH - footH - 16;
+        fillRoundRect(ctx, footX, footY, footW, footH, 18,
+          'rgba(255,255,255,.91)', 'rgba(25,42,58,.14)');
+
+        const logoX = footX + 25;
+        const logoY = footY + 25;
         ctx.strokeStyle = '#0f4c5c';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(logoX, logoY, 13, 0, Math.PI * 2);
+        ctx.arc(logoX, logoY, 12, 0, Math.PI * 2);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(logoX, logoY, 6, 0, Math.PI * 2);
+        ctx.arc(logoX, logoY, 5.5, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.fillStyle = '#0f4c5c';
-        ctx.font = '900 16px "Noto Sans TC", sans-serif';
-        ctx.fillText('筱風製作', footX + 48, footY + 22);
+        ctx.font = '900 15px "Noto Sans TC", sans-serif';
+        ctx.fillText('筱風製作', footX + 46, footY + 21);
         ctx.fillStyle = '#6a7d89';
-        ctx.font = '800 13px "Noto Sans TC", sans-serif';
-        ctx.fillText('資料來源 CWA', footX + 48, footY + 40);
+        ctx.font = '800 12px "Noto Sans TC", sans-serif';
+        ctx.fillText('資料來源 CWA', footX + 46, footY + 38);
 
         const a = document.createElement('a');
         const safeTime = time.replace(/[^0-9]/g, '').slice(0, 12) || 'earthquake';
@@ -2229,10 +2471,9 @@ background-clip:padding-box;
         a.href = canvas.toDataURL('image/png');
         a.click();
       }catch(err){
-        try{
-          const mapEl = $("map");
-          mapEl.querySelectorAll(".leaflet-control-zoom, .leaflet-control-attribution").forEach(el => el.style.display = "");
-        }catch(_){}
+        if(restoreMap){
+          try{ restoreMap(); }catch(_){}
+        }
         console.error(err);
         alert('PNG 輸出失敗：' + (err?.message || err));
       }finally{
