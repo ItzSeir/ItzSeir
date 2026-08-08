@@ -12433,9 +12433,9 @@ ${a.instruction}` : ''
     const c = color(picked);
     const focused = window.twAreaFocusedCounty && names.countyNorm === window.twAreaFocusedCounty;
     return {
-      // Keep county/city boundaries black and clearly above every warning colour.
-      color:'#111111',
-      weight: focused ? 3.4 : 2.15,
+      // Keep county/city boundaries black and clearly above every warning colour, but slightly lighter/thinner.
+      color:'rgba(17,17,17,.92)',
+      weight: focused ? 2.7 : 1.65,
       // Only an entire-county warning fills the county layer. Town-only warnings are drawn exclusively by the town layer.
       fillColor: whole ? c : 'transparent',
       fillOpacity: whole ? 1 : 0,
