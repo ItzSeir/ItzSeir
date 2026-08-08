@@ -12433,8 +12433,9 @@ ${a.instruction}` : ''
     const c = color(picked);
     const focused = window.twAreaFocusedCounty && names.countyNorm === window.twAreaFocusedCounty;
     return {
-      color: picked ? outline(c) : 'rgba(8,47,61,.42)',
-      weight: focused ? 2.8 : (picked ? 2.15 : .95),
+      // Keep county/city boundaries black and clearly above every warning colour.
+      color:'#111111',
+      weight: focused ? 3.4 : 2.15,
       // Only an entire-county warning fills the county layer. Town-only warnings are drawn exclusively by the town layer.
       fillColor: whole ? c : 'transparent',
       fillOpacity: whole ? 1 : 0,
@@ -12463,13 +12464,14 @@ ${a.instruction}` : ''
   };
   const oldRefresh = window.twAreaRefreshHighlight;
   window.twAreaRefreshHighlight = function(){
-    try{ if(window.twAreaCountyLayer) window.twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle); }catch(e){}
-    try{ if(window.twAreaTownLayer){ window.twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle); window.twAreaTownLayer.bringToFront(); } }catch(e){}
-    try{ if(window.twAreaCountyLayer) window.twAreaCountyLayer.bringToFront(); }catch(e){}
+    // Repaint warning colours first, then force the county/city layer to the very top.
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle); }catch(e){}
+    try{ if(twAreaTownLayer){ twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle); twAreaTownLayer.bringToFront(); } }catch(e){}
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.bringToFront(); }catch(e){}
     if(typeof oldRefresh === 'function'){ try{ oldRefresh(); }catch(e){} }
-    try{ if(window.twAreaCountyLayer) window.twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle); }catch(e){}
-    try{ if(window.twAreaTownLayer){ window.twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle); window.twAreaTownLayer.bringToFront(); } }catch(e){}
-    try{ if(window.twAreaCountyLayer) window.twAreaCountyLayer.bringToFront(); }catch(e){}
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.setStyle(window.twAreaOfficialCountyStyle); }catch(e){}
+    try{ if(twAreaTownLayer){ twAreaTownLayer.setStyle(window.twAreaOfficialTownStyle); twAreaTownLayer.bringToFront(); } }catch(e){}
+    try{ if(twAreaCountyLayer) twAreaCountyLayer.bringToFront(); }catch(e){}
   };
   window.addEventListener('load', () => {
     [900,1800,3200,5000].forEach(ms => setTimeout(() => { try{ window.twAreaRefreshHighlight && window.twAreaRefreshHighlight(); }catch(e){} }, ms));
