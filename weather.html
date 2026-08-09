@@ -6138,7 +6138,6 @@ Implement by adjusting polygon style functions:
       labelItems.length = 0;
 
       const show = $("toggleLabels")?.checked !== false;
-
       if(!show) return;
 
       const preferredOffsets = [
@@ -6160,40 +6159,34 @@ Implement by adjusting polygon style functions:
         return !(a.x + a.w + pad < b.x || b.x + b.w + pad < a.x || a.y + a.h + pad < b.y || b.y + b.h + pad < a.y);
       }
 
-      function getRectForOffset(idx, dx, dyTop, w, h){
-        const stormPt = map.latLngToContainerPoint([points[idx].lat, points[idx].lon]);
-
-        return {
-          x:stormPt.x + dx,
-          y:stormPt.y + dyTop,
-          w,
-          h
-        };
+      function rectInsideMap(rect, margin = 8){
+        const s = map.getSize();
+        return rect.x >= margin && rect.y >= margin && rect.x + rect.w <= s.x - margin && rect.y + rect.h <= s.y - margin;
       }
 
-      function pickNonOverlapOffset(idx, w, h, usedRects, baseOffsets){
+      function getRectForOffset(idx, dx, dyTop, w, h){
+        const stormPt = map.latLngToContainerPoint([points[idx].lat, points[idx].lon]);
+        return { x:stormPt.x + dx, y:stormPt.y + dyTop, w, h };
+      }
+
+      function pickNonOverlapOffset(idx, w, h, usedRects, baseOffsets, allowFallback = true){
         for(const raw of baseOffsets){
           const dx = raw.dx;
           const dyTop = raw.dy - h;
           const rect = getRectForOffset(idx, dx, dyTop, w, h);
+          if(!rectInsideMap(rect)) continue;
 
           let bad = false;
-
           for(const r of usedRects){
-            if(rectOverlap(rect, r, 12)){
-              bad = true;
-              break;
-            }
+            if(rectOverlap(rect, r, 12)){ bad = true; break; }
           }
-
           if(!bad){
             usedRects.push(rect);
             return { dx, dyTop };
           }
         }
 
-        const expandSteps = [40, 80, 120, 160];
-
+        const expandSteps = [36, 72, 108, 144, 180];
         for(const step of expandSteps){
           for(const raw of baseOffsets){
             const variants = [
@@ -6202,21 +6195,16 @@ Implement by adjusting polygon style functions:
               { dx:raw.dx, dy:raw.dy + step },
               { dx:raw.dx, dy:raw.dy - step }
             ];
-
             for(const v of variants){
               const dx = v.dx;
               const dyTop = v.dy - h;
               const rect = getRectForOffset(idx, dx, dyTop, w, h);
+              if(!rectInsideMap(rect)) continue;
 
               let bad = false;
-
               for(const r of usedRects){
-                if(rectOverlap(rect, r, 12)){
-                  bad = true;
-                  break;
-                }
+                if(rectOverlap(rect, r, 12)){ bad = true; break; }
               }
-
               if(!bad){
                 usedRects.push(rect);
                 return { dx, dyTop };
@@ -6225,27 +6213,26 @@ Implement by adjusting polygon style functions:
           }
         }
 
-        const fallback = baseOffsets[0];
-        usedRects.push(getRectForOffset(idx, fallback.dx, fallback.dy - h, w, h));
+        if(!allowFallback) return null;
 
-        return {
-          dx:fallback.dx,
-          dyTop:fallback.dy - h
-        };
+        const fallback = baseOffsets[0];
+        const rect = getRectForOffset(idx, fallback.dx, fallback.dy - h, w, h);
+        usedRects.push(rect);
+        return { dx:fallback.dx, dyTop:fallback.dy - h };
       }
 
-      function addAutoLabel(idx, isCurrent, usedRects, preferSet){
+      function addAutoLabel(idx, isCurrent, usedRects, preferSet, allowFallback = true){
         const p = points[idx];
         const st = getStyle(p.level);
         const html = makeLabelHtml(p.time, st.color, isCurrent, p);
         const size = measureLabel(html);
-        const picked = pickNonOverlapOffset(idx, size.w, size.h, usedRects, preferSet);
-
+        const picked = pickNonOverlapOffset(idx, size.w, size.h, usedRects, preferSet, allowFallback);
+        if(!picked) return false;
         createLabelItem(idx, isCurrent, picked.dx, picked.dyTop);
+        return true;
       }
 
       const usedRects = [];
-
       const currentLabelOffsets = [
         { dx:95, dy:10 },
         { dx:120, dy:-22 },
@@ -6269,25 +6256,69 @@ Implement by adjusting polygon style functions:
 
       currentIndexes.forEach((idx, i) => {
         const shifted = currentLabelOffsets.map(o => ({ dx:o.dx + (i % 3) * 18, dy:o.dy + Math.floor(i / 3) * 18 }));
-        addAutoLabel(idx, true, usedRects, shifted);
+        addAutoLabel(idx, true, usedRects, shifted, true);
       });
 
-      /* v70：互動式地圖時間標籤固定「空一個寫一個」。
-         只標示 forecast 點；目前與過往路徑不標時間。
-         多個颱風時，各自獨立計算，避免 A 颱風影響 B 颱風的標籤節奏。 */
-      const fcstOrderByTyphoon = new Map();
+      /* v71：互動式地圖日期標籤依 zoom 智慧調整。
+         全部颱風模式：較遠時每 24/48 小時，放大後依序提升到 12 小時、6 小時甚至每個預報點。
+         同時做畫面邊界與碰撞檢查，位置太擠的標籤會自動略過，避免滿版連線。 */
+      const zoom = map.getZoom();
+      const allMode = selectedTyphoonId === "all";
 
+      function smartMinHours(){
+        if(allMode){
+          if(zoom <= 4) return null; // 只有全部颱風模式：初始視野只顯示名字，不顯示日期
+          if(zoom <= 5) return 24;
+          if(zoom <= 6) return 12;
+          if(zoom <= 7) return 6;
+          return 0; // 放得很近：嘗試顯示全部 forecast 點
+        }
+        // 單一颱風維持原本較詳細的智慧日期顯示
+        if(zoom <= 3) return 24;
+        if(zoom <= 4) return 12;
+        if(zoom <= 5) return 6;
+        return 0;
+      }
+
+      const minHours = smartMinHours();
+      if(minHours === null){
+        updateLabelLines();
+        return;
+      }
+      const groups = new Map();
       points.forEach((p, idx) => {
         if(p.kind !== "fcst") return;
-
         const key = p.typhoonId || p.typhoonName || "default";
-        const order = fcstOrderByTyphoon.get(key) || 0;
-        fcstOrderByTyphoon.set(key, order + 1);
+        if(!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(idx);
+      });
 
-        // order: 0 顯示、1 跳過、2 顯示、3 跳過...
-        if(order % 2 !== 0) return;
+      groups.forEach(indexes => {
+        indexes.sort((a, b) => compareTime(points[a].time, points[b].time));
+        let lastShownTime = null;
 
-        addAutoLabel(idx, false, usedRects, preferredOffsets);
+        indexes.forEach((idx, order) => {
+          const p = points[idx];
+          const ts = new Date(p.time).getTime();
+          if(!Number.isFinite(ts)) return;
+
+          let eligible = false;
+          if(minHours <= 0){
+            eligible = true;
+          }else if(lastShownTime === null){
+            eligible = true;
+          }else{
+            eligible = (ts - lastShownTime) >= minHours * 3600 * 1000 - 60000;
+          }
+
+          if(!eligible) return;
+
+          // Forecast labels are optional: if there is no clean position, skip it.
+          // This lets zoom level + available screen space jointly decide label density.
+          if(addAutoLabel(idx, false, usedRects, preferredOffsets, false)){
+            lastShownTime = ts;
+          }
+        });
       });
 
       updateLabelLines();
@@ -14022,17 +14053,178 @@ ${a.instruction}` : ''
     try{
       if(btn){ btn.disabled=true; btn.textContent='PNG 產生中...'; }
       titleSync();
-      const width=1600,height=980,dpr=2, cv=document.createElement('canvas'); cv.width=width*dpr; cv.height=height*dpr; const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-      const groups=all.map(t=>({name:stripCwa(t.name||'颱風'), pts:sortPts(t.points||[])})).filter(g=>g.pts.length); const allPts=[], conePts=[]; groups.forEach(g=>{ allPts.push(...g.pts); const fn=G('buildForecastConePolygonSmooth',null); const poly=typeof fn==='function'?fn(g.pts):null; if(poly) conePts.push(...poly.map(p=>({lat:p[0],lon:p[1]}))); }); const latest=allPts.filter(p=>p.kind==='obs').sort((a,b)=>tval(b.time)-tval(a.time))[0];
-      const bg=ctx.createLinearGradient(0,0,0,height); bg.addColorStop(0,'#fbfdff'); bg.addColorStop(1,'#edf7fa'); ctx.fillStyle=bg; ctx.fillRect(0,0,width,height); const glow=ctx.createRadialGradient(1320,-50,20,1320,-50,500); glow.addColorStop(0,'rgba(124,58,237,.12)'); glow.addColorStop(1,'rgba(124,58,237,0)'); ctx.fillStyle=glow; ctx.fillRect(0,0,width,height);
-      ctx.beginPath(); ctx.arc(44,38,5,0,Math.PI*2); ctx.fillStyle='#4f8cff'; ctx.fill(); text(ctx,'TYPHOON TRACKER',58,43,{size:14,weight:900,color:'#0f4c5c'}); text(ctx,'全部颱風路徑',34,95,{size:44,weight:900,color:'#102d40'}); text(ctx,'全部颱風歷史路徑、預報路徑與 70% 預測誤差範圍',36,127,{size:15,weight:800,color:'#617785'}); if(latest) text(ctx,`更新時間：${fmtTime(latest.time,'full')}`,1566,43,{size:13,weight:900,color:'#617785',align:'right'}); ctx.strokeStyle='rgba(25,42,58,.10)'; ctx.beginPath(); ctx.moveTo(34,142); ctx.lineTo(1566,142); ctx.stroke();
-      const px=36,py=164,pw=1528,ph=736; panel(ctx,px,py,pw,ph,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'全部颱風總覽',px+20,py+34,{size:16,weight:900}); text(ctx,'forecast cone 以標準形狀繪製，若局部交叉只修補局部',px+pw-20,py+34,{size:12,weight:900,color:'#617785',align:'right'});
-      const mapX=px+14,mapY=py+52,mapW=pw-28,mapH=ph-134, view=fitView(allPts.concat(conePts),mapW,mapH,84,8.9); ctx.save(); rr(ctx,mapX,mapY,mapW,mapH,20); ctx.clip(); await drawTiles(ctx,view,mapX,mapY,mapW,mapH); const proj=projector(view,mapX,mapY,mapW,mapH); const used=[], blocked=[], bounds={x:mapX,y:mapY,w:mapW,h:mapH}; groups.forEach(g=>{ drawCone(ctx,g.pts,proj); drawRoute(ctx,g.pts,proj); blocked.push(...routeBoxes(g.pts,proj)); }); groups.forEach(g=>{ const lp=latestObs(g.pts); if(!lp) return; const q=proj(lp.lat,lp.lon), st=levelInfo(lp.level), name=g.name; ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const w=pillWidth(ctx,name,60,34,220), h=28; const b=pickLabel([{x:q.x+16,y:q.y-40},{x:q.x-w-16,y:q.y-40},{x:q.x+16,y:q.y+14},{x:q.x-w-16,y:q.y+14},{x:q.x-w/2,y:q.y-54}],bounds,w,h,used,[]); pill(ctx,b,name,st.color,q); used.push(b); }); groups.forEach(g=>{ forecastLabels(g.pts,groups.length<=2?2:1).forEach(p=>{ const q=proj(p.lat,p.lon), st=levelInfo(p.level), v=fmtTime(p.time,'short'); ctx.font='900 12px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const w=pillWidth(ctx,v,70,34,150), h=28; const b=pickLabel([{x:q.x+20,y:q.y-42},{x:q.x-w-20,y:q.y-42},{x:q.x+20,y:q.y+14},{x:q.x-w-20,y:q.y+14}],bounds,w,h,used,blocked); pill(ctx,b,v,st.color,q); used.push(b); }); }); ctx.restore();
-      const ly=py+ph-52; panel(ctx,px+14,ly,pw-28,36,14,'rgba(255,255,255,.92)','rgba(25,42,58,.10)'); let xx=px+34, yy=ly+21; text(ctx,'圖例',xx,yy+4,{size:12,weight:900,color:'#0f4c5c'}); xx+=58; ctx.lineCap='round'; ctx.lineWidth=4; ctx.strokeStyle='#6b7280'; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+36,yy); ctx.stroke(); text(ctx,'歷史路徑',xx+48,yy+5,{size:12,weight:900,color:'#617785'}); xx+=140; ctx.strokeStyle='#2a9d8f'; ctx.setLineDash([10,8]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+36,yy); ctx.stroke(); ctx.setLineDash([]); text(ctx,'預報路徑',xx+48,yy+5,{size:12,weight:900,color:'#617785'}); xx+=140; panel(ctx,xx,yy-10,30,18,9,'rgba(96,165,250,.22)','rgba(96,165,250,.48)'); text(ctx,'70% 預測誤差範圍',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=196; [['低壓','#94a3b8'],['熱帶低壓','#536ab8'],['輕度颱風','#22c55e'],['中度颱風','#f59e0b'],['強烈颱風','#ef4444']].forEach(([n,c])=>{ ctx.beginPath(); ctx.arc(xx+6,yy,6,0,Math.PI*2); ctx.fillStyle=c; ctx.fill(); text(ctx,n,xx+18,yy+5,{size:12,weight:900,color:'#617785'}); xx+=n.length>=4?96:70; });
+
+      // 全部颱風 PNG：維持原本標題與 Legend，畫布改回 1600×900，
+      // 並把主地圖往下延伸，減少底部空白。
+      const width=1600,height=900,dpr=2, cv=document.createElement('canvas');
+      cv.width=width*dpr; cv.height=height*dpr;
+      const ctx=cv.getContext('2d');
+      ctx.scale(dpr,dpr);
+      ctx.imageSmoothingEnabled=true;
+      ctx.imageSmoothingQuality='high';
+
+      const groups=all.map(t=>({name:stripCwa(t.name||'颱風'), pts:sortPts(t.points||[])})).filter(g=>g.pts.length);
+      const allPts=[], conePts=[];
+      groups.forEach(g=>{
+        allPts.push(...g.pts);
+        const fn=G('buildForecastConePolygonSmooth',null);
+        const poly=typeof fn==='function'?fn(g.pts):null;
+        if(poly) conePts.push(...poly.map(p=>({lat:p[0],lon:p[1]})));
+      });
+      const latest=allPts.filter(p=>p.kind==='obs').sort((a,b)=>tval(b.time)-tval(a.time))[0];
+
+      // 每個颱風由最新實況時間開始，每 24 小時取最接近的預報點做日期標籤，
+      // 一直到該颱風預報資料的最後時間，不再限制最多 1 / 2 個。
+      function forecastLabelsEvery24h(pts){
+        const arr=sortPts(pts);
+        const obs=latestObs(arr);
+        const fc=arr.filter(p=>p.kind==='fcst' && Number.isFinite(tval(p.time)));
+        if(!fc.length) return [];
+
+        let base=tval(obs?.time);
+        if(!Number.isFinite(base)) base=tval(fc[0].time)-24*3600*1000;
+        const maxT=Math.max(...fc.map(p=>tval(p.time)));
+        const step=24*3600*1000;
+        const picks=[];
+
+        for(let target=base+step; target<=maxT+step*0.45; target+=step){
+          let best=null, bestDiff=Infinity;
+          fc.forEach(p=>{
+            const diff=Math.abs(tval(p.time)-target);
+            if(diff<bestDiff){ bestDiff=diff; best=p; }
+          });
+          // 預報通常為 3/6/12 小時間隔；允許在 24h 目標前後 12h 內取最近點。
+          if(best && bestDiff<=12*3600*1000 && !picks.includes(best)) picks.push(best);
+        }
+        return picks;
+      }
+
+      const bg=ctx.createLinearGradient(0,0,0,height);
+      bg.addColorStop(0,'#fbfdff');
+      bg.addColorStop(1,'#edf7fa');
+      ctx.fillStyle=bg;
+      ctx.fillRect(0,0,width,height);
+      const glow=ctx.createRadialGradient(1320,-50,20,1320,-50,500);
+      glow.addColorStop(0,'rgba(124,58,237,.12)');
+      glow.addColorStop(1,'rgba(124,58,237,0)');
+      ctx.fillStyle=glow;
+      ctx.fillRect(0,0,width,height);
+
+      // 原本的標題區保留。
+      ctx.beginPath(); ctx.arc(44,38,5,0,Math.PI*2); ctx.fillStyle='#4f8cff'; ctx.fill();
+      text(ctx,'TYPHOON TRACKER',58,43,{size:14,weight:900,color:'#0f4c5c'});
+      text(ctx,'全部颱風路徑',34,95,{size:44,weight:900,color:'#102d40'});
+      text(ctx,'全部颱風歷史路徑、預報路徑與 70% 預測誤差範圍',36,127,{size:15,weight:800,color:'#617785'});
+      if(latest) text(ctx,`更新時間：${fmtTime(latest.time,'full')}`,1566,43,{size:13,weight:900,color:'#617785',align:'right'});
+      ctx.strokeStyle='rgba(25,42,58,.10)';
+      ctx.beginPath(); ctx.moveTo(34,142); ctx.lineTo(1566,142); ctx.stroke();
+
+      // 主面板拉到接近圖片底部。右上角的 forecast cone 提示文字移除。
+      const px=36,py=164,pw=1528,ph=height-py-16;
+      panel(ctx,px,py,pw,ph,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)');
+      text(ctx,'全部颱風總覽',px+20,py+34,{size:16,weight:900});
+
+      // Legend 固定在面板最下方；地圖直接延伸到 Legend 上方。
+      const legendY=py+ph-48;
+      const mapX=px+14,mapY=py+52,mapW=pw-28,mapH=legendY-mapY-10;
+      const view=fitView(allPts.concat(conePts),mapW,mapH,84,8.9);
+
+      ctx.save();
+      rr(ctx,mapX,mapY,mapW,mapH,20);
+      ctx.clip();
+      await drawTiles(ctx,view,mapX,mapY,mapW,mapH);
+      const proj=projector(view,mapX,mapY,mapW,mapH);
+      const used=[], blocked=[], bounds={x:mapX,y:mapY,w:mapW,h:mapH};
+
+      groups.forEach(g=>{
+        drawCone(ctx,g.pts,proj);
+        drawRoute(ctx,g.pts,proj);
+        blocked.push(...routeBoxes(g.pts,proj));
+      });
+
+      // 颱風名稱保留。
+      groups.forEach(g=>{
+        const lp=latestObs(g.pts);
+        if(!lp) return;
+        const q=proj(lp.lat,lp.lon), st=levelInfo(lp.level), name=g.name;
+        ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif';
+        const w=pillWidth(ctx,name,60,34,220), h=28;
+        const b=pickLabel([
+          {x:q.x+16,y:q.y-40},
+          {x:q.x-w-16,y:q.y-40},
+          {x:q.x+16,y:q.y+14},
+          {x:q.x-w-16,y:q.y+14},
+          {x:q.x-w/2,y:q.y-54}
+        ],bounds,w,h,used,[]);
+        pill(ctx,b,name,st.color,q);
+        used.push(b);
+      });
+
+      // 每個颱風每 24 小時顯示一次日期標籤。
+      groups.forEach(g=>{
+        forecastLabelsEvery24h(g.pts).forEach(p=>{
+          const q=proj(p.lat,p.lon), st=levelInfo(p.level), v=fmtTime(p.time,'short');
+          ctx.font='900 12px "Noto Sans TC","Segoe UI",Arial,sans-serif';
+          const w=pillWidth(ctx,v,70,34,150), h=28;
+          const b=pickLabel([
+            {x:q.x+20,y:q.y-42},
+            {x:q.x-w-20,y:q.y-42},
+            {x:q.x+20,y:q.y+14},
+            {x:q.x-w-20,y:q.y+14},
+            {x:q.x-w/2,y:q.y-56}
+          ],bounds,w,h,used,blocked);
+          pill(ctx,b,v,st.color,q);
+          used.push(b);
+        });
+      });
+      ctx.restore();
+
+      // 原本 Legend 保留。
+      const ly=legendY;
+      panel(ctx,px+14,ly,pw-28,36,14,'rgba(255,255,255,.92)','rgba(25,42,58,.10)');
+      let xx=px+34, yy=ly+21;
+      text(ctx,'圖例',xx,yy+4,{size:12,weight:900,color:'#0f4c5c'});
+      xx+=58;
+      ctx.lineCap='round';
+      ctx.lineWidth=4;
+      ctx.strokeStyle='#6b7280';
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+36,yy); ctx.stroke();
+      text(ctx,'歷史路徑',xx+48,yy+5,{size:12,weight:900,color:'#617785'});
+      xx+=140;
+      ctx.strokeStyle='#2a9d8f';
+      ctx.setLineDash([10,8]);
+      ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+36,yy); ctx.stroke();
+      ctx.setLineDash([]);
+      text(ctx,'預報路徑',xx+48,yy+5,{size:12,weight:900,color:'#617785'});
+      xx+=140;
+      panel(ctx,xx,yy-10,30,18,9,'rgba(96,165,250,.22)','rgba(96,165,250,.48)');
+      text(ctx,'70% 預測誤差範圍',xx+40,yy+5,{size:12,weight:900,color:'#617785'});
+      xx+=196;
+      [['低壓','#94a3b8'],['熱帶低壓','#536ab8'],['輕度颱風','#22c55e'],['中度颱風','#f59e0b'],['強烈颱風','#ef4444']].forEach(([n,c])=>{
+        ctx.beginPath();
+        ctx.arc(xx+6,yy,6,0,Math.PI*2);
+        ctx.fillStyle=c;
+        ctx.fill();
+        text(ctx,n,xx+18,yy+5,{size:12,weight:900,color:'#617785'});
+        xx+=n.length>=4?96:70;
+      });
+
       const stamp=fmtTime(latest?.time || Date.now(),'stamp');
       downloadDataUrl(`全颱風路徑_${stamp}.png`, cv.toDataURL('image/png'));
-    }catch(e){ console.error(e); alert('全部颱風 PNG 產生失敗，請重新整理後再試。'); }
-    finally{ if(btn){ btn.disabled=false; try{ const up=G('updateDownloadPngButtonText',null); if(typeof up==='function') up(); else btn.textContent=old||'下載 PNG'; }catch(e){ btn.textContent=old||'下載 PNG'; } } }
+    }catch(e){
+      console.error(e);
+      alert('全部颱風 PNG 產生失敗，請重新整理後再試。');
+    }finally{
+      if(btn){
+        btn.disabled=false;
+        try{
+          const up=G('updateDownloadPngButtonText',null);
+          if(typeof up==='function') up();
+          else btn.textContent=old||'下載 PNG';
+        }catch(e){ btn.textContent=old||'下載 PNG'; }
+      }
+    }
   }
 
   function hardRebindPngButtons(){
