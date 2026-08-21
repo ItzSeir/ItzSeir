@@ -4189,7 +4189,6 @@ Implement by adjusting polygon style functions:
         </h1>
 
         <p class="weatherDesc">
-          整合天氣觀測與中央氣象署警特報資料。颱風部分只保留「海上／陸上颱風警報」警戒標示，不顯示颱風路徑、暴風圈或預測資料。
         </p>
 
         <div class="heroActions">
@@ -4231,7 +4230,7 @@ Implement by adjusting polygon style functions:
             <div>
               <span class="warningPill"><span class="dot" style="background:#ef4444;"></span> 台灣</span>
               <h3>台灣天氣警報</h3>
-              <p>資料來源：中央氣象署 CWA CAP。颱風警報使用 W-C0034-001 CAP；只標示警戒區，不繪製颱風路徑。</p>
+              <p>資料來源：中央氣象署 CWA </p>
             </div>
 
             <div class="warningControls">
@@ -4943,7 +4942,7 @@ Implement by adjusting polygon style functions:
         return {
           id,
           name,
-          source:"CWA W-C0034-005 熱帶氣旋路徑",
+          source:"CWA",
           points
         };
       }).filter(t => t.points.length);
@@ -15401,13 +15400,12 @@ ${a.instruction}` : ''
     shell.className='trackGalleryShell';
     shell.innerHTML='\
       <div class="trackGalleryHead">\
-        <strong>自動生成颱風路徑圖集</strong>\
-        <span>每個颱風各一張＋西北太平洋全部颱風總覽</span>\
+        <strong>颱風路徑圖</strong>\
       </div>\
       <div class="trackGalleryBody">\
         <p class="trackGalleryNote">可右鍵另存圖片</p>\
         <section class="trackFigureBlock overview">\
-          <div class="trackFigureTitle"><strong>西北太平洋全部颱風路徑總覽</strong><span>西北太平洋全部颱風路徑</span></div>\
+          <div class="trackFigureTitle"><strong>西北太平洋颱風路徑總覽</strong></div>\
           <div id="trackOverviewHost"></div>\
         </section>\
         <section class="trackFigureBlock">\
@@ -15888,7 +15886,6 @@ ${a.instruction}` : ''
     const allPts = groups.flatMap(g=>sortPts(g.points || []));
     const frame=makeFigureFrame(
       '西北太平洋全部颱風路徑',
-      '專注西北太平洋範圍的全部颱風路徑總覽',
       `更新時間：${allPts.length ? fmtTime(allPts.map(p=>p.time).sort((a,b)=>tval(b)-tval(a))[0], true) : '—'}`,
       true,
       true,
