@@ -5364,6 +5364,51 @@ Implement by adjusting polygon style functions:
         return clamp((prev + r + next) / 3, 8, 350);
       });
 
+      function distanceKm(a, b){
+        const R = 6371;
+        const p1 = a.lat * Math.PI / 180;
+        const p2 = b.lat * Math.PI / 180;
+        const dLat = (b.lat - a.lat) * Math.PI / 180;
+        const dLon = (b.lon - a.lon) * Math.PI / 180;
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
+        return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+      }
+
+      function buildFallbackCircle(){
+        const base = [obs, ...fcst].map(p => ({ lat:Number(p.lat), lon:Number(p.lon) }));
+        const centerLat = base.reduce((s, p) => s + p.lat, 0) / base.length;
+        const centerLon = base.reduce((s, p) => s + p.lon, 0) / base.length;
+        let radiusKm = 0;
+
+        base.forEach((p, i) => {
+          const extra = i === 0 ? START_RADIUS : (smoothRadii[i - 1] || START_RADIUS);
+          radiusKm = Math.max(radiusKm, distanceKm({lat:centerLat, lon:centerLon}, p) + extra);
+        });
+
+        radiusKm = clamp(radiusKm * 1.02, 30, 420);
+
+        const poly = [];
+        for(let a = 0; a <= 360; a += 6){
+          const pt = destinationPoint(centerLat, centerLon, a % 360, kmToMeters(radiusKm));
+          poly.push([pt.lat, pt.lon]);
+        }
+        return poly;
+      }
+
+      let useFallbackCircle = false;
+      for(let i = 0; i < fcst.length - 1; i++){
+        const dKm = distanceKm(fcst[i], fcst[i + 1]);
+        const localR = Math.max(smoothRadii[i] || 0, smoothRadii[i + 1] || 0, 1);
+        if(dKm < localR * 0.72){
+          useFallbackCircle = true;
+          break;
+        }
+      }
+
+      if(useFallbackCircle){
+        return buildFallbackCircle();
+      }
+
       const path = [
         { lat: obs.lat, lon: obs.lon, rKm: START_RADIUS },
         ...fcst.map((p, i) => ({ lat:p.lat, lon:p.lon, rKm:smoothRadii[i] }))
@@ -5426,6 +5471,7 @@ Implement by adjusting polygon style functions:
     const timeLabels = [];
     const stormRings = [];
     const forecastErrorCircles = [];
+    const coordinateGridLayers = [];
     let forecastCone = null;
     let currentPulse = null;
     let latestObsIdxCurrent = 0;
@@ -5610,6 +5656,11 @@ Implement by adjusting polygon style functions:
     }
 
     function ensurePanes(){
+      if(!map.getPane("coordGridPane")){
+        map.createPane("coordGridPane");
+        map.getPane("coordGridPane").style.zIndex = 322;
+        map.getPane("coordGridPane").style.pointerEvents = "none";
+      }
       if(!map.getPane("countyBoundaryPane")){
         map.createPane("countyBoundaryPane");
         map.getPane("countyBoundaryPane").style.zIndex = 325;
@@ -6324,6 +6375,79 @@ Implement by adjusting polygon style functions:
       updateLabelLines();
     }
 
+    function niceCoordinateStep(span){
+      if(span <= 4) return 1;
+      if(span <= 8) return 2;
+      if(span <= 18) return 5;
+      if(span <= 40) return 10;
+      return 20;
+    }
+
+    function drawCoordinateGrid(){
+      if(!map || typeof L === "undefined") return;
+      clearLayerArr(coordinateGridLayers);
+
+      const b = map.getBounds();
+      if(!b || !b.isValid()) return;
+
+      let west = b.getWest();
+      let east = b.getEast();
+      const south = b.getSouth();
+      const north = b.getNorth();
+      if(!Number.isFinite(west) || !Number.isFinite(east) || !Number.isFinite(south) || !Number.isFinite(north)) return;
+      if(east < west) east += 360;
+
+      const lonStep = niceCoordinateStep(Math.abs(east - west));
+      const latStep = niceCoordinateStep(Math.abs(north - south));
+      const latPad = Math.max(0.18, Math.abs(north - south) * 0.045);
+      const lonPad = Math.max(0.18, Math.abs(east - west) * 0.03);
+      const lineStyle = {
+        pane:'coordGridPane',
+        color:'rgba(30,50,65,.28)',
+        weight:1,
+        opacity:1,
+        dashArray:'3 6',
+        interactive:false,
+        bubblingMouseEvents:false
+      };
+      const lonLabelHtml = val => `<div style="font:800 12px 'Noto Sans TC','Segoe UI',Arial,sans-serif;color:#29414f;text-shadow:0 1px 0 rgba(255,255,255,.92);white-space:nowrap;">${Math.abs(Math.round(val))}°</div>`;
+      const latLabelHtml = val => `<div style="font:800 12px 'Noto Sans TC','Segoe UI',Arial,sans-serif;color:#29414f;text-shadow:0 1px 0 rgba(255,255,255,.92);white-space:nowrap;">${Math.abs(Math.round(val))}°</div>`;
+
+      for(let lon = Math.ceil(west / lonStep) * lonStep; lon <= east + 1e-6; lon += lonStep){
+        const drawLon = ((lon + 540) % 360) - 180;
+        coordinateGridLayers.push(L.polyline([[south, drawLon], [north, drawLon]], lineStyle).addTo(map));
+        coordinateGridLayers.push(L.marker([south + latPad, drawLon], {
+          pane:'coordGridPane',
+          interactive:false,
+          keyboard:false,
+          zIndexOffset:-1000,
+          icon:L.divIcon({
+            className:'coord-grid-icon lon',
+            html:lonLabelHtml(drawLon),
+            iconSize:[42, 18],
+            iconAnchor:[21, 18]
+          })
+        }).addTo(map));
+      }
+
+      const drawWest = ((west + 540) % 360) - 180;
+      for(let lat = Math.ceil(south / latStep) * latStep; lat <= north + 1e-6; lat += latStep){
+        coordinateGridLayers.push(L.polyline([[lat, drawWest], [lat, ((east + 540) % 360) - 180]], lineStyle).addTo(map));
+        coordinateGridLayers.push(L.marker([lat, drawWest + lonPad], {
+          pane:'coordGridPane',
+          interactive:false,
+          keyboard:false,
+          zIndexOffset:-1000,
+          icon:L.divIcon({
+            className:'coord-grid-icon lat',
+            html:latLabelHtml(lat),
+            iconSize:[42, 18],
+            iconAnchor:[0, 9]
+          })
+        }).addTo(map));
+      }
+    }
+
     function fitAll(){
       if(fullBounds && fullBounds.isValid()){
         map.fitBounds(fullBounds, {
@@ -6336,6 +6460,7 @@ Implement by adjusting polygon style functions:
     function renderTyphoonLayers(options = {}){
       if(!map || !points || !points.length) return;
 
+      drawCoordinateGrid();
       drawForecastCone();
       drawForecastErrorCircles();
       drawSegments();
@@ -8195,8 +8320,12 @@ Implement by adjusting polygon style functions:
 
       map.on("move", scheduleUpdateLabelLines);
       map.on("zoom", scheduleUpdateLabelLines);
-      map.on("moveend", scheduleUpdateLabelLines);
+      map.on("moveend", () => {
+        scheduleUpdateLabelLines();
+        drawCoordinateGrid();
+      });
       map.on("zoomend", () => {
+        drawCoordinateGrid();
         drawForecastCone();
         drawForecastErrorCircles();
         drawStormRings();
@@ -13185,6 +13314,51 @@ ${a.instruction}` : ''
       return clamp((prev + (r || prev) + next) / 3, 8, 350);
     });
 
+    function distanceKm(a, b){
+      const R = 6371;
+      const p1 = a.lat * Math.PI / 180;
+      const p2 = b.lat * Math.PI / 180;
+      const dLat = (b.lat - a.lat) * Math.PI / 180;
+      const dLon = (b.lon - a.lon) * Math.PI / 180;
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+    }
+
+    function buildFallbackCircle(){
+      const base = [obs, ...fcst].map(p => ({ lat:Number(p.lat), lon:Number(p.lon) }));
+      const centerLat = base.reduce((s, p) => s + p.lat, 0) / base.length;
+      const centerLon = base.reduce((s, p) => s + p.lon, 0) / base.length;
+      let radiusKm = 0;
+
+      base.forEach((p, i) => {
+        const extra = i === 0 ? START_RADIUS : (smoothRadii[i - 1] || START_RADIUS);
+        radiusKm = Math.max(radiusKm, distanceKm({lat:centerLat, lon:centerLon}, p) + extra);
+      });
+
+      radiusKm = clamp(radiusKm * 1.02, 30, 420);
+
+      const poly = [];
+      for(let a = 0; a <= 360; a += 6){
+        const pt = W.destinationPoint(centerLat, centerLon, a % 360, (typeof W.kmToMeters === 'function' ? W.kmToMeters(radiusKm) : radiusKm * 1000));
+        poly.push([pt.lat, pt.lon]);
+      }
+      return poly;
+    }
+
+    let useFallbackCircle = false;
+    for(let i = 0; i < fcst.length - 1; i++){
+      const dKm = distanceKm(fcst[i], fcst[i + 1]);
+      const localR = Math.max(smoothRadii[i] || 0, smoothRadii[i + 1] || 0, 1);
+      if(dKm < localR * 0.72){
+        useFallbackCircle = true;
+        break;
+      }
+    }
+
+    if(useFallbackCircle){
+      return buildFallbackCircle();
+    }
+
     const path = [{lat:obs.lat, lon:obs.lon, rKm:START_RADIUS}].concat(fcst.map((p,i)=>({lat:p.lat, lon:p.lon, rKm:smoothRadii[i]})));
     function getHeading(i){
       if(i === 0) return W.bearingDegrees(path[0].lat, path[0].lon, path[1].lat, path[1].lon);
@@ -13670,6 +13844,69 @@ ${a.instruction}` : ''
     return {lon:((x1+x2)/2)*360-180, lat:imy((y1+y2)/2), zoom:z};
   }
   function projector(view,x,y,w,h){ const s=512*Math.pow(2,view.zoom), cx=mx(view.lon)*s, cy=my(view.lat)*s; return (lat,lon)=>({x:x+w/2+(mx(lon)*s-cx), y:y+h/2+(my(lat)*s-cy)}); }
+
+  function inverseProjectV10(view,x,y,w,h,px,py){
+    const s=512*Math.pow(2,view.zoom), cx=mx(view.lon)*s, cy=my(view.lat)*s;
+    return {
+      lon:((cx + (px-(x+w/2)))/s)*360 - 180,
+      lat:imy((cy + (py-(y+h/2)))/s)
+    };
+  }
+  function gridStepV10(span){
+    if(span<=4) return 1;
+    if(span<=8) return 2;
+    if(span<=18) return 5;
+    if(span<=40) return 10;
+    return 20;
+  }
+  function drawCanvasGridV10(ctx,view,x,y,w,h){
+    const tl=inverseProjectV10(view,x,y,w,h,x,y);
+    const br=inverseProjectV10(view,x,y,w,h,x+w,y+h);
+    let west=tl.lon, east=br.lon;
+    const north=tl.lat, south=br.lat;
+    if(![west,east,north,south].every(Number.isFinite)) return;
+    if(east<west) east+=360;
+
+    const lonStep=gridStepV10(Math.abs(east-west));
+    const latStep=gridStepV10(Math.abs(north-south));
+    const proj=projector(view,x,y,w,h);
+    const midLat=(north+south)/2;
+    const midLon=((west+east)/2+540)%360-180;
+
+    ctx.save();
+    ctx.strokeStyle='rgba(30,50,65,.28)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([4,7]);
+
+    for(let lon=Math.ceil(west/lonStep)*lonStep; lon<=east+1e-6; lon+=lonStep){
+      const drawLon=((lon+540)%360)-180;
+      const q=proj(midLat,drawLon);
+      ctx.beginPath(); ctx.moveTo(q.x,y); ctx.lineTo(q.x,y+h); ctx.stroke();
+    }
+    for(let lat=Math.ceil(south/latStep)*latStep; lat<=north+1e-6; lat+=latStep){
+      const q=proj(lat,midLon);
+      ctx.beginPath(); ctx.moveTo(x,q.y); ctx.lineTo(x+w,q.y); ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+    ctx.font='800 12px "Noto Sans TC","Segoe UI",Arial,sans-serif';
+    ctx.fillStyle='#29414f';
+
+    ctx.textAlign='center';
+    for(let lon=Math.ceil(west/lonStep)*lonStep; lon<=east+1e-6; lon+=lonStep){
+      const drawLon=((lon+540)%360)-180;
+      const q=proj(midLat,drawLon);
+      ctx.fillText(`${Math.abs(Math.round(drawLon))}°`,q.x,y+h-10);
+    }
+
+    ctx.textAlign='left';
+    for(let lat=Math.ceil(south/latStep)*latStep; lat<=north+1e-6; lat+=latStep){
+      const q=proj(lat,midLon);
+      ctx.fillText(`${Math.abs(Math.round(lat))}°`,x+8,q.y-6);
+    }
+    ctx.restore();
+  }
+
   async function drawStaticMap(ctx,view,x,y,w,h){
     let ok=false; const style=G('MAPBOX_STYLE',''), token=G('MAPBOX_TOKEN','');
     if(style && token){
@@ -14133,6 +14370,7 @@ ${a.instruction}` : ''
       rr(ctx,mapX,mapY,mapW,mapH,20);
       ctx.clip();
       await drawTiles(ctx,view,mapX,mapY,mapW,mapH);
+      drawCanvasGridV10(ctx,view,mapX,mapY,mapW,mapH);
       const proj=projector(view,mapX,mapY,mapW,mapH);
       const used=[], blocked=[], bounds={x:mapX,y:mapY,w:mapW,h:mapH};
 
@@ -14726,6 +14964,49 @@ ${a.instruction}` : ''
   function fitView(srcPoints,w,h,pad=88,maxZoom=10.5){ const pts=(srcPoints||[]).filter(p=>Number.isFinite(p?.lat)&&Number.isFinite(p?.lon)); if(!pts.length) return {lat:23.7,lon:121.5,zoom:5}; let minLat=Math.min(...pts.map(p=>p.lat)), maxLat=Math.max(...pts.map(p=>p.lat)), minLon=Math.min(...pts.map(p=>p.lon)), maxLon=Math.max(...pts.map(p=>p.lon)); if(maxLat-minLat<1.0){ minLat-=.5; maxLat+=.5; } if(maxLon-minLon<1.2){ minLon-=.6; maxLon+=.6; } const x1=mx(minLon),x2=mx(maxLon),y1=my(maxLat),y2=my(minLat),dx=Math.max(1e-5,x2-x1),dy=Math.max(1e-5,y2-y1); const z=clamp(Math.min(Math.log2((w-pad*2)/(512*dx)), Math.log2((h-pad*2)/(512*dy))),1,maxZoom); return {lon:((x1+x2)/2)*360-180, lat:imy((y1+y2)/2), zoom:z}; }
   function projector(view,x,y,w,h){ const s=512*Math.pow(2,view.zoom), cx=mx(view.lon)*s, cy=my(view.lat)*s; return (lat,lon)=>({x:x+w/2+(mx(lon)*s-cx), y:y+h/2+(my(lat)*s-cy)}); }
   async function drawStaticMap(ctx,view,x,y,w,h){ let ok=false; const style=G('MAPBOX_STYLE',''), token=G('MAPBOX_TOKEN',''); if(style && token){ try{ const url=`https://api.mapbox.com/styles/v1/${style}/static/${view.lon.toFixed(6)},${view.lat.toFixed(6)},${view.zoom.toFixed(2)},0/${Math.round(w)}x${Math.round(h)}@2x?access_token=${token}&logo=false&attribution=false`; const im=await loadImageSafe(url); if(im){ ctx.drawImage(im,x,y,w,h); ok=true; } }catch(e){} } if(!ok){ const bg=ctx.createLinearGradient(x,y,x,y+h); bg.addColorStop(0,'#dff2f7'); bg.addColorStop(1,'#eef8fb'); ctx.fillStyle=bg; ctx.fillRect(x,y,w,h); } }
+
+  function invertProject(view,x,y,w,h,px,py){ const s=512*Math.pow(2,view.zoom), cx=mx(view.lon)*s, cy=my(view.lat)*s; return { lon:((cx + (px - (x + w/2)))/s)*360 - 180, lat:imy((cy + (py - (y + h/2)))/s) }; }
+  function niceCanvasGridStep(span){ if(span<=4) return 1; if(span<=8) return 2; if(span<=18) return 5; if(span<=40) return 10; return 20; }
+  function drawCanvasGrid(ctx,view,x,y,w,h){
+    const tl=invertProject(view,x,y,w,h,x,y), br=invertProject(view,x,y,w,h,x+w,y+h);
+    let west=tl.lon, east=br.lon;
+    const north=tl.lat, south=br.lat;
+    if(!Number.isFinite(west)||!Number.isFinite(east)||!Number.isFinite(north)||!Number.isFinite(south)) return;
+    if(east<west) east+=360;
+    const lonStep=niceCanvasGridStep(Math.abs(east-west));
+    const latStep=niceCanvasGridStep(Math.abs(north-south));
+    const proj=projector(view,x,y,w,h);
+    const midLat=(north+south)/2, midLon=((west+east)/2+540)%360-180;
+    ctx.save();
+    ctx.strokeStyle='rgba(30,50,65,.28)';
+    ctx.lineWidth=1;
+    ctx.setLineDash([4,7]);
+    for(let lon=Math.ceil(west/lonStep)*lonStep; lon<=east+1e-6; lon+=lonStep){
+      const drawLon=((lon+540)%360)-180;
+      const q=proj(midLat, drawLon);
+      ctx.beginPath(); ctx.moveTo(q.x, y); ctx.lineTo(q.x, y+h); ctx.stroke();
+    }
+    for(let lat=Math.ceil(south/latStep)*latStep; lat<=north+1e-6; lat+=latStep){
+      const q=proj(lat, midLon);
+      ctx.beginPath(); ctx.moveTo(x, q.y); ctx.lineTo(x+w, q.y); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.font='800 12px "Noto Sans TC","Segoe UI",Arial,sans-serif';
+    ctx.fillStyle='#29414f';
+    ctx.textBaseline='alphabetic';
+    ctx.textAlign='center';
+    for(let lon=Math.ceil(west/lonStep)*lonStep; lon<=east+1e-6; lon+=lonStep){
+      const drawLon=((lon+540)%360)-180;
+      const q=proj(midLat, drawLon);
+      ctx.fillText(`${Math.abs(Math.round(drawLon))}°`, q.x, y+h-10);
+    }
+    ctx.textAlign='left';
+    for(let lat=Math.ceil(south/latStep)*latStep; lat<=north+1e-6; lat+=latStep){
+      const q=proj(lat, midLon);
+      ctx.fillText(`${Math.abs(Math.round(lat))}°`, x+8, q.y-6);
+    }
+    ctx.restore();
+  }
   function warningEntries(){ const src = Array.isArray(G('__twAllCapAlerts', null)) ? G('__twAllCapAlerts', []) : (Array.isArray(G('__twCapAlerts', null)) ? G('__twCapAlerts', []) : []); const aa = src.filter(a=>a && (a.kind==='typhoon' || /颱風|熱帶性低氣壓|熱帶低氣壓/.test(`${a.datasetName||''} ${a.event||''} ${a.headline||''}`))); const out=[], seen=new Set(); aa.forEach(a=>{ const hay=`${a?.headline||''} ${a?.event||''} ${a?.description||''}`; let title='颱風警報'; if(/海上.*陸上|陸上.*海上/.test(hay)) title='海上陸上颱風警報'; else if(/陸上/.test(hay)) title='陸上颱風警報'; else if(/海上/.test(hay)) title='海上颱風警報'; let areas=[]; try{ const fn=G('twAreaAlertAreas',null); if(typeof fn==='function') areas=fn(a)||[]; }catch(e){} if(!areas.length && Array.isArray(a.areaNames)) areas=a.areaNames; const areaText=areas.length ? areas.slice(0,8).join('、') + (areas.length>8 ? ` 等 ${areas.length} 區` : '') : '依最新警報公告區域'; let color=a?.color||'#ff8a00'; try{ const fn=G('twAreaAlertColor',null); if(typeof fn==='function') color=fn(a)||color; }catch(e){} const key=`${title}|${areaText}`; if(seen.has(key)) return; seen.add(key); out.push({title,areaText,color}); }); return out; }
   function drawWarningOverlay(ctx,proj){ try{ const county=G('typhoonWarningCountyData',null), town=G('typhoonWarningTownData',null); const alerts=warningEntries(); if(!alerts.length) return; const bestFn=G('twAreaBestAlertForFeature',null), colorFn=G('twAreaAlertColor',null); const drawGeo=(geo,mode)=>{ const features=geo?.type==='FeatureCollection'?geo.features:[geo]; features.filter(Boolean).forEach(f=>{ let alert=null; try{ if(typeof bestFn==='function'){ const old=window.__twCapAlerts; window.__twCapAlerts=(Array.isArray(G('__twAllCapAlerts',null))?G('__twAllCapAlerts',[]):Array.isArray(G('__twCapAlerts',null))?G('__twCapAlerts',[]):[]).filter(a=>a && (a.kind==='typhoon'||/颱風|熱帶性低氣壓|熱帶低氣壓/.test(`${a.datasetName||''} ${a.event||''} ${a.headline||''}`))); alert=bestFn(f,mode); window.__twCapAlerts=old; } }catch(e){} if(!alert) return; let color=alert.color||'#ff8a00'; try{ if(typeof colorFn==='function') color=colorFn(alert)||color; }catch(e){} let rings=[]; const g=f.geometry; if(g?.type==='Polygon') rings=g.coordinates||[]; else if(g?.type==='MultiPolygon') rings=(g.coordinates||[]).flat(); rings.forEach(r=>{ if(!Array.isArray(r)||r.length<3) return; ctx.save(); ctx.beginPath(); let started=false; r.forEach(co=>{ const q=proj(Number(co[1]),Number(co[0])); if(!started){ctx.moveTo(q.x,q.y); started=true;} else ctx.lineTo(q.x,q.y); }); ctx.closePath(); ctx.fillStyle=rgba(color, mode==='town'?.34:.18); ctx.fill('evenodd'); ctx.strokeStyle='rgba(0,0,0,.88)'; ctx.lineWidth=mode==='town'?1.1:1.55; ctx.stroke(); ctx.restore(); }); }); }; if(county) drawGeo(county,'county'); if(town) drawGeo(town,'town'); }catch(e){} }
   function drawCone(ctx,pts,proj){ const fn=G('buildForecastConePolygonSmooth',null); const poly=typeof fn==='function'?fn(pts):null; if(!poly||poly.length<4) return null; ctx.save(); ctx.beginPath(); poly.forEach(([la,lo],i)=>{ const q=proj(la,lo); if(i===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y); }); ctx.closePath(); ctx.fillStyle='rgba(96,165,250,.16)'; ctx.fill(); ctx.strokeStyle='rgba(96,165,250,.84)'; ctx.lineWidth=1.8; ctx.stroke(); ctx.restore(); return poly.map(([lat,lon])=>({lat,lon})); }
@@ -14770,7 +15051,7 @@ ${a.instruction}` : ''
       const panelY=330,panelH=620; panel(ctx,leftX,panelY,leftW,panelH,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'颱風警報圖',leftX+20,panelY+36,{size:16,weight:900}); text(ctx,'藍色區域為 70% 預報誤差範圍',leftX+leftW-20,panelY+36,{size:12,weight:900,color:'#617785',align:'right'});
       const warningTop=164; const warningH=drawWarningPanel(ctx,rightX,warningTop,rightW,warn); const forecastY=warningTop+warningH+12; const forecastH=950-forecastY; drawForecastCardsComfort(ctx,rightX,forecastY,rightW,forecastH,fc);
       const mapX=leftX+16,mapY=panelY+58,mapW=leftW-32,mapH=panelH-136, view=fitView(focusFit.length?focusFit:pts,mapW,mapH,82,11.5);
-      ctx.save(); rr(ctx,mapX,mapY,mapW,mapH,20); ctx.clip(); await drawStaticMap(ctx,view,mapX,mapY,mapW,mapH); const proj=projector(view,mapX,mapY,mapW,mapH); drawWarningOverlay(ctx,proj); drawCone(ctx,pts,proj); drawRoute(ctx,pts,proj); const bounds={x:mapX,y:mapY,w:mapW,h:mapH}, used=[], blocked=routeBoxes(pts,proj), latestQ=proj(latest.lat,latest.lon), name=stripCwa(latest.typhoonName||'颱風'); ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const nameW=pillWidth(ctx,name,60,34,220), nameH=30; const nameBox=pickLabel([{x:latestQ.x+18,y:latestQ.y-42},{x:latestQ.x-nameW-18,y:latestQ.y-42},{x:latestQ.x+18,y:latestQ.y+16},{x:latestQ.x-nameW-18,y:latestQ.y+16},{x:latestQ.x-nameW/2,y:latestQ.y-58}],bounds,nameW,nameH,used,[]); pill(ctx,nameBox,name,stormStyle.color,latestQ); used.push(nameBox); forecastLabels(pts,4).forEach(p=>{ const q=proj(p.lat,p.lon), st=levelInfo(p.level), v=fmtTime(p.time,'short'); ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const w=pillWidth(ctx,v,72,34,150), h=30; const b=pickLabel([{x:q.x+22,y:q.y-48},{x:q.x-w-22,y:q.y-48},{x:q.x+22,y:q.y+18},{x:q.x-w-22,y:q.y+18},{x:q.x-w/2,y:q.y-60}],bounds,w,h,used,blocked); pill(ctx,b,v,st.color,q); used.push(b); }); ctx.restore();
+      ctx.save(); rr(ctx,mapX,mapY,mapW,mapH,20); ctx.clip(); await drawStaticMap(ctx,view,mapX,mapY,mapW,mapH); drawCanvasGrid(ctx,view,mapX,mapY,mapW,mapH); const proj=projector(view,mapX,mapY,mapW,mapH); drawWarningOverlay(ctx,proj); drawCone(ctx,pts,proj); drawRoute(ctx,pts,proj); const bounds={x:mapX,y:mapY,w:mapW,h:mapH}, used=[], blocked=routeBoxes(pts,proj), latestQ=proj(latest.lat,latest.lon), name=stripCwa(latest.typhoonName||'颱風'); ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const nameW=pillWidth(ctx,name,60,34,220), nameH=30; const nameBox=pickLabel([{x:latestQ.x+18,y:latestQ.y-42},{x:latestQ.x-nameW-18,y:latestQ.y-42},{x:latestQ.x+18,y:latestQ.y+16},{x:latestQ.x-nameW-18,y:latestQ.y+16},{x:latestQ.x-nameW/2,y:latestQ.y-58}],bounds,nameW,nameH,used,[]); pill(ctx,nameBox,name,stormStyle.color,latestQ); used.push(nameBox); forecastLabels(pts,4).forEach(p=>{ const q=proj(p.lat,p.lon), st=levelInfo(p.level), v=fmtTime(p.time,'short'); ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const w=pillWidth(ctx,v,72,34,150), h=30; const b=pickLabel([{x:q.x+22,y:q.y-48},{x:q.x-w-22,y:q.y-48},{x:q.x+22,y:q.y+18},{x:q.x-w-22,y:q.y+18},{x:q.x-w/2,y:q.y-60}],bounds,w,h,used,blocked); pill(ctx,b,v,st.color,q); used.push(b); }); ctx.restore();
       const ly=mapY+mapH+8; panel(ctx,mapX,ly,mapW,52,16,'rgba(255,255,255,.94)','rgba(25,42,58,.13)'); text(ctx,'圖例',mapX+16,ly+31,{size:13,weight:900,color:'#0f4c5c'}); let xx=mapX+74, yy=ly+27; ctx.lineCap='round'; ctx.lineWidth=4; ctx.strokeStyle='#6b7280'; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+34,yy); ctx.stroke(); text(ctx,'歷史',xx+44,yy+5,{size:12,weight:900,color:'#617785'}); xx+=96; ctx.strokeStyle='#22c55e'; ctx.setLineDash([8,7]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+34,yy); ctx.stroke(); ctx.setLineDash([]); text(ctx,'預報',xx+44,yy+5,{size:12,weight:900,color:'#617785'}); xx+=102; panel(ctx,xx,yy-10,30,18,9,'rgba(96,165,250,.22)','rgba(96,165,250,.48)'); text(ctx,'70% 預測誤差範圍',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=174; [['LOW','低壓'],['TD','熱低'],['TS','輕颱'],['TY','中颱'],['STY','強颱']].forEach(([k,l])=>{ const s=levelInfo(k); ctx.beginPath(); ctx.arc(xx,yy,5,0,Math.PI*2); ctx.fillStyle=s.color; ctx.fill(); text(ctx,l,xx+12,yy+5,{size:12,weight:900}); xx+=66; }); text(ctx,`資料來源：${meta.source||'—'}`,width-36,988,{size:13,weight:900,color:'#617785',align:'right'});
       downloadDataUrl(`${name || '颱風'}_${fmtTime(latest.time || Date.now(),'stamp')}.png`, cv.toDataURL('image/png'));
     }catch(e){ console.error(e); alert('PNG 產生失敗，請重新整理後再試。'); }
@@ -14781,6 +15062,1650 @@ ${a.instruction}` : ''
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply, {once:true}); else apply();
 })();
 
+</script>
+
+<!-- ===== v18: clean forecast cone + DOM/SVG basemap figures ===== -->
+<style>
+  .trackGalleryShell{
+    margin-top:18px;
+    border:1px solid var(--line);
+    border-radius:28px;
+    background:rgba(255,255,255,.90);
+    box-shadow:0 12px 28px rgba(31,53,72,.08);
+    overflow:hidden;
+  }
+  .trackGalleryHead{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 16px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(135deg,rgba(249,252,252,.96),rgba(231,242,243,.78));
+  }
+  .trackGalleryHead strong{font-size:13px;font-weight:900;color:#122c3c}
+  .trackGalleryHead span{font-size:11px;font-weight:800;color:#6a7d89}
+  .trackGalleryBody{padding:14px;background:#f8fbfc}
+  .trackGalleryNote{margin:0 0 14px;color:#6a7d89;font-size:12px;font-weight:800;line-height:1.7}
+  .trackFigureBlock + .trackFigureBlock{margin-top:16px}
+  .trackFigureTitle{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 10px}
+  .trackFigureTitle strong{font-size:15px;font-weight:900;color:#122c3c}
+  .trackFigureTitle span{font-size:11px;font-weight:800;color:#6a7d89}
+  .trackCardGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .trackFigureCard{display:flex;flex-direction:column;gap:10px}
+  .trackMapFrame{
+    border:1px solid var(--line);
+    border-radius:22px;
+    background:#fff;
+    box-shadow:0 8px 20px rgba(31,53,72,.05);
+    overflow:hidden;
+  }
+  .trackMapMeta{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px 14px 10px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(135deg,rgba(249,252,252,.96),rgba(231,242,243,.55));
+  }
+  .trackMapMeta h4{margin:0;color:#0f2230;font-size:15px;font-weight:900;line-height:1.25}
+  .trackMapMeta p{margin:6px 0 0;color:#6a7d89;font-size:11px;font-weight:800}
+  .trackMapMeta .right{text-align:right;color:#33424c;font-size:11px;font-weight:900;line-height:1.65}
+  .trackPlot{
+    position:relative;
+    height:520px;
+    background:linear-gradient(180deg,#dfeef4 0%, #eef8fb 100%);
+    overflow:hidden;
+  }
+  .trackPlot.overview{height:540px}
+  .trackTileLayer,.trackSvgLayer,.trackFallbackLabel{position:absolute;inset:0}
+  .trackTileLayer{overflow:hidden;z-index:1}
+  .trackTileLayer img{position:absolute;width:256px;height:256px;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none}
+  .trackTileFallback{
+    position:absolute;inset:0;z-index:0;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(255,255,255,.35), transparent 26%),
+      radial-gradient(circle at 84% 18%, rgba(255,255,255,.24), transparent 22%),
+      linear-gradient(180deg,#dceef4 0%,#edf7fb 100%);
+  }
+  .trackFallbackLabel{
+    z-index:2;
+    display:none;
+    align-items:flex-end;
+    justify-content:flex-end;
+    padding:10px 12px;
+    pointer-events:none;
+    color:#6a7d89;
+    font-size:11px;
+    font-weight:900;
+    text-shadow:0 1px 0 rgba(255,255,255,.9);
+  }
+  .trackSvgLayer{z-index:3;overflow:visible}
+  .trackLegendBar{
+    padding:10px 14px;
+    border-top:1px solid var(--line);
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 16px;
+    align-items:center;
+    background:#fff;
+  }
+  .trackLegendItem{display:inline-flex;align-items:center;gap:8px;color:#4d6673;font-size:11px;font-weight:900}
+  .trackLegendLine{width:24px;height:0;border-top:3px solid #22323c;border-radius:999px}
+  .trackLegendLine.fcst{border-top-color:#355c9a;border-top-style:dashed}
+  .trackLegendBox{width:20px;height:12px;border-radius:4px;background:rgba(96,165,250,.20);border:1px solid rgba(67,139,225,.85)}
+  .trackLegendDot{width:10px;height:10px;border-radius:999px;display:inline-block}
+  .trackMiniLegend{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+  @media(max-width:1100px){
+    .trackCardGrid{grid-template-columns:1fr}
+  }
+  @media(max-width:780px){
+    .trackGalleryHead,.trackFigureTitle,.trackMapMeta{align-items:flex-start;flex-direction:column}
+    .trackGalleryBody{padding:10px}
+    .trackPlot,.trackPlot.overview{height:400px}
+    .trackMapMeta .right{text-align:left}
+    .trackLegendBar{gap:8px 12px}
+  }
+</style>
+<script>
+(function(){
+  'use strict';
+  const W = window;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const toRad=d=>d*Math.PI/180;
+  const toDeg=r=>r*180/Math.PI;
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const stripCwa = s => String(s || '').replace(/^\s*CWA\s*[｜|]\s*/i, '').trim();
+  const slugify = s => String(s || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g,'-').replace(/^-+|-+$/g,'') || 'typhoon';
+  const tval = t => { const n = Date.parse(t || ''); return Number.isFinite(n) ? n : 0; };
+  const basinColors=['#1d4ed8','#0f766e','#7c3aed','#dc2626','#ea580c','#0891b2','#9333ea','#15803d','#be123c','#4f46e5'];
+
+  function getGlobal(name,fallback){
+    try{ const v=Function('return (typeof '+name+'!=="undefined")?'+name+':undefined')(); return typeof v==='undefined'?fallback:v; }
+    catch(e){ return typeof W[name] !== 'undefined' ? W[name] : fallback; }
+  }
+  function sortPts(arr){
+    return (arr||[])
+      .filter(p=>Number.isFinite(Number(p?.lat))&&Number.isFinite(Number(p?.lon)))
+      .map(p=>({...p, lat:Number(p.lat), lon:Number(p.lon)}))
+      .slice()
+      .sort((a,b)=>tval(a.time)-tval(b.time));
+  }
+  function latestObs(arr){
+    const s = sortPts(arr);
+    for(let i=s.length-1;i>=0;i--) if(s[i].kind === 'obs') return s[i];
+    return s[s.length-1] || null;
+  }
+  function levelColor(level){
+    const s=String(level||'').toUpperCase();
+    if(s==='LOW') return '#94a3b8';
+    if(s==='TD') return '#4f6db8';
+    if(s==='TS'||s==='STS') return '#22c55e';
+    if(s==='TY') return '#f59e0b';
+    if(s==='STY') return '#ef4444';
+    return '#4f6db8';
+  }
+  function fmtTime(t, withYear=false){
+    const d=new Date(t || Date.now());
+    if(!Number.isFinite(d.getTime())) return '—';
+    const y=d.getFullYear(), M=String(d.getMonth()+1).padStart(2,'0'), D=String(d.getDate()).padStart(2,'0'), h=String(d.getHours()).padStart(2,'0'), m=String(d.getMinutes()).padStart(2,'0');
+    return withYear ? `${y}-${M}-${D} ${h}:${m}` : `${M}/${D} ${h}:${m}`;
+  }
+  function fmtWindMetric(v){
+    const n=Number(v);
+    if(!Number.isFinite(n)) return '—';
+    let ms, kmh;
+    if(n > 120){
+      ms = n * 0.514444;
+      kmh = n * 1.852;
+    }else{
+      ms = n;
+      kmh = n * 3.6;
+    }
+    return `${Math.round(ms)} m/s · ${Math.round(kmh)} km/h`;
+  }
+  function fmtPressure(v){ const n=Number(v); return Number.isFinite(n) ? `${Math.round(n)} hPa` : '—'; }
+
+  function bearing(lat1,lon1,lat2,lon2){
+    const p1=toRad(lat1),p2=toRad(lat2),dl=toRad(lon2-lon1);
+    const y=Math.sin(dl)*Math.cos(p2);
+    const x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl);
+    return (toDeg(Math.atan2(y,x))+360)%360;
+  }
+  function dest(lat,lon,bearingDeg,km){
+    const R=6371, d=km/R, t=toRad(bearingDeg), p1=toRad(lat), l1=toRad(lon);
+    const p2=Math.asin(Math.sin(p1)*Math.cos(d)+Math.cos(p1)*Math.sin(d)*Math.cos(t));
+    const l2=l1+Math.atan2(Math.sin(t)*Math.sin(d)*Math.cos(p1),Math.cos(d)-Math.sin(p1)*Math.sin(p2));
+    return [toDeg(p2),((toDeg(l2)+540)%360)-180];
+  }
+  function hull(points){
+    if(points.length<4) return points;
+    const pts=points.map(p=>({lat:p[0],lon:p[1]}));
+    const lat0=pts.reduce((a,p)=>a+p.lat,0)/pts.length, c=Math.cos(toRad(lat0));
+    const xy=pts.map((p,i)=>({x:p.lon*c,y:p.lat,i})).sort((a,b)=>a.x===b.x?a.y-b.y:a.x-b.x);
+    const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+    const lo=[]; for(const p of xy){ while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],p)<=0) lo.pop(); lo.push(p); }
+    const up=[]; for(let i=xy.length-1;i>=0;i--){ const p=xy[i]; while(up.length>=2&&cross(up[up.length-2],up[up.length-1],p)<=0) up.pop(); up.push(p); }
+    const out=lo.slice(0,-1).concat(up.slice(0,-1));
+    return out.map(q=>[q.y,q.x/c]);
+  }
+  function avgBearingDeg(a,b){
+    const ax=Math.sin(toRad(a)), ay=Math.cos(toRad(a));
+    const bx=Math.sin(toRad(b)), by=Math.cos(toRad(b));
+    const x=ax+bx, y=ay+by;
+    if(Math.abs(x)<1e-9 && Math.abs(y)<1e-9) return a;
+    return (toDeg(Math.atan2(x,y))+360)%360;
+  }
+  function planarProject(lat0){
+    const c=Math.max(.15, Math.cos(toRad(lat0)));
+    return { f:(lat,lon)=>({x:lon*c,y:lat}), i:p=>({lat:p.y,lon:p.x/c}) };
+  }
+  function segIntersection(a,b,c,d){
+    const den=(a.x-b.x)*(c.y-d.y)-(a.y-b.y)*(c.x-d.x);
+    if(Math.abs(den)<1e-12) return null;
+    const t=((a.x-c.x)*(c.y-d.y)-(a.y-c.y)*(c.x-d.x))/den;
+    const u=((a.x-c.x)*(a.y-b.y)-(a.y-c.y)*(a.x-b.x))/den;
+    if(t<=1e-5||t>=1-1e-5||u<=1e-5||u>=1-1e-5) return null;
+    return {x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)};
+  }
+  function repairSideLoops(side){
+    let pts=(side||[]).slice();
+    for(let pass=0;pass<8;pass++){
+      if(pts.length<4) break;
+      const lat0=pts.reduce((s,p)=>s+p[0],0)/pts.length;
+      const pj=planarProject(lat0), xy=pts.map(p=>pj.f(p[0],p[1]));
+      let fixed=false;
+      for(let i=0;i<xy.length-3&&!fixed;i++){
+        for(let j=i+2;j<xy.length-1&&!fixed;j++){
+          const hit=segIntersection(xy[i],xy[i+1],xy[j],xy[j+1]);
+          if(hit){
+            const ll=pj.i(hit);
+            pts=pts.slice(0,i+1).concat([[ll.lat,ll.lon]],pts.slice(j+1));
+            fixed=true;
+          }
+        }
+      }
+      if(!fixed) break;
+    }
+    return pts;
+  }
+  function buildCleanForecastCone(srcPoints){
+    const list=(srcPoints||[]).filter(p=>Number.isFinite(Number(p?.lat))&&Number.isFinite(Number(p?.lon))).map(p=>({...p,lat:Number(p.lat),lon:Number(p.lon)}));
+    const fc=list.filter(p=>p.kind==='fcst');
+    const obs=list.filter(p=>p.kind==='obs').slice(-1)[0]||list[0];
+    if(!obs||fc.length<1) return null;
+
+    function distKm(a,b){
+      const R=6371, p1=toRad(a.lat), p2=toRad(b.lat), d1=toRad(b.lat-a.lat), d2=toRad(b.lon-a.lon);
+      const h=Math.sin(d1/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(d2/2)**2;
+      return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+    }
+    function circlePoly(clat,clon,rkm,steps=56){
+      const poly=[];
+      for(let i=0;i<=steps;i++) poly.push(dest(clat,clon,(360*i/steps)%360,rkm));
+      return poly;
+    }
+    function llToXY(side){
+      const lat0=side.reduce((s,p)=>s+p[0],0)/side.length;
+      const lon0=side.reduce((s,p)=>s+p[1],0)/side.length;
+      const ky=110.574, kx=111.320*Math.max(.20,Math.cos(toRad(lat0)));
+      return {lat0,lon0,kx,ky,pts:side.map(p=>({x:(p[1]-lon0)*kx,y:(p[0]-lat0)*ky}))};
+    }
+    function segIntersection(a,b,c,d){
+      const rx=b.x-a.x, ry=b.y-a.y, sx=d.x-c.x, sy=d.y-c.y, den=rx*sy-ry*sx;
+      if(Math.abs(den)<1e-9) return null;
+      const qx=c.x-a.x, qy=c.y-a.y;
+      const t=(qx*sy-qy*sx)/den, u=(qx*ry-qy*rx)/den;
+      if(t>1e-5&&t<1-1e-5&&u>1e-5&&u<1-1e-5) return {x:a.x+t*rx,y:a.y+t*ry};
+      return null;
+    }
+    function repairOpenSide(side){
+      if(!Array.isArray(side)||side.length<4) return side;
+      const cv=llToXY(side); let pts=cv.pts.slice(); let changed=true, guard=0;
+      while(changed&&guard++<12){
+        changed=false;
+        outer: for(let i=0;i<pts.length-3;i++){
+          for(let j=i+2;j<pts.length-1;j++){
+            const hit=segIntersection(pts[i],pts[i+1],pts[j],pts[j+1]);
+            if(!hit) continue;
+            pts=[...pts.slice(0,i+1), hit, ...pts.slice(j+1)];
+            changed=true; break outer;
+          }
+        }
+      }
+      return pts.map(p=>[cv.lat0+p.y/cv.ky, cv.lon0+p.x/cv.kx]);
+    }
+
+    const rawRadii=fc.map(p=>clamp(Number(p.fcst_radius_km||0)||0,0,350));
+    const firstForecastRadius=rawRadii[0]||30;
+    const START_RADIUS=clamp(firstForecastRadius*.38,12,120);
+    const smoothRadii=rawRadii.map((r,i)=>{
+      if(i===0) return clamp((START_RADIUS+r)/2,8,350);
+      const prev=rawRadii[i-1];
+      const next=rawRadii[i+1] ?? r;
+      return clamp((prev+r+next)/3,8,350);
+    });
+
+    let useCircle = fc.length<=2;
+    if(!useCircle){
+      for(let i=0;i<fc.length-1;i++){
+        const d=distKm(fc[i],fc[i+1]);
+        const r1=smoothRadii[i]||30, r2=smoothRadii[i+1]||r1;
+        if(d < Math.max(r1,r2)*0.7){ useCircle = true; break; }
+      }
+    }
+    if(useCircle){
+      const base=[obs,...fc];
+      const cLat=base.reduce((s,p)=>s+p.lat,0)/base.length;
+      const cLon=base.reduce((s,p)=>s+p.lon,0)/base.length;
+      let r=0;
+      base.forEach((p,i)=>{
+        const extra=i===0?START_RADIUS:(smoothRadii[i-1]||START_RADIUS);
+        r=Math.max(r, distKm({lat:cLat,lon:cLon}, p)+extra);
+      });
+      return circlePoly(cLat,cLon,clamp(r*1.02,30,420),64);
+    }
+
+    const path=[{lat:obs.lat,lon:obs.lon,rKm:START_RADIUS}, ...fc.map((p,i)=>({lat:p.lat,lon:p.lon,rKm:smoothRadii[i]}))];
+    function heading(i){
+      if(i===0) return bearing(path[0].lat,path[0].lon,path[1].lat,path[1].lon);
+      if(i===path.length-1) return bearing(path[i-1].lat,path[i-1].lon,path[i].lat,path[i].lon);
+      const a=bearing(path[i-1].lat,path[i-1].lon,path[i].lat,path[i].lon);
+      const b=bearing(path[i].lat,path[i].lon,path[i+1].lat,path[i+1].lon);
+      return ((Math.atan2(Math.sin(toRad(a))+Math.sin(toRad(b)), Math.cos(toRad(a))+Math.cos(toRad(b))) * 180/Math.PI)+360)%360;
+    }
+    let left=[], right=[];
+    for(let i=0;i<path.length;i++){
+      const p=path[i], h=heading(i);
+      left.push(dest(p.lat,p.lon,(h-90+360)%360,p.rKm));
+      right.push(dest(p.lat,p.lon,(h+90)%360,p.rKm));
+    }
+    left=repairOpenSide(left);
+    right=repairOpenSide(right);
+    const start=path[0], sh=heading(0), startArc=[];
+    for(let a=90;a<=270;a+=8) startArc.push(dest(start.lat,start.lon,(sh+a+360)%360,start.rKm));
+    const end=path[path.length-1], eh=heading(path.length-1), endArc=[];
+    for(let a=-90;a<=90;a+=4) endArc.push(dest(end.lat,end.lon,(eh+a+360)%360,end.rKm));
+    return [...startArc, ...left.slice(1), ...endArc, ...right.slice(1).reverse(), startArc[0]];
+  }
+  W.buildForecastConePolygonSmooth = buildCleanForecastCone;
+  try{ buildForecastConePolygonSmooth = buildCleanForecastCone; }catch(e){}
+
+  function ensureGallery(){
+    if(document.getElementById('trackGalleryShell')) return;
+    const grid=document.querySelector('.typhoonMainGrid');
+    if(!grid) return;
+    const shell=document.createElement('div');
+    shell.id='trackGalleryShell';
+    shell.className='trackGalleryShell';
+    shell.innerHTML='\
+      <div class="trackGalleryHead">\
+        <strong>自動生成颱風路徑圖集</strong>\
+        <span>每個颱風各一張＋西北太平洋全部颱風總覽</span>\
+      </div>\
+      <div class="trackGalleryBody">\
+        <p class="trackGalleryNote">可右鍵另存圖片</p>\
+        <section class="trackFigureBlock overview">\
+          <div class="trackFigureTitle"><strong>西北太平洋全部颱風路徑總覽</strong><span>西北太平洋全部颱風路徑</span></div>\
+          <div id="trackOverviewHost"></div>\
+        </section>\
+        <section class="trackFigureBlock">\
+          <div class="trackFigureTitle"><strong>各颱風個別路徑圖</strong><span>每個颱風各自一張路徑圖</span></div>\
+          <div id="trackCardGrid" class="trackCardGrid"></div>\
+        </section>\
+      </div>';
+    grid.insertAdjacentElement('afterend', shell);
+  }
+
+  function getTyphoonGroups(){
+    const all = getGlobal('allTyphoons', []);
+    const groups = Array.isArray(all) ? all : [];
+    const out = groups.map((g,idx)=>({
+      id:String(g?.id || g?.typhoonId || g?.name || ('typhoon-'+idx)),
+      slug:slugify(g?.id || g?.typhoonId || g?.name || ('typhoon-'+idx)),
+      name:stripCwa(g?.name || g?.title || g?.typhoonName || '颱風'),
+      points:sortPts(g?.points || [])
+    })).filter(g=>g.points.length);
+    if(out.length) return out;
+    const current = sortPts(getGlobal('points',[]) || []);
+    if(current.length) return [{id:'current', slug:'current', name:stripCwa(current[0]?.typhoonName || current[0]?.name || '颱風'), points:current}];
+    return [];
+  }
+
+  function mx(lon){ return (lon+180)/360; }
+  function my(lat){ const s=Math.sin(toRad(clamp(lat,-85,85))); return .5-Math.log((1+s)/(1-s))/(4*Math.PI); }
+  function imy(y){ const n=Math.PI-2*Math.PI*y; return 180/Math.PI*Math.atan(.5*(Math.exp(n)-Math.exp(-n))); }
+  function fitView(pts,w,h,pad=88,maxZoom=9.2){
+    if(!pts.length) return {lat:21,lon:121,zoom:5.4};
+    let minLat=Math.min(...pts.map(p=>p.lat)), maxLat=Math.max(...pts.map(p=>p.lat)), minLon=Math.min(...pts.map(p=>p.lon)), maxLon=Math.max(...pts.map(p=>p.lon));
+    if(maxLat-minLat<4){ const d=(4-(maxLat-minLat))/2; minLat-=d; maxLat+=d; }
+    if(maxLon-minLon<6){ const d=(6-(maxLon-minLon))/2; minLon-=d; maxLon+=d; }
+    minLat = clamp(minLat-0.8,-5,50); maxLat = clamp(maxLat+0.8,-5,50); minLon = clamp(minLon-1.0,95,185); maxLon = clamp(maxLon+1.0,95,185);
+    const x1=mx(minLon), x2=mx(maxLon), y1=my(maxLat), y2=my(minLat), dx=Math.max(1e-6,x2-x1), dy=Math.max(1e-6,y2-y1);
+    const z=clamp(Math.min(Math.log2((w-pad*2)/(256*dx)), Math.log2((h-pad*2)/(256*dy))),1,maxZoom);
+    return {lon:(x1+x2)/2*360-180, lat:imy((y1+y2)/2), zoom:z};
+  }
+  function fixedViewNWPacific(w,h){
+    const minLat=0, maxLat=45, minLon=100, maxLon=180;
+    const pad=Math.max(28,Math.min(52,Math.round(Math.min(w,h)*0.065)));
+    const x1=mx(minLon), x2=mx(maxLon), y1=my(maxLat), y2=my(minLat);
+    const dx=Math.max(1e-6,x2-x1), dy=Math.max(1e-6,y2-y1);
+    const z=Math.min(
+      Math.log2(Math.max(1,w-pad*2)/(256*dx)),
+      Math.log2(Math.max(1,h-pad*2)/(256*dy))
+    );
+    return {
+      lon:(x1+x2)/2*360-180,
+      lat:imy((y1+y2)/2),
+      zoom:clamp(z,1,6.8)
+    };
+  }
+  function projector(view,w,h){
+    const s=256*Math.pow(2,view.zoom), cx=mx(view.lon)*s, cy=my(view.lat)*s;
+    return (lat,lon)=>({x:w/2+(mx(lon)*s-cx), y:h/2+(my(lat)*s-cy)});
+  }
+  function invProject(view,w,h,px,py){
+    const s=256*Math.pow(2,view.zoom), cx=mx(view.lon)*s, cy=my(view.lat)*s;
+    const xx=(cx+(px-w/2))/s, yy=(cy+(py-h/2))/s;
+    return {lon:xx*360-180, lat:imy(yy)};
+  }
+  function svgEl(name, attrs={}){
+    const el = document.createElementNS('http://www.w3.org/2000/svg', name);
+    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k, String(v)));
+    return el;
+  }
+
+  function mapboxTileUrl(z,x,y){
+    const style=getGlobal('MAPBOX_STYLE',''), token=getGlobal('MAPBOX_TOKEN','');
+    if(!style || !token) return '';
+    return `https://api.mapbox.com/styles/v1/${style}/tiles/256/${z}/${x}/${y}@2x?access_token=${token}`;
+  }
+  function populateTiles(tileLayer, view, width, height){
+    tileLayer.innerHTML='';
+    const fallback = tileLayer.parentElement.querySelector('.trackFallbackLabel');
+    if(fallback) fallback.style.display='none';
+
+    const style=getGlobal('MAPBOX_STYLE',''), token=getGlobal('MAPBOX_TOKEN','');
+    if(!style || !token){
+      if(fallback) fallback.style.display='flex';
+      return;
+    }
+
+    const tileZ=clamp(Math.floor(view.zoom),1,8);
+    const factor=Math.pow(2,view.zoom-tileZ);
+    const renderScale=256*Math.pow(2,view.zoom);
+    const cx=mx(view.lon)*renderScale, cy=my(view.lat)*renderScale;
+    const left=cx-width/2, top=cy-height/2;
+
+    const leftBase=left/factor;
+    const topBase=top/factor;
+    const rightBase=(left+width)/factor;
+    const bottomBase=(top+height)/factor;
+
+    const n=Math.pow(2,tileZ);
+    const tx0=Math.floor(leftBase/256), tx1=Math.floor(rightBase/256);
+    const ty0=Math.floor(topBase/256), ty1=Math.floor(bottomBase/256);
+    const tileSize=256*factor;
+
+    let successSeen=false, errorCount=0, total=0;
+
+    for(let tx=tx0; tx<=tx1; tx++){
+      for(let ty=ty0; ty<=ty1; ty++){
+        if(ty<0 || ty>=n) continue;
+
+        const img=document.createElement('img');
+        total++;
+        const wrapped=((tx%n)+n)%n;
+
+        img.referrerPolicy='no-referrer';
+        img.crossOrigin='anonymous';
+        img.loading='lazy';
+        img.alt='';
+        img.style.left=`${tx*256*factor-left}px`;
+        img.style.top=`${ty*256*factor-top}px`;
+        img.style.width=`${tileSize}px`;
+        img.style.height=`${tileSize}px`;
+
+        img.addEventListener('load',()=>{
+          successSeen=true;
+          if(fallback) fallback.style.display='none';
+        }, {once:true});
+
+        img.addEventListener('error',()=>{
+          errorCount++;
+          if(!successSeen && errorCount>=Math.max(2,total-1) && fallback){
+            fallback.style.display='flex';
+          }
+        }, {once:true});
+
+        img.src=mapboxTileUrl(tileZ,wrapped,ty);
+        tileLayer.appendChild(img);
+      }
+    }
+
+    setTimeout(()=>{
+      if(!successSeen && fallback) fallback.style.display='flex';
+    },2500);
+  }
+
+  function niceStep(span){ if(span<=4) return 1; if(span<=8) return 2; if(span<=18) return 5; if(span<=40) return 10; return 20; }
+  function addGrid(svg, view, width, height){
+    const tl=invProject(view,width,height,0,0), br=invProject(view,width,height,width,height);
+    const lonStep=niceStep(Math.abs(br.lon-tl.lon)), latStep=niceStep(Math.abs(tl.lat-br.lat));
+    const proj=projector(view,width,height);
+    const g=svgEl('g', {'stroke':'rgba(30,50,65,.28)', 'stroke-width':'1', 'stroke-dasharray':'3 6'});
+    const labels=svgEl('g', {'fill':'#29414f', 'font-size':'12', 'font-weight':'800', 'font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'});
+    for(let lon=Math.ceil(tl.lon/lonStep)*lonStep; lon<=br.lon; lon+=lonStep){
+      const q=proj((tl.lat+br.lat)/2, lon);
+      g.appendChild(svgEl('line',{x1:q.x,y1:0,x2:q.x,y2:height}));
+      const t=svgEl('text',{x:q.x,y:height-8,'text-anchor':'middle'}); t.textContent=`${Math.abs(Math.round(lon))}°`; labels.appendChild(t);
+    }
+    for(let lat=Math.ceil(br.lat/latStep)*latStep; lat<=tl.lat; lat+=latStep){
+      const q=proj(lat, (tl.lon+br.lon)/2);
+      g.appendChild(svgEl('line',{x1:0,y1:q.y,x2:width,y2:q.y}));
+      const t=svgEl('text',{x:8,y:q.y-4,'text-anchor':'start'}); t.textContent=`${Math.abs(Math.round(lat))}°`; labels.appendChild(t);
+    }
+    svg.appendChild(g); svg.appendChild(labels);
+  }
+  function addCone(svg, poly, view, width, height){
+    if(!poly || poly.length<3) return;
+    const proj=projector(view,width,height);
+    const d=poly.map((p,i)=>{ const q=proj(p[0],p[1]); return `${i?'L':'M'}${q.x.toFixed(2)},${q.y.toFixed(2)}`; }).join(' ') + ' Z';
+    svg.appendChild(svgEl('path',{d, fill:'rgba(96,165,250,.18)', stroke:'rgba(67,139,225,.86)', 'stroke-width':'2'}));
+  }
+  function addRoute(svg, pts, view, width, height, lineColor, showCone){
+    const proj=projector(view,width,height);
+    const obs=pts.filter(p=>p.kind==='obs');
+    const fc=pts.filter(p=>p.kind==='fcst');
+    const latest=latestObs(pts) || pts[pts.length-1];
+    function polyline(arr, color, dashed){
+      if(arr.length<2) return;
+      const points=arr.map(p=>{ const q=proj(p.lat,p.lon); return `${q.x.toFixed(2)},${q.y.toFixed(2)}`; }).join(' ');
+      svg.appendChild(svgEl('polyline',{points, fill:'none', stroke:color, 'stroke-width':'3', 'stroke-linecap':'round', 'stroke-linejoin':'round', 'stroke-dasharray': dashed ? '10 9' : ''}));
+    }
+    polyline(obs, lineColor || '#22323c', false);
+    const fcPath = latest && fc.length ? [latest].concat(fc) : fc;
+    polyline(fcPath, lineColor || '#355c9a', true);
+    pts.forEach(p=>{
+      const q=proj(p.lat,p.lon), r=(p===latest?7.6:(p.kind==='fcst'?4.8:5.4));
+      svg.appendChild(svgEl('circle',{cx:q.x, cy:q.y, r, fill:levelColor(p.level), stroke:'#fff', 'stroke-width':'2'}));
+    });
+    return latest;
+  }
+  function addOverviewLabels(svg, groups, view, width, height){
+    const proj=projector(view,width,height);
+    groups.forEach((g,idx)=>{
+      const latest=latestObs(g.points) || g.points[g.points.length-1];
+      if(!latest) return;
+      const q=proj(latest.lat, latest.lon);
+      const label = stripCwa(g.name || latest.typhoonName || `颱風 ${idx+1}`);
+      const w=Math.max(54, label.length*9 + 18), h=26;
+      const x=clamp(q.x+10, 6, width-w-6), y=clamp(q.y-28, 6, height-h-6);
+      svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:13,fill:'rgba(255,255,255,.95)',stroke:basinColors[idx%basinColors.length],'stroke-width':'1.4'}));
+      const t=svgEl('text',{x:x+10,y:y+17,fill:'#173040','font-size':'12','font-weight':'900','font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'}); t.textContent=label; svg.appendChild(t);
+    });
+  }
+
+  function overviewForecastLabels24h(pts){
+    const arr=sortPts(pts);
+    const obs=latestObs(arr);
+    const fc=arr.filter(p=>p.kind==='fcst' && Number.isFinite(tval(p.time)));
+    if(!fc.length) return [];
+
+    let base=tval(obs?.time);
+    if(!Number.isFinite(base)) base=tval(fc[0].time)-24*3600*1000;
+
+    const maxT=Math.max(...fc.map(p=>tval(p.time)));
+    const step=24*3600*1000;
+    const picks=[];
+
+    for(let target=base+step; target<=maxT+step*0.45; target+=step){
+      let best=null, bestDiff=Infinity;
+      fc.forEach(p=>{
+        const d=Math.abs(tval(p.time)-target);
+        if(d<bestDiff){ bestDiff=d; best=p; }
+      });
+      if(best && bestDiff<=12*3600*1000 && !picks.includes(best)) picks.push(best);
+    }
+    return picks;
+  }
+
+  function addOverviewForecastTimeLabels(svg, groups, view, width, height){
+    const proj=projector(view,width,height);
+    const used=[];
+    const routeSegments=[];
+    const routePointBoxes=[];
+    const conePolys=[];
+
+    function dateOnly(t){
+      const d=new Date(t || '');
+      if(!Number.isFinite(d.getTime())) return '—';
+      return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function overlaps(a,b,pad=3){
+      return !(a.x+a.w+pad<b.x || b.x+b.w+pad<a.x || a.y+a.h+pad<b.y || b.y+b.h+pad<a.y);
+    }
+
+    function pointInRect(p,r,pad=0){
+      return p.x>=r.x-pad && p.x<=r.x+r.w+pad && p.y>=r.y-pad && p.y<=r.y+r.h+pad;
+    }
+
+    function orient(a,b,c){
+      return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+    }
+
+    function segCross(a,b,c,d){
+      const o1=orient(a,b,c), o2=orient(a,b,d), o3=orient(c,d,a), o4=orient(c,d,b);
+      return ((o1>0&&o2<0)||(o1<0&&o2>0)) && ((o3>0&&o4<0)||(o3<0&&o4>0));
+    }
+
+    function segmentHitsRect(a,b,r,pad=5){
+      const ex={x:r.x-pad,y:r.y-pad,w:r.w+pad*2,h:r.h+pad*2};
+      if(pointInRect(a,ex) || pointInRect(b,ex)) return true;
+      const p1={x:ex.x,y:ex.y}, p2={x:ex.x+ex.w,y:ex.y};
+      const p3={x:ex.x+ex.w,y:ex.y+ex.h}, p4={x:ex.x,y:ex.y+ex.h};
+      return segCross(a,b,p1,p2) || segCross(a,b,p2,p3) || segCross(a,b,p3,p4) || segCross(a,b,p4,p1);
+    }
+
+    function pointInPoly(p,poly){
+      let inside=false;
+      for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+        const a=poly[i], b=poly[j];
+        const hit=((a.y>p.y)!==(b.y>p.y)) &&
+          (p.x < (b.x-a.x)*(p.y-a.y)/((b.y-a.y)||1e-9)+a.x);
+        if(hit) inside=!inside;
+      }
+      return inside;
+    }
+
+    function rectHitsPoly(r,poly){
+      if(!poly || poly.length<3) return false;
+      const corners=[
+        {x:r.x,y:r.y},
+        {x:r.x+r.w,y:r.y},
+        {x:r.x+r.w,y:r.y+r.h},
+        {x:r.x,y:r.y+r.h},
+        {x:r.x+r.w/2,y:r.y+r.h/2}
+      ];
+      if(corners.some(p=>pointInPoly(p,poly))) return true;
+      if(poly.some(p=>pointInRect(p,r,3))) return true;
+      for(let i=0;i<poly.length;i++){
+        const a=poly[i], b=poly[(i+1)%poly.length];
+        if(segmentHitsRect(a,b,r,2)) return true;
+      }
+      return false;
+    }
+
+    // Pre-compute all route / point / cone obstacles so date labels avoid them.
+    groups.forEach(g=>{
+      const pts=sortPts(g.points || []);
+      for(let i=0;i<pts.length-1;i++){
+        routeSegments.push({
+          a:proj(pts[i].lat,pts[i].lon),
+          b:proj(pts[i+1].lat,pts[i+1].lon)
+        });
+      }
+      pts.forEach(p=>{
+        const q=proj(p.lat,p.lon);
+        routePointBoxes.push({x:q.x-9,y:q.y-9,w:18,h:18});
+      });
+
+      const cone=buildCleanForecastCone(pts);
+      if(cone && cone.length>=3){
+        conePolys.push(cone.map(([lat,lon])=>proj(lat,lon)));
+      }
+    });
+
+    function candidatePenalty(box){
+      let score=0;
+
+      // Strongest priority: never overlap another date label.
+      used.forEach(u=>{ if(overlaps(box,u,4)) score+=100000; });
+
+      // Avoid the route dots and line.
+      routePointBoxes.forEach(r=>{ if(overlaps(box,r,5)) score+=16000; });
+      routeSegments.forEach(s=>{ if(segmentHitsRect(s.a,s.b,box,7)) score+=14000; });
+
+      // Avoid covering forecast cone shading/border.
+      conePolys.forEach(poly=>{ if(rectHitsPoly(box,poly)) score+=11000; });
+
+      return score;
+    }
+
+    function pickBox(q,w,h){
+      const candidates=[];
+      const rings=[26,38,52,68,86,104];
+      const directions=[
+        [1,-1],[-1,-1],[1,1],[-1,1],
+        [0,-1],[0,1],[1,0],[-1,0]
+      ];
+
+      rings.forEach(r=>{
+        directions.forEach(([dx,dy])=>{
+          let x=q.x + dx*r;
+          let y=q.y + dy*r;
+
+          if(dx<0) x-=w;
+          else if(dx===0) x-=w/2;
+
+          if(dy<0) y-=h;
+          else if(dy===0) y-=h/2;
+
+          const b={
+            x:clamp(x,5,width-w-5),
+            y:clamp(y,5,height-h-5),
+            w,h
+          };
+          const dist=Math.hypot((b.x+b.w/2)-q.x,(b.y+b.h/2)-q.y);
+          candidates.push({box:b,score:candidatePenalty(b)+dist*0.35});
+        });
+      });
+
+      candidates.sort((a,b)=>a.score-b.score);
+      const best=candidates[0];
+      if(!best) return null;
+
+      // If every position is bad, skip instead of covering the cone/route.
+      if(best.score>=10000) return null;
+
+      used.push(best.box);
+      return best.box;
+    }
+
+    groups.forEach((g,idx)=>{
+      overviewForecastLabels24h(g.points).forEach(p=>{
+        const q=proj(p.lat,p.lon);
+        const label=dateOnly(p.time);
+        const w=48, h=18;
+        const box=pickBox(q,w,h);
+        if(!box) return;
+
+        const bx=box.x+box.w/2, by=box.y+box.h/2;
+        svg.appendChild(svgEl('line',{
+          x1:q.x,y1:q.y,
+          x2:bx,y2:by,
+          stroke:'rgba(23,48,64,.25)',
+          'stroke-width':'0.8'
+        }));
+        svg.appendChild(svgEl('rect',{
+          x:box.x,y:box.y,width:box.w,height:box.h,rx:9,
+          fill:'rgba(255,255,255,.95)',
+          stroke:basinColors[idx%basinColors.length],
+          'stroke-width':'0.8'
+        }));
+        const t=svgEl('text',{
+          x:box.x+box.w/2,y:box.y+12.2,
+          fill:'#173040',
+          'text-anchor':'middle',
+          'font-size':'9.5',
+          'font-weight':'900',
+          'font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'
+        });
+        t.textContent=label;
+        svg.appendChild(t);
+      });
+    });
+  }
+
+  function buildLegendHTML(includeCone, includeLevels){
+    let html='\
+      <div class="trackLegendBar">\
+        <span class="trackLegendItem"><i class="trackLegendLine"></i>歷史路徑</span>\
+        <span class="trackLegendItem"><i class="trackLegendLine fcst"></i>預報路徑</span>';
+    if(includeCone) html += '<span class="trackLegendItem"><i class="trackLegendBox"></i>70% 預報誤差範圍</span>';
+    if(includeLevels){
+      html += '<span class="trackLegendItem"><span class="trackMiniLegend">\
+        <span class="trackLegendItem"><i class="trackLegendDot" style="background:#94a3b8"></i>低壓</span>\
+        <span class="trackLegendItem"><i class="trackLegendDot" style="background:#4f6db8"></i>熱帶低壓</span>\
+        <span class="trackLegendItem"><i class="trackLegendDot" style="background:#22c55e"></i>輕度颱風</span>\
+        <span class="trackLegendItem"><i class="trackLegendDot" style="background:#f59e0b"></i>中度颱風</span>\
+        <span class="trackLegendItem"><i class="trackLegendDot" style="background:#ef4444"></i>強烈颱風</span>\
+      </span></span>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function makeFigureFrame(title, subtitleLeft, subtitleRight, overview=false, includeCone=true, includeLevels=true){
+    const frame=document.createElement('article');
+    frame.className='trackMapFrame';
+    frame.innerHTML=`\
+      <div class="trackMapMeta">\
+        <div>\
+          <h4>${esc(title)}</h4>\
+          <p>${esc(subtitleLeft || '')}</p>\
+        </div>\
+        <div class="right">${subtitleRight || ''}</div>\
+      </div>\
+      <div class="trackPlot ${overview?'overview':''}">\
+        <div class="trackTileFallback"></div>\
+        <div class="trackTileLayer"></div>\
+        <svg class="trackSvgLayer" xmlns="http://www.w3.org/2000/svg"></svg>\
+        <div class="trackFallbackLabel">地圖底圖暫時無法載入</div>\
+      </div>\
+      ${buildLegendHTML(includeCone, includeLevels)}`;
+    return frame;
+  }
+
+  function renderSingleFigure(group){
+    const pts=sortPts(group.points || []); if(!pts.length) return null;
+    const latest=latestObs(pts) || pts[pts.length-1];
+    const cone=buildCleanForecastCone(pts);
+    const fitPts=pts
+      .filter(p=>p.kind==='obs')
+      .slice(-2)
+      .concat(pts.filter(p=>p.kind==='fcst'))
+      .concat((cone||[]).map(p=>({lat:Number(p[0]),lon:Number(p[1])})));
+    const frame=makeFigureFrame(
+      group.name || latest?.typhoonName || '颱風',
+      `最後更新：${fmtTime(latest?.time,true)}`,
+      `${fmtTime(latest?.time,true)}<br>${fmtWindMetric(latest?.wind)} · ${fmtPressure(latest?.pressure)}`,
+      false,
+      true,
+      true
+    );
+    const plot=frame.querySelector('.trackPlot');
+    const svg=frame.querySelector('.trackSvgLayer');
+    const tileLayer=frame.querySelector('.trackTileLayer');
+    requestAnimationFrame(()=>{
+      const width=Math.max(320, plot.clientWidth), height=Math.max(320, plot.clientHeight);
+      const view=fitView(fitPts,width,height,72,9.3);
+      populateTiles(tileLayer, view, width, height);
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.setAttribute('width', width); svg.setAttribute('height', height);
+      svg.innerHTML='';
+      addGrid(svg, view, width, height);
+      addCone(svg, cone, view, width, height);
+      addRoute(svg, pts, view, width, height);
+      svg.appendChild(svgEl('rect',{x:0,y:0,width,height,fill:'none',stroke:'rgba(20,30,40,.68)','stroke-width':'1.4'}));
+    });
+    return frame;
+  }
+
+  function renderOverviewFigure(groups){
+    const allPts = groups.flatMap(g=>sortPts(g.points || []));
+    const frame=makeFigureFrame(
+      '西北太平洋全部颱風路徑',
+      '專注西北太平洋範圍的全部颱風路徑總覽',
+      `更新時間：${allPts.length ? fmtTime(allPts.map(p=>p.time).sort((a,b)=>tval(b)-tval(a))[0], true) : '—'}`,
+      true,
+      true,
+      false
+    );
+    const plot=frame.querySelector('.trackPlot');
+    const svg=frame.querySelector('.trackSvgLayer');
+    const tileLayer=frame.querySelector('.trackTileLayer');
+    requestAnimationFrame(()=>{
+      const width=Math.max(320, plot.clientWidth), height=Math.max(320, plot.clientHeight);
+      const view=fixedViewNWPacific(width,height);
+      populateTiles(tileLayer, view, width, height);
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.setAttribute('width', width); svg.setAttribute('height', height);
+      svg.innerHTML='';
+      addGrid(svg, view, width, height);
+      groups.forEach((g,idx)=>{
+        const pts=sortPts(g.points || []); if(!pts.length) return;
+        const cone=buildCleanForecastCone(pts);
+        addCone(svg, cone, view, width, height);
+        addRoute(svg, pts, view, width, height, basinColors[idx % basinColors.length]);
+      });
+      addOverviewLabels(svg, groups, view, width, height);
+      addOverviewForecastTimeLabels(svg, groups, view, width, height);
+      svg.appendChild(svgEl('rect',{x:0,y:0,width,height,fill:'none',stroke:'rgba(20,30,40,.68)','stroke-width':'1.4'}));
+    });
+    return frame;
+  }
+
+  let renderToken=0;
+  function renderGallery(){
+    ensureGallery();
+    const host=document.getElementById('trackGalleryShell');
+    const overviewHost=document.getElementById('trackOverviewHost');
+    const grid=document.getElementById('trackCardGrid');
+    if(!host || !overviewHost || !grid) return;
+    const token=++renderToken;
+    const groups=getTyphoonGroups();
+    overviewHost.innerHTML=''; grid.innerHTML='';
+    if(!groups.length){
+      grid.innerHTML='<div class="trackMapFrame"><div class="trackMapMeta"><div><h4>目前沒有可生成的颱風資料</h4><p>目前沒有颱風資料</p></div></div></div>';
+      return;
+    }
+    overviewHost.appendChild(renderOverviewFigure(groups));
+    groups.forEach(g=>{ const fig=renderSingleFigure(g); if(fig) grid.appendChild(fig); });
+    setTimeout(()=>{ if(token!==renderToken) return; }, 100);
+  }
+
+  let timer=null;
+  function scheduleRender(delay=260){ clearTimeout(timer); timer=setTimeout(renderGallery, delay); }
+  function hook(){
+    ensureGallery();
+    scheduleRender(350);
+    document.getElementById('typhoonSelect')?.addEventListener('change',()=>scheduleRender(320));
+    document.getElementById('toggleCone')?.addEventListener('change',()=>scheduleRender(320));
+    document.querySelectorAll('[data-refresh-typhoon]').forEach(b=>b.addEventListener('click',()=>scheduleRender(900)));
+    const fcst=document.getElementById('fcstList'); if(fcst) new MutationObserver(()=>scheduleRender(360)).observe(fcst,{childList:true,subtree:true,characterData:true});
+    window.addEventListener('resize',()=>{
+      // Do not rebuild the gallery after it has already become downloadable PNGs.
+      if(document.querySelector('#trackGalleryShell .trackMapFrame.trackImageOnly')) return;
+      scheduleRender(300);
+    });
+    // refresh the interactive map once with the cleaned cone function
+    setTimeout(()=>{ try{ if(typeof renderTyphoonLayers==='function') renderTyphoonLayers({ fit:false }); }catch(e){} }, 500);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', hook, {once:true}); else hook();
+})();
+</script>
+
+
+<!-- ===== v25：恢復最初 forecast cone，只修補局部自交；下方地圖轉成可右鍵儲存的 PNG 圖片 ===== -->
+<style>
+  .trackDownloadImage{
+    display:block;
+    width:100%;
+    height:auto;
+    background:#e9f8fb;
+    user-select:auto;
+    -webkit-user-drag:auto;
+  }
+  .trackImageHint{display:none}
+  .trackMapFrame.trackImageOnly{padding:0;overflow:hidden}
+  .trackMapFrame.trackImageOnly a{display:block}
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const toRad=d=>d*Math.PI/180;
+  const toDeg=r=>r*180/Math.PI;
+
+  function bearing(lat1,lon1,lat2,lon2){
+    const p1=toRad(lat1), p2=toRad(lat2), dl=toRad(lon2-lon1);
+    const y=Math.sin(dl)*Math.cos(p2);
+    const x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl);
+    return (toDeg(Math.atan2(y,x))+360)%360;
+  }
+
+  function destination(lat,lon,bearingDeg,km){
+    const R=6371, d=km/R, t=toRad(bearingDeg);
+    const p1=toRad(lat), l1=toRad(lon);
+    const p2=Math.asin(
+      Math.sin(p1)*Math.cos(d)+
+      Math.cos(p1)*Math.sin(d)*Math.cos(t)
+    );
+    const l2=l1+Math.atan2(
+      Math.sin(t)*Math.sin(d)*Math.cos(p1),
+      Math.cos(d)-Math.sin(p1)*Math.sin(p2)
+    );
+    return {
+      lat:toDeg(p2),
+      lon:((toDeg(l2)+540)%360)-180
+    };
+  }
+
+  function avgAngle(a,b){
+    const ax=Math.cos(toRad(a)), ay=Math.sin(toRad(a));
+    const bx=Math.cos(toRad(b)), by=Math.sin(toRad(b));
+    const x=ax+bx, y=ay+by;
+    if(Math.abs(x)<1e-9 && Math.abs(y)<1e-9) return a;
+    return (toDeg(Math.atan2(y,x))+360)%360;
+  }
+
+  function llToXY(side){
+    const lat0=side.reduce((s,p)=>s+p[0],0)/side.length;
+    const lon0=side.reduce((s,p)=>s+p[1],0)/side.length;
+    const ky=110.574;
+    const kx=111.320*Math.max(.20,Math.cos(toRad(lat0)));
+    return {
+      lat0,lon0,kx,ky,
+      pts:side.map(p=>({
+        x:(p[1]-lon0)*kx,
+        y:(p[0]-lat0)*ky
+      }))
+    };
+  }
+
+  function segIntersection(a,b,c,d){
+    const rx=b.x-a.x, ry=b.y-a.y;
+    const sx=d.x-c.x, sy=d.y-c.y;
+    const den=rx*sy-ry*sx;
+    if(Math.abs(den)<1e-9) return null;
+
+    const qx=c.x-a.x, qy=c.y-a.y;
+    const t=(qx*sy-qy*sx)/den;
+    const u=(qx*ry-qy*rx)/den;
+
+    if(t>1e-5 && t<1-1e-5 && u>1e-5 && u<1-1e-5){
+      return {x:a.x+t*rx,y:a.y+t*ry};
+    }
+    return null;
+  }
+
+  /*
+    只修補左右其中一側真正形成的局部 loop。
+    不做 convex hull、不做整體 union，也不會把正常的一側直接拉去最後一點。
+  */
+  function repairOpenSide(side){
+    if(!Array.isArray(side) || side.length<4) return side;
+
+    const cv=llToXY(side);
+    let pts=cv.pts.slice();
+    let changed=true;
+    let guard=0;
+
+    while(changed && guard++<12){
+      changed=false;
+
+      outer:
+      for(let i=0;i<pts.length-3;i++){
+        for(let j=i+2;j<pts.length-1;j++){
+          const hit=segIntersection(pts[i],pts[i+1],pts[j],pts[j+1]);
+          if(!hit) continue;
+
+          // 只移除交叉線段之間的小迴圈，其餘預報節點全部保留。
+          pts=[
+            ...pts.slice(0,i+1),
+            hit,
+            ...pts.slice(j+1)
+          ];
+          changed=true;
+          break outer;
+        }
+      }
+    }
+
+    return pts.map(p=>[
+      cv.lat0+p.y/cv.ky,
+      cv.lon0+p.x/cv.kx
+    ]);
+  }
+
+  function buildOriginalConeFixed(srcPoints){
+    const list=(srcPoints||[])
+      .filter(p=>Number.isFinite(Number(p?.lat))&&Number.isFinite(Number(p?.lon)))
+      .map(p=>({...p,lat:Number(p.lat),lon:Number(p.lon)}));
+
+    let latestObs=-1;
+    for(let i=list.length-1;i>=0;i--){
+      if(list[i].kind==='obs'){
+        latestObs=i;
+        break;
+      }
+    }
+
+    const obs=latestObs>=0 ? list[latestObs] : list[0];
+    const fcst=list.filter(p=>p.kind==='fcst');
+    if(!obs || fcst.length<2) return null;
+
+    // 完全沿用最初版本的 radius 計算。
+    const rawRadii=fcst.map(p=>clamp(Number(p.fcst_radius_km||0),0,350));
+    const firstForecastRadius=rawRadii[0]||30;
+    const START_RADIUS=clamp(firstForecastRadius*.38,12,120);
+
+    const smoothRadii=rawRadii.map((r,i)=>{
+      if(i===0) return clamp((START_RADIUS+r)/2,8,350);
+      const prev=rawRadii[i-1];
+      const next=rawRadii[i+1] ?? r;
+      return clamp((prev+r+next)/3,8,350);
+    });
+
+    const path=[
+      {lat:obs.lat,lon:obs.lon,rKm:START_RADIUS},
+      ...fcst.map((p,i)=>({
+        lat:p.lat,
+        lon:p.lon,
+        rKm:smoothRadii[i]
+      }))
+    ];
+
+    function heading(i){
+      if(i===0){
+        return bearing(path[0].lat,path[0].lon,path[1].lat,path[1].lon);
+      }
+      if(i===path.length-1){
+        return bearing(
+          path[i-1].lat,path[i-1].lon,
+          path[i].lat,path[i].lon
+        );
+      }
+
+      const a=bearing(
+        path[i-1].lat,path[i-1].lon,
+        path[i].lat,path[i].lon
+      );
+      const b=bearing(
+        path[i].lat,path[i].lon,
+        path[i+1].lat,path[i+1].lon
+      );
+      return avgAngle(a,b);
+    }
+
+    let left=[];
+    let right=[];
+
+    for(let i=0;i<path.length;i++){
+      const p=path[i], h=heading(i);
+      const lp=destination(p.lat,p.lon,(h-90+360)%360,p.rKm);
+      const rp=destination(p.lat,p.lon,(h+90)%360,p.rKm);
+      left.push([lp.lat,lp.lon]);
+      right.push([rp.lat,rp.lon]);
+    }
+
+    // 關鍵：只對真的自交那一側做局部修補。
+    left=repairOpenSide(left);
+    right=repairOpenSide(right);
+
+    const start=path[0];
+    const sh=heading(0);
+    const startArc=[];
+    for(let a=90;a<=270;a+=8){
+      const p=destination(start.lat,start.lon,(sh+a+360)%360,start.rKm);
+      startArc.push([p.lat,p.lon]);
+    }
+
+    const end=path[path.length-1];
+    const eh=heading(path.length-1);
+    const endArc=[];
+    for(let a=-90;a<=90;a+=4){
+      const p=destination(end.lat,end.lon,(eh+a+360)%360,end.rKm);
+      endArc.push([p.lat,p.lon]);
+    }
+
+    return [
+      ...startArc,
+      ...left.slice(1),
+      ...endArc,
+      ...right.slice(1).reverse(),
+      startArc[0]
+    ];
+  }
+
+  /*
+    主互動地圖原本的 buildForecastConePolygonSmooth()
+    會優先檢查這個 hook，因此只覆寫 hook，
+    不碰 map / drawForecastCone / renderTyphoonLayers，
+    避免上一版把互動地圖弄不見。
+  */
+  window.__forecastConeUnionV19=buildOriginalConeFixed;
+
+  function redrawInteractiveMap(){
+    try{
+      if(typeof window.renderTyphoonLayers==='function'){
+        window.renderTyphoonLayers({fit:false});
+      }
+    }catch(e){}
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',()=>{
+      setTimeout(redrawInteractiveMap,450);
+      setTimeout(redrawInteractiveMap,1300);
+    },{once:true});
+  }else{
+    setTimeout(redrawInteractiveMap,350);
+  }
+})();
+</script>
+
+<script>
+(function(){
+  'use strict';
+
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+  function waitForImage(img,timeout=3500){
+    return new Promise(resolve=>{
+      if(img.complete){
+        resolve(img.naturalWidth>0);
+        return;
+      }
+
+      let done=false;
+      const finish=ok=>{
+        if(done) return;
+        done=true;
+        resolve(ok);
+      };
+
+      img.addEventListener('load',()=>finish(true),{once:true});
+      img.addEventListener('error',()=>finish(false),{once:true});
+      setTimeout(()=>finish(false),timeout);
+    });
+  }
+
+  function numberPx(v){
+    const n=parseFloat(v||'0');
+    return Number.isFinite(n)?n:0;
+  }
+
+  async function svgToImage(svg,width,height){
+    const clone=svg.cloneNode(true);
+    clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    clone.setAttribute('width',width);
+    clone.setAttribute('height',height);
+
+    const xml=new XMLSerializer().serializeToString(clone);
+    const blob=new Blob([xml],{type:'image/svg+xml;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+
+    try{
+      const img=new Image();
+      const ok=await new Promise(resolve=>{
+        img.onload=()=>resolve(true);
+        img.onerror=()=>resolve(false);
+        img.src=url;
+      });
+      return ok?img:null;
+    }finally{
+      setTimeout(()=>URL.revokeObjectURL(url),500);
+    }
+  }
+
+  async function waitForFigureReady(frame, timeout=7000){
+    const start=Date.now();
+
+    while(Date.now()-start < timeout){
+      if(!frame || !frame.isConnected) return false;
+
+      const plot=frame.querySelector('.trackPlot');
+      const svg=frame.querySelector('.trackSvgLayer');
+      const tileImgs=Array.from(frame.querySelectorAll('.trackTileLayer img'));
+
+      const svgReady=!!(svg && svg.children && svg.children.length>=2);
+      const tileReady=tileImgs.some(img=>img.complete && img.naturalWidth>0);
+      const sized=!!(plot && plot.clientWidth>100 && plot.clientHeight>100);
+
+      if(svgReady && tileReady && sized) return true;
+      await wait(180);
+    }
+    return false;
+  }
+
+  async function makeRealImage(frame){
+    if(!frame || frame.dataset.realImage==='1' || frame.dataset.converting==='1') return;
+
+    frame.dataset.converting='1';
+    const ready=await waitForFigureReady(frame,7000);
+    if(!ready){
+      delete frame.dataset.converting;
+      return;
+    }
+
+    const meta=frame.querySelector('.trackMapMeta');
+    const plot=frame.querySelector('.trackPlot');
+    const legend=frame.querySelector('.trackLegendBar');
+    const svg=frame.querySelector('.trackSvgLayer');
+    const tileImgs=Array.from(frame.querySelectorAll('.trackTileLayer img'));
+
+    if(!plot || !svg){
+      delete frame.dataset.converting;
+      return;
+    }
+
+    const width=Math.round(plot.clientWidth);
+    const rawPlotH=Math.round(plot.clientHeight);
+    const metaH=meta ? 94 : 0;
+    const legendText=(legend?.textContent||'').replace(/\s+/g,' ').trim();
+
+    const plotInsetX = 22;
+    const plotInsetTop = 10;
+    const plotInsetBottom = 10;
+    const plotW = Math.max(100, width - plotInsetX * 2);
+    const plotH = Math.max(100, rawPlotH - plotInsetTop - plotInsetBottom);
+
+    const legendItems = [
+      {type:'line', color:'#22323c', label:'歷史路徑', dashed:false},
+      {type:'line', color:'#355c9a', label:'預報路徑', dashed:true}
+    ];
+    if(legendText.includes('70%')){
+      legendItems.push({type:'cone', label:'70% 預報誤差範圍'});
+    }
+    if(legendText.includes('低壓')){
+      legendItems.push(
+        {type:'dot', color:'#94a3b8', label:'低壓'},
+        {type:'dot', color:'#4f6db8', label:'熱帶低壓'},
+        {type:'dot', color:'#22c55e', label:'輕度颱風'},
+        {type:'dot', color:'#f59e0b', label:'中度颱風'},
+        {type:'dot', color:'#ef4444', label:'強烈颱風'}
+      );
+    }
+
+    function measureLegendHeight(){
+      if(!legendItems.length) return 0;
+      const leftPad = 16, rightPad = 16, gap = 14;
+      const rowH = 24, topPad = 12, bottomPad = 10;
+      const maxW = width - leftPad - rightPad;
+      let rows = 1, rowW = 0;
+
+      const itemW = item => {
+        const labelW = Math.max(24, item.label.length * 12);
+        if(item.type === 'line') return 26 + 10 + labelW;
+        if(item.type === 'cone') return 20 + 10 + labelW;
+        return 10 + 10 + labelW;
+      };
+
+      legendItems.forEach((item, idx) => {
+        const need = itemW(item) + (rowW > 0 ? gap : 0);
+        if(rowW > 0 && rowW + need > maxW){
+          rows += 1;
+          rowW = itemW(item);
+        }else{
+          rowW += need;
+        }
+      });
+
+      return topPad + rows * rowH + bottomPad;
+    }
+
+    const legendH = legend ? measureLegendHeight() : 0;
+    const totalH=metaH + rawPlotH + legendH;
+    if(width<100 || rawPlotH<100 || totalH<160) return;
+
+    await Promise.all(tileImgs.map(img=>waitForImage(img,5000)));
+    await wait(220);
+
+    const loadedTiles=tileImgs.filter(img=>img.complete && img.naturalWidth>0);
+    const svgHasContent=svg.children && svg.children.length>=2;
+
+    // Never replace a visible DOM figure with a blank PNG.
+    if(!loadedTiles.length || !svgHasContent){
+      delete frame.dataset.converting;
+      return;
+    }
+
+    const scale=2;
+    const canvas=document.createElement('canvas');
+    canvas.width=width*scale;
+    canvas.height=totalH*scale;
+
+    const ctx=canvas.getContext('2d');
+    ctx.scale(scale,scale);
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality='high';
+
+    const title=(meta?.querySelector('h4')?.textContent||'颱風路徑圖').trim();
+    const subtitle=(meta?.querySelector('p')?.textContent||'').trim();
+    const rightLines=(meta?.querySelector('.right')?.innerHTML||'').split(/<br\s*\/?/i).map(s=>s.replace(/>/g,'').trim()).filter(Boolean);
+
+    function text(str,x,y,opt={}){
+      ctx.save();
+      ctx.font=`${opt.weight||800} ${opt.size||12}px "Noto Sans TC","Microsoft JhengHei","Segoe UI",Arial,sans-serif`;
+      ctx.fillStyle=opt.color||'#102d40';
+      ctx.textAlign=opt.align||'left';
+      ctx.textBaseline=opt.baseline||'alphabetic';
+      ctx.fillText(str,x,y);
+      ctx.restore();
+    }
+
+    try{
+      // overall background
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(0,0,width,totalH);
+
+      // meta/header area
+      if(metaH>0){
+        const g=ctx.createLinearGradient(0,0,width,metaH);
+        g.addColorStop(0,'#f7fafc');
+        g.addColorStop(1,'#edf4f6');
+        ctx.fillStyle=g;
+        ctx.fillRect(0,0,width,metaH);
+        ctx.strokeStyle='rgba(31,53,72,.12)';
+        ctx.beginPath();
+        ctx.moveTo(0,metaH-.5); ctx.lineTo(width,metaH-.5); ctx.stroke();
+        text(title,18,31,{size:18,weight:900,color:'#102d40'});
+        if(subtitle) text(subtitle,18,64,{size:12,weight:800,color:'#6a7d89'});
+        rightLines.forEach((line,i)=>text(line,width-18,30+i*28,{size:i===0?14:13,weight:900,color:'#33424c',align:'right'}));
+      }
+
+      // plot area with left/right whitespace
+      const plotY=metaH + plotInsetTop;
+      const plotX=plotInsetX;
+      const plotScaleX = plotW / Math.max(1, width);
+      const plotScaleY = plotH / Math.max(1, rawPlotH);
+
+      const grad=ctx.createLinearGradient(0,plotY,0,plotY+plotH);
+      grad.addColorStop(0,'#dceef4');
+      grad.addColorStop(1,'#edf7fb');
+      ctx.fillStyle=grad;
+      ctx.fillRect(plotX,plotY,plotW,plotH);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(plotX,plotY,plotW,plotH);
+      ctx.clip();
+
+      // draw tiles
+      for(const img of loadedTiles){
+        ctx.drawImage(
+          img,
+          plotX + numberPx(img.style.left) * plotScaleX,
+          plotY + numberPx(img.style.top) * plotScaleY,
+          (numberPx(img.style.width) || 256) * plotScaleX,
+          (numberPx(img.style.height) || 256) * plotScaleY
+        );
+      }
+
+      // draw overlay svg on plot
+      const overlay=await svgToImage(svg,width,rawPlotH);
+      if(overlay){
+        ctx.drawImage(overlay,plotX,plotY,plotW,plotH);
+      }
+      ctx.restore();
+
+      ctx.strokeStyle='rgba(31,53,72,.14)';
+      ctx.lineWidth=1;
+      ctx.strokeRect(plotX+.5, plotY+.5, plotW-1, plotH-1);
+
+      // legend/footer area with wrapping
+      if(legendH>0){
+        const legendY=metaH+rawPlotH;
+        ctx.fillStyle='#ffffff';
+        ctx.fillRect(0,legendY,width,legendH);
+        ctx.strokeStyle='rgba(31,53,72,.12)';
+        ctx.beginPath();
+        ctx.moveTo(0,legendY+.5); ctx.lineTo(width,legendY+.5); ctx.stroke();
+
+        const leftPad=16, rightPad=16, gap=14, rowH=24, topPad=12;
+        const maxW=width-rightPad;
+        let x=leftPad, y=legendY + topPad + 14;
+
+        const itemWidth = (item) => {
+          const labelW = ctx.measureText(item.label).width;
+          if(item.type === 'line') return 24 + 10 + labelW;
+          if(item.type === 'cone') return 20 + 10 + labelW;
+          return 10 + 8 + labelW;
+        };
+
+        const nextRow = () => { x = leftPad; y += rowH; };
+        const ensureSpace = (w) => {
+          if(x > leftPad && x + w > maxW) nextRow();
+        };
+
+        legendItems.forEach(item => {
+          const w = itemWidth(item);
+          ensureSpace(w);
+
+          if(item.type === 'line'){
+            ctx.save();
+            ctx.strokeStyle=item.color;
+            ctx.lineWidth=3;
+            ctx.lineCap='round';
+            if(item.dashed) ctx.setLineDash([8,6]); else ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(x, y-4);
+            ctx.lineTo(x+24, y-4);
+            ctx.stroke();
+            ctx.restore();
+            text(item.label, x+34, y, {size:11,weight:900,color:'#4d6673'});
+            x += w + gap;
+          }else if(item.type === 'cone'){
+            ctx.fillStyle='rgba(96,165,250,.20)';
+            ctx.strokeStyle='rgba(67,139,225,.85)';
+            ctx.lineWidth=1;
+            ctx.beginPath();
+            ctx.roundRect(x, y-13, 20, 12, 4);
+            ctx.fill();
+            ctx.stroke();
+            text(item.label, x+30, y, {size:11,weight:900,color:'#4d6673'});
+            x += w + gap;
+          }else{
+            ctx.beginPath();
+            ctx.arc(x+5, y-5, 5, 0, Math.PI*2);
+            ctx.fillStyle=item.color;
+            ctx.fill();
+            text(item.label, x+16, y, {size:11,weight:900,color:'#4d6673'});
+            x += w + gap;
+          }
+        });
+      }
+
+      const dataUrl=canvas.toDataURL('image/png');
+      const image=document.createElement('img');
+      image.className='trackDownloadImage trackZoomableImage';
+      image.src=dataUrl;
+      image.alt=title;
+      image.draggable=true;
+      image.title='點擊放大；右鍵可另存圖片';
+      image.dataset.filename=`${title}.png`;
+
+      frame.classList.add('trackImageOnly');
+      frame.innerHTML='';
+      frame.appendChild(image);
+      frame.dataset.realImage='1';
+      frame.setAttribute('data-real-image','1');
+      delete frame.dataset.converting;
+    }catch(err){
+      delete frame.dataset.converting;
+      console.warn('產生可下載圖片失敗，保留原圖。',err);
+    }
+  }
+
+  async function convertAllFigures(){
+    const frames=Array.from(document.querySelectorAll('#trackGalleryShell .trackMapFrame'));
+    let pending=false;
+
+    for(const frame of frames){
+      if(frame.dataset.realImage!=='1'){
+        await makeRealImage(frame);
+      }
+      if(frame.dataset.realImage!=='1') pending=true;
+    }
+
+    if(pending){
+      clearTimeout(window.__trackImageRetryTimer);
+      window.__trackImageRetryTimer=setTimeout(convertAllFigures,1200);
+    }
+  }
+
+  let timer=null;
+  function schedule(delay=1800){
+    clearTimeout(timer);
+    timer=setTimeout(convertAllFigures,delay);
+  }
+
+  function hook(){
+    schedule(2200);
+    setTimeout(convertAllFigures,4500);
+
+    const gallery=document.getElementById('trackGalleryShell');
+    if(gallery){
+      const obs=new MutationObserver(()=>{
+        if(document.querySelector('#trackGalleryShell .trackMapFrame[data-converting="1"]')) return;
+        if(document.querySelector('#trackGalleryShell .trackMapFrame:not([data-real-image="1"])')){
+          schedule(1800);
+        }
+      });
+      obs.observe(gallery,{childList:true,subtree:true});
+    }
+
+    document.getElementById('typhoonSelect')?.addEventListener('change',()=>schedule(2400));
+    document.querySelectorAll('[data-refresh-typhoon]').forEach(btn=>{
+      btn.addEventListener('click',()=>schedule(3200));
+    });
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',hook,{once:true});
+  }else{
+    hook();
+  }
+})();
+</script>
+
+
+
+<!-- ===== v28：圖片圖層對齊修正；圖片生成不再切換互動地圖颱風 ===== -->
+<script>
+(function(){
+  'use strict';
+
+  // v5 曾用「逐一切換 typhoonSelect 再截圖」的方法生成圖片，
+  // 會讓互動地圖不停換颱風。此版本明確禁止圖片區塊改動選擇器。
+  window.__typhoonGalleryMustNotChangeSelection = true;
+
+  // If an older appended gallery-export hook exists in a cached copy, stop its timer.
+  try{
+    if(window.__pngGalleryRefreshTimer){
+      clearTimeout(window.__pngGalleryRefreshTimer);
+      window.__pngGalleryRefreshTimer = null;
+    }
+  }catch(e){}
+
+  // Keep the currently selected interactive storm untouched.
+  const selected = document.getElementById('typhoonSelect')?.value || null;
+  setTimeout(()=>{
+    const sel=document.getElementById('typhoonSelect');
+    if(sel && selected!==null && sel.value!==selected){
+      sel.value=selected;
+      sel.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+  },120);
+})();
+</script>
+
+<style>
+  .trackZoomableImage{cursor:zoom-in}
+  .trackImageLightbox{
+    position:fixed;
+    inset:0;
+    z-index:99999;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    background:rgba(8,18,28,.86);
+    backdrop-filter:blur(8px);
+  }
+  .trackImageLightbox.open{display:flex}
+  .trackImageLightbox img{
+    display:block;
+    max-width:min(96vw,1800px);
+    max-height:92vh;
+    width:auto;
+    height:auto;
+    object-fit:contain;
+    border-radius:14px;
+    background:#fff;
+    box-shadow:0 24px 80px rgba(0,0,0,.36);
+    cursor:zoom-out;
+  }
+  .trackImageLightboxClose{
+    position:absolute;
+    top:16px;
+    right:16px;
+    width:42px;
+    height:42px;
+    border:0;
+    border-radius:999px;
+    background:rgba(255,255,255,.94);
+    color:#183040;
+    font-size:24px;
+    font-weight:900;
+    cursor:pointer;
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  function ensureLightbox(){
+    let box=document.getElementById('trackImageLightbox');
+    if(box) return box;
+
+    box=document.createElement('div');
+    box.id='trackImageLightbox';
+    box.className='trackImageLightbox';
+    box.innerHTML='<button class="trackImageLightboxClose" type="button" aria-label="關閉">×</button><img alt="放大路徑圖">';
+    document.body.appendChild(box);
+
+    const close=()=>box.classList.remove('open');
+    box.querySelector('.trackImageLightboxClose').addEventListener('click',close);
+    box.addEventListener('click',e=>{
+      if(e.target===box || e.target.tagName==='IMG') close();
+    });
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape') close();
+    });
+
+    return box;
+  }
+
+  document.addEventListener('click',e=>{
+    const img=e.target.closest?.('.trackZoomableImage');
+    if(!img) return;
+
+    e.preventDefault();
+    const box=ensureLightbox();
+    const target=box.querySelector('img');
+    target.src=img.src;
+    target.alt=img.alt || '放大路徑圖';
+    box.classList.add('open');
+  });
+})();
 </script>
 </body>
 </html>
