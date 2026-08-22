@@ -15713,16 +15713,117 @@ ${a.instruction}` : ''
   }
   function addOverviewLabels(svg, groups, view, width, height){
     const proj=projector(view,width,height);
+    const used=[];
+    const routeSegments=[];
+    const routePointBoxes=[];
+    const conePolys=[];
+
+    function overlaps(a,b,pad=4){
+      return !(a.x+a.w+pad<b.x || b.x+b.w+pad<a.x || a.y+a.h+pad<b.y || b.y+b.h+pad<a.y);
+    }
+    function pointInRect(p,r,pad=0){
+      return p.x>=r.x-pad && p.x<=r.x+r.w+pad && p.y>=r.y-pad && p.y<=r.y+r.h+pad;
+    }
+    function orient(a,b,c){ return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x); }
+    function segCross(a,b,c,d){
+      const o1=orient(a,b,c), o2=orient(a,b,d), o3=orient(c,d,a), o4=orient(c,d,b);
+      return ((o1>0&&o2<0)||(o1<0&&o2>0)) && ((o3>0&&o4<0)||(o3<0&&o4>0));
+    }
+    function segmentHitsRect(a,b,r,pad=6){
+      const ex={x:r.x-pad,y:r.y-pad,w:r.w+pad*2,h:r.h+pad*2};
+      if(pointInRect(a,ex) || pointInRect(b,ex)) return true;
+      const p1={x:ex.x,y:ex.y}, p2={x:ex.x+ex.w,y:ex.y};
+      const p3={x:ex.x+ex.w,y:ex.y+ex.h}, p4={x:ex.x,y:ex.y+ex.h};
+      return segCross(a,b,p1,p2) || segCross(a,b,p2,p3) || segCross(a,b,p3,p4) || segCross(a,b,p4,p1);
+    }
+    function pointInPoly(p,poly){
+      let inside=false;
+      for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+        const a=poly[i], b=poly[j];
+        const hit=((a.y>p.y)!==(b.y>p.y)) && (p.x < (b.x-a.x)*(p.y-a.y)/((b.y-a.y)||1e-9)+a.x);
+        if(hit) inside=!inside;
+      }
+      return inside;
+    }
+    function rectHitsPoly(r,poly){
+      if(!poly || poly.length<3) return false;
+      const corners=[{x:r.x,y:r.y},{x:r.x+r.w,y:r.y},{x:r.x+r.w,y:r.y+r.h},{x:r.x,y:r.y+r.h},{x:r.x+r.w/2,y:r.y+r.h/2}];
+      if(corners.some(p=>pointInPoly(p,poly))) return true;
+      if(poly.some(p=>pointInRect(p,r,3))) return true;
+      for(let i=0;i<poly.length;i++){
+        const a=poly[i], b=poly[(i+1)%poly.length];
+        if(segmentHitsRect(a,b,r,2)) return true;
+      }
+      return false;
+    }
+    function rectCenter(r){ return {x:r.x+r.w/2,y:r.y+r.h/2}; }
+
+    groups.forEach(g=>{
+      const pts=sortPts(g.points || []);
+      for(let i=0;i<pts.length-1;i++) routeSegments.push({a:proj(pts[i].lat,pts[i].lon), b:proj(pts[i+1].lat,pts[i+1].lon)});
+      pts.forEach(p=>{ const q=proj(p.lat,p.lon); routePointBoxes.push({x:q.x-10,y:q.y-10,w:20,h:20}); });
+      const cone=buildCleanForecastCone(pts);
+      if(cone && cone.length>=3) conePolys.push(cone.map(([lat,lon])=>proj(lat,lon)));
+    });
+
+    function candidatePenalty(box){
+      let score=0;
+      used.forEach(u=>{ if(overlaps(box,u,6)) score+=120000; });
+      routePointBoxes.forEach(r=>{ if(overlaps(box,r,5)) score+=18000; });
+      routeSegments.forEach(s=>{ if(segmentHitsRect(s.a,s.b,box,8)) score+=15000; });
+      conePolys.forEach(poly=>{ if(rectHitsPoly(box,poly)) score+=12000; });
+      return score;
+    }
+
+    function pickBox(q,w,h){
+      const candidates=[];
+      const rings=[20,34,48,64,82,102,126,152];
+      const directions=[
+        [1,-1],[-1,-1],[1,1],[-1,1],[0,-1],[0,1],[1,0],[-1,0],
+        [1,-0.45],[-1,-0.45],[1,0.45],[-1,0.45],[0.45,-1],[-0.45,-1],[0.45,1],[-0.45,1]
+      ];
+      rings.forEach(r=>{
+        directions.forEach(([dx,dy])=>{
+          let x=q.x + dx*r, y=q.y + dy*r;
+          if(dx<0) x-=w;
+          else if(Math.abs(dx)<0.01) x-=w/2;
+          else if(dx<1) x-=w*.25;
+          if(dy<0) y-=h;
+          else if(Math.abs(dy)<0.01) y-=h/2;
+          else if(dy<1) y-=h*.25;
+          const b={x:clamp(x,6,width-w-6), y:clamp(y,6,height-h-6), w,h};
+          const c=rectCenter(b), dist=Math.hypot(c.x-q.x,c.y-q.y);
+          let score=candidatePenalty(b)+dist*0.25;
+          if(c.x<width*0.18) score-=6; // slight preference for sides when free
+          if(c.x>width*0.82) score-=6;
+          candidates.push({box:b,score});
+        });
+      });
+      candidates.sort((a,b)=>a.score-b.score);
+      const best=candidates[0];
+      if(!best) return null;
+      used.push(best.box);
+      return best.box;
+    }
+
+    const nameBoxes=[];
     groups.forEach((g,idx)=>{
-      const latest=latestObs(g.points) || g.points[g.points.length-1];
+      const pts=sortPts(g.points || []);
+      const latest=latestObs(pts) || pts[pts.length-1];
       if(!latest) return;
       const q=proj(latest.lat, latest.lon);
-      const label = stripCwa(g.name || latest.typhoonName || `颱風 ${idx+1}`);
-      const w=Math.max(54, label.length*9 + 18), h=26;
-      const x=clamp(q.x+10, 6, width-w-6), y=clamp(q.y-28, 6, height-h-6);
-      svg.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:13,fill:'rgba(255,255,255,.95)',stroke:basinColors[idx%basinColors.length],'stroke-width':'1.4'}));
-      const t=svgEl('text',{x:x+10,y:y+17,fill:'#173040','font-size':'12','font-weight':'900','font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'}); t.textContent=label; svg.appendChild(t);
+      const label=stripCwa(g.name || latest.typhoonName || `颱風 ${idx+1}`);
+      const w=Math.max(68, label.length*10 + 22), h=28;
+      const box=pickBox(q,w,h);
+      if(!box) return;
+      const center=rectCenter(box);
+      svg.appendChild(svgEl('line',{x1:q.x,y1:q.y,x2:center.x,y2:center.y,stroke:'rgba(23,48,64,.25)','stroke-width':'1'}));
+      svg.appendChild(svgEl('rect',{x:box.x,y:box.y,width:w,height:h,rx:14,fill:'rgba(255,255,255,.95)',stroke:basinColors[idx%basinColors.length],'stroke-width':'1.4'}));
+      const t=svgEl('text',{x:box.x+w/2,y:box.y+18,fill:'#173040','text-anchor':'middle','font-size':'12','font-weight':'900','font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'});
+      t.textContent=label; svg.appendChild(t);
+      nameBoxes.push(box);
     });
+    svg.__overviewNameBoxes = nameBoxes;
   }
 
   function overviewForecastLabels24h(pts){
@@ -15751,34 +15852,27 @@ ${a.instruction}` : ''
 
   function addOverviewForecastTimeLabels(svg, groups, view, width, height){
     const proj=projector(view,width,height);
-    const used=[];
+    const used=[...(svg.__overviewNameBoxes || [])];
     const routeSegments=[];
     const routePointBoxes=[];
     const conePolys=[];
 
-    function dateOnly(t){
+    function dateTimeLabel(t){
       const d=new Date(t || '');
       if(!Number.isFinite(d.getTime())) return '—';
-      return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+      return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:00`;
     }
-
     function overlaps(a,b,pad=3){
       return !(a.x+a.w+pad<b.x || b.x+b.w+pad<a.x || a.y+a.h+pad<b.y || b.y+b.h+pad<a.y);
     }
-
     function pointInRect(p,r,pad=0){
       return p.x>=r.x-pad && p.x<=r.x+r.w+pad && p.y>=r.y-pad && p.y<=r.y+r.h+pad;
     }
-
-    function orient(a,b,c){
-      return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
-    }
-
+    function orient(a,b,c){ return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x); }
     function segCross(a,b,c,d){
       const o1=orient(a,b,c), o2=orient(a,b,d), o3=orient(c,d,a), o4=orient(c,d,b);
       return ((o1>0&&o2<0)||(o1<0&&o2>0)) && ((o3>0&&o4<0)||(o3<0&&o4>0));
     }
-
     function segmentHitsRect(a,b,r,pad=5){
       const ex={x:r.x-pad,y:r.y-pad,w:r.w+pad*2,h:r.h+pad*2};
       if(pointInRect(a,ex) || pointInRect(b,ex)) return true;
@@ -15786,27 +15880,18 @@ ${a.instruction}` : ''
       const p3={x:ex.x+ex.w,y:ex.y+ex.h}, p4={x:ex.x,y:ex.y+ex.h};
       return segCross(a,b,p1,p2) || segCross(a,b,p2,p3) || segCross(a,b,p3,p4) || segCross(a,b,p4,p1);
     }
-
     function pointInPoly(p,poly){
       let inside=false;
       for(let i=0,j=poly.length-1;i<poly.length;j=i++){
         const a=poly[i], b=poly[j];
-        const hit=((a.y>p.y)!==(b.y>p.y)) &&
-          (p.x < (b.x-a.x)*(p.y-a.y)/((b.y-a.y)||1e-9)+a.x);
+        const hit=((a.y>p.y)!==(b.y>p.y)) && (p.x < (b.x-a.x)*(p.y-a.y)/((b.y-a.y)||1e-9)+a.x);
         if(hit) inside=!inside;
       }
       return inside;
     }
-
     function rectHitsPoly(r,poly){
       if(!poly || poly.length<3) return false;
-      const corners=[
-        {x:r.x,y:r.y},
-        {x:r.x+r.w,y:r.y},
-        {x:r.x+r.w,y:r.y+r.h},
-        {x:r.x,y:r.y+r.h},
-        {x:r.x+r.w/2,y:r.y+r.h/2}
-      ];
+      const corners=[{x:r.x,y:r.y},{x:r.x+r.w,y:r.y},{x:r.x+r.w,y:r.y+r.h},{x:r.x,y:r.y+r.h},{x:r.x+r.w/2,y:r.y+r.h/2}];
       if(corners.some(p=>pointInPoly(p,poly))) return true;
       if(poly.some(p=>pointInRect(p,r,3))) return true;
       for(let i=0;i<poly.length;i++){
@@ -15815,79 +15900,50 @@ ${a.instruction}` : ''
       }
       return false;
     }
+    function rectCenter(r){ return {x:r.x+r.w/2,y:r.y+r.h/2}; }
 
-    // Pre-compute all route / point / cone obstacles so date labels avoid them.
     groups.forEach(g=>{
       const pts=sortPts(g.points || []);
-      for(let i=0;i<pts.length-1;i++){
-        routeSegments.push({
-          a:proj(pts[i].lat,pts[i].lon),
-          b:proj(pts[i+1].lat,pts[i+1].lon)
-        });
-      }
-      pts.forEach(p=>{
-        const q=proj(p.lat,p.lon);
-        routePointBoxes.push({x:q.x-9,y:q.y-9,w:18,h:18});
-      });
-
+      for(let i=0;i<pts.length-1;i++) routeSegments.push({a:proj(pts[i].lat,pts[i].lon), b:proj(pts[i+1].lat,pts[i+1].lon)});
+      pts.forEach(p=>{ const q=proj(p.lat,p.lon); routePointBoxes.push({x:q.x-9,y:q.y-9,w:18,h:18}); });
       const cone=buildCleanForecastCone(pts);
-      if(cone && cone.length>=3){
-        conePolys.push(cone.map(([lat,lon])=>proj(lat,lon)));
-      }
+      if(cone && cone.length>=3) conePolys.push(cone.map(([lat,lon])=>proj(lat,lon)));
     });
 
     function candidatePenalty(box){
       let score=0;
-
-      // Strongest priority: never overlap another date label.
       used.forEach(u=>{ if(overlaps(box,u,4)) score+=100000; });
-
-      // Avoid the route dots and line.
       routePointBoxes.forEach(r=>{ if(overlaps(box,r,5)) score+=16000; });
       routeSegments.forEach(s=>{ if(segmentHitsRect(s.a,s.b,box,7)) score+=14000; });
-
-      // Avoid covering forecast cone shading/border.
-      conePolys.forEach(poly=>{ if(rectHitsPoly(box,poly)) score+=11000; });
-
+      conePolys.forEach(poly=>{ if(rectHitsPoly(box,poly)) score+=12000; });
       return score;
     }
 
     function pickBox(q,w,h){
       const candidates=[];
-      const rings=[26,38,52,68,86,104];
+      const rings=[30,44,60,78,98,120,144,170];
       const directions=[
-        [1,-1],[-1,-1],[1,1],[-1,1],
-        [0,-1],[0,1],[1,0],[-1,0]
+        [1,-1],[-1,-1],[1,1],[-1,1],[0,-1],[0,1],[1,0],[-1,0],
+        [1,-0.45],[-1,-0.45],[1,0.45],[-1,0.45],[0.45,-1],[-0.45,-1],[0.45,1],[-0.45,1]
       ];
-
       rings.forEach(r=>{
         directions.forEach(([dx,dy])=>{
-          let x=q.x + dx*r;
-          let y=q.y + dy*r;
-
+          let x=q.x + dx*r, y=q.y + dy*r;
           if(dx<0) x-=w;
-          else if(dx===0) x-=w/2;
-
+          else if(Math.abs(dx)<0.01) x-=w/2;
+          else if(dx<1) x-=w*.25;
           if(dy<0) y-=h;
-          else if(dy===0) y-=h/2;
-
-          const b={
-            x:clamp(x,5,width-w-5),
-            y:clamp(y,5,height-h-5),
-            w,h
-          };
-          const dist=Math.hypot((b.x+b.w/2)-q.x,(b.y+b.h/2)-q.y);
-          candidates.push({box:b,score:candidatePenalty(b)+dist*0.35});
+          else if(Math.abs(dy)<0.01) y-=h/2;
+          else if(dy<1) y-=h*.25;
+          const b={x:clamp(x,5,width-w-5), y:clamp(y,5,height-h-5), w,h};
+          const c=rectCenter(b), dist=Math.hypot(c.x-q.x,c.y-q.y);
+          candidates.push({box:b,score:candidatePenalty(b)+dist*0.18});
         });
       });
-
       candidates.sort((a,b)=>a.score-b.score);
       const best=candidates[0];
       if(!best) return null;
-
-      // If every position is bad, skip instead of covering the cone/route.
-      if(best.score>=10000) return null;
-
+      if(best.score>=20000) return null;
       used.push(best.box);
       return best.box;
     }
@@ -15895,32 +15951,14 @@ ${a.instruction}` : ''
     groups.forEach((g,idx)=>{
       overviewForecastLabels24h(g.points).forEach(p=>{
         const q=proj(p.lat,p.lon);
-        const label=dateOnly(p.time);
-        const w=48, h=18;
+        const label=dateTimeLabel(p.time);
+        const w=Math.max(76, label.length*6.7 + 14), h=20;
         const box=pickBox(q,w,h);
         if(!box) return;
-
         const bx=box.x+box.w/2, by=box.y+box.h/2;
-        svg.appendChild(svgEl('line',{
-          x1:q.x,y1:q.y,
-          x2:bx,y2:by,
-          stroke:'rgba(23,48,64,.25)',
-          'stroke-width':'0.8'
-        }));
-        svg.appendChild(svgEl('rect',{
-          x:box.x,y:box.y,width:box.w,height:box.h,rx:9,
-          fill:'rgba(255,255,255,.95)',
-          stroke:basinColors[idx%basinColors.length],
-          'stroke-width':'0.8'
-        }));
-        const t=svgEl('text',{
-          x:box.x+box.w/2,y:box.y+12.2,
-          fill:'#173040',
-          'text-anchor':'middle',
-          'font-size':'9.5',
-          'font-weight':'900',
-          'font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'
-        });
+        svg.appendChild(svgEl('line',{x1:q.x,y1:q.y,x2:bx,y2:by,stroke:'rgba(23,48,64,.25)','stroke-width':'0.85'}));
+        svg.appendChild(svgEl('rect',{x:box.x,y:box.y,width:box.w,height:box.h,rx:10,fill:'rgba(255,255,255,.96)',stroke:basinColors[idx%basinColors.length],'stroke-width':'0.9'}));
+        const t=svgEl('text',{x:box.x+box.w/2,y:box.y+13.3,fill:'#173040','text-anchor':'middle','font-size':'9.4','font-weight':'900','font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'});
         t.textContent=label;
         svg.appendChild(t);
       });
@@ -16150,7 +16188,16 @@ ${a.instruction}` : ''
     const tileLayer=frame.querySelector('.trackTileLayer');
     requestAnimationFrame(()=>{
       const width=Math.max(320, plot.clientWidth), height=Math.max(320, plot.clientHeight);
-      const view=fixedViewNWPacific(width,height);
+      const fitPts=[];
+      groups.forEach(g=>{
+        const pts=sortPts(g.points || []); if(!pts.length) return;
+        fitPts.push(...pts);
+        const cone=buildCleanForecastCone(pts);
+        if(cone && cone.length){
+          cone.forEach(p=>fitPts.push({lat:Number(p[0]), lon:Number(p[1])}));
+        }
+      });
+      const view=fitView(fitPts.length ? fitPts : allPts, width, height, 82, 8.9);
       populateTiles(tileLayer, view, width, height);
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.setAttribute('width', width); svg.setAttribute('height', height);
