@@ -5373,39 +5373,84 @@ Implement by adjusting polygon style functions:
         return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
       }
 
-      function buildFallbackCircle(){
-        const base = [obs, ...fcst].map(p => ({ lat:Number(p.lat), lon:Number(p.lon) }));
-        const centerLat = base.reduce((s, p) => s + p.lat, 0) / base.length;
-        const centerLon = base.reduce((s, p) => s + p.lon, 0) / base.length;
-        let radiusKm = 0;
 
-        base.forEach((p, i) => {
-          const extra = i === 0 ? START_RADIUS : (smoothRadii[i - 1] || START_RADIUS);
-          radiusKm = Math.max(radiusKm, distanceKm({lat:centerLat, lon:centerLon}, p) + extra);
+      function buildCompactEnvelope(){
+        const centers = [
+          { lat:Number(obs.lat), lon:Number(obs.lon), rKm:START_RADIUS },
+          ...fcst.map((p,i)=>({
+            lat:Number(p.lat),
+            lon:Number(p.lon),
+            rKm:smoothRadii[i] || firstForecastRadius
+          }))
+        ];
+
+        const lat0 = centers.reduce((s,p)=>s+p.lat,0) / centers.length;
+        const lon0 = centers.reduce((s,p)=>s+p.lon,0) / centers.length;
+        const ky = 110.574;
+        const kx = 111.320 * Math.max(.20, Math.cos(lat0 * Math.PI / 180));
+
+        const cloud = [];
+        centers.forEach((c,idx)=>{
+          // Current position stays relatively tight; forecast circles keep their 70% radius.
+          const rr = idx === 0 ? c.rKm : c.rKm;
+          for(let a=0; a<360; a+=10){
+            const pt = destinationPoint(c.lat, c.lon, a, kmToMeters(rr));
+            cloud.push({
+              x:(pt.lon-lon0)*kx,
+              y:(pt.lat-lat0)*ky
+            });
+          }
         });
 
-        radiusKm = clamp(radiusKm * 1.02, 30, 420);
+        cloud.sort((a,b)=>a.x===b.x ? a.y-b.y : a.x-b.x);
+        if(cloud.length < 3) return null;
 
-        const poly = [];
-        for(let a = 0; a <= 360; a += 6){
-          const pt = destinationPoint(centerLat, centerLon, a % 360, kmToMeters(radiusKm));
-          poly.push([pt.lat, pt.lon]);
+        const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+        const lower=[];
+        for(const p of cloud){
+          while(lower.length>=2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
+          lower.push(p);
         }
+        const upper=[];
+        for(let i=cloud.length-1;i>=0;i--){
+          const p=cloud[i];
+          while(upper.length>=2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
+          upper.push(p);
+        }
+
+        const hull = lower.slice(0,-1).concat(upper.slice(0,-1));
+        const poly = hull.map(p=>[
+          lat0 + p.y/ky,
+          lon0 + p.x/kx
+        ]);
+        if(poly.length) poly.push(poly[0]);
         return poly;
       }
 
-      let useFallbackCircle = false;
-      for(let i = 0; i < fcst.length - 1; i++){
-        const dKm = distanceKm(fcst[i], fcst[i + 1]);
-        const localR = Math.max(smoothRadii[i] || 0, smoothRadii[i + 1] || 0, 1);
-        if(dKm < localR * 0.72){
-          useFallbackCircle = true;
-          break;
+      function shouldUseCompactEnvelope(){
+        if(fcst.length < 3) return false;
+
+        let pathKm = 0;
+        let closePairs = 0;
+        for(let i=0;i<fcst.length-1;i++){
+          const dKm = distanceKm(fcst[i], fcst[i+1]);
+          pathKm += dKm;
+          const localR = Math.max(smoothRadii[i] || 0, smoothRadii[i+1] || 0, 1);
+          if(dKm < localR * 0.72) closePairs++;
         }
+
+        const endKm = distanceKm(fcst[0], fcst[fcst.length-1]);
+        const maxR = Math.max(...smoothRadii, 1);
+        const straightness = pathKm > 0 ? endKm / pathKm : 1;
+
+        // Only special clustered / folding tracks use the compact envelope.
+        // Long, normally progressing tracks keep the original forecast cone.
+        return closePairs >= 2 && (straightness < 0.78 || endKm < maxR * 1.25);
       }
 
-      if(useFallbackCircle){
-        return buildFallbackCircle();
+      if(shouldUseCompactEnvelope()){
+        const compact = buildCompactEnvelope();
+        if(compact && compact.length >= 4) return compact;
       }
 
       const path = [
@@ -13323,40 +13368,75 @@ ${a.instruction}` : ''
       return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
     }
 
-    function buildFallbackCircle(){
-      const base = [obs, ...fcst].map(p => ({ lat:Number(p.lat), lon:Number(p.lon) }));
-      const centerLat = base.reduce((s, p) => s + p.lat, 0) / base.length;
-      const centerLon = base.reduce((s, p) => s + p.lon, 0) / base.length;
-      let radiusKm = 0;
 
-      base.forEach((p, i) => {
-        const extra = i === 0 ? START_RADIUS : (smoothRadii[i - 1] || START_RADIUS);
-        radiusKm = Math.max(radiusKm, distanceKm({lat:centerLat, lon:centerLon}, p) + extra);
+    function buildCompactEnvelope(){
+      const centers = [
+        { lat:Number(obs.lat), lon:Number(obs.lon), rKm:START_RADIUS },
+        ...fcst.map((p,i)=>({
+          lat:Number(p.lat),
+          lon:Number(p.lon),
+          rKm:smoothRadii[i] || firstForecastRadius
+        }))
+      ];
+
+      const lat0 = centers.reduce((s,p)=>s+p.lat,0) / centers.length;
+      const lon0 = centers.reduce((s,p)=>s+p.lon,0) / centers.length;
+      const ky = 110.574;
+      const kx = 111.320 * Math.max(.20, Math.cos(lat0 * Math.PI / 180));
+
+      const cloud=[];
+      centers.forEach(c=>{
+        for(let a=0;a<360;a+=10){
+          const pt = W.destinationPoint(
+            c.lat, c.lon, a,
+            (typeof W.kmToMeters === 'function' ? W.kmToMeters(c.rKm) : c.rKm*1000)
+          );
+          cloud.push({x:(pt.lon-lon0)*kx,y:(pt.lat-lat0)*ky});
+        }
       });
 
-      radiusKm = clamp(radiusKm * 1.02, 30, 420);
+      cloud.sort((a,b)=>a.x===b.x ? a.y-b.y : a.x-b.x);
+      if(cloud.length<3) return null;
+      const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
 
-      const poly = [];
-      for(let a = 0; a <= 360; a += 6){
-        const pt = W.destinationPoint(centerLat, centerLon, a % 360, (typeof W.kmToMeters === 'function' ? W.kmToMeters(radiusKm) : radiusKm * 1000));
-        poly.push([pt.lat, pt.lon]);
+      const lower=[];
+      for(const p of cloud){
+        while(lower.length>=2 && cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop();
+        lower.push(p);
       }
+      const upper=[];
+      for(let i=cloud.length-1;i>=0;i--){
+        const p=cloud[i];
+        while(upper.length>=2 && cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop();
+        upper.push(p);
+      }
+
+      const hull=lower.slice(0,-1).concat(upper.slice(0,-1));
+      const poly=hull.map(p=>[lat0+p.y/ky,lon0+p.x/kx]);
+      if(poly.length) poly.push(poly[0]);
       return poly;
     }
 
-    let useFallbackCircle = false;
-    for(let i = 0; i < fcst.length - 1; i++){
-      const dKm = distanceKm(fcst[i], fcst[i + 1]);
-      const localR = Math.max(smoothRadii[i] || 0, smoothRadii[i + 1] || 0, 1);
-      if(dKm < localR * 0.72){
-        useFallbackCircle = true;
-        break;
+    function shouldUseCompactEnvelope(){
+      if(fcst.length<3) return false;
+      let pathKm=0, closePairs=0;
+      for(let i=0;i<fcst.length-1;i++){
+        const dKm=distanceKm(fcst[i],fcst[i+1]);
+        pathKm+=dKm;
+        const localR=Math.max(smoothRadii[i]||0,smoothRadii[i+1]||0,1);
+        if(dKm < localR*.72) closePairs++;
       }
+      const endKm=distanceKm(fcst[0],fcst[fcst.length-1]);
+      const maxR=Math.max(...smoothRadii,1);
+      const straightness=pathKm>0?endKm/pathKm:1;
+      return closePairs>=2 && (straightness<.78 || endKm<maxR*1.25);
     }
 
-    if(useFallbackCircle){
-      return buildFallbackCircle();
+    if(shouldUseCompactEnvelope()){
+      const compact=buildCompactEnvelope();
+      if(compact && compact.length>=4) return compact;
     }
+
 
     const path = [{lat:obs.lat, lon:obs.lon, rKm:START_RADIUS}].concat(fcst.map((p,i)=>({lat:p.lat, lon:p.lon, rKm:smoothRadii[i]})));
     function getHeading(i){
@@ -15101,16 +15181,16 @@ ${a.instruction}` : ''
   }
   .trackMapMeta{
     display:flex;
-    align-items:flex-end;
+    align-items:flex-start;
     justify-content:space-between;
-    gap:12px;
-    padding:12px 14px 10px;
+    gap:16px 20px;
+    padding:18px 20px 15px;
     border-bottom:1px solid var(--line);
-    background:linear-gradient(135deg,rgba(249,252,252,.96),rgba(231,242,243,.55));
+    background:linear-gradient(135deg,rgba(249,252,252,.98),rgba(231,242,243,.60));
   }
-  .trackMapMeta h4{margin:0;color:#0f2230;font-size:15px;font-weight:900;line-height:1.25}
-  .trackMapMeta p{margin:6px 0 0;color:#6a7d89;font-size:11px;font-weight:800}
-  .trackMapMeta .right{text-align:right;color:#33424c;font-size:11px;font-weight:900;line-height:1.65}
+  .trackMapMeta h4{margin:0;color:#0f2230;font-size:18px;font-weight:900;line-height:1.28;letter-spacing:.01em}
+  .trackMapMeta p{margin:8px 0 0;color:#6a7d89;font-size:12px;font-weight:800;line-height:1.6}
+  .trackMapMeta .right{text-align:right;color:#33424c;font-size:12px;font-weight:900;line-height:1.8;padding-top:2px}
   .trackPlot{
     position:relative;
     height:520px;
@@ -15142,20 +15222,20 @@ ${a.instruction}` : ''
   }
   .trackSvgLayer{z-index:3;overflow:visible}
   .trackLegendBar{
-    padding:10px 14px;
+    padding:14px 18px 16px;
     border-top:1px solid var(--line);
     display:flex;
     flex-wrap:wrap;
-    gap:10px 16px;
+    gap:12px 18px;
     align-items:center;
     background:#fff;
   }
-  .trackLegendItem{display:inline-flex;align-items:center;gap:8px;color:#4d6673;font-size:11px;font-weight:900}
+  .trackLegendItem{display:inline-flex;align-items:center;gap:8px;color:#4d6673;font-size:11.5px;font-weight:900;line-height:1.45}
   .trackLegendLine{width:24px;height:0;border-top:3px solid #22323c;border-radius:999px}
   .trackLegendLine.fcst{border-top-color:#355c9a;border-top-style:dashed}
   .trackLegendBox{width:20px;height:12px;border-radius:4px;background:rgba(96,165,250,.20);border:1px solid rgba(67,139,225,.85)}
   .trackLegendDot{width:10px;height:10px;border-radius:999px;display:inline-block}
-  .trackMiniLegend{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+  .trackMiniLegend{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
   @media(max-width:1100px){
     .trackCardGrid{grid-template-columns:1fr}
   }
@@ -15345,6 +15425,65 @@ ${a.instruction}` : ''
       const next=rawRadii[i+1] ?? r;
       return clamp((prev+r+next)/3,8,350);
     });
+
+
+    function compactEnvelope(){
+      if(fc.length<3) return null;
+
+      let pathKm=0, closePairs=0;
+      for(let i=0;i<fc.length-1;i++){
+        const d=distKm(fc[i],fc[i+1]);
+        pathKm+=d;
+        const localR=Math.max(smoothRadii[i]||0,smoothRadii[i+1]||0,1);
+        if(d < localR*.72) closePairs++;
+      }
+
+      const endKm=distKm(fc[0],fc[fc.length-1]);
+      const maxR=Math.max(...smoothRadii,1);
+      const straightness=pathKm>0?endKm/pathKm:1;
+
+      if(!(closePairs>=2 && (straightness<.78 || endKm<maxR*1.25))) return null;
+
+      const centers=[
+        {lat:obs.lat,lon:obs.lon,rKm:START_RADIUS},
+        ...fc.map((p,i)=>({lat:p.lat,lon:p.lon,rKm:smoothRadii[i]||maxR}))
+      ];
+
+      const lat0=centers.reduce((s,p)=>s+p.lat,0)/centers.length;
+      const lon0=centers.reduce((s,p)=>s+p.lon,0)/centers.length;
+      const ky=110.574;
+      const kx=111.320*Math.max(.20,Math.cos(toRad(lat0)));
+
+      const cloud=[];
+      centers.forEach(c=>{
+        for(let a=0;a<360;a+=10){
+          const p=dest(c.lat,c.lon,a,c.rKm);
+          cloud.push({x:(p[1]-lon0)*kx,y:(p[0]-lat0)*ky});
+        }
+      });
+
+      cloud.sort((a,b)=>a.x===b.x?a.y-b.y:a.x-b.x);
+      const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+      const lower=[];
+      for(const p of cloud){
+        while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop();
+        lower.push(p);
+      }
+      const upper=[];
+      for(let i=cloud.length-1;i>=0;i--){
+        const p=cloud[i];
+        while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop();
+        upper.push(p);
+      }
+
+      const hull=lower.slice(0,-1).concat(upper.slice(0,-1));
+      const poly=hull.map(p=>[lat0+p.y/ky,lon0+p.x/kx]);
+      if(poly.length) poly.push(poly[0]);
+      return poly;
+    }
+
+    const compact=compactEnvelope();
+    if(compact) return compact;
 
 
     const path=[{lat:obs.lat,lon:obs.lon,rKm:START_RADIUS}, ...fc.map((p,i)=>({lat:p.lat,lon:p.lon,rKm:smoothRadii[i]}))];
@@ -15788,6 +15927,138 @@ ${a.instruction}` : ''
     });
   }
 
+  function addSingleForecastTimeLabels(svg, pts, view, width, height, strokeColor='#4f6db8'){
+    const proj=projector(view,width,height);
+    const picks=overviewForecastLabels24h(pts);
+    if(!picks.length) return;
+
+    const used=[];
+    const routeSegments=[];
+    const routePointBoxes=[];
+    const conePolys=[];
+
+    function labelText(t){
+      const d=new Date(t || '');
+      if(!Number.isFinite(d.getTime())) return '—';
+      return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:00`;
+    }
+
+    function overlaps(a,b,pad=3){
+      return !(a.x+a.w+pad<b.x || b.x+b.w+pad<a.x || a.y+a.h+pad<b.y || b.y+b.h+pad<a.y);
+    }
+    function pointInRect(p,r,pad=0){
+      return p.x>=r.x-pad && p.x<=r.x+r.w+pad && p.y>=r.y-pad && p.y<=r.y+r.h+pad;
+    }
+    function orient(a,b,c){ return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x); }
+    function segCross(a,b,c,d){
+      const o1=orient(a,b,c), o2=orient(a,b,d), o3=orient(c,d,a), o4=orient(c,d,b);
+      return ((o1>0&&o2<0)||(o1<0&&o2>0)) && ((o3>0&&o4<0)||(o3<0&&o4>0));
+    }
+    function segmentHitsRect(a,b,r,pad=5){
+      const ex={x:r.x-pad,y:r.y-pad,w:r.w+pad*2,h:r.h+pad*2};
+      if(pointInRect(a,ex) || pointInRect(b,ex)) return true;
+      const p1={x:ex.x,y:ex.y}, p2={x:ex.x+ex.w,y:ex.y};
+      const p3={x:ex.x+ex.w,y:ex.y+ex.h}, p4={x:ex.x,y:ex.y+ex.h};
+      return segCross(a,b,p1,p2) || segCross(a,b,p2,p3) || segCross(a,b,p3,p4) || segCross(a,b,p4,p1);
+    }
+    function pointInPoly(p,poly){
+      let inside=false;
+      for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+        const a=poly[i], b=poly[j];
+        const hit=((a.y>p.y)!==(b.y>p.y)) &&
+          (p.x < (b.x-a.x)*(p.y-a.y)/((b.y-a.y)||1e-9)+a.x);
+        if(hit) inside=!inside;
+      }
+      return inside;
+    }
+    function rectHitsPoly(r,poly){
+      if(!poly || poly.length<3) return false;
+      const corners=[
+        {x:r.x,y:r.y},{x:r.x+r.w,y:r.y},{x:r.x+r.w,y:r.y+r.h},
+        {x:r.x,y:r.y+r.h},{x:r.x+r.w/2,y:r.y+r.h/2}
+      ];
+      if(corners.some(p=>pointInPoly(p,poly))) return true;
+      if(poly.some(p=>pointInRect(p,r,3))) return true;
+      for(let i=0;i<poly.length;i++){
+        const a=poly[i], b=poly[(i+1)%poly.length];
+        if(segmentHitsRect(a,b,r,2)) return true;
+      }
+      return false;
+    }
+
+    const sorted=sortPts(pts || []);
+    for(let i=0;i<sorted.length-1;i++){
+      routeSegments.push({ a:proj(sorted[i].lat,sorted[i].lon), b:proj(sorted[i+1].lat,sorted[i+1].lon) });
+    }
+    sorted.forEach(p=>{
+      const q=proj(p.lat,p.lon);
+      routePointBoxes.push({x:q.x-10,y:q.y-10,w:20,h:20});
+    });
+    const cone=buildCleanForecastCone(sorted);
+    if(cone && cone.length>=3) conePolys.push(cone.map(([lat,lon])=>proj(lat,lon)));
+
+    function candidatePenalty(box){
+      let score=0;
+      used.forEach(u=>{ if(overlaps(box,u,6)) score+=120000; });
+      routePointBoxes.forEach(r=>{ if(overlaps(box,r,6)) score+=20000; });
+      routeSegments.forEach(s=>{ if(segmentHitsRect(s.a,s.b,box,8)) score+=18000; });
+      conePolys.forEach(poly=>{ if(rectHitsPoly(box,poly)) score+=14000; });
+      return score;
+    }
+
+    function pickBox(q,w,h){
+      const candidates=[];
+      const rings=[34,50,68,88,110,134];
+      const directions=[[1,-1],[-1,-1],[1,1],[-1,1],[0,-1],[0,1],[1,0],[-1,0]];
+      rings.forEach(r=>{
+        directions.forEach(([dx,dy])=>{
+          let x=q.x + dx*r;
+          let y=q.y + dy*r;
+          if(dx<0) x-=w;
+          else if(dx===0) x-=w/2;
+          if(dy<0) y-=h;
+          else if(dy===0) y-=h/2;
+          const b={x:clamp(x,6,width-w-6), y:clamp(y,6,height-h-6), w,h};
+          const dist=Math.hypot((b.x+b.w/2)-q.x,(b.y+b.h/2)-q.y);
+          candidates.push({box:b,score:candidatePenalty(b)+dist*0.22});
+        });
+      });
+      candidates.sort((a,b)=>a.score-b.score);
+      const best=candidates[0];
+      if(!best) return null;
+      if(best.score>=18000) return null;
+      used.push(best.box);
+      return best.box;
+    }
+
+    picks.forEach(p=>{
+      const q=proj(p.lat,p.lon);
+      const label=labelText(p.time);
+      const w=Math.max(74, label.length*6.8 + 16), h=22;
+      const box=pickBox(q,w,h);
+      if(!box) return;
+
+      const bx=box.x+box.w/2, by=box.y+box.h/2;
+      svg.appendChild(svgEl('line',{
+        x1:q.x,y1:q.y,x2:bx,y2:by,
+        stroke:'rgba(23,48,64,.28)','stroke-width':'1'
+      }));
+      svg.appendChild(svgEl('rect',{
+        x:box.x,y:box.y,width:box.w,height:box.h,rx:11,
+        fill:'rgba(255,255,255,.96)',
+        stroke:strokeColor,'stroke-width':'1.2'
+      }));
+      const t=svgEl('text',{
+        x:box.x+box.w/2,y:box.y+14.2,
+        fill:'#173040','text-anchor':'middle','font-size':'10.5','font-weight':'900',
+        'font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'
+      });
+      t.textContent=label;
+      svg.appendChild(t);
+    });
+  }
+
+
   function buildLegendHTML(includeCone, includeLevels){
     let html='\
       <div class="trackLegendBar">\
@@ -15858,6 +16129,7 @@ ${a.instruction}` : ''
       addGrid(svg, view, width, height);
       addCone(svg, cone, view, width, height);
       addRoute(svg, pts, view, width, height);
+      addSingleForecastTimeLabels(svg, pts, view, width, height);
       svg.appendChild(svgEl('rect',{x:0,y:0,width,height,fill:'none',stroke:'rgba(20,30,40,.68)','stroke-width':'1.4'}));
     });
     return frame;
@@ -16092,20 +16364,55 @@ ${a.instruction}` : ''
     });
 
     function distKm(a,b){
-      const R=6371, p1=toRad(a.lat), p2=toRad(b.lat), d1=toRad(b.lat-a.lat), d2=toRad(b.lon-a.lon);
-      const h=Math.sin(d1/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(d2/2)**2;
-      return 2*R*Math.asin(Math.min(1, Math.sqrt(h)));
-    }
-    function circlePoly(clat,clon,rkm,steps=64){
-      const poly=[];
-      for(let i=0;i<=steps;i++){
-        const ang=(360*i/steps)%360;
-        const p=destination(clat,clon,ang,rkm);
-        poly.push([p.lat,p.lon]);
-      }
-      return poly;
+      const R=6371,p1=toRad(a.lat),p2=toRad(b.lat),d1=toRad(b.lat-a.lat),d2=toRad(b.lon-a.lon);
+      const h=Math.sin(d1/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(d2/2)**2;
+      return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
     }
 
+    let pathKm=0, closePairs=0;
+    for(let i=0;i<fcst.length-1;i++){
+      const d=distKm(fcst[i],fcst[i+1]);
+      pathKm+=d;
+      const localR=Math.max(smoothRadii[i]||0,smoothRadii[i+1]||0,1);
+      if(d<localR*.72) closePairs++;
+    }
+    const endKm=distKm(fcst[0],fcst[fcst.length-1]);
+    const maxR=Math.max(...smoothRadii,1);
+    const straightness=pathKm>0?endKm/pathKm:1;
+
+    if(closePairs>=2 && (straightness<.78 || endKm<maxR*1.25)){
+      const centers=[
+        {lat:obs.lat,lon:obs.lon,rKm:START_RADIUS},
+        ...fcst.map((p,i)=>({lat:p.lat,lon:p.lon,rKm:smoothRadii[i]||maxR}))
+      ];
+      const lat0=centers.reduce((s,p)=>s+p.lat,0)/centers.length;
+      const lon0=centers.reduce((s,p)=>s+p.lon,0)/centers.length;
+      const ky=110.574,kx=111.320*Math.max(.20,Math.cos(toRad(lat0)));
+      const cloud=[];
+      centers.forEach(c=>{
+        for(let a=0;a<360;a+=10){
+          const p=destination(c.lat,c.lon,a,c.rKm);
+          cloud.push({x:(p.lon-lon0)*kx,y:(p.lat-lat0)*ky});
+        }
+      });
+      cloud.sort((a,b)=>a.x===b.x?a.y-b.y:a.x-b.x);
+      const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+      const lower=[];
+      for(const p of cloud){
+        while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop();
+        lower.push(p);
+      }
+      const upper=[];
+      for(let i=cloud.length-1;i>=0;i--){
+        const p=cloud[i];
+        while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop();
+        upper.push(p);
+      }
+      const hull=lower.slice(0,-1).concat(upper.slice(0,-1));
+      const poly=hull.map(p=>[lat0+p.y/ky,lon0+p.x/kx]);
+      if(poly.length) poly.push(poly[0]);
+      return poly;
+    }
 
     const path=[
       {lat:obs.lat,lon:obs.lon,rKm:START_RADIUS},
@@ -16539,7 +16846,7 @@ ${a.instruction}` : ''
   }
 
   async function convertAllFigures(){
-    const frames=Array.from(document.querySelectorAll('#trackGalleryShell .trackMapFrame'));
+    const frames=Array.from(document.querySelectorAll('#trackOverviewHost .trackMapFrame, #trackGalleryShell .trackMapFrame'));
     let pending=false;
 
     for(const frame of frames){
@@ -16702,5 +17009,71 @@ ${a.instruction}` : ''
   });
 })();
 </script>
+
+<script>
+(function(){
+  'use strict';
+
+  async function exportOverviewFigureAsPngV4(){
+    const btn=document.getElementById('printAllBtn') || document.getElementById('printBtn');
+    const old=btn?.textContent || '下載 PNG';
+    try{
+      if(btn){ btn.disabled=true; btn.textContent='PNG 產生中...'; }
+      const host=document.getElementById('trackOverviewHost');
+      if(!host){ alert('找不到總覽圖區塊。'); return; }
+
+      let frame=host.querySelector('.trackMapFrame');
+      if(!frame){
+        try{ if(typeof window.renderGallery==='function') window.renderGallery(); }catch(e){}
+        await new Promise(r=>setTimeout(r,700));
+        frame=host.querySelector('.trackMapFrame');
+      }
+      if(!frame){ alert('目前沒有可下載的全部颱風資料。'); return; }
+
+      if(frame.dataset.realImage!=='1' && typeof window.makeRealImage==='function'){
+        await window.makeRealImage(frame);
+      }
+      await new Promise(r=>setTimeout(r,220));
+
+      let img=host.querySelector('img.trackDownloadImage') || host.querySelector('.trackMapFrame img');
+      if((!img || !img.src) && frame && typeof window.makeRealImage==='function'){
+        await window.makeRealImage(frame);
+        await new Promise(r=>setTimeout(r,320));
+        img=host.querySelector('img.trackDownloadImage') || host.querySelector('.trackMapFrame img');
+      }
+      if(!img || !img.src) throw new Error('overview image not ready');
+
+      const all=Array.isArray(window.allTyphoons)?window.allTyphoons:[];
+      const allPts=all.flatMap(t=>Array.isArray(t?.points)?t.points:[]);
+      const latest=allPts.filter(p=>p&&p.kind==='obs').sort((a,b)=>new Date(b.time)-new Date(a.time))[0];
+      const stamp=(typeof window.fmtTime==='function') ? window.fmtTime(latest?.time || Date.now(),'stamp') : String(Date.now());
+
+      const a=document.createElement('a');
+      a.href=img.src;
+      a.download=`西北太平洋全部颱風路徑_${stamp}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }catch(e){
+      console.error(e);
+      alert('全部颱風 PNG 產生失敗，請稍候再試。');
+    }finally{
+      if(btn){
+        btn.disabled=false;
+        try{
+          if(typeof window.updateDownloadPngButtonText==='function') window.updateDownloadPngButtonText();
+          else btn.textContent=old;
+        }catch(e){ btn.textContent=old; }
+      }
+    }
+  }
+
+  window.exportAllTyphoonsV10 = exportOverviewFigureAsPngV4;
+  window.exportAllTyphoonPng = exportOverviewFigureAsPngV4;
+  window.exportAllTyphoonMapOnlyPng = exportOverviewFigureAsPngV4;
+  try{ if(typeof window.hardRebindPngButtons==='function') window.hardRebindPngButtons(); }catch(e){}
+})();
+</script>
+
 </body>
 </html>
