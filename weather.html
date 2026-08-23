@@ -9017,18 +9017,88 @@ Implement by adjusting polygon style functions:
         q("twRaw").textContent = a.raw || "";
       }
 
+      function normalizeTwCountyName(name){
+        const raw = String(name || "").trim();
+        const alias = {
+          "台北市":"臺北市",
+          "台中市":"臺中市",
+          "台東縣":"臺東縣",
+          "台南市":"臺南市",
+          "臺北縣":"新北市",
+          "台北縣":"新北市",
+          "臺中縣":"臺中市",
+          "台中縣":"臺中市",
+          "臺南縣":"臺南市",
+          "台南縣":"臺南市",
+          "高雄縣":"高雄市"
+        };
+        return alias[raw] || raw.replace(/台/g, "臺");
+      }
+
+      function resolveCountyForTable(areaName, pendingCounty=""){
+        const raw = String(areaName || "").trim();
+        if(!raw) return "";
+
+        const list = Array.isArray(twCountyNameList) ? twCountyNameList.map(normalizeTwCountyName) : [];
+        const direct = normalizeTwCountyName(raw);
+        if(list.includes(direct)) return direct;
+
+        let resolved = "";
+        try{
+          if(typeof window.getAlertAreaGroups === "function"){
+            const groups = window.getAlertAreaGroups({ areaNames:[raw], area:raw }) || [];
+            if(groups.length && groups[0]?.county) resolved = normalizeTwCountyName(groups[0].county);
+          }
+        }catch(e){}
+
+        if(!resolved){
+          try{
+            if(typeof twAreaResolveCountyName === "function") resolved = normalizeTwCountyName(twAreaResolveCountyName(raw));
+          }catch(e){}
+        }
+
+        if(!resolved){
+          resolved = list.find(c => {
+            const ck = String(c || "").replace(/台/g, "臺");
+            const rk = direct.replace(/台/g, "臺");
+            return rk.startsWith(ck);
+          }) || "";
+        }
+
+        return resolved || normalizeTwCountyName(pendingCounty);
+      }
+
       function getCountyWarningMap(){
         const map = new Map();
+        const addAlert = (county, alert) => {
+          const c = normalizeTwCountyName(county);
+          if(!c) return;
+          if(!map.has(c)) map.set(c, []);
+          map.get(c).push(alert);
+        };
 
         filteredAlerts.forEach(a => {
-          (a.areaNames || []).forEach(name => {
-            const county = (typeof twAreaResolveCountyName === "function")
-              ? twAreaResolveCountyName(name)
-              : name;
+          let usedGroups = false;
+          try{
+            if(typeof window.getAlertAreaGroups === "function"){
+              const groups = window.getAlertAreaGroups(a) || [];
+              if(groups.length){
+                groups.forEach(g => {
+                  if(g && g.county) addAlert(g.county, a);
+                });
+                usedGroups = true;
+              }
+            }
+          }catch(e){}
+          if(usedGroups) return;
 
-            if(!county) return;
-            if(!map.has(county)) map.set(county, []);
-            map.get(county).push(a);
+          let pendingCounty = "";
+          (a.areaNames || []).forEach(name => {
+            const county = resolveCountyForTable(name, pendingCounty);
+            const normalized = normalizeTwCountyName(county);
+            if(!normalized) return;
+            if((Array.isArray(twCountyNameList) ? twCountyNameList.map(normalizeTwCountyName) : []).includes(normalized)) pendingCounty = normalized;
+            addAlert(normalized, a);
           });
         });
 
@@ -10912,8 +10982,20 @@ ${a.instruction}` : ''
   const RAW_COUNTIES = [
     '基隆市','臺北市','台北市','新北市','桃園市','新竹市','新竹縣','苗栗縣',
     '臺中市','台中市','彰化縣','南投縣','雲林縣','嘉義市','嘉義縣','臺南市','台南市',
-    '高雄市','屏東縣','宜蘭縣','花蓮縣','臺東縣','台東縣','澎湖縣','金門縣','連江縣'
+    '高雄市','屏東縣','宜蘭縣','花蓮縣','臺東縣','台東縣','澎湖縣','金門縣','連江縣',
+    '臺北縣','台北縣','臺中縣','台中縣','臺南縣','台南縣','高雄縣'
   ];
+  const RAW_COUNTY_ALIAS = {
+    '台北市':'臺北市', '台中市':'臺中市', '台東縣':'臺東縣', '台南市':'臺南市',
+    '臺北縣':'新北市', '台北縣':'新北市',
+    '臺中縣':'臺中市', '台中縣':'臺中市',
+    '臺南縣':'臺南市', '台南縣':'臺南市',
+    '高雄縣':'高雄市'
+  };
+  function canonicalCountyName(v){
+    const n=String(v ?? '').trim();
+    return RAW_COUNTY_ALIAS[n] || n;
+  }
   const rawCountySet = new Set(RAW_COUNTIES);
   const rawCountyRE = new RegExp('(' + RAW_COUNTIES.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -10928,15 +11010,25 @@ ${a.instruction}` : ''
   }
   function rawCounty(token){
     const n = rawName(token);
-    if(rawCountySet.has(n)) return n;
+    if(!n) return '';
+    const direct = canonicalCountyName(n);
+    if(rawCountySet.has(n) || rawCountySet.has(direct)) return direct;
     const m = n.match(rawCountyRE);
-    return m ? m[1] : '';
+    return m ? canonicalCountyName(m[1]) : '';
   }
   function rawTown(county, token){
-    const c = rawName(county);
+    const c = canonicalCountyName(county);
     const n = rawName(token);
-    if(!n || rawCountySet.has(n)) return '';
-    return (c && n.startsWith(c)) ? rawName(n.slice(c.length)) : n;
+    if(!n) return '';
+    if(rawCountySet.has(n)) return '';
+    const prefixes=Array.from(new Set([
+      c,
+      ...Object.keys(RAW_COUNTY_ALIAS).filter(k=>RAW_COUNTY_ALIAS[k]===c)
+    ].filter(Boolean)));
+    for(const prefix of prefixes){
+      if(n.startsWith(prefix)) return rawName(n.slice(prefix.length));
+    }
+    return n;
   }
   function splitAreaTokens(alert){
     let arr = [];
@@ -10979,7 +11071,7 @@ ${a.instruction}` : ''
         }
       }
     }catch(e){}
-    return n;
+    return canonicalCountyName(n);
   };
   window.twAreaFeatureNames = function(feature){
     const p = feature?.properties || {};
@@ -11012,8 +11104,8 @@ ${a.instruction}` : ''
     for(const raw of tokens){
       const n = rawName(raw);
       if(!n) continue;
-      const exactCounty = rawCountySet.has(n) ? n : '';
-      if(exactCounty){
+      const exactCounty = rawCounty(n);
+      if(exactCounty && rawCountySet.has(n)){
         pendingCounty = exactCounty;
         const g = ensureGroup(groups, exactCounty);
         if(g) g.whole = true;
@@ -17122,5 +17214,45 @@ ${a.instruction}` : ''
 })();
 </script>
 
+
+
+<!-- ===== Mobile gallery capture: desktop composition without changing desktop ===== -->
+<style>
+@media (max-width:780px){
+  /* Before the DOM figure is converted to PNG, give it desktop-like logical size.
+     trackGalleryShell already clips overflow; once converted, trackImageOnly no longer
+     matches these rules and the PNG scales normally to the phone width. */
+  #trackOverviewHost{overflow:hidden;}
+  #trackCardGrid{overflow:hidden;}
+
+  #trackOverviewHost .trackMapFrame:not(.trackImageOnly){
+    width:1180px !important;
+    max-width:none !important;
+  }
+  #trackOverviewHost .trackMapFrame:not(.trackImageOnly) .trackPlot.overview{
+    height:540px !important;
+  }
+
+  #trackCardGrid .trackMapFrame:not(.trackImageOnly){
+    width:590px !important;
+    max-width:none !important;
+  }
+  #trackCardGrid .trackMapFrame:not(.trackImageOnly) .trackPlot{
+    height:520px !important;
+  }
+
+  /* After conversion, the actual PNG behaves like a normal responsive image. */
+  #trackOverviewHost .trackMapFrame.trackImageOnly,
+  #trackCardGrid .trackMapFrame.trackImageOnly{
+    width:100% !important;
+    max-width:100% !important;
+  }
+  .trackMapFrame.trackImageOnly .trackDownloadImage{
+    display:block;
+    width:100% !important;
+    height:auto !important;
+  }
+}
+</style>
 </body>
 </html>
