@@ -809,6 +809,46 @@
       overflow:hidden;
     }
 
+    .mapShell.mapExpanded{
+      position:fixed;
+      inset:16px;
+      z-index:10000;
+      width:auto;
+      height:calc(100vh - 32px);
+      border-radius:24px;
+      box-shadow:0 24px 70px rgba(20,42,58,.28);
+    }
+
+    .mapShell.mapExpanded #map{
+      height:calc(100vh - 106px);
+    }
+
+    .map-expand-control{
+      width:38px;
+      height:38px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:1px solid rgba(25,42,58,.14);
+      border-radius:12px;
+      background:rgba(255,255,255,.96);
+      color:#163042;
+      box-shadow:0 8px 20px rgba(31,53,72,.12);
+      font-size:19px;
+      font-weight:900;
+      cursor:pointer;
+      line-height:1;
+    }
+
+    .map-expand-control:hover{
+      background:#fff;
+      color:var(--sea);
+    }
+
+    body.map-expanded{
+      overflow:hidden;
+    }
+
     .reportPanel{
       height:100%;
     }
@@ -2522,7 +2562,7 @@ background-clip:padding-box;
         const oldZoom = map.getZoom();
 
         const hiddenEls = Array.from(mapEl.querySelectorAll(
-          ".leaflet-control-zoom, .leaflet-control-attribution, .legend"
+          ".leaflet-control-zoom, .leaflet-control-attribution, .legend, .map-expand-control"
         ));
         const oldDisplay = hiddenEls.map(el => el.style.display);
 
@@ -2640,77 +2680,86 @@ background-clip:padding-box;
         ctx.imageSmoothingQuality = 'high';
 
         if(activeCountry === "malaysia" && eq?._kind === "malaysia"){
-          const bg = ctx.createLinearGradient(0, 0, W, H);
+          const MY_W = 1200;
+          const MY_MARGIN = 28;
+          const MY_GAP = 12;
+          const MY_LEGEND_H = 82;
+          const MY_MAP_W = MY_W - MY_MARGIN * 2;
+          const sourceAspect = mapCanvas.width / mapCanvas.height;
+          const MY_MAP_H = Math.round(MY_MAP_W / sourceAspect);
+          const MY_H = MY_MARGIN + MY_MAP_H + MY_GAP + MY_LEGEND_H + MY_MARGIN;
+
+          const myCanvas = document.createElement('canvas');
+          myCanvas.width = MY_W * EXPORT_SCALE;
+          myCanvas.height = MY_H * EXPORT_SCALE;
+          const myCtx = myCanvas.getContext('2d');
+          myCtx.scale(EXPORT_SCALE, EXPORT_SCALE);
+          myCtx.imageSmoothingEnabled = true;
+          myCtx.imageSmoothingQuality = 'high';
+
+          const bg = myCtx.createLinearGradient(0, 0, MY_W, MY_H);
           bg.addColorStop(0, '#edf8f9');
           bg.addColorStop(1, '#f8fbfc');
-          ctx.fillStyle = bg;
-          ctx.fillRect(0, 0, W, H);
+          myCtx.fillStyle = bg;
+          myCtx.fillRect(0, 0, MY_W, MY_H);
 
-          const outerX = 34;
-          const outerY = 34;
-          const outerW = W - 68;
-          const outerH = H - 68;
-          fillRoundRect(ctx, outerX, outerY, outerW, outerH, 28, 'rgba(255,255,255,.96)', 'rgba(25,42,58,.12)');
+          const mapX = MY_MARGIN;
+          const mapY = MY_MARGIN;
+          const mapW = MY_MAP_W;
+          const mapH = MY_MAP_H;
+          const legendX = MY_MARGIN;
+          const legendY = mapY + mapH + MY_GAP;
+          const legendW = MY_MAP_W;
+          const legendH = MY_LEGEND_H;
 
-          const mapX = outerX + 20;
-          const mapY = outerY + 20;
-          const mapW = outerW - 40;
-          const legendH = 92;
-          const gapY = 16;
-          const mapH = outerH - 40 - legendH - gapY;
-          const legendX = mapX;
-          const legendY = mapY + mapH + gapY;
-          const legendW = mapW;
+          fillRoundRect(myCtx, mapX, mapY, mapW, mapH, 22, '#e8f6f8', 'rgba(15,76,92,.14)');
+          myCtx.save();
+          drawRoundRect(myCtx, mapX, mapY, mapW, mapH, 22);
+          myCtx.clip();
+          myCtx.drawImage(
+            mapCanvas,
+            0, 0, mapCanvas.width, mapCanvas.height,
+            mapX, mapY, mapW, mapH
+          );
+          myCtx.restore();
 
-          fillRoundRect(ctx, mapX, mapY, mapW, mapH, 24, '#e8f6f8', 'rgba(15,76,92,.14)');
-          ctx.save();
-          drawRoundRect(ctx, mapX, mapY, mapW, mapH, 24);
-          ctx.clip();
-          ctx.drawImage(mapCanvas, 0, 0, mapCanvas.width, mapCanvas.height, mapX, mapY, mapW, mapH);
-          ctx.restore();
-
-          fillRoundRect(ctx, legendX, legendY, legendW, legendH, 20, 'rgba(255,255,255,.98)', 'rgba(25,42,58,.10)');
-          ctx.fillStyle = '#102f40';
-          ctx.font = '900 16px "Noto Sans TC", sans-serif';
-          ctx.fillText('州屬圖例', legendX + 18, legendY + 26);
-          ctx.fillStyle = '#6a7d89';
-          ctx.font = '800 11px "Noto Sans TC", sans-serif';
-          ctx.fillText('顏色代表州屬', legendX + 18, legendY + 44);
+          fillRoundRect(myCtx, legendX, legendY, legendW, legendH, 18, 'rgba(255,255,255,.98)', 'rgba(25,42,58,.10)');
+          myCtx.fillStyle = '#102f40';
+          myCtx.font = '900 15px "Noto Sans TC", sans-serif';
+          myCtx.fillText('州屬圖例', legendX + 16, legendY + 24);
 
           const legendRows = buildMalaysiaStateSummary().map(r => ({
             state:r.state,
             color:getMalaysiaStateColor(r.state)
           }));
-          const startX = legendX + 18;
-          const startY = legendY + 62;
-          const itemGap = 12;
-          const itemH = 18;
-          const itemPadX = 8;
+
+          const startX = legendX + 16;
+          const baseY = legendY + 54;
+          const maxX = legendX + legendW - 16;
           let x = startX;
-          let y = startY;
-          const maxX = legendX + legendW - 18;
+          let y = baseY;
 
           legendRows.forEach((item) => {
-            ctx.font = '900 11px "Noto Sans TC", sans-serif';
-            const textW = ctx.measureText(item.state).width;
-            const itemW = 16 + itemPadX + textW + 14;
+            myCtx.font = '900 11px "Noto Sans TC", sans-serif';
+            const textW = myCtx.measureText(item.state).width;
+            const itemW = 18 + textW + 16;
             if(x + itemW > maxX){
               x = startX;
-              y += 22;
+              y += 20;
             }
-            ctx.fillStyle = item.color;
-            ctx.beginPath();
-            ctx.arc(x + 7, y - 5, 6, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#102f40';
-            ctx.fillText(item.state, x + 18, y - 1);
-            x += itemW + itemGap;
+            myCtx.fillStyle = item.color;
+            myCtx.beginPath();
+            myCtx.arc(x + 6, y - 4, 5.5, 0, Math.PI * 2);
+            myCtx.fill();
+            myCtx.fillStyle = '#102f40';
+            myCtx.fillText(item.state, x + 17, y);
+            x += itemW + 10;
           });
 
           const a = document.createElement('a');
           const safeTime = time.replace(/[^0-9]/g, '').slice(0, 12) || 'earthquake';
           a.download = `earthquake_malaysia_map_${safeTime}.png`;
-          a.href = canvas.toDataURL('image/png');
+          a.href = myCanvas.toDataURL('image/png');
           a.click();
           return;
         }
@@ -2974,6 +3023,44 @@ background-clip:padding-box;
 
       mapboxLayer.addTo(map);
       map.setView([23.7, 121.0], 7);
+
+      const ExpandControl = L.Control.extend({
+        options:{ position:"topright" },
+        onAdd:function(){
+          const btn = L.DomUtil.create("button", "map-expand-control");
+          btn.type = "button";
+          btn.title = "放大地圖";
+          btn.setAttribute("aria-label", "放大地圖");
+          btn.innerHTML = "⛶";
+          L.DomEvent.disableClickPropagation(btn);
+          L.DomEvent.on(btn, "click", (e) => {
+            L.DomEvent.stop(e);
+            const shell = document.querySelector(".mapShell");
+            if(!shell) return;
+            const expanded = shell.classList.toggle("mapExpanded");
+            document.body.classList.toggle("map-expanded", expanded);
+            btn.innerHTML = expanded ? "✕" : "⛶";
+            btn.title = expanded ? "關閉放大地圖" : "放大地圖";
+            setTimeout(() => map.invalidateSize(false), 80);
+          });
+          return btn;
+        }
+      });
+      map.addControl(new ExpandControl());
+
+      document.addEventListener("keydown", (e) => {
+        if(e.key !== "Escape") return;
+        const shell = document.querySelector(".mapShell.mapExpanded");
+        if(!shell) return;
+        shell.classList.remove("mapExpanded");
+        document.body.classList.remove("map-expanded");
+        const btn = document.querySelector(".map-expand-control");
+        if(btn){
+          btn.innerHTML = "⛶";
+          btn.title = "放大地圖";
+        }
+        setTimeout(() => map.invalidateSize(false), 80);
+      });
       buildLegend();
       updateCountryUi();
 
