@@ -1549,9 +1549,51 @@ background-clip:padding-box;
       return "#dc2626";
     }
 
+    const malaysiaStatePalette = [
+      "#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2",
+      "#ea580c", "#0f766e", "#e11d48", "#65a30d", "#9333ea", "#4f46e5",
+      "#b45309", "#0ea5e9", "#be123c", "#15803d", "#7e22ce"
+    ];
+
+    function getMalaysiaStateNames(){
+      return Array.from(new Set(
+        cachedMalaysia
+          .map(eq => String(eq?._state ?? "").trim())
+          .filter(Boolean)
+      )).sort((a, b) => a.localeCompare(b, "zh-Hant"));
+    }
+
+    function getMalaysiaStateColor(state){
+      const clean = String(state ?? "").trim();
+      if(!clean) return "#64748b";
+      const states = getMalaysiaStateNames();
+      const idx = Math.max(0, states.indexOf(clean));
+      return malaysiaStatePalette[idx % malaysiaStatePalette.length];
+    }
+
+    function getMalaysiaMarkerRadius(mag){
+      const n = Number(mag);
+      if(!Number.isFinite(n)) return 8;
+      return Math.max(6, Math.min(18, 4 + n * 2.2));
+    }
+
+    function buildMalaysiaStateSummary(){
+      const m = new Map();
+      for(const eq of cachedMalaysia){
+        const state = String(eq?._state ?? "").trim() || "未知州屬";
+        const mag = getMagnitude(eq);
+        const cur = m.get(state) || { state, count:0, maxMag:null };
+        cur.count += 1;
+        if(mag != null && (cur.maxMag == null || mag > cur.maxMag)) cur.maxMag = mag;
+        m.set(state, cur);
+      }
+      return Array.from(m.values()).sort((a,b) => (b.count - a.count) || a.state.localeCompare(b.state, "zh-Hant"));
+    }
+
     let map;
     let epicenterMarker = null;
     const stationMarkers = [];
+    const malaysiaMarkers = [];
     let legendCtrl = null;
 
     let cachedAll = [];
@@ -1566,27 +1608,41 @@ background-clip:padding-box;
       legendCtrl = L.control({ position:"bottomleft" });
       legendCtrl.onAdd = () => {
         const el = L.DomUtil.create("div", "legend");
-        el.innerHTML = `
-          <div style="font-weight:900;font-size:12px;">圖例</div>
-          ${[
-            ["震度 0", palette[0]],
-            ["震度 1", palette[1]],
-            ["震度 2", palette[2]],
-            ["震度 3", palette[3]],
-            ["震度 4", palette[4]],
-            ["震度 5-", palette["5-"]],
-            ["震度 5+", palette["5+"]],
-            ["震度 6-", palette["6-"]],
-            ["震度 6+", palette["6+"]],
-            ["震度 7-", palette["7-"]],
-            ["震度 7+", palette["7+"]]
-          ].map(([label, color]) => `
-            <div class="row">
-              <span class="swatch" style="background:${color};"></span>
-              <span>${label}</span>
-            </div>
-          `).join("")}
-        `;
+        if(activeCountry === "malaysia"){
+          const states = getMalaysiaStateNames();
+          el.innerHTML = `
+            <div style="font-weight:900;font-size:12px;">馬來西亞州屬圖例</div>
+            <div style="margin-top:4px;color:#64748b;font-size:11px;font-weight:800;line-height:1.55;">顏色代表州屬；圓點大小依規模顯示。</div>
+            ${states.map(state => `
+              <div class="row">
+                <span class="swatch" style="background:${getMalaysiaStateColor(state)};border-radius:999px;"></span>
+                <span>${escapeHtml(state)}</span>
+              </div>
+            `).join("") || `<div class="row"><span>目前沒有州屬資料</span></div>`}
+          `;
+        }else{
+          el.innerHTML = `
+            <div style="font-weight:900;font-size:12px;">圖例</div>
+            ${[
+              ["震度 0", palette[0]],
+              ["震度 1", palette[1]],
+              ["震度 2", palette[2]],
+              ["震度 3", palette[3]],
+              ["震度 4", palette[4]],
+              ["震度 5-", palette["5-"]],
+              ["震度 5+", palette["5+"]],
+              ["震度 6-", palette["6-"]],
+              ["震度 6+", palette["6+"]],
+              ["震度 7-", palette["7-"]],
+              ["震度 7+", palette["7+"]]
+            ].map(([label, color]) => `
+              <div class="row">
+                <span class="swatch" style="background:${color};"></span>
+                <span>${label}</span>
+              </div>
+            `).join("")}
+          `;
+        }
         return el;
       };
       legendCtrl.addTo(map);
@@ -1700,7 +1756,11 @@ background-clip:padding-box;
       $("vTime").textContent = time || "—";
       $("vMag").textContent = (mag != null) ? `M${mag.toFixed(1)}` : "—";
       $("vDepth").textContent = (depth != null) ? `${depth.toFixed(1)} km` : "—";
-      $("vMaxInt").textContent = (maxLabel != null) ? `震度 ${maxLabel}` : "—";
+      if(activeCountry === "malaysia"){
+        $("vMaxInt").textContent = maxLabel || "—";
+      }else{
+        $("vMaxInt").textContent = (maxLabel != null) ? `震度 ${maxLabel}` : "—";
+      }
     }
 
     function rankLabel(lab){
@@ -1743,6 +1803,33 @@ background-clip:padding-box;
       const grid = $("countyGrid");
       grid.innerHTML = "";
 
+      if(activeCountry === "malaysia"){
+        const rows = buildMalaysiaStateSummary();
+        $("countyCount").textContent = `${rows.length} 筆`;
+        $("heroCountyCount").textContent = rows.length;
+
+        if(!rows.length){
+          grid.innerHTML = `<div style="grid-column:1/-1;color:#6a7d89;font-weight:900;font-size:12px;">沒有州屬資料</div>`;
+          return;
+        }
+
+        for(const r of rows){
+          const color = getMalaysiaStateColor(r.state);
+          const el = document.createElement("div");
+          el.className = "countyItem";
+          el.innerHTML = `
+            <div class="countyName" title="${escapeHtml(r.state)}">${escapeHtml(r.state)}</div>
+            <div class="countyInt">
+              <span class="iDot" style="background:${color};"></span>
+              ${r.count} 筆
+            </div>
+          `;
+          el.title = r.maxMag != null ? `最大規模 M${r.maxMag.toFixed(1)}` : `${r.count} 筆`;
+          grid.appendChild(el);
+        }
+        return;
+      }
+
       const rows = buildCountyMax(stations);
       $("countyCount").textContent = `${rows.length} 筆`;
       $("heroCountyCount").textContent = rows.length;
@@ -1771,7 +1858,7 @@ background-clip:padding-box;
           <div class="countyName" title="${escapeHtml(r.county)}">${escapeHtml(r.county)}</div>
           <div class="countyInt">
             <span class="iDot" style="background:${color};"></span>
-            震度 ${escapeHtml(r.label)}
+            ${r._color ? escapeHtml(r.label) : `震度 ${escapeHtml(r.label)}`}
           </div>
         `;
         grid.appendChild(el);
@@ -1855,13 +1942,17 @@ background-clip:padding-box;
         list.appendChild(item);
       });
 
-      hint.textContent = "顯示最新 10 筆；更多可用上方下拉選單選擇。";
+      hint.textContent = activeCountry === "malaysia"
+        ? "地圖會直接顯示全部馬來西亞震央；顏色代表州屬，圓點大小依規模顯示。"
+        : "顯示最新 10 筆；更多可用上方下拉選單選擇。";
     }
 
     function clearLayers(){
       if(epicenterMarker){ epicenterMarker.remove(); epicenterMarker = null; }
       stationMarkers.forEach(m => m.remove());
       stationMarkers.length = 0;
+      malaysiaMarkers.forEach(m => m.remove());
+      malaysiaMarkers.length = 0;
     }
 
     function getAdaptiveMapView(stations, epi, maxLabel, { exportMode=false } = {}){
@@ -1923,7 +2014,7 @@ background-clip:padding-box;
       const same = (key && key === lastRenderedKey);
 
       const stations = getIntensityStations(eq);
-      const maxLabel = getMaxIntensityLabel(stations);
+      const maxLabel = activeCountry === "malaysia" ? (eq?._state || null) : getMaxIntensityLabel(stations);
 
       setTopCards({
         time:getDisplayOriginTime(eq),
@@ -1932,7 +2023,7 @@ background-clip:padding-box;
         maxLabel
       });
       const maxIntLab = $("vMaxInt")?.nextElementSibling;
-      if(maxIntLab) maxIntLab.textContent = eq?._kind === "malaysia" ? "震度資料" : "最大震度";
+      if(maxIntLab) maxIntLab.textContent = eq?._kind === "malaysia" ? "州屬" : "最大震度";
       renderCountyGrid(stations);
 
       if(keepViewIfSame && same) return;
@@ -1944,6 +2035,74 @@ background-clip:padding-box;
       const time = getDisplayOriginTime(eq);
       const mag = getMagnitude(eq);
       const depth = getDepth(eq);
+
+      if(activeCountry === "malaysia"){
+        const points = [];
+        cachedMalaysia.forEach((item, idx) => {
+          const itemEpi = getEpicenter(item);
+          if(itemEpi.lat == null || itemEpi.lon == null) return;
+          points.push([itemEpi.lat, itemEpi.lon]);
+          const itemMag = getMagnitude(item);
+          const state = item?._state || "未知州屬";
+          const color = getMalaysiaStateColor(state);
+          const radius = getMalaysiaMarkerRadius(itemMag);
+          const selected = idx === currentIndex;
+
+          const mk = L.circleMarker([itemEpi.lat, itemEpi.lon], {
+            radius:selected ? radius + 3 : radius,
+            color:selected ? "#ffffff" : color,
+            weight:selected ? 3 : 1.5,
+            fillColor:color,
+            fillOpacity:selected ? 0.95 : 0.82,
+            opacity:1
+          }).addTo(map);
+
+          const popup = `
+            <div style="min-width:240px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;border:1px solid rgba(0,0,0,.10);background:#fff;font-weight:900;font-size:12px;">
+                  <span style="width:10px;height:10px;border-radius:999px;background:${color};display:inline-block;"></span>
+                  <span>${escapeHtml(state)}</span>
+                </span>
+                <span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:rgba(15,76,92,.08);font-weight:900;font-size:12px;color:#0f4c5c;">M${itemMag != null ? itemMag.toFixed(1) : "—"}</span>
+              </div>
+              <div style="font-size:12px;font-weight:900;color:#374151;line-height:1.6;">
+                <div>類型：馬來西亞地震</div>
+                <div>時間：${escapeHtml(getDisplayOriginTime(item) || "-")}</div>
+                <div>位置：${escapeHtml(itemEpi.location || "-")}</div>
+                <div>州屬：${escapeHtml(state)}</div>
+                <div>座標：${itemEpi.lat.toFixed(3)}, ${itemEpi.lon.toFixed(3)}</div>
+                <div>規模：${itemMag != null ? itemMag.toFixed(1) : "-"}</div>
+                <div>深度：${(getDepth(item) != null) ? getDepth(item).toFixed(1) + " km" : "-"}</div>
+              </div>
+            </div>
+          `;
+          mk.bindPopup(popup, { maxWidth:420 });
+          mk.on("click", () => {
+            currentIndex = idx;
+            $("eqSelect").value = String(idx);
+            lastRenderedKey = "";
+            renderCurrent({ keepViewIfSame:false });
+          });
+          if(selected) mk.openPopup();
+          malaysiaMarkers.push(mk);
+        });
+
+        if(points.length >= 2){
+          map.fitBounds(L.latLngBounds(points), {
+            padding:[56, 56],
+            maxZoom:7,
+            animate:false
+          });
+        }else if(points.length === 1){
+          map.setView(points[0], 7, { animate:false });
+        }else{
+          map.setView([4.2, 102.0], 6, { animate:false });
+        }
+
+        setTimeout(() => map.invalidateSize(), 80);
+        return;
+      }
 
       if(epi.lat != null && epi.lon != null){
         /* 震央固定使用原本紅色樣式，不跟 M pill 顏色走 */
@@ -2140,6 +2299,7 @@ background-clip:padding-box;
 
       const maxLab = $("vMaxInt")?.nextElementSibling;
       if(maxLab) maxLab.textContent = isMY ? "州屬" : "最大震度";
+      buildLegend();
     }
 
     function switchCountry(country){
@@ -2306,12 +2466,14 @@ background-clip:padding-box;
 
       try{
         const stations = getIntensityStations(eq);
-        const countyRows = buildCountyMax(stations).slice(0, 12);
+        const countyRows = activeCountry === "malaysia"
+          ? buildMalaysiaStateSummary().slice(0, 12).map(r => ({ county:r.state, label:`${r.count} 筆`, bucket:null, _color:getMalaysiaStateColor(r.state) }))
+          : buildCountyMax(stations).slice(0, 12);
         const epi = getEpicenter(eq);
         const mag = getMagnitude(eq);
         const depth = getDepth(eq);
         const time = getDisplayOriginTime(eq);
-        const maxLabel = getMaxIntensityLabel(stations) || '—';
+        const maxLabel = activeCountry === 'malaysia' ? (eq?._state || '—') : (getMaxIntensityLabel(stations) || '—');
         const reportType = eq?._kind === 'malaysia' ? '馬來西亞地震資料' : (eq?._kind === 'local' ? '小區域地震報告' : '顯著有感地震報告');
 
         const W = 1600;
@@ -2358,10 +2520,17 @@ background-clip:padding-box;
          * 直接使用全部測站與震央計算 bounds，不再只取主要有感區，
          * 也不再套用最低 zoom，避免外圍震度 1／2 測站被裁掉。
          */
-        const exportPoints = stations
-          .filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lon))
-          .map(s => [s.lat, s.lon]);
-        if(epi?.lat != null && epi?.lon != null){
+        const exportPoints = (activeCountry === "malaysia" && eq?._kind === "malaysia")
+          ? cachedMalaysia
+              .map(item => {
+                const p = getEpicenter(item);
+                return (p.lat != null && p.lon != null) ? [p.lat, p.lon] : null;
+              })
+              .filter(Boolean)
+          : stations
+              .filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lon))
+              .map(s => [s.lat, s.lon]);
+        if(activeCountry !== "malaysia" && epi?.lat != null && epi?.lon != null){
           exportPoints.push([epi.lat, epi.lon]);
         }
 
@@ -2499,7 +2668,7 @@ background-clip:padding-box;
         ctx.fillText(mag != null ? `M${mag.toFixed(1)}` : 'M—', leftX + 45, magY + 54);
         ctx.fillStyle = '#102f40';
         ctx.font = '900 18px "Noto Sans TC", sans-serif';
-        ctx.fillText(maxLabel !== '—' ? `最大震度 ${maxLabel}` : '最大震度 —', leftX + 138, magY + 50);
+        ctx.fillText(activeCountry === 'malaysia' ? `州屬 ${maxLabel || '—'}` : (maxLabel !== '—' ? `最大震度 ${maxLabel}` : '最大震度 —'), leftX + 138, magY + 50);
 
         const statGap = 10;
         const statW = (leftW - 48 - statGap) / 2;
@@ -2520,7 +2689,7 @@ background-clip:padding-box;
 
         ctx.fillStyle = '#102f40';
         ctx.font = '900 17px "Noto Sans TC", sans-serif';
-        ctx.fillText('各縣市最大震度', leftX + 24, topY + 425);
+        ctx.fillText(activeCountry === 'malaysia' ? '州屬分布' : '各縣市最大震度', leftX + 24, topY + 425);
 
         const chipX1 = leftX + 24;
         const chipGap = 8;
@@ -2531,7 +2700,7 @@ background-clip:padding-box;
           const row = Math.floor(i / 2);
           const x = chipX1 + col * (chipW + chipGap);
           const y = topY + 446 + row * 42;
-          const c = intensityColor(r.label, r.bucket);
+          const c = r._color || intensityColor(r.label, r.bucket);
           fillRoundRect(ctx, x, y, chipW, chipH, 17, '#fff', 'rgba(25,42,58,.12)');
           ctx.fillStyle = c;
           ctx.beginPath();
@@ -2539,7 +2708,7 @@ background-clip:padding-box;
           ctx.fill();
           ctx.fillStyle = '#102f40';
           ctx.font = '800 10px "Noto Sans TC", sans-serif';
-          wrapCanvasText(ctx, `${r.county} 震度 ${r.label}`, x + 29, y + 22, chipW - 36, 12, 1);
+          wrapCanvasText(ctx, r._color ? `${r.county} ${r.label}` : `${r.county} 震度 ${r.label}`, x + 29, y + 22, chipW - 36, 12, 1);
         });
 
         ctx.strokeStyle = 'rgba(25,42,58,.10)';
