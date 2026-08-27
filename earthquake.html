@@ -900,6 +900,40 @@
       margin-top:6px;
     }
 
+    .leaflet-control-layers{
+      border:1px solid rgba(25,42,58,.12) !important;
+      border-radius:16px !important;
+      background:rgba(255,255,255,.94) !important;
+      box-shadow:0 12px 26px rgba(31,53,72,.12) !important;
+      overflow:hidden;
+    }
+
+    .leaflet-control-layers-toggle{
+      width:40px;
+      height:40px;
+      background-size:20px 20px;
+    }
+
+    .leaflet-control-layers-expanded{
+      padding:12px 14px;
+      min-width:180px;
+      color:var(--heading);
+      font-size:12px;
+      font-weight:850;
+    }
+
+    .leaflet-control-layers-base label,
+    .leaflet-control-layers-overlays label{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:6px 0;
+    }
+
+    .leaflet-control-layers-selector{
+      accent-color:var(--sea);
+    }
+
     .swatch{
       width:14px;
       height:14px;
@@ -1574,7 +1608,35 @@ background-clip:padding-box;
     function getMalaysiaMarkerRadius(mag){
       const n = Number(mag);
       if(!Number.isFinite(n)) return 8;
-      return Math.max(6, Math.min(18, 4 + n * 2.2));
+      return Math.max(7, Math.min(19, 4.8 + n * 2.35));
+    }
+
+    function hexToRgba(hex, alpha){
+      const raw = String(hex ?? '').trim().replace('#', '');
+      const full = raw.length === 3 ? raw.split('').map(c => c + c).join('') : raw;
+      const int = parseInt(full || '000000', 16);
+      const r = (int >> 16) & 255;
+      const g = (int >> 8) & 255;
+      const b = int & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function createMalaysiaMarkerHtml(state, color, mag, selected=false){
+      const coreSize = Math.round(getMalaysiaMarkerRadius(mag) * 2);
+      const haloSize = coreSize + (selected ? 18 : 12);
+      const label = mag != null ? `M${Number(mag).toFixed(1)}` : 'M—';
+      const ringBg = selected ? hexToRgba(color, 0.22) : hexToRgba(color, 0.14);
+      const ringBorder = selected ? hexToRgba(color, 0.48) : hexToRgba(color, 0.24);
+      const shadow = selected ? hexToRgba(color, 0.34) : hexToRgba(color, 0.22);
+      const stateText = String(state ?? '').trim();
+      return `
+        <div style="position:relative;width:${haloSize}px;height:${haloSize}px;display:flex;align-items:center;justify-content:center;">
+          <span style="position:absolute;inset:0;border-radius:999px;background:${ringBg};border:1px solid ${ringBorder};"></span>
+          <span style="position:absolute;width:${coreSize}px;height:${coreSize}px;border-radius:999px;border:${selected ? 3 : 2}px solid #ffffff;background:radial-gradient(circle at 30% 28%, rgba(255,255,255,.95) 0 14%, ${color} 18%, ${color} 70%, ${hexToRgba(color, .98)} 100%);box-shadow:0 10px 26px ${shadow};"></span>
+          <span style="position:absolute;font-size:${selected ? 10.5 : 10}px;font-weight:900;color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,.25);letter-spacing:.02em;">${label}</span>
+          ${selected && stateText ? `<span style="position:absolute;left:50%;top:100%;transform:translate(-50%, 8px);display:inline-flex;align-items:center;max-width:110px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.96);border:1px solid ${ringBorder};box-shadow:0 8px 20px rgba(31,53,72,.12);color:#163042;font-size:11px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(stateText)}</span>` : ''}
+        </div>
+      `;
     }
 
     function buildMalaysiaStateSummary(){
@@ -2048,13 +2110,15 @@ background-clip:padding-box;
           const radius = getMalaysiaMarkerRadius(itemMag);
           const selected = idx === currentIndex;
 
-          const mk = L.circleMarker([itemEpi.lat, itemEpi.lon], {
-            radius:selected ? radius + 3 : radius,
-            color:selected ? "#ffffff" : color,
-            weight:selected ? 3 : 1.5,
-            fillColor:color,
-            fillOpacity:selected ? 0.95 : 0.82,
-            opacity:1
+          const haloSize = Math.round(radius * 2 + (selected ? 18 : 12));
+          const mk = L.marker([itemEpi.lat, itemEpi.lon], {
+            icon:L.divIcon({
+              className:"",
+              html:createMalaysiaMarkerHtml(state, color, itemMag, selected),
+              iconSize:[haloSize, haloSize],
+              iconAnchor:[haloSize / 2, haloSize / 2]
+            }),
+            zIndexOffset:selected ? 1200 : 300
           }).addTo(map);
 
           const popup = `
@@ -2842,21 +2906,35 @@ background-clip:padding-box;
     function init(){
       map = L.map("map", { zoomControl:true });
 
-      const mb = L.tileLayer(
-        `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
-        { tileSize:512, zoomOffset:-1, maxZoom:18, attribution:"© Mapbox © OpenStreetMap" }
-      );
+      const baseLayers = {
+        "Mapbox 風格": L.tileLayer(
+          `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+          { tileSize:512, zoomOffset:-1, maxZoom:18, attribution:"© Mapbox © OpenStreetMap" }
+        ),
+        "OpenStreetMap": L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          { maxZoom:19, attribution:"© OpenStreetMap" }
+        ),
+        "Carto Light": L.tileLayer(
+          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+          { maxZoom:20, attribution:"© OpenStreetMap © CARTO" }
+        ),
+        "衛星影像": L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          { maxZoom:18, attribution:"Tiles © Esri" }
+        )
+      };
 
-      mb.on("tileerror", () => {
-        console.warn("Mapbox tiles 載入失敗，切換到 OSM。");
-        if(map.hasLayer(mb)) map.removeLayer(mb);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom:19,
-          attribution:"© OpenStreetMap"
-        }).addTo(map);
+      baseLayers["Mapbox 風格"].on("tileerror", () => {
+        console.warn("Mapbox tiles 載入失敗，可切換到其他圖層。");
       });
 
-      mb.addTo(map);
+      baseLayers["Mapbox 風格"].addTo(map);
+      L.control.layers(baseLayers, null, {
+        position:"topright",
+        collapsed:true
+      }).addTo(map);
+
       map.setView([23.7, 121.0], 7);
       buildLegend();
       updateCountryUi();
