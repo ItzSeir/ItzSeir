@@ -809,18 +809,32 @@
       overflow:hidden;
     }
 
-    .mapShell.mapExpanded{
+    .mapShell.mapExpanded,
+    .mapShell:fullscreen{
       position:fixed;
-      inset:16px;
+      inset:0;
       z-index:10000;
-      width:auto;
-      height:calc(100vh - 32px);
-      border-radius:24px;
-      box-shadow:0 24px 70px rgba(20,42,58,.28);
+      width:100vw;
+      height:100vh;
+      max-width:none;
+      max-height:none;
+      margin:0;
+      border:0;
+      border-radius:0;
+      box-shadow:none;
+      background:#fff;
     }
 
-    .mapShell.mapExpanded #map{
-      height:calc(100vh - 106px);
+    .mapShell.mapExpanded .mapHeader,
+    .mapShell:fullscreen .mapHeader{
+      display:none;
+    }
+
+    .mapShell.mapExpanded #map,
+    .mapShell:fullscreen #map{
+      width:100vw;
+      height:100vh;
+      min-height:100vh;
     }
 
     .map-expand-control{
@@ -3029,27 +3043,56 @@ background-clip:padding-box;
         onAdd:function(){
           const btn = L.DomUtil.create("button", "map-expand-control");
           btn.type = "button";
-          btn.title = "放大地圖";
-          btn.setAttribute("aria-label", "放大地圖");
+          btn.title = "全螢幕地圖";
+          btn.setAttribute("aria-label", "全螢幕地圖");
           btn.innerHTML = "⛶";
           L.DomEvent.disableClickPropagation(btn);
-          L.DomEvent.on(btn, "click", (e) => {
+          L.DomEvent.on(btn, "click", async (e) => {
             L.DomEvent.stop(e);
             const shell = document.querySelector(".mapShell");
             if(!shell) return;
-            const expanded = shell.classList.toggle("mapExpanded");
-            document.body.classList.toggle("map-expanded", expanded);
-            btn.innerHTML = expanded ? "✕" : "⛶";
-            btn.title = expanded ? "關閉放大地圖" : "放大地圖";
-            setTimeout(() => map.invalidateSize(false), 80);
+
+            try{
+              if(document.fullscreenElement){
+                await document.exitFullscreen();
+              }else if(shell.requestFullscreen){
+                await shell.requestFullscreen();
+              }else{
+                const expanded = shell.classList.toggle("mapExpanded");
+                document.body.classList.toggle("map-expanded", expanded);
+                btn.innerHTML = expanded ? "✕" : "⛶";
+                btn.title = expanded ? "退出全螢幕" : "全螢幕地圖";
+                setTimeout(() => map.invalidateSize(false), 80);
+              }
+            }catch(err){
+              console.warn("Fullscreen API failed, using CSS fallback.", err);
+              const expanded = shell.classList.toggle("mapExpanded");
+              document.body.classList.toggle("map-expanded", expanded);
+              btn.innerHTML = expanded ? "✕" : "⛶";
+              btn.title = expanded ? "退出全螢幕" : "全螢幕地圖";
+              setTimeout(() => map.invalidateSize(false), 80);
+            }
           });
           return btn;
         }
       });
       map.addControl(new ExpandControl());
 
+      document.addEventListener("fullscreenchange", () => {
+        const shell = document.querySelector(".mapShell");
+        const btn = document.querySelector(".map-expand-control");
+        const expanded = !!document.fullscreenElement;
+        document.body.classList.toggle("map-expanded", expanded);
+        if(shell) shell.classList.toggle("mapExpanded", expanded);
+        if(btn){
+          btn.innerHTML = expanded ? "✕" : "⛶";
+          btn.title = expanded ? "退出全螢幕" : "全螢幕地圖";
+        }
+        setTimeout(() => map.invalidateSize(false), 100);
+      });
+
       document.addEventListener("keydown", (e) => {
-        if(e.key !== "Escape") return;
+        if(e.key !== "Escape" || document.fullscreenElement) return;
         const shell = document.querySelector(".mapShell.mapExpanded");
         if(!shell) return;
         shell.classList.remove("mapExpanded");
@@ -3057,10 +3100,11 @@ background-clip:padding-box;
         const btn = document.querySelector(".map-expand-control");
         if(btn){
           btn.innerHTML = "⛶";
-          btn.title = "放大地圖";
+          btn.title = "全螢幕地圖";
         }
         setTimeout(() => map.invalidateSize(false), 80);
       });
+
       buildLegend();
       updateCountryUi();
 
