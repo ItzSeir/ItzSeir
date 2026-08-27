@@ -2673,6 +2673,73 @@ background-clip:padding-box;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
+        if(activeCountry === "malaysia" && eq?._kind === "malaysia"){
+          const bg = ctx.createLinearGradient(0, 0, W, H);
+          bg.addColorStop(0, '#edf8f9');
+          bg.addColorStop(1, '#f8fbfc');
+          ctx.fillStyle = bg;
+          ctx.fillRect(0, 0, W, H);
+
+          const outerX = 34;
+          const outerY = 34;
+          const outerW = W - 68;
+          const outerH = H - 68;
+          fillRoundRect(ctx, outerX, outerY, outerW, outerH, 28, 'rgba(255,255,255,.96)', 'rgba(25,42,58,.12)');
+
+          const mapX = outerX + 20;
+          const mapY = outerY + 20;
+          const mapW = 1030;
+          const mapH = outerH - 40;
+          const legendX = mapX + mapW + 18;
+          const legendY = mapY;
+          const legendW = outerX + outerW - legendX - 20;
+          const legendH = mapH;
+
+          fillRoundRect(ctx, mapX, mapY, mapW, mapH, 24, '#e8f6f8', 'rgba(15,76,92,.14)');
+          ctx.save();
+          drawRoundRect(ctx, mapX, mapY, mapW, mapH, 24);
+          ctx.clip();
+          ctx.drawImage(mapCanvas, 0, 0, mapCanvas.width, mapCanvas.height, mapX, mapY, mapW, mapH);
+          ctx.restore();
+
+          fillRoundRect(ctx, legendX, legendY, legendW, legendH, 24, 'rgba(255,255,255,.98)', 'rgba(25,42,58,.12)');
+          ctx.fillStyle = '#102f40';
+          ctx.font = '900 22px "Noto Sans TC", sans-serif';
+          ctx.fillText('州屬圖例', legendX + 20, legendY + 34);
+          ctx.fillStyle = '#6a7d89';
+          ctx.font = '800 12px "Noto Sans TC", sans-serif';
+          ctx.fillText('顏色代表州屬', legendX + 20, legendY + 56);
+
+          const legendRows = buildMalaysiaStateSummary().map(r => ({
+            state:r.state,
+            color:getMalaysiaStateColor(r.state)
+          }));
+          const columns = legendRows.length > 9 ? 2 : 1;
+          const colGap = 12;
+          const itemH = 32;
+          const textW = (legendW - 40 - (columns - 1) * colGap) / columns;
+          legendRows.forEach((item, i) => {
+            const col = columns === 1 ? 0 : Math.floor(i / Math.ceil(legendRows.length / columns));
+            const row = columns === 1 ? i : i % Math.ceil(legendRows.length / columns);
+            const x = legendX + 20 + col * (textW + colGap);
+            const y = legendY + 84 + row * itemH;
+            ctx.fillStyle = item.color;
+            ctx.beginPath();
+            ctx.arc(x + 8, y + 8, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#102f40';
+            ctx.font = '900 13px "Noto Sans TC", sans-serif';
+            ctx.fillText(item.state, x + 24, y + 13);
+          });
+
+          const a = document.createElement('a');
+          const safeTime = time.replace(/[^0-9]/g, '').slice(0, 12) || 'earthquake';
+          a.download = `earthquake_malaysia_map_${safeTime}.png`;
+          a.href = canvas.toDataURL('image/png');
+          a.click();
+          return;
+        }
+
         const bg = ctx.createLinearGradient(0, 0, W, H);
         bg.addColorStop(0, '#dff3f4');
         bg.addColorStop(.55, '#edf8f9');
