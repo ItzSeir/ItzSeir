@@ -2919,21 +2919,24 @@ background-clip:padding-box;
           "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
           { maxZoom:19, attribution:"© OpenStreetMap" }
         ),
-        "Carto Light": L.tileLayer(
-          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-          { maxZoom:20, attribution:"© OpenStreetMap © CARTO" }
-        ),
         "衛星影像": L.tileLayer(
           "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
           { maxZoom:18, attribution:"Tiles © Esri" }
         )
       };
 
+      let mapboxFallbackUsed = false;
       baseLayers["Mapbox 風格"].on("tileerror", () => {
-        console.warn("Mapbox tiles 載入失敗，可切換到其他圖層。");
+        if(mapboxFallbackUsed) return;
+        mapboxFallbackUsed = true;
+        console.warn("Mapbox tiles 載入失敗，自動切換到 OpenStreetMap。");
+        if(map.hasLayer(baseLayers["Mapbox 風格"])){
+          map.removeLayer(baseLayers["Mapbox 風格"]);
+          baseLayers["OpenStreetMap"].addTo(map);
+        }
       });
 
-      baseLayers["Carto Light"].addTo(map);
+      baseLayers["Mapbox 風格"].addTo(map);
       L.control.layers(baseLayers, null, {
         position:"topright",
         collapsed:true
