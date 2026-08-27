@@ -1608,7 +1608,7 @@ background-clip:padding-box;
     function getMalaysiaMarkerRadius(mag){
       const n = Number(mag);
       if(!Number.isFinite(n)) return 8;
-      return Math.max(7, Math.min(19, 4.8 + n * 2.35));
+      return Math.max(5, Math.min(11, 2.8 + n * 1.55));
     }
 
     function hexToRgba(hex, alpha){
@@ -1622,19 +1622,23 @@ background-clip:padding-box;
     }
 
     function createMalaysiaMarkerHtml(state, color, mag, selected=false){
-      const coreSize = Math.round(getMalaysiaMarkerRadius(mag) * 2);
-      const haloSize = coreSize + (selected ? 18 : 12);
-      const label = mag != null ? `M${Number(mag).toFixed(1)}` : 'M—';
-      const ringBg = selected ? hexToRgba(color, 0.22) : hexToRgba(color, 0.14);
-      const ringBorder = selected ? hexToRgba(color, 0.48) : hexToRgba(color, 0.24);
-      const shadow = selected ? hexToRgba(color, 0.34) : hexToRgba(color, 0.22);
+      const coreRadius = getMalaysiaMarkerRadius(mag);
+      const coreSize = Math.round(coreRadius * 2);
+      const haloSize = coreSize + (selected ? 18 : 10);
+      const ringBg = selected ? hexToRgba(color, 0.18) : hexToRgba(color, 0.10);
+      const ringBorder = selected ? hexToRgba(color, 0.34) : hexToRgba(color, 0.18);
+      const shadow = selected ? hexToRgba(color, 0.28) : hexToRgba(color, 0.18);
       const stateText = String(state ?? '').trim();
+      const magText = mag != null ? `M${Number(mag).toFixed(1)}` : 'M—';
       return `
         <div style="position:relative;width:${haloSize}px;height:${haloSize}px;display:flex;align-items:center;justify-content:center;">
           <span style="position:absolute;inset:0;border-radius:999px;background:${ringBg};border:1px solid ${ringBorder};"></span>
-          <span style="position:absolute;width:${coreSize}px;height:${coreSize}px;border-radius:999px;border:${selected ? 3 : 2}px solid #ffffff;background:radial-gradient(circle at 30% 28%, rgba(255,255,255,.95) 0 14%, ${color} 18%, ${color} 70%, ${hexToRgba(color, .98)} 100%);box-shadow:0 10px 26px ${shadow};"></span>
-          <span style="position:absolute;font-size:${selected ? 10.5 : 10}px;font-weight:900;color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,.25);letter-spacing:.02em;">${label}</span>
-          ${selected && stateText ? `<span style="position:absolute;left:50%;top:100%;transform:translate(-50%, 8px);display:inline-flex;align-items:center;max-width:110px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.96);border:1px solid ${ringBorder};box-shadow:0 8px 20px rgba(31,53,72,.12);color:#163042;font-size:11px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(stateText)}</span>` : ''}
+          <span style="position:absolute;width:${coreSize}px;height:${coreSize}px;border-radius:999px;border:${selected ? 2.5 : 2}px solid rgba(255,255,255,.95);background:${color};box-shadow:0 6px 18px ${shadow};"></span>
+          <span style="position:absolute;width:${Math.max(4, Math.round(coreSize*0.34))}px;height:${Math.max(4, Math.round(coreSize*0.34))}px;border-radius:999px;background:rgba(255,255,255,.30);left:${Math.round(haloSize*0.27)}px;top:${Math.round(haloSize*0.24)}px;"></span>
+          ${selected ? `<span style="position:absolute;left:50%;top:100%;transform:translate(-50%, 7px);display:inline-flex;align-items:center;gap:6px;max-width:148px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.97);border:1px solid ${ringBorder};box-shadow:0 8px 18px rgba(31,53,72,.10);color:#163042;font-size:10.5px;font-weight:900;white-space:nowrap;">
+            <span style="width:8px;height:8px;border-radius:999px;background:${color};display:inline-block;flex:0 0 auto;"></span>
+            <span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(stateText || '未知州屬')} · ${magText}</span>
+          </span>` : ''}
         </div>
       `;
     }
@@ -2929,7 +2933,7 @@ background-clip:padding-box;
         console.warn("Mapbox tiles 載入失敗，可切換到其他圖層。");
       });
 
-      baseLayers["Mapbox 風格"].addTo(map);
+      baseLayers["Carto Light"].addTo(map);
       L.control.layers(baseLayers, null, {
         position:"topright",
         collapsed:true
