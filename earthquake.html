@@ -518,6 +518,42 @@
       box-shadow:0 8px 18px rgba(31,53,72,.05);
     }
 
+    .countrySwitch{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:rgba(255,255,255,.86);
+      box-shadow:0 8px 18px rgba(31,53,72,.05);
+    }
+
+    .countryTab{
+      min-height:36px;
+      padding:0 14px;
+      border:0;
+      border-radius:999px;
+      background:transparent;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      cursor:pointer;
+      transition:.16s ease;
+      white-space:nowrap;
+    }
+
+    .countryTab:hover{
+      color:var(--sea);
+      background:rgba(15,76,92,.06);
+    }
+
+    .countryTab.active{
+      color:#fff;
+      background:linear-gradient(135deg, var(--sea), var(--teal));
+      box-shadow:0 8px 18px rgba(15,76,92,.18);
+    }
+
     .quakeBody{
       --tracker-h:680px;
       display:grid;
@@ -1309,7 +1345,7 @@ background-clip:padding-box;
     <section class="hero" id="top">
       <div class="heroCard">
         <div class="eyebrow"><span class="dot"></span> 地震即時情報</div>
-        <h1 class="heroTitle">台灣地震<span>即時情報</span></h1>
+        <h1 class="heroTitle">台灣與馬來西亞<span>地震情報</span></h1>
         <p class="heroDesc">
         </p>
         <div class="heroActions">
@@ -1339,12 +1375,17 @@ background-clip:padding-box;
       <div class="sectionHead">
         <div>
           <div class="sectionKicker"><span class="dot" style="background:var(--danger);"></span> Earthquake Tracker</div>
-          <h2 class="sectionTitle">地震情報與震度地圖</h2>
-          <p class="sectionDesc">資料來源：中央氣象署 Open Data</p>
+          <h2 class="sectionTitle" id="trackerTitle">台灣地震情報與震度地圖</h2>
+          <p class="sectionDesc" id="trackerSource">資料來源：中央氣象署 Open Data</p>
         </div>
 
         <div class="toolbar">
-          <label class="toggle" title="顯示或隱藏測站震度點">
+          <div class="countrySwitch" role="tablist" aria-label="地震資料地區">
+            <button class="countryTab active" id="tabTaiwan" type="button" data-country="taiwan">台灣地震</button>
+            <button class="countryTab" id="tabMalaysia" type="button" data-country="malaysia">馬來西亞地震</button>
+          </div>
+
+          <label class="toggle" id="stationToggleWrap" title="顯示或隱藏測站震度點">
             <input type="checkbox" id="toggleStations" checked>
             顯示測站震度
           </label>
@@ -1399,7 +1440,7 @@ background-clip:padding-box;
               </div>
 
               <div class="countyTitle">
-                <span>各縣市最大震度</span>
+                <span id="regionInfoTitle">各縣市最大震度</span>
               </div>
 
               <div class="countyGrid" id="countyGrid"></div>
@@ -1411,6 +1452,7 @@ background-clip:padding-box;
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
     /***********************
@@ -1432,6 +1474,11 @@ background-clip:padding-box;
     const API_BASE = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/";
     const DATASET_SIGNIFICANT = "E-A0015-001";
     const DATASET_LOCAL = "E-A0016-001";
+
+    /***********************
+     * Malaysia earthquake Excel
+     ***********************/
+    const MALAYSIA_XLSX_PATH = "data/Earthquake.xlsx";
 
     const AUTO_REFRESH_SEC = 60;
     let autoTimer = null;
@@ -1508,6 +1555,9 @@ background-clip:padding-box;
     let legendCtrl = null;
 
     let cachedAll = [];
+    let cachedTaiwan = [];
+    let cachedMalaysia = [];
+    let activeCountry = "taiwan";
     let currentIndex = 0;
     let lastRenderedKey = "";
 
@@ -1698,7 +1748,18 @@ background-clip:padding-box;
       $("heroCountyCount").textContent = rows.length;
 
       if(!rows.length){
-        grid.innerHTML = `<div style="grid-column:1/-1;color:#6a7d89;font-weight:900;font-size:12px;">沒有縣市震度資料</div>`;
+        const eq = cachedAll[currentIndex];
+        if(eq?._kind === "malaysia" && eq?._state){
+          $("countyCount").textContent = `1 筆`;
+          $("heroCountyCount").textContent = 1;
+          grid.innerHTML = `
+            <div class="countyItem">
+              <div class="countyName" title="${escapeHtml(eq._state)}">${escapeHtml(eq._state)}</div>
+              <div class="countyInt">州屬</div>
+            </div>`;
+        }else{
+          grid.innerHTML = `<div style="grid-column:1/-1;color:#6a7d89;font-weight:900;font-size:12px;">沒有縣市震度資料</div>`;
+        }
         return;
       }
 
@@ -1728,12 +1789,18 @@ background-clip:padding-box;
       return best;
     }
 
+    function getKindLabel(eq, { short=false } = {}){
+      if(eq?._kind === "malaysia") return short ? "馬來西亞" : "馬來西亞地震";
+      if(eq?._kind === "local") return short ? "小區域" : "小區域地震";
+      return short ? "顯著" : "顯著有感地震";
+    }
+
     function formatSelectText(eq){
       const time = getDisplayOriginTime(eq);
       const mag = getMagnitude(eq);
       const epi = getEpicenter(eq);
       const loc = epi.location || "—";
-      const tag = eq?._kind === "local" ? "【小區域】" : "【顯著】";
+      const tag = `【${getKindLabel(eq, { short:true })}】`;
       return `${tag} ${time}｜M${mag != null ? mag.toFixed(1) : "—"}｜${loc}`;
     }
 
@@ -1767,7 +1834,7 @@ background-clip:padding-box;
         const mag = getMagnitude(eq);
         const epi = getEpicenter(eq);
         const loc = epi.location || "—";
-        const tag = eq?._kind === "local" ? "小區域" : "顯著";
+        const tag = getKindLabel(eq, { short:true });
 
         const item = document.createElement("div");
         item.className = "item";
@@ -1846,7 +1913,8 @@ background-clip:padding-box;
       }else if(view.points.length === 1){
         map.setView(view.points[0], view.minZoom, { animate:false });
       }else{
-        map.setView([23.7, 121.0], 7.2, { animate:false });
+        if(activeCountry === "malaysia") map.setView([4.2, 102.0], 6, { animate:false });
+        else map.setView([23.7, 121.0], 7.2, { animate:false });
       }
     }
 
@@ -1863,6 +1931,8 @@ background-clip:padding-box;
         depth:getDepth(eq),
         maxLabel
       });
+      const maxIntLab = $("vMaxInt")?.nextElementSibling;
+      if(maxIntLab) maxIntLab.textContent = eq?._kind === "malaysia" ? "震度資料" : "最大震度";
       renderCountyGrid(stations);
 
       if(keepViewIfSame && same) return;
@@ -1891,7 +1961,7 @@ background-clip:padding-box;
           <div style="min-width:260px;">
             <div style="font-weight:900;font-size:14px;margin-bottom:8px;">地震資訊</div>
             <div style="font-size:12px;font-weight:900;color:#374151;line-height:1.6;">
-              <div>類型：${escapeHtml(eq?._kind === "local" ? "小區域地震" : "顯著有感地震")}</div>
+              <div>類型：${escapeHtml(getKindLabel(eq))}</div>
               <div>時間：${escapeHtml(time || "-")}</div>
               <div>位置：${escapeHtml(epi.location || "-")}</div>
               <div>座標：${epi.lat.toFixed(2)}, ${epi.lon.toFixed(2)}</div>
@@ -1979,6 +2049,119 @@ background-clip:padding-box;
       return all;
     }
 
+    function excelDateToLocalString(value){
+      if(value instanceof Date && !Number.isNaN(value.getTime())){
+        const pad = n => String(n).padStart(2, "0");
+        return `${value.getFullYear()}-${pad(value.getMonth()+1)}-${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+      }
+      if(typeof value === "number" && window.XLSX?.SSF?.parse_date_code){
+        const d = XLSX.SSF.parse_date_code(value);
+        if(d){
+          const pad = n => String(n).padStart(2, "0");
+          return `${d.y}-${pad(d.m)}-${pad(d.d)} ${pad(d.H)}:${pad(d.M)}:${pad(Math.floor(d.S || 0))}`;
+        }
+      }
+      return String(value ?? "").trim();
+    }
+
+    async function fetchMalaysiaEarthquakes(){
+      if(!window.XLSX) throw new Error("SheetJS 尚未載入，無法讀取 Malaysia Excel");
+
+      const sep = MALAYSIA_XLSX_PATH.includes("?") ? "&" : "?";
+      const res = await fetch(`${MALAYSIA_XLSX_PATH}${sep}t=${Date.now()}`, { cache:"no-store" });
+      if(!res.ok) throw new Error(`Malaysia Excel 讀取失敗：HTTP ${res.status}`);
+
+      const buf = await res.arrayBuffer();
+      const wb = XLSX.read(buf, { type:"array", cellDates:true });
+      const sheetName = wb.SheetNames.includes("Sheet2") ? "Sheet2" : wb.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval:null });
+
+      return rows.map((r, idx) => {
+        const time = excelDateToLocalString(r["地震時間"]);
+        const lon = toNum(r["經度"]);
+        const lat = toNum(r["緯度"]);
+        const mag = toNum(r["規模"]);
+        const depth = toNum(r["深度"]);
+        const location = String(r["位置"] ?? "").trim();
+        const state = String(r["州屬"] ?? "").trim();
+
+        if(!time || lat == null || lon == null) return null;
+
+        return {
+          _kind:"malaysia",
+          _state:state,
+          _sourceNo:r["編號"] ?? (idx + 1),
+          EarthquakeInfo:{
+            OriginTime:time,
+            FocalDepth:depth,
+            EarthquakeMagnitude:{ MagnitudeValue:mag },
+            Epicenter:{
+              EpicenterLatitude:lat,
+              EpicenterLongitude:lon,
+              Location:location || state || "Malaysia"
+            }
+          },
+          Intensity:{ ShakingArea:[] }
+        };
+      }).filter(Boolean);
+    }
+
+    async function fetchAllEarthquakes(limitEach = 20){
+      const results = await Promise.allSettled([
+        fetchMerged(limitEach),
+        fetchMalaysiaEarthquakes()
+      ]);
+
+      const tw = results[0].status === "fulfilled" ? results[0].value : [];
+      const my = results[1].status === "fulfilled" ? results[1].value : [];
+
+      if(results[0].status === "rejected") console.warn("CWA data failed:", results[0].reason);
+      if(results[1].status === "rejected") console.warn("Malaysia Excel failed:", results[1].reason);
+      if(!tw.length && !my.length) throw new Error("台灣與馬來西亞地震資料皆無法讀取");
+
+      tw.sort((a,b) => (getOriginTime(b) || "").localeCompare(getOriginTime(a) || ""));
+      my.sort((a,b) => (getOriginTime(b) || "").localeCompare(getOriginTime(a) || ""));
+      return { taiwan:tw, malaysia:my };
+    }
+
+    function updateCountryUi(){
+      const isMY = activeCountry === "malaysia";
+      $("tabTaiwan")?.classList.toggle("active", !isMY);
+      $("tabMalaysia")?.classList.toggle("active", isMY);
+
+      $("trackerTitle").textContent = isMY ? "馬來西亞地震情報與地圖" : "台灣地震情報與震度地圖";
+      $("trackerSource").textContent = isMY
+        ? "資料來源：Malaysia Earthquake Dataset · data/Earthquake.xlsx · Sheet2"
+        : "資料來源：中央氣象署 Open Data";
+      $("regionInfoTitle").textContent = isMY ? "地震州屬" : "各縣市最大震度";
+
+      const stationWrap = $("stationToggleWrap");
+      if(stationWrap) stationWrap.style.display = isMY ? "none" : "inline-flex";
+
+      const maxLab = $("vMaxInt")?.nextElementSibling;
+      if(maxLab) maxLab.textContent = isMY ? "州屬" : "最大震度";
+    }
+
+    function switchCountry(country){
+      activeCountry = country === "malaysia" ? "malaysia" : "taiwan";
+      cachedAll = activeCountry === "malaysia" ? cachedMalaysia : cachedTaiwan;
+      currentIndex = 0;
+      lastRenderedKey = "";
+      updateCountryUi();
+      renderSidePanel();
+      if(cachedAll.length){
+        renderCurrent({ keepViewIfSame:false });
+      }else{
+        clearLayers();
+        setTopCards({ time:null, mag:null, depth:null, maxLabel:null });
+        $("countyGrid").innerHTML = `<div style="grid-column:1/-1;color:#6a7d89;font-weight:900;font-size:12px;">目前沒有資料</div>`;
+        $("countyCount").textContent = "0 筆";
+        $("heroCountyCount").textContent = "0";
+        if(activeCountry === "malaysia") map.setView([4.2, 102.0], 6, { animate:false });
+        else map.setView([23.7, 121.0], 7, { animate:false });
+      }
+    }
+
     function nowHHMMSS(){
       const d = new Date();
       const pad = (n) => String(n).padStart(2, "0");
@@ -2000,12 +2183,15 @@ background-clip:padding-box;
       }
 
       try{
-        const list = await fetchMerged(20);
-        cachedAll = list;
+        const groups = await fetchAllEarthquakes(20);
+        cachedTaiwan = groups.taiwan || [];
+        cachedMalaysia = groups.malaysia || [];
+        cachedAll = activeCountry === "malaysia" ? cachedMalaysia : cachedTaiwan;
         if(currentIndex >= cachedAll.length) currentIndex = 0;
 
+        updateCountryUi();
         renderSidePanel();
-        renderCurrent({ keepViewIfSame:true });
+        if(cachedAll.length) renderCurrent({ keepViewIfSame:true });
       }catch(err){
         console.error(err);
         if(!silent) alert("讀取地震資料失敗：\n" + (err?.message || err));
@@ -2126,7 +2312,7 @@ background-clip:padding-box;
         const depth = getDepth(eq);
         const time = getDisplayOriginTime(eq);
         const maxLabel = getMaxIntensityLabel(stations) || '—';
-        const reportType = eq?._kind === 'local' ? '小區域地震報告' : '顯著有感地震報告';
+        const reportType = eq?._kind === 'malaysia' ? '馬來西亞地震資料' : (eq?._kind === 'local' ? '小區域地震報告' : '顯著有感地震報告');
 
         const W = 1600;
         const H = 900;
@@ -2463,7 +2649,7 @@ background-clip:padding-box;
         ctx.fillText('筱風製作', footX + 46, footY + 21);
         ctx.fillStyle = '#6a7d89';
         ctx.font = '800 12px "Noto Sans TC", sans-serif';
-        ctx.fillText('資料來源 CWA', footX + 46, footY + 38);
+        ctx.fillText(eq?._kind === 'malaysia' ? '資料來源 Malaysia Earthquake Dataset' : '資料來源 CWA', footX + 46, footY + 38);
 
         const a = document.createElement('a');
         const safeTime = time.replace(/[^0-9]/g, '').slice(0, 12) || 'earthquake';
@@ -2504,10 +2690,13 @@ background-clip:padding-box;
       mb.addTo(map);
       map.setView([23.7, 121.0], 7);
       buildLegend();
+      updateCountryUi();
 
       $("refreshBtn").addEventListener("click", () => refresh({ silent:false }));
       $("exportPngBtn").addEventListener("click", exportSelectedPng);
       $("heroRefreshBtn").addEventListener("click", () => refresh({ silent:false }));
+      $("tabTaiwan").addEventListener("click", () => switchCountry("taiwan"));
+      $("tabMalaysia").addEventListener("click", () => switchCountry("malaysia"));
 
       $("toggleStations").addEventListener("change", () => {
         lastRenderedKey = "";
