@@ -13883,7 +13883,7 @@ ${a.instruction}` : ''
 
       const bg=ctx.createLinearGradient(0,0,0,height); bg.addColorStop(0,'#fbfdff'); bg.addColorStop(1,'#edf7fa'); ctx.fillStyle=bg; ctx.fillRect(0,0,width,height); const glow=ctx.createRadialGradient(1320,-50,20,1320,-50,460); glow.addColorStop(0,'rgba(124,58,237,.12)'); glow.addColorStop(1,'rgba(124,58,237,0)'); ctx.fillStyle=glow; ctx.fillRect(0,0,width,height);
       ctx.beginPath(); ctx.arc(44,38,5,0,Math.PI*2); ctx.fillStyle='#4f8cff'; ctx.fill(); text(ctx,'TYPHOON TRACKER',58,43,{size:14,weight:900,color:'#0f4c5c'}); text(ctx,'全部颱風路徑',34,95,{size:44,weight:900,color:'#102d40'}); text(ctx,'全部颱風歷史路徑、預報路徑與 70% 預測誤差範圍',36,127,{size:15,weight:800,color:'#617785'}); if(latest) text(ctx,`更新時間：${fmtTime(latest.time,'full')}`,1566,43,{size:13,weight:900,color:'#617785',align:'right'}); ctx.strokeStyle='rgba(25,42,58,.10)'; ctx.beginPath(); ctx.moveTo(34,142); ctx.lineTo(1566,142); ctx.stroke();
-      const px=36,py=164,pw=1528,ph=670; panel(ctx,px,py,pw,ph,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'全部颱風總覽',px+20,py+34,{size:16,weight:900}); text(ctx,'forecast cone 以標準形狀繪製，若局部交叉只修補局部',px+pw-20,py+34,{size:12,weight:900,color:'#617785',align:'right'});
+      const px=36,py=164,pw=1528,ph=670; panel(ctx,px,py,pw,ph,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'全部颱風總覽',px+20,py+34,{size:16,weight:900}); text(ctx,'forecast cone 依預報中心線與各時效 70% 誤差半徑連續包絡',px+pw-20,py+34,{size:12,weight:900,color:'#617785',align:'right'});
       const mapX=px+14,mapY=py+52,mapW=pw-28,mapH=ph-104; const view=fitView(allPts.concat(conePts), mapW, mapH, 88, 8.8);
       ctx.save(); rr(ctx,mapX,mapY,mapW,mapH,20); ctx.clip(); await drawTiles(ctx,view,mapX,mapY,mapW,mapH); const proj=projector(view,mapX,mapY,mapW,mapH);
       const used=[], blocked=[], bounds={x:mapX,y:mapY,w:mapW,h:mapH};
@@ -14225,7 +14225,7 @@ ${a.instruction}` : ''
       const groups=all.map(t=>({name:stripCwa(t.name||'颱風'), pts:sortPts(t.points||[])})).filter(g=>g.pts.length); const allPts=[], conePts=[]; groups.forEach(g=>{ allPts.push(...g.pts); const fn=G('buildForecastConePolygonSmooth',null); const poly=typeof fn==='function'?fn(g.pts):null; if(poly) conePts.push(...poly.map(p=>({lat:p[0],lon:p[1]}))); }); const latest=allPts.filter(p=>p.kind==='obs').sort((a,b)=>tval(b.time)-tval(a.time))[0];
       const bg=ctx.createLinearGradient(0,0,0,height); bg.addColorStop(0,'#fbfdff'); bg.addColorStop(1,'#edf7fa'); ctx.fillStyle=bg; ctx.fillRect(0,0,width,height); const glow=ctx.createRadialGradient(1320,-50,20,1320,-50,500); glow.addColorStop(0,'rgba(124,58,237,.12)'); glow.addColorStop(1,'rgba(124,58,237,0)'); ctx.fillStyle=glow; ctx.fillRect(0,0,width,height);
       ctx.beginPath(); ctx.arc(44,38,5,0,Math.PI*2); ctx.fillStyle='#4f8cff'; ctx.fill(); text(ctx,'TYPHOON TRACKER',58,43,{size:14,weight:900,color:'#0f4c5c'}); text(ctx,'全部颱風路徑',34,95,{size:44,weight:900,color:'#102d40'}); text(ctx,'全部颱風歷史路徑、預報路徑與 70% 預測誤差範圍',36,127,{size:15,weight:800,color:'#617785'}); if(latest) text(ctx,`更新時間：${fmtTime(latest.time,'full')}`,1566,43,{size:13,weight:900,color:'#617785',align:'right'}); ctx.strokeStyle='rgba(25,42,58,.10)'; ctx.beginPath(); ctx.moveTo(34,142); ctx.lineTo(1566,142); ctx.stroke();
-      const px=36,py=164,pw=1528,ph=720; panel(ctx,px,py,pw,ph,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'全部颱風總覽',px+20,py+34,{size:16,weight:900}); text(ctx,'forecast cone 以標準形狀繪製，若局部交叉只修補局部',px+pw-20,py+34,{size:12,weight:900,color:'#617785',align:'right'});
+      const px=36,py=164,pw=1528,ph=720; panel(ctx,px,py,pw,ph,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'全部颱風總覽',px+20,py+34,{size:16,weight:900}); text(ctx,'forecast cone 依預報中心線與各時效 70% 誤差半徑連續包絡',px+pw-20,py+34,{size:12,weight:900,color:'#617785',align:'right'});
       const mapX=px+14,mapY=py+52,mapW=pw-28,mapH=ph-122, view=fitView(allPts.concat(conePts),mapW,mapH,86,8.8); ctx.save(); rr(ctx,mapX,mapY,mapW,mapH,20); ctx.clip(); await drawTiles(ctx,view,mapX,mapY,mapW,mapH); const proj=projector(view,mapX,mapY,mapW,mapH); const used=[], blocked=[], bounds={x:mapX,y:mapY,w:mapW,h:mapH}; groups.forEach(g=>{ drawCone(ctx,g.pts,proj); drawRoute(ctx,g.pts,proj); blocked.push(...routeBoxes(g.pts,proj)); }); groups.forEach(g=>{ const lp=latestObs(g.pts); if(!lp) return; const q=proj(lp.lat,lp.lon), st=levelInfo(lp.level), name=g.name; ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const w=pillWidth(ctx,name,60,34,220), h=28; const b=pickLabel([{x:q.x+16,y:q.y-40},{x:q.x-w-16,y:q.y-40},{x:q.x+16,y:q.y+14},{x:q.x-w-16,y:q.y+14},{x:q.x-w/2,y:q.y-54}],bounds,w,h,used,[]); pill(ctx,b,name,st.color,q); used.push(b); }); groups.forEach(g=>{ forecastLabels(g.pts,groups.length<=2?2:1).forEach(p=>{ const q=proj(p.lat,p.lon), st=levelInfo(p.level), v=fmtTime(p.time,'short'); ctx.font='900 12px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const w=pillWidth(ctx,v,70,34,150), h=28; const b=pickLabel([{x:q.x+20,y:q.y-42},{x:q.x-w-20,y:q.y-42},{x:q.x+20,y:q.y+14},{x:q.x-w-20,y:q.y+14}],bounds,w,h,used,blocked); pill(ctx,b,v,st.color,q); used.push(b); }); }); ctx.restore();
       const ly=py+ph-48; panel(ctx,px+14,ly,pw-28,34,14,'rgba(255,255,255,.92)','rgba(25,42,58,.10)'); let xx=px+34, yy=ly+20; text(ctx,'圖例',xx,yy+4,{size:12,weight:900,color:'#0f4c5c'}); xx+=58; ctx.lineCap='round'; ctx.lineWidth=4; ctx.strokeStyle='#6b7280'; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+36,yy); ctx.stroke(); text(ctx,'歷史路徑',xx+48,yy+5,{size:12,weight:900,color:'#617785'}); xx+=140; ctx.strokeStyle='#2a9d8f'; ctx.setLineDash([10,8]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+36,yy); ctx.stroke(); ctx.setLineDash([]); text(ctx,'預報路徑',xx+48,yy+5,{size:12,weight:900,color:'#617785'}); xx+=140; panel(ctx,xx,yy-10,30,18,9,'rgba(96,165,250,.22)','rgba(96,165,250,.48)'); text(ctx,'70% 預測誤差範圍',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=196; [['低壓','#94a3b8'],['熱帶低壓','#536ab8'],['輕度颱風','#22c55e'],['中度颱風','#f59e0b'],['強烈颱風','#ef4444']].forEach(([n,c])=>{ ctx.beginPath(); ctx.arc(xx+6,yy,6,0,Math.PI*2); ctx.fillStyle=c; ctx.fill(); text(ctx,n,xx+18,yy+5,{size:12,weight:900,color:'#617785'}); xx+=n.length>=4?96:70; });
       downloadDataUrl('全部颱風路徑_預測誤差範圍_優化_v9.png', cv.toDataURL('image/png'));
@@ -15462,143 +15462,225 @@ ${a.instruction}` : ''
     return pts;
   }
   function buildCleanForecastCone(srcPoints){
-    const list=(srcPoints||[]).filter(p=>Number.isFinite(Number(p?.lat))&&Number.isFinite(Number(p?.lon))).map(p=>({...p,lat:Number(p.lat),lon:Number(p.lon)}));
-    const fc=list.filter(p=>p.kind==='fcst');
-    const obs=list.filter(p=>p.kind==='obs').slice(-1)[0]||list[0];
-    if(!obs||fc.length<1) return null;
+    /*
+      Robust 70% forecast cone
+      - keeps the original forecast radii
+      - follows the forecast centre line
+      - avoids convex-hull shortcuts
+      - avoids tangent self-intersections on sharp turns
+      - returns only one outer closed contour
+    */
+    const list=(srcPoints||[])
+      .filter(p=>Number.isFinite(Number(p?.lat)) && Number.isFinite(Number(p?.lon)))
+      .map((p,i)=>({...p,lat:Number(p.lat),lon:Number(p.lon),__i:i}));
 
-    function distKm(a,b){
-      const R=6371, p1=toRad(a.lat), p2=toRad(b.lat), d1=toRad(b.lat-a.lat), d2=toRad(b.lon-a.lon);
-      const h=Math.sin(d1/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(d2/2)**2;
-      return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
-    }
-    function circlePoly(clat,clon,rkm,steps=56){
-      const poly=[];
-      for(let i=0;i<=steps;i++) poly.push(dest(clat,clon,(360*i/steps)%360,rkm));
-      return poly;
-    }
-    function llToXY(side){
-      const lat0=side.reduce((s,p)=>s+p[0],0)/side.length;
-      const lon0=side.reduce((s,p)=>s+p[1],0)/side.length;
-      const ky=110.574, kx=111.320*Math.max(.20,Math.cos(toRad(lat0)));
-      return {lat0,lon0,kx,ky,pts:side.map(p=>({x:(p[1]-lon0)*kx,y:(p[0]-lat0)*ky}))};
-    }
-    function segIntersection(a,b,c,d){
-      const rx=b.x-a.x, ry=b.y-a.y, sx=d.x-c.x, sy=d.y-c.y, den=rx*sy-ry*sx;
-      if(Math.abs(den)<1e-9) return null;
-      const qx=c.x-a.x, qy=c.y-a.y;
-      const t=(qx*sy-qy*sx)/den, u=(qx*ry-qy*rx)/den;
-      if(t>1e-5&&t<1-1e-5&&u>1e-5&&u<1-1e-5) return {x:a.x+t*rx,y:a.y+t*ry};
-      return null;
-    }
-    function repairOpenSide(side){
-      if(!Array.isArray(side)||side.length<4) return side;
-      const cv=llToXY(side); let pts=cv.pts.slice(); let changed=true, guard=0;
-      while(changed&&guard++<12){
-        changed=false;
-        outer: for(let i=0;i<pts.length-3;i++){
-          for(let j=i+2;j<pts.length-1;j++){
-            const hit=segIntersection(pts[i],pts[i+1],pts[j],pts[j+1]);
-            if(!hit) continue;
-            pts=[...pts.slice(0,i+1), hit, ...pts.slice(j+1)];
-            changed=true; break outer;
-          }
-        }
-      }
-      return pts.map(p=>[cv.lat0+p.y/cv.ky, cv.lon0+p.x/cv.kx]);
-    }
+    const obsList=list.filter(p=>p.kind==='obs');
+    const obs=obsList.length ? obsList[obsList.length-1] : list[0];
 
-    const rawRadii=fc.map(p=>clamp(Number(p.fcst_radius_km||0)||0,0,350));
-    const firstForecastRadius=rawRadii[0]||30;
-    const START_RADIUS=clamp(firstForecastRadius*.38,12,120);
-    const smoothRadii=rawRadii.map((r,i)=>{
-      if(i===0) return clamp((START_RADIUS+r)/2,8,350);
-      const prev=rawRadii[i-1];
-      const next=rawRadii[i+1] ?? r;
-      return clamp((prev+r+next)/3,8,350);
+    let fc=list
+      .filter(p=>p.kind==='fcst' && Number.isFinite(Number(p.fcst_radius_km)) && Number(p.fcst_radius_km)>0)
+      .slice();
+
+    if(!obs || !fc.length) return null;
+
+    fc.sort((a,b)=>{
+      const ta=Date.parse(String(a.time||'').replace(' ','T'));
+      const tb=Date.parse(String(b.time||'').replace(' ','T'));
+      if(Number.isFinite(ta) && Number.isFinite(tb) && ta!==tb) return ta-tb;
+      return a.__i-b.__i;
     });
 
+    const all=[obs,...fc];
+    const lat0=all.reduce((s,p)=>s+p.lat,0)/all.length;
+    const lon0=all.reduce((s,p)=>s+p.lon,0)/all.length;
+    const ky=110.574;
+    const kx=111.320*Math.max(.20,Math.cos(lat0*Math.PI/180));
 
-    function compactEnvelope(){
-      if(fc.length<3) return null;
+    const toXY=p=>({x:(p.lon-lon0)*kx,y:(p.lat-lat0)*ky});
+    const firstR=Math.max(1,Number(fc[0].fcst_radius_km)||1);
+    const apexR=Math.max(0.45,Math.min(1.6,firstR*0.006));
 
-      let pathKm=0, closePairs=0;
-      for(let i=0;i<fc.length-1;i++){
-        const d=distKm(fc[i],fc[i+1]);
-        pathKm+=d;
-        const localR=Math.max(smoothRadii[i]||0,smoothRadii[i+1]||0,1);
-        if(d < localR*.72) closePairs++;
+    const nodes=[
+      {...toXY(obs),r:apexR},
+      ...fc.map(p=>({...toXY(p),r:Number(p.fcst_radius_km)}))
+    ];
+
+    const clean=[];
+    for(const n of nodes){
+      const q=clean[clean.length-1];
+      if(q && Math.hypot(n.x-q.x,n.y-q.y)<0.05) q.r=Math.max(q.r,n.r);
+      else clean.push({...n});
+    }
+    if(clean.length<2) return null;
+
+    const samples=[];
+    for(let i=0;i<clean.length-1;i++){
+      const a=clean[i], b=clean[i+1];
+      const d=Math.hypot(b.x-a.x,b.y-a.y);
+      const localR=Math.max(a.r,b.r,1);
+      const stepKm=Math.max(8,Math.min(28,localR*0.16));
+      const n=Math.max(2,Math.ceil(d/stepKm));
+      for(let k=0;k<n;k++){
+        const t=k/n;
+        samples.push({
+          x:a.x+(b.x-a.x)*t,
+          y:a.y+(b.y-a.y)*t,
+          r:a.r+(b.r-a.r)*t
+        });
       }
+    }
+    samples.push({...clean[clean.length-1]});
 
-      const endKm=distKm(fc[0],fc[fc.length-1]);
-      const maxR=Math.max(...smoothRadii,1);
-      const straightness=pathKm>0?endKm/pathKm:1;
+    const maxR=Math.max(...samples.map(p=>p.r),1);
+    let minX=Math.min(...samples.map(p=>p.x-p.r));
+    let maxX=Math.max(...samples.map(p=>p.x+p.r));
+    let minY=Math.min(...samples.map(p=>p.y-p.r));
+    let maxY=Math.max(...samples.map(p=>p.y+p.r));
+    const margin=Math.max(12,maxR*.06);
+    minX-=margin; maxX+=margin; minY-=margin; maxY+=margin;
 
-      if(!(closePairs>=2 && (straightness<.78 || endKm<maxR*1.25))) return null;
+    const spanX=Math.max(20,maxX-minX);
+    const spanY=Math.max(20,maxY-minY);
+    const cell=Math.max(2.5,Math.min(8.0,Math.max(spanX,spanY)/240));
+    const nx=Math.max(70,Math.min(320,Math.ceil(spanX/cell)));
+    const ny=Math.max(70,Math.min(320,Math.ceil(spanY/cell)));
+    const dx=(maxX-minX)/nx;
+    const dy=(maxY-minY)/ny;
 
-      const centers=[
-        {lat:obs.lat,lon:obs.lon,rKm:START_RADIUS},
-        ...fc.map((p,i)=>({lat:p.lat,lon:p.lon,rKm:smoothRadii[i]||maxR}))
-      ];
+    function fieldAt(x,y){
+      let best=-1e12;
+      for(const s of samples){
+        const m=s.r-Math.hypot(x-s.x,y-s.y);
+        if(m>best) best=m;
+      }
+      return best;
+    }
 
-      const lat0=centers.reduce((s,p)=>s+p.lat,0)/centers.length;
-      const lon0=centers.reduce((s,p)=>s+p.lon,0)/centers.length;
-      const ky=110.574;
-      const kx=111.320*Math.max(.20,Math.cos(toRad(lat0)));
+    const W=nx+1;
+    const field=new Float32Array((nx+1)*(ny+1));
+    for(let j=0;j<=ny;j++){
+      const y=minY+j*dy;
+      for(let i=0;i<=nx;i++) field[j*W+i]=fieldAt(minX+i*dx,y);
+    }
 
-      const cloud=[];
-      centers.forEach(c=>{
-        for(let a=0;a<360;a+=10){
-          const p=dest(c.lat,c.lon,a,c.rKm);
-          cloud.push({x:(p[1]-lon0)*kx,y:(p[0]-lat0)*ky});
+    const mk=(x,y)=>({x,y});
+    const interp=(a,b,va,vb)=>{
+      const den=va-vb;
+      let t=Math.abs(den)<1e-12 ? .5 : va/den;
+      t=Math.max(0,Math.min(1,t));
+      return mk(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t);
+    };
+
+    const segs=[];
+    for(let j=0;j<ny;j++){
+      const y0=minY+j*dy, y1=y0+dy;
+      for(let i=0;i<nx;i++){
+        const x0=minX+i*dx, x1=x0+dx;
+        const v0=field[j*W+i], v1=field[j*W+i+1], v2=field[(j+1)*W+i+1], v3=field[(j+1)*W+i];
+        const code=(v0>=0?1:0)|(v1>=0?2:0)|(v2>=0?4:0)|(v3>=0?8:0);
+        if(code===0 || code===15) continue;
+        const p0=mk(x0,y0), p1=mk(x1,y0), p2=mk(x1,y1), p3=mk(x0,y1);
+        const edge=[];
+        const E=n=>{
+          if(edge[n]) return edge[n];
+          if(n===0) edge[n]=interp(p0,p1,v0,v1);
+          else if(n===1) edge[n]=interp(p1,p2,v1,v2);
+          else if(n===2) edge[n]=interp(p2,p3,v2,v3);
+          else edge[n]=interp(p3,p0,v3,v0);
+          return edge[n];
+        };
+        const add=(a,b)=>segs.push([E(a),E(b)]);
+        const c=(v0+v1+v2+v3)/4;
+        switch(code){
+          case 1: add(3,0); break;
+          case 2: add(0,1); break;
+          case 3: add(3,1); break;
+          case 4: add(1,2); break;
+          case 5: if(c>=0){add(0,1);add(2,3);}else{add(3,0);add(1,2);} break;
+          case 6: add(0,2); break;
+          case 7: add(2,3); break;
+          case 8: add(2,3); break;
+          case 9: add(0,2); break;
+          case 10: if(c>=0){add(3,0);add(1,2);}else{add(0,1);add(2,3);} break;
+          case 11: add(1,2); break;
+          case 12: add(1,3); break;
+          case 13: add(0,1); break;
+          case 14: add(3,0); break;
         }
-      });
-
-      cloud.sort((a,b)=>a.x===b.x?a.y-b.y:a.x-b.x);
-      const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
-      const lower=[];
-      for(const p of cloud){
-        while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop();
-        lower.push(p);
       }
-      const upper=[];
-      for(let i=cloud.length-1;i>=0;i--){
-        const p=cloud[i];
-        while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop();
-        upper.push(p);
+    }
+    if(!segs.length) return null;
+
+    const eps=Math.max(dx,dy)*0.005;
+    const key=p=>`${Math.round(p.x/eps)},${Math.round(p.y/eps)}`;
+    const adjacency=new Map();
+    segs.forEach((s,idx)=>{
+      for(let e=0;e<2;e++){
+        const k=key(s[e]);
+        if(!adjacency.has(k)) adjacency.set(k,[]);
+        adjacency.get(k).push({idx,e});
       }
+    });
 
-      const hull=lower.slice(0,-1).concat(upper.slice(0,-1));
-      const poly=hull.map(p=>[lat0+p.y/ky,lon0+p.x/kx]);
-      if(poly.length) poly.push(poly[0]);
-      return poly;
+    const used=new Uint8Array(segs.length);
+    const loops=[];
+    for(let seed=0;seed<segs.length;seed++){
+      if(used[seed]) continue;
+      used[seed]=1;
+      const chain=[segs[seed][0],segs[seed][1]];
+      const startKey=key(chain[0]);
+      let cur=chain[1];
+      for(let guard=0;guard<segs.length+16;guard++){
+        const opts=adjacency.get(key(cur))||[];
+        let nextRef=null;
+        for(const o of opts){ if(!used[o.idx]){nextRef=o;break;} }
+        if(!nextRef) break;
+        used[nextRef.idx]=1;
+        const s=segs[nextRef.idx];
+        const nxt=key(s[0])===key(cur) ? s[1] : s[0];
+        chain.push(nxt); cur=nxt;
+        if(key(cur)===startKey) break;
+      }
+      if(chain.length>=10 && key(chain[chain.length-1])===startKey) loops.push(chain);
+    }
+    if(!loops.length) return null;
+
+    const polyArea=poly=>{
+      let a=0;
+      for(let i=0;i<poly.length-1;i++) a+=poly[i].x*poly[i+1].y-poly[i+1].x*poly[i].y;
+      return a/2;
+    };
+
+    loops.sort((a,b)=>Math.abs(polyArea(b))-Math.abs(polyArea(a)));
+    let poly=loops[0].slice(0,-1);
+
+    if(poly.length>=12){
+      const smooth=[];
+      for(let i=0;i<poly.length;i++){
+        const a=poly[(i-1+poly.length)%poly.length];
+        const b=poly[i];
+        const c=poly[(i+1)%poly.length];
+        smooth.push({x:a.x*.18+b.x*.64+c.x*.18,y:a.y*.18+b.y*.64+c.y*.18});
+      }
+      poly=smooth;
     }
 
-    const compact=compactEnvelope();
-    if(compact) return compact;
+    // Do NOT force one contour vertex onto the analysed centre.
+    // The previous version did that to create an exact apex, but it produced
+    // the visible triangular notch / inward spike near the current position.
+    // Let the natural outer contour from the tiny analysed-point radius form
+    // the start of the cone instead.
 
+    if(poly.length>500){
+      const keep=[];
+      const step=Math.ceil(poly.length/420);
+      for(let i=0;i<poly.length;i+=step) keep.push(poly[i]);
+      poly=keep;
+    }
 
-    const path=[{lat:obs.lat,lon:obs.lon,rKm:START_RADIUS}, ...fc.map((p,i)=>({lat:p.lat,lon:p.lon,rKm:smoothRadii[i]}))];
-    function heading(i){
-      if(i===0) return bearing(path[0].lat,path[0].lon,path[1].lat,path[1].lon);
-      if(i===path.length-1) return bearing(path[i-1].lat,path[i-1].lon,path[i].lat,path[i].lon);
-      const a=bearing(path[i-1].lat,path[i-1].lon,path[i].lat,path[i].lon);
-      const b=bearing(path[i].lat,path[i].lon,path[i+1].lat,path[i+1].lon);
-      return ((Math.atan2(Math.sin(toRad(a))+Math.sin(toRad(b)), Math.cos(toRad(a))+Math.cos(toRad(b))) * 180/Math.PI)+360)%360;
-    }
-    let left=[], right=[];
-    for(let i=0;i<path.length;i++){
-      const p=path[i], h=heading(i);
-      left.push(dest(p.lat,p.lon,(h-90+360)%360,p.rKm));
-      right.push(dest(p.lat,p.lon,(h+90)%360,p.rKm));
-    }
-    left=repairOpenSide(left);
-    right=repairOpenSide(right);
-    const start=path[0], sh=heading(0), startArc=[];
-    for(let a=90;a<=270;a+=8) startArc.push(dest(start.lat,start.lon,(sh+a+360)%360,start.rKm));
-    const end=path[path.length-1], eh=heading(path.length-1), endArc=[];
-    for(let a=-90;a<=90;a+=4) endArc.push(dest(end.lat,end.lon,(eh+a+360)%360,end.rKm));
-    return [...startArc, ...left.slice(1), ...endArc, ...right.slice(1).reverse(), startArc[0]];
+    const out=poly.map(p=>[lat0+p.y/ky,lon0+p.x/kx]);
+    if(out.length) out.push(out[0]);
+    return out;
   }
   W.buildForecastConePolygonSmooth = buildCleanForecastCone;
   try{ buildForecastConePolygonSmooth = buildCleanForecastCone; }catch(e){}
