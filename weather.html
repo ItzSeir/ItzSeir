@@ -6458,7 +6458,9 @@ Implement by adjusting polygon style functions:
       const latLabelHtml = val => `<div style="font:800 12px 'Noto Sans TC','Segoe UI',Arial,sans-serif;color:#29414f;text-shadow:0 1px 0 rgba(255,255,255,.92);white-space:nowrap;">${Math.abs(Math.round(val))}°</div>`;
 
       for(let lon = Math.ceil(west / lonStep) * lonStep; lon <= east + 1e-6; lon += lonStep){
-        const drawLon = ((lon + 540) % 360) - 180;
+        // Leaflet draws in the current world copy; wrap only the label.
+        const drawLon = lon;
+        const labelLon = ((lon + 180) % 360 + 360) % 360 - 180;
         coordinateGridLayers.push(L.polyline([[south, drawLon], [north, drawLon]], lineStyle).addTo(map));
         coordinateGridLayers.push(L.marker([south + latPad, drawLon], {
           pane:'coordGridPane',
@@ -6467,16 +6469,16 @@ Implement by adjusting polygon style functions:
           zIndexOffset:-1000,
           icon:L.divIcon({
             className:'coord-grid-icon lon',
-            html:lonLabelHtml(drawLon),
+            html:lonLabelHtml(labelLon),
             iconSize:[42, 18],
             iconAnchor:[21, 18]
           })
         }).addTo(map));
       }
 
-      const drawWest = ((west + 540) % 360) - 180;
+      const drawWest = west;
       for(let lat = Math.ceil(south / latStep) * latStep; lat <= north + 1e-6; lat += latStep){
-        coordinateGridLayers.push(L.polyline([[lat, drawWest], [lat, ((east + 540) % 360) - 180]], lineStyle).addTo(map));
+        coordinateGridLayers.push(L.polyline([[lat, drawWest], [lat, east]], lineStyle).addTo(map));
         coordinateGridLayers.push(L.marker([lat, drawWest + lonPad], {
           pane:'coordGridPane',
           interactive:false,
@@ -15844,7 +15846,9 @@ ${a.instruction}` : ''
 
         img.referrerPolicy='no-referrer';
         img.crossOrigin='anonymous';
-        img.loading='lazy';
+        // The PNG needs every tile, including the clipped right side on phones.
+        img.loading='eager';
+        img.decoding='async';
         img.alt='';
         img.style.left=`${tx*256*factor-left}px`;
         img.style.top=`${ty*256*factor-top}px`;
@@ -16849,20 +16853,27 @@ ${a.instruction}` : ''
     }
   }
 
+  function visibleFigureTiles(frame){
+    const plot=frame.querySelector('.trackPlot');
+    if(!plot) return [];
+    return Array.from(frame.querySelectorAll('.trackTileLayer img')).filter(img=>{
+      const left=numberPx(img.style.left), top=numberPx(img.style.top);
+      const width=numberPx(img.style.width)||256, height=numberPx(img.style.height)||256;
+      return left<plot.clientWidth && left+width>0 && top<plot.clientHeight && top+height>0;
+    });
+  }
+
   async function waitForFigureReady(frame, timeout=7000){
     const start=Date.now();
-
     while(Date.now()-start < timeout){
       if(!frame || !frame.isConnected) return false;
-
       const plot=frame.querySelector('.trackPlot');
       const svg=frame.querySelector('.trackSvgLayer');
-      const tileImgs=Array.from(frame.querySelectorAll('.trackTileLayer img'));
-
+      const tileImgs=visibleFigureTiles(frame);
+      tileImgs.forEach(img=>{img.loading='eager';});
       const svgReady=!!(svg && svg.children && svg.children.length>=2);
-      const tileReady=tileImgs.some(img=>img.complete && img.naturalWidth>0);
+      const tileReady=tileImgs.length>0 && tileImgs.every(img=>img.complete && img.naturalWidth>0);
       const sized=!!(plot && plot.clientWidth>100 && plot.clientHeight>100);
-
       if(svgReady && tileReady && sized) return true;
       await wait(180);
     }
@@ -16870,7 +16881,15 @@ ${a.instruction}` : ''
   }
 
   async function makeRealImage(frame){
-    if(!frame || frame.dataset.realImage==='1' || frame.dataset.converting==='1') return;
+    if(!frame || frame.dataset.realImage==='1') return;
+    // A download requested during automatic conversion waits for that result.
+    if(frame.dataset.converting==='1'){
+      const started=Date.now();
+      while(frame.isConnected && frame.dataset.converting==='1' && Date.now()-started<15000){
+        await wait(100);
+      }
+      return;
+    }
 
     frame.dataset.converting='1';
     const ready=await waitForFigureReady(frame,7000);
@@ -16883,7 +16902,7 @@ ${a.instruction}` : ''
     const plot=frame.querySelector('.trackPlot');
     const legend=frame.querySelector('.trackLegendBar');
     const svg=frame.querySelector('.trackSvgLayer');
-    const tileImgs=Array.from(frame.querySelectorAll('.trackTileLayer img'));
+    const tileImgs=visibleFigureTiles(frame);
 
     if(!plot || !svg){
       delete frame.dataset.converting;
@@ -16955,8 +16974,8 @@ ${a.instruction}` : ''
     const loadedTiles=tileImgs.filter(img=>img.complete && img.naturalWidth>0);
     const svgHasContent=svg.children && svg.children.length>=2;
 
-    // Never replace a visible DOM figure with a blank PNG.
-    if(!loadedTiles.length || !svgHasContent){
+    // Never freeze a partially loaded basemap into the downloadable PNG.
+    if(!frame.isConnected || !loadedTiles.length || loadedTiles.length!==tileImgs.length || !svgHasContent){
       delete frame.dataset.converting;
       return;
     }
@@ -17127,6 +17146,8 @@ ${a.instruction}` : ''
       console.warn('產生可下載圖片失敗，保留原圖。',err);
     }
   }
+
+  window.makeRealImage=makeRealImage;
 
   async function convertAllFigures(){
     const frames=Array.from(document.querySelectorAll('#trackOverviewHost .trackMapFrame, #trackGalleryShell .trackMapFrame'));
@@ -17318,13 +17339,13 @@ ${a.instruction}` : ''
       }
       await new Promise(r=>setTimeout(r,220));
 
-      let img=host.querySelector('img.trackDownloadImage') || host.querySelector('.trackMapFrame img');
+      let img=host.querySelector('img.trackDownloadImage');
       if((!img || !img.src) && frame && typeof window.makeRealImage==='function'){
         await window.makeRealImage(frame);
         await new Promise(r=>setTimeout(r,320));
-        img=host.querySelector('img.trackDownloadImage') || host.querySelector('.trackMapFrame img');
+        img=host.querySelector('img.trackDownloadImage');
       }
-      if(!img || !img.src) throw new Error('overview image not ready');
+      if(!img || !img.src || frame.dataset.realImage!=='1') throw new Error('overview image not ready');
 
       const all=Array.isArray(window.allTyphoons)?window.allTyphoons:[];
       const allPts=all.flatMap(t=>Array.isArray(t?.points)?t.points:[]);
