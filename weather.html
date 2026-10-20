@@ -18654,107 +18654,226 @@ function inlineGifWorker(){
  function frame(pixels,delay){const compressed=lzw(rawPixels(pixels));const parts=[];const begin=[0x21,0xF9,0x04,0x04,...u16(Math.max(2,Math.round(delay/10))),0,0,0x2C,0,0,0,0,...u16(w),...u16(h),0,0x08];parts.push(Uint8Array.from(begin));for(let i=0;i<compressed.length;i+=255){const b=compressed.subarray(i,i+255);parts.push(Uint8Array.from([b.length]),b);}parts.push(Uint8Array.from([0]));return parts;}
  self.onmessage=e=>{try{const m=e.data;if(m.type==='start'){w=m.width;h=m.height;count=0;frames=[];const header=new Uint8Array([71,73,70,56,57,97,...u16(w),...u16(h),247,0,0]);frames.push(header,palette,Uint8Array.from([33,255,11,78,69,84,83,67,65,80,69,50,46,48,3,1,0,0,0]));self.postMessage({type:'ready'});}else if(m.type==='frame'){frames.push(...frame(new Uint8ClampedArray(m.pixels),m.delay));count++;self.postMessage({type:'ready',count});}else if(m.type==='finish'){frames.push(Uint8Array.from([59]));const blob=new Blob(frames,{type:'image/gif'});self.postMessage({type:'finished',blob,frames:count});frames=[];}}catch(err){self.postMessage({type:'error',message:String(err?.message||err)});}};
 }
-function videoMimeCandidates(preference){
- const mp4=['video/mp4;codecs="avc1.42E01E"','video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1.4D401F','video/mp4'];
- const webm=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
- return preference==='webm'?[...webm,...mp4]:[...mp4,...webm];
+// A compact MP4/AVC muxer for WebCodecs (AVC length-prefixed output).
+// Samples are muxed only after encoding is finished, so render time never
+// affects the final MP4 timestamps.
+function encodeFixedRateMp4(chunks, avcConfig, width, height, sampleDurationMs) {
+  const u8 = x => Uint8Array.of(x & 255);
+  const u16 = x => Uint8Array.of((x >>> 8) & 255, x & 255);
+  const u32 = x => Uint8Array.of((x >>> 24) & 255, (x >>> 16) & 255, (x >>> 8) & 255, x & 255);
+  const str = s => Uint8Array.from([...s].map(c => c.charCodeAt(0)));
+  const zeros = n => new Uint8Array(n);
+  const join = (...arrs) => {
+    let n=0;for(const a of arrs)n+=a.byteLength;
+    const out=new Uint8Array(n);let p=0;
+    for(const a of arrs){out.set(a,p);p+=a.byteLength;}
+    return out;
+  };
+  function box(name,...payloads){const size=8+payloads.reduce((n,a)=>n+a.byteLength,0);return join(u32(size),str(name),...payloads);}
+  const full=(name,version,flags,...payloads)=>box(name,u8(version),Uint8Array.of((flags>>16)&255,(flags>>8)&255,flags&255),...payloads);
+  const mat=join(u32(65536),u32(0),u32(0),u32(0),u32(65536),u32(0),u32(0),u32(0),u32(1073741824));
+  if(!chunks.length)throw Error('沒有影片影格。');
+  if(!avcConfig||!avcConfig.byteLength)throw Error('H.264 編碼器沒有回傳 AVC 設定資料。');
+  const units=[];let totalSize=0;
+  for(const ch of chunks){
+    const payload=new Uint8Array(ch.byteLength);
+    ch.copyTo(payload);units.push(payload);totalSize+=payload.byteLength;
+  }
+  if(totalSize >= 0xFFFFFF00)throw Error('單支影片超過 MP4 4GB 容量上限。');
+  const count=units.length;
+  const duration=count*sampleDurationMs;
+  const ftyp=box('ftyp',str('isom'),u32(512),str('isom'),str('iso2'),str('avc1'),str('mp41'));
+  const mdatHeader=join(u32(totalSize+8),str('mdat'));
+  const chunkOffset=ftyp.byteLength+mdatHeader.byteLength;
+  const avcc=box('avcC',new Uint8Array(avcConfig));
+  const compressor=zeros(32);const label=str('Typhoon Forecast Video');compressor[0]=Math.min(31,label.length);compressor.set(label.subarray(0,31),1);
+  const avc1=box('avc1',zeros(6),u16(1),zeros(16),u16(width),u16(height),u32(0x00480000),u32(0x00480000),u32(0),u16(1),compressor,u16(24),u16(65535),avcc);
+  const stsd=full('stsd',0,0,u32(1),avc1);
+  const stts=full('stts',0,0,u32(1),u32(count),u32(sampleDurationMs));
+  const stsc=full('stsc',0,0,u32(1),u32(1),u32(count),u32(1));
+  const stsz=full('stsz',0,0,u32(0),u32(count),...units.map(u=>u32(u.byteLength)));
+  const stco=full('stco',0,0,u32(1),u32(chunkOffset));
+  const keySamples=[];chunks.forEach((c,i)=>{if(c.type==='key')keySamples.push(u32(i+1));});
+  const stss=full('stss',0,0,u32(keySamples.length),...keySamples);
+  const stbl=box('stbl',stsd,stts,stsc,stsz,stco,stss);
+  const vmhd=full('vmhd',0,1,u16(0),u16(0),u16(0),u16(0));
+  const url=full('url ',0,1);
+  const dref=full('dref',0,0,u32(1),url);
+  const minf=box('minf',vmhd,box('dinf',dref),stbl);
+  const mdhd=full('mdhd',0,0,u32(0),u32(0),u32(1000),u32(duration),u16(0x55c4),u16(0));
+  const hdlr=full('hdlr',0,0,u32(0),str('vide'),zeros(12),str('VideoHandler'),u8(0));
+  const mdia=box('mdia',mdhd,hdlr,minf);
+  const tkhd=full('tkhd',0,7,u32(0),u32(0),u32(1),u32(0),u32(duration),zeros(8),u16(0),u16(0),u16(0),u16(0),mat,u32(width*65536),u32(height*65536));
+  const trak=box('trak',tkhd,mdia);
+  const mvhd=full('mvhd',0,0,u32(0),u32(0),u32(1000),u32(duration),u32(65536),u16(256),u16(0),zeros(8),mat,zeros(24),u32(2));
+  const moov=box('moov',mvhd,trak);
+  return new Blob([ftyp,mdatHeader,...units,moov],{type:'video/mp4'});
 }
-function chooseVideoRecorder(stream,quality,preference){
- if(!window.MediaRecorder)return null;
- for(const mimeType of videoMimeCandidates(preference)){
-   try{
-     if(!MediaRecorder.isTypeSupported(mimeType))continue;
-     const recorder=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:quality.bitrate});
-     const actualType=recorder.mimeType||mimeType;
-     const ext=/^video\/mp4/i.test(actualType)?'mp4':'webm';
-     return {recorder,mimeType:actualType,ext,fallback:ext!==preference};
-   }catch(e){console.warn('[Typhoon Video] 編碼格式不受支援：',mimeType,e);}
+async function encodeCanvasSequenceMp4(canvas, renderFrame, count, quality, onProgress) {
+  const stepMs=300;
+  const codecCandidates=['avc1.640032','avc1.4d4032','avc1.420032','avc1.640028','avc1.4d4028','avc1.420028'];
+  let config=null;
+  for(const codec of codecCandidates){
+    const candidate={codec,width:quality.width,height:quality.height,bitrate:quality.bitrate,framerate:30,latencyMode:'realtime',avc:{format:'avc'}};
+    try{if((await VideoEncoder.isConfigSupported(candidate)).supported){config=candidate;break;}}catch(_){}
+  }
+  if(!config)throw Error('此瀏覽器不支援 WebCodecs H.264 高畫質編碼。');
+  const encoded=[];let description=null;let encoderError=null;
+  const encoder=new VideoEncoder({
+    output:(chunk, metadata)=>{
+      encoded.push(chunk);
+      if(metadata?.decoderConfig?.description)description=new Uint8Array(metadata.decoderConfig.description);
+    },
+    error:e=>{encoderError=e;}
+  });
+  try{
+    encoder.configure(config);
+    for(let i=0;i<count;i++){
+      if(encoderError)throw encoderError;
+      await renderFrame(i);
+      const frame=new VideoFrame(canvas,{timestamp:i*stepMs*1000,duration:stepMs*1000});
+      encoder.encode(frame,{keyFrame:i===0 || i%60===0});
+      frame.close();
+      if(encoder.encodeQueueSize>4)await encoder.flush();
+      if(onProgress && (i%3===0||i===count-1))onProgress(i+1,count);
+      if(i%5===0)await new Promise(r=>setTimeout(r,0));
+    }
+    await encoder.flush();
+    if(encoderError)throw encoderError;
+    encoded.sort((a,b)=>a.timestamp-b.timestamp);
+    if(encoded.length!==count)throw Error('部分影格未成功編碼。');
+    return encodeFixedRateMp4(encoded,description,quality.width,quality.height,stepMs);
+  }finally{
+    try{encoder.close();}catch(_){}
+  }
+}
+
+function encodeFixedRateWebM(chunks,width,height,sampleDurationMs,codecId){
+ const bytes=new TextEncoder();
+ const str=s=>bytes.encode(s);
+ const uBig=(n,min=1)=>{let b=BigInt(n);let width=min;while(b>=(1n<<BigInt(width*8)))width++;const arr=new Uint8Array(width);for(let i=width-1;i>=0;i--){arr[i]=Number(b&255n);b>>=8n;}return arr;};
+ const idBytes=id=>uBig(id);
+ const sizeBytes=n=>{let v=BigInt(n),w=1;while(w<=8 && v>=((1n<<BigInt(w*7))-1n))w++;if(w>8)throw Error('WebM box too large');const out=new Uint8Array(w);v|=1n<<BigInt(w*7);for(let i=w-1;i>=0;i--){out[i]=Number(v&255n);v>>=8n;}return out;};
+ const join=(...arrs)=>{let sum=0;for(const a of arrs)sum+=a.length;const out=new Uint8Array(sum);let p=0;for(const a of arrs){out.set(a,p);p+=a.length;}return out;};
+ const elt=(id,payload)=>join(idBytes(id),sizeBytes(payload.length),payload);
+ const uint=(id,n)=>elt(id,uBig(n));
+ const text=(id,s)=>elt(id,str(s));
+ const float64=(id,num)=>{const a=new Uint8Array(8);new DataView(a.buffer).setFloat64(0,num);return elt(id,a);};
+ const ebml=elt(0x1A45DFA3,join(uint(0x4286,1),uint(0x42F7,1),uint(0x42F2,4),uint(0x42F3,8),text(0x4282,'webm'),uint(0x4287,4),uint(0x4285,2)));
+ const info=elt(0x1549A966,join(uint(0x2AD7B1,1000000),float64(0x4489,chunks.length*sampleDurationMs),text(0x4D80,'Typhoon Tracker'),text(0x5741,'Typhoon Tracker')));
+ const codec=codecId||'V_VP9';
+ const track=elt(0xAE,join(uint(0xD7,1),uint(0x73C5,1),uint(0x83,1),text(0x86,codec),uint(0x23E383,sampleDurationMs*1000000),elt(0xE0,join(uint(0xB0,width),uint(0xBA,height)))));
+ const tracks=elt(0x1654AE6B,track);
+ const clusters=[];
+ for(let first=0;first<chunks.length;first+=48){
+  const last=Math.min(chunks.length,first+48),clusterTime=first*sampleDurationMs;
+  const blocks=[];
+  for(let i=first;i<last;i++){
+   const rel=(i-first)*sampleDurationMs;
+   const buf=new Uint8Array(chunks[i].byteLength);chunks[i].copyTo(buf);
+   const header=Uint8Array.of(0x81,(rel>>8)&255,rel&255,chunks[i].type==='key'?0x80:0);
+   blocks.push(elt(0xA3,join(header,buf)));
+  }
+  clusters.push(elt(0x1F43B675,join(uint(0xE7,clusterTime),...blocks)));
  }
- return null;
+ const unknown=Uint8Array.of(0x01,255,255,255,255,255,255,255);
+ return new Blob([ebml,idBytes(0x18538067),unknown,info,tracks,...clusters],{type:'video/webm'});
 }
-const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+// This exporter never records wall-clock time. Each rendered forecast hour
+// receives a fixed 300,000-microsecond timestamp, regardless of drawing speed.
+const FIXED_HOUR_MS=300;
+function videoCodecOptions(preference){
+ const h264=['avc1.640032','avc1.4d4032','avc1.420032','avc1.640028','avc1.4d4028','avc1.420028'].map(codec=>({format:'mp4',codec}));
+ const webm=[{format:'webm',codec:'vp09.00.10.08',codecId:'V_VP9'},{format:'webm',codec:'vp8',codecId:'V_VP8'}];
+ return preference==='webm'?[...webm,...h264]:[...h264,...webm];
+}
+async function selectFixedEncoder(quality,preference){
+ if(!('VideoEncoder' in window)||!('VideoFrame' in window))throw Error('此瀏覽器沒有 WebCodecs 固定時間戳編碼功能。請使用最新版 Chrome 或 Edge，並透過 HTTPS 開啟網頁。');
+ for(const option of videoCodecOptions(preference)){
+  const config={codec:option.codec,width:quality.width,height:quality.height,bitrate:quality.bitrate,framerate:30,latencyMode:'realtime'};
+  if(option.format==='mp4')config.avc={format:'avc'};
+  try{
+   const result=await VideoEncoder.isConfigSupported(config);
+   if(result?.supported)return {...option,config};
+  }catch(_){ }
+ }
+ throw Error('此裝置沒有支援的高清影片編碼器，請改用 Chrome / Edge 或改選 1080p。');
+}
 async function exportVideo(){
  if(generating)return;
  const button=$('exportTyphoonGifBtn');if(!button)return;
  const groups=storms();if(!groups.length){notice('找不到有效的颱風觀測位置與後續預報資料。');return;}
  const quality=QUALITY_PRESETS[$('typhoonVideoQuality')?.value]||QUALITY_PRESETS['1440p'];
- if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream){notice('目前瀏覽器不支援影片錄製，請使用最新版 Chrome / Edge。');return;}
  const preferredFormat=$('typhoonVideoFormat')?.value==='webm'?'webm':'mp4';
  generating=true;button.disabled=true;button.textContent=quality.label+' 生成中…';
- let recorder=null,stream=null;
+ let encoder=null;
  try{
-  const view=viewport(groups);
   const style=typeof MAPBOX_STYLE!=='undefined'?MAPBOX_STYLE:'';
   const token=typeof MAPBOX_TOKEN!=='undefined'?MAPBOX_TOKEN:'';
   if(!style||!token)throw Error('未設定 Mapbox 底圖。');
+  const plan=await selectFixedEncoder(quality,preferredFormat);
+  if(plan.format!==preferredFormat)notice(`所選格式的編碼器不受支援，將改用 ${plan.format.toUpperCase()}。`,2);
+  const view=viewport(groups);
   const first=Math.min(...groups.map(g=>g.start)),end=Math.max(...groups.map(g=>g.end));
-  const hours=Math.ceil((end-first)/HOUR);
-  if(hours>220)throw Error('時間跨度超過 220 小時，請先選擇單一颱風。');
-  // Exactly one animation position per forecast hour, starting at the latest
-  // observation timestamp. No intermediate 5/10/20-minute animation frames.
+  if((end-first)/HOUR>220)throw Error('時間跨度超過 220 小時，請先選擇單一颱風。');
   const hourlyTimes=[];
   for(let t=first;t<=end;t+=HOUR)hourlyTimes.push(t);
   const cameras=hourlyTimes.map(t=>cameraAt(view,groups,t));
-  notice('載入高解析度 Mapbox 底圖…',3);
+  notice('預載高解析度底圖…',3);
   tileCache.clear();
   const bg=await buildTileBackground(cameras);
   const canvas=document.createElement('canvas');
   canvas.width=quality.width;canvas.height=quality.height;
   const ctx=canvas.getContext('2d',{alpha:false,desynchronized:false});
-  if(!ctx)throw Error('瀏覽器無法建立高畫質 Canvas。');
-  // All labels, points, circles and map tiles are rasterised at the OUTPUT
-  // resolution. This is not a low-resolution video resized after recording.
-  const physicalScale=quality.width/WIDTH;
-  ctx.setTransform(physicalScale,0,0,physicalScale,0,0);
-  ctx.imageSmoothingEnabled=true;
-  ctx.imageSmoothingQuality='high';
-  try{await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1800))])}catch(_){ }
-  draws(ctx,bg,groups,cameras[0],hourlyTimes[0],0);
-  stream=canvas.captureStream(quality.fps);
-  const selected=chooseVideoRecorder(stream,quality,preferredFormat);
-  if(!selected)throw Error('此瀏覽器無法錄製 MP4 或 WebM 影片，請更新 Chrome / Edge。');
-  recorder=selected.recorder;
-  const mimeType=selected.mimeType,extension=selected.ext;
-  const chunks=[];
-  if(selected.fallback)notice('瀏覽器不支援所選格式，將改用 '+extension.toUpperCase()+' 輸出。',6);
-  recorder.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data)};
-  const stopped=new Promise((resolve,reject)=>{
-    recorder.addEventListener('stop',resolve,{once:true});
-    recorder.addEventListener('error',e=>reject(e.error||new Error('影片錄製失敗')),{once:true});
+  if(!ctx)throw Error('無法建立高清繪圖畫布。');
+  const scale=quality.width/WIDTH;
+  ctx.setTransform(scale,0,0,scale,0,0);
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  try{await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1600))])}catch(_){ }
+  const encoded=[];let avcConfig=null,encodingError=null;
+  encoder=new VideoEncoder({
+   output:(chunk,metadata)=>{
+    encoded.push(chunk);
+    if(metadata?.decoderConfig?.description)avcConfig=new Uint8Array(metadata.decoderConfig.description);
+   },
+   error:error=>{encodingError=error;}
   });
-  recorder.start(1000);
-  notice('正在錄製 '+quality.label+' · '+extension.toUpperCase()+' · 每 0.30 秒移動一小時…',7);
-  // Show each hour as a distinct step, held on screen long enough to read.
-  // captureStream still uses the original high-resolution 30-fps stream, but
-  // storm coordinates and camera only change at exact one-hour intervals.
-  const hourHoldMs=300; // 速度加快：每一小時的畫面由 0.55 秒縮至 0.30 秒。
+  encoder.configure(plan.config);
+  notice(`離線編碼 ${quality.label} · ${plan.format.toUpperCase()} · 每小時固定 ${FIXED_HOUR_MS/1000} 秒…`,6);
   for(let i=0;i<hourlyTimes.length;i++){
-    draws(ctx,bg,groups,cameras[i],hourlyTimes[i],i);
-    if(i%3===0||i===hourlyTimes.length-1){
-      notice(`${quality.label} · 第 ${i+1}/${hourlyTimes.length} 小時`,8+Math.round((i+1)/hourlyTimes.length*85));
-    }
-    await wait(hourHoldMs);
+   if(encodingError)throw encodingError;
+   // Frame rendering can be slow: it does not affect the output timestamps.
+   draws(ctx,bg,groups,cameras[i],hourlyTimes[i],i);
+   const frame=new VideoFrame(canvas,{timestamp:i*FIXED_HOUR_MS*1000,duration:FIXED_HOUR_MS*1000});
+   try{encoder.encode(frame,{keyFrame:i===0 || i%48===0})}finally{frame.close();}
+   if(encoder.encodeQueueSize>3)await encoder.flush();
+   if(i%3===0||i===hourlyTimes.length-1){
+    notice(`${quality.label} · 編碼 ${i+1}/${hourlyTimes.length} 小時 · 固定每小時 0.30 秒`,8+Math.round((i+1)/hourlyTimes.length*85));
+    await sleep();
+   }
   }
-  // Hold last frame so the final forecast information is readable.
-  await wait(600);
-  recorder.stop();
-  notice('正在封裝高畫質影片…',97);
-  await stopped;
-  const blob=new Blob(chunks,{type:mimeType});
+  notice('以固定時間戳封裝影片…',97);
+  await encoder.flush();
+  if(encodingError)throw encodingError;
+  encoded.sort((a,b)=>a.timestamp-b.timestamp);
+  if(encoded.length!==hourlyTimes.length)throw Error(`影格數不完整：預期 ${hourlyTimes.length}，實際 ${encoded.length}。`);
+  const blob=plan.format==='mp4'
+    ?encodeFixedRateMp4(encoded,avcConfig,quality.width,quality.height,FIXED_HOUR_MS)
+    :encodeFixedRateWebM(encoded,quality.width,quality.height,FIXED_HOUR_MS,plan.codecId);
   if(blob.size<1000)throw Error('影片資料不完整，請重試。');
-  const blobUrl=URL.createObjectURL(blob),link=document.createElement('a');
-  link.href=blobUrl;
-  link.download=`颱風逐小時路徑_${quality.width}x${quality.height}_${new Date().toISOString().slice(0,10)}.${extension}`;
-  document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
-  notice(`${quality.label} ${extension.toUpperCase()} 完成（${quality.width}×${quality.height}，${(blob.size/1024/1024).toFixed(1)} MB）`,100);
- }catch(err){console.error('[Typhoon Video]',err);notice('影片生成失敗：'+(err?.message||String(err)));}
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;
+  link.download=`颱風逐小時路徑_等速_${quality.width}x${quality.height}_${new Date().toISOString().slice(0,10)}.${plan.format}`;
+  document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  notice(`影片完成：${quality.label} ${plan.format.toUpperCase()} · 每小時恆定 0.30 秒 · ${(blob.size/1048576).toFixed(1)} MB`,100);
+ }catch(error){console.error('[Typhoon Fixed-Rate Video]',error);notice('輸出失敗：'+(error?.message||String(error)));}
  finally{
-   if(recorder&&recorder.state!=='inactive')try{recorder.stop()}catch(_){ }
-   if(stream)stream.getTracks().forEach(t=>t.stop());
-   tileCache.clear();
-   generating=false;button.disabled=false;button.textContent='生成高清影片';
+  if(encoder)try{encoder.close()}catch(_){ }
+  tileCache.clear();generating=false;button.disabled=false;button.textContent='生成高清影片';
  }
 }
+
 function install(){const btn=$('exportTyphoonGifBtn');if(btn&&!btn.dataset.videoV1){btn.dataset.videoV1='yes';btn.addEventListener('click',exportVideo)}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
