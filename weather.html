@@ -4463,7 +4463,11 @@ Implement by adjusting polygon style functions:
         <option value="1080p">Full HD · 1080p</option>
         <option value="1440p" selected>2K · 1440p</option>
       </select>
-      <button class="btn" id="exportTyphoonGifBtn" type="button" title="高解析度 WebM 影片｜依強度分段呈現路徑與暴風圈">生成高清影片</button>
+      <select id="typhoonVideoFormat" class="ty-video-quality" aria-label="影片輸出格式" title="MP4 需瀏覽器支援 H.264 錄影；不支援則自動改存 WebM">
+        <option value="mp4" selected>MP4 · 優先</option>
+        <option value="webm">WebM</option>
+      </select>
+      <button class="btn" id="exportTyphoonGifBtn" type="button" title="逐小時快速播放，保留高清畫質｜優先輸出 MP4，不支援時改用 WebM">生成高清影片</button>
       <button class="btn" id="printAllBtn" type="button" style="display:none;">產生全部颱風 PNG</button>
     </div>
   </div>
@@ -18650,10 +18654,23 @@ function inlineGifWorker(){
  function frame(pixels,delay){const compressed=lzw(rawPixels(pixels));const parts=[];const begin=[0x21,0xF9,0x04,0x04,...u16(Math.max(2,Math.round(delay/10))),0,0,0x2C,0,0,0,0,...u16(w),...u16(h),0,0x08];parts.push(Uint8Array.from(begin));for(let i=0;i<compressed.length;i+=255){const b=compressed.subarray(i,i+255);parts.push(Uint8Array.from([b.length]),b);}parts.push(Uint8Array.from([0]));return parts;}
  self.onmessage=e=>{try{const m=e.data;if(m.type==='start'){w=m.width;h=m.height;count=0;frames=[];const header=new Uint8Array([71,73,70,56,57,97,...u16(w),...u16(h),247,0,0]);frames.push(header,palette,Uint8Array.from([33,255,11,78,69,84,83,67,65,80,69,50,46,48,3,1,0,0,0]));self.postMessage({type:'ready'});}else if(m.type==='frame'){frames.push(...frame(new Uint8ClampedArray(m.pixels),m.delay));count++;self.postMessage({type:'ready',count});}else if(m.type==='finish'){frames.push(Uint8Array.from([59]));const blob=new Blob(frames,{type:'image/gif'});self.postMessage({type:'finished',blob,frames:count});frames=[];}}catch(err){self.postMessage({type:'error',message:String(err?.message||err)});}};
 }
-function chooseVideoMime(){
- const types=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
- for(const type of types){try{if(window.MediaRecorder && MediaRecorder.isTypeSupported(type))return type;}catch(_){}}
- return '';
+function videoMimeCandidates(preference){
+ const mp4=['video/mp4;codecs="avc1.42E01E"','video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1.4D401F','video/mp4'];
+ const webm=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+ return preference==='webm'?[...webm,...mp4]:[...mp4,...webm];
+}
+function chooseVideoRecorder(stream,quality,preference){
+ if(!window.MediaRecorder)return null;
+ for(const mimeType of videoMimeCandidates(preference)){
+   try{
+     if(!MediaRecorder.isTypeSupported(mimeType))continue;
+     const recorder=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:quality.bitrate});
+     const actualType=recorder.mimeType||mimeType;
+     const ext=/^video\/mp4/i.test(actualType)?'mp4':'webm';
+     return {recorder,mimeType:actualType,ext,fallback:ext!==preference};
+   }catch(e){console.warn('[Typhoon Video] 編碼格式不受支援：',mimeType,e);}
+ }
+ return null;
 }
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function exportVideo(){
@@ -18662,7 +18679,7 @@ async function exportVideo(){
  const groups=storms();if(!groups.length){notice('找不到有效的颱風觀測位置與後續預報資料。');return;}
  const quality=QUALITY_PRESETS[$('typhoonVideoQuality')?.value]||QUALITY_PRESETS['1440p'];
  if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream){notice('目前瀏覽器不支援影片錄製，請使用最新版 Chrome / Edge。');return;}
- const mimeType=chooseVideoMime();if(!mimeType){notice('目前瀏覽器無法使用 WebM 影片編碼。');return;}
+ const preferredFormat=$('typhoonVideoFormat')?.value==='webm'?'webm':'mp4';
  generating=true;button.disabled=true;button.textContent=quality.label+' 生成中…';
  let recorder=null,stream=null;
  try{
@@ -18694,19 +18711,23 @@ async function exportVideo(){
   try{await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1800))])}catch(_){ }
   draws(ctx,bg,groups,cameras[0],hourlyTimes[0],0);
   stream=canvas.captureStream(quality.fps);
+  const selected=chooseVideoRecorder(stream,quality,preferredFormat);
+  if(!selected)throw Error('此瀏覽器無法錄製 MP4 或 WebM 影片，請更新 Chrome / Edge。');
+  recorder=selected.recorder;
+  const mimeType=selected.mimeType,extension=selected.ext;
   const chunks=[];
-  recorder=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:quality.bitrate});
+  if(selected.fallback)notice('瀏覽器不支援所選格式，將改用 '+extension.toUpperCase()+' 輸出。',6);
   recorder.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data)};
   const stopped=new Promise((resolve,reject)=>{
     recorder.addEventListener('stop',resolve,{once:true});
     recorder.addEventListener('error',e=>reject(e.error||new Error('影片錄製失敗')),{once:true});
   });
   recorder.start(1000);
-  notice('正在錄製 '+quality.label+' · 每小時一個位置…',7);
+  notice('正在錄製 '+quality.label+' · '+extension.toUpperCase()+' · 每 0.30 秒移動一小時…',7);
   // Show each hour as a distinct step, held on screen long enough to read.
   // captureStream still uses the original high-resolution 30-fps stream, but
   // storm coordinates and camera only change at exact one-hour intervals.
-  const hourHoldMs=550;
+  const hourHoldMs=300; // 速度加快：每一小時的畫面由 0.55 秒縮至 0.30 秒。
   for(let i=0;i<hourlyTimes.length;i++){
     draws(ctx,bg,groups,cameras[i],hourlyTimes[i],i);
     if(i%3===0||i===hourlyTimes.length-1){
@@ -18715,7 +18736,7 @@ async function exportVideo(){
     await wait(hourHoldMs);
   }
   // Hold last frame so the final forecast information is readable.
-  await wait(900);
+  await wait(600);
   recorder.stop();
   notice('正在封裝高畫質影片…',97);
   await stopped;
@@ -18723,9 +18744,9 @@ async function exportVideo(){
   if(blob.size<1000)throw Error('影片資料不完整，請重試。');
   const blobUrl=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=blobUrl;
-  link.download=`颱風逐小時路徑_${quality.width}x${quality.height}_${new Date().toISOString().slice(0,10)}.webm`;
+  link.download=`颱風逐小時路徑_${quality.width}x${quality.height}_${new Date().toISOString().slice(0,10)}.${extension}`;
   document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
-  notice(`${quality.label} 完成（${quality.width}×${quality.height}，${(blob.size/1024/1024).toFixed(1)} MB）`,100);
+  notice(`${quality.label} ${extension.toUpperCase()} 完成（${quality.width}×${quality.height}，${(blob.size/1024/1024).toFixed(1)} MB）`,100);
  }catch(err){console.error('[Typhoon Video]',err);notice('影片生成失敗：'+(err?.message||String(err)));}
  finally{
    if(recorder&&recorder.state!=='inactive')try{recorder.stop()}catch(_){ }
