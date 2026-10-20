@@ -1,15 +1,15 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>筱風｜個人首頁</title>
-  <link rel="icon" type="image/png" href="Profile%20Pitcure/ItzSeirProfile.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>筱風｜個人首頁</title>
+<link href="Profile%20Pitcure/ItzSeirProfile.png" rel="icon" type="image/png"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<style>
     :root{
       --bg:#eef4f7;
       --bg2:#e3edf2;
@@ -956,129 +956,1109 @@ background:linear-gradient(180deg,#6d8b98,#486773) padding-box;
 }
 
 </style>
+<style id="seir-evergreen-design">
+
+/* ===========================================================
+   ITZSEIR · FOREST EDITION / 2026
+   Shared design system for home, covers, weather, earthquakes
+   =========================================================== */
+:root{
+  --bg:#edf3ef;--bg2:#e2ebe5;--surface:#fff;
+  --surface-soft:rgba(255,255,255,.88);--surface-glass:rgba(255,255,255,.92);
+  --line:rgba(49,82,71,.11);--line-strong:rgba(49,82,71,.18);
+  --text:#223a30;--heading:#142d23;--muted:#60766c;--muted2:#85978d;
+  --sea:#246957;--teal:#458b70;--ice:#aed4c2;--warm:#dba56d;
+  --blue:#246957;--blue2:#357963;--purple:#3b8069;--cyan:#a9cdbc;
+  --ok:#29816a;--warning:#d7955c;--danger:#cb625f;
+  --shadow:0 20px 56px rgba(36,70,59,.085);
+  --shadow-soft:0 10px 32px rgba(36,70,59,.055);
+  --radius:25px;--radius2:17px;--max:1460px;
+  --seir-ink:#0f2b23;--seir-ink-2:#204a3d;
+  --seir-gradient:linear-gradient(125deg,#2c846b,#4a9778 70%,#9bb88a);
+}
+html{color-scheme:light;scroll-padding-top:100px;scrollbar-gutter:stable;scrollbar-color:#8da59a #e8f0e9}
+html,body{max-width:100%;}
+body{
+  background:radial-gradient(ellipse at 9% -7%,rgba(134,223,181,.20),transparent 35%),
+    radial-gradient(ellipse at 95% 7%,rgba(151,211,183,.16),transparent 33%),
+    linear-gradient(180deg,#f7faf6 0%,var(--bg) 54%,#f3f8f1 100%) !important;
+  color:var(--text);font-family:"Noto Sans TC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  overflow-x:clip;min-height:100vh;
+}
+body::before{display:none !important}
+button,input,select,textarea{font-family:inherit}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(118,211,180,.30);outline-offset:3px}
+::selection{background:#d0eadb;color:#16362a}
+.page{width:min(var(--max),calc(100% - 48px)) !important;padding:18px 0 70px !important;margin:0 auto}
+/* High-confidence shared navigation, independent of legacy topbar rules */
+.seir-nav{position:sticky;top:12px;z-index:10010;display:flex;align-items:center;justify-content:space-between;gap:22px;
+  padding:10px 12px 10px 13px;min-height:76px;margin-bottom:24px;border-radius:24px;
+  background:rgba(24,47,39,.96);color:#fff;border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 20px 42px rgba(26,54,45,.19),inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.seir-nav-brand{display:flex;align-items:center;gap:12px;min-width:0;text-decoration:none;color:#fff !important}
+.seir-nav-symbol{position:relative;display:grid;place-items:center;flex:0 0 auto;width:48px;height:48px;
+  background:linear-gradient(145deg,#418e75,#3b806b 75%,#86a987);border:1px solid rgba(255,255,255,.20);
+  border-radius:17px;box-shadow:0 9px 24px rgba(117,206,176,.25);overflow:hidden}
+.seir-nav-symbol img{width:100%;height:100%;object-fit:cover;display:block;position:relative;z-index:1}
+.seir-nav-symbol::after{content:'✦';position:absolute;inset:0;display:grid;place-items:center;font-size:24px;color:#fff}
+.seir-nav-symbol.no-photo::after{display:grid !important}
+.seir-nav-name{display:block;font-size:17px;line-height:1.2;font-weight:900;letter-spacing:.02em}
+.seir-nav-caption{display:block;margin-top:4px;color:#a8c4b5;font-size:10px;letter-spacing:.12em;font-weight:800;text-transform:uppercase}
+.seir-nav-actions{display:flex;align-items:center;gap:12px;min-width:0}
+.seir-nav-links{display:flex;align-items:center;gap:5px;padding:5px;border:1px solid rgba(255,255,255,.10);border-radius:17px;background:rgba(255,255,255,.055)}
+.seir-nav-links a{display:flex;align-items:center;gap:7px;justify-content:center;padding:11px 14px;color:#c2d9cb;text-decoration:none;
+  border-radius:12px;font-size:12px;font-weight:800;white-space:nowrap;transition:background .18s ease,color .18s ease,transform .18s ease}
+.seir-nav-links a:hover{background:rgba(255,255,255,.10);color:#fff}
+.seir-nav-links a.active,.seir-nav-links a[aria-current=page]{background:linear-gradient(125deg,#28735d,#419478);color:#fff;
+  box-shadow:0 6px 16px rgba(102,193,163,.30)}
+.seir-nav-links a .seir-nav-link-icon{opacity:.8;font-size:13px}
+.seir-nav-links a.active .seir-nav-link-icon{opacity:1}
+.seir-nav-pill{display:flex;align-items:center;gap:6px;padding:9px 12px;color:#e0f0e6;border:1px solid rgba(255,255,255,.13);border-radius:14px;
+  background:rgba(255,255,255,.055);font-size:11px;font-weight:800;white-space:nowrap}
+.seir-nav-pill::before{content:'';width:6px;height:6px;background:#b1dfbb;border-radius:50%;box-shadow:0 0 0 3px rgba(138,227,201,.12)}
+.seir-menu-trigger{display:none;flex:0 0 auto;place-items:center;gap:5px;width:45px;height:45px;
+  border:1px solid rgba(255,255,255,.16);border-radius:14px;background:rgba(255,255,255,.08);cursor:pointer;color:#fff}
+.seir-menu-lines{display:grid;gap:5px}
+.seir-menu-lines span{display:block;width:19px;height:2px;border-radius:9px;background:#fff;transition:transform .2s ease,opacity .2s ease}
+.seir-nav.menu-open .seir-menu-lines span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.seir-nav.menu-open .seir-menu-lines span:nth-child(2){opacity:0}
+.seir-nav.menu-open .seir-menu-lines span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+/* Shared announcement component still reads existing data */
+#siteAnnouncement{margin:0 0 20px !important}
+.announcementBar{position:relative;min-height:114px !important;padding:17px 106px 17px 18px !important;gap:14px !important;
+  border:1px solid rgba(105,180,155,.15) !important;border-radius:21px !important;
+  background:linear-gradient(115deg,rgba(255,255,255,.99),rgba(245,249,247,.94)) !important;
+  box-shadow:var(--shadow-soft) !important;overflow:hidden}
+.announcementBar::before{content:'';position:absolute;left:0;top:15px;bottom:15px;width:4px;border-radius:0 4px 4px 0;
+  background:var(--seir-gradient)}
+.announcementBar::after{pointer-events:none;opacity:.5;border-color:rgba(111,192,165,.04) !important}
+.announcementIcon{background:var(--seir-gradient) !important;box-shadow:0 10px 18px rgba(112,198,170,.21) !important}
+.announcementTitle{color:var(--heading) !important}
+.announcementPill{color:#236c51 !important;background:#e5f4ea !important;border-color:#cce6d6 !important}
+.announcementText{color:#526b60 !important}
+.announcementText strong{color:#257253 !important}
+.announcementArrow{color:var(--sea) !important;background:#fff !important}
+.announcementDot.active{background:var(--seir-gradient) !important}
+/* Shared panels: less decoration, clearer hierarchy */
+.heroCard,.profileCard,.statsPanel,.quickPanel,.appSection,.section,.card{
+  border-color:rgba(56,94,82,.10) !important;
+  box-shadow:var(--shadow) !important;
+}
+.heroCard,.profileCard,.statsPanel,.quickPanel,.appSection,.section{border-radius:27px !important}
+.section,.appSection{background:rgba(255,255,255,.96) !important;backdrop-filter:none !important}
+.sectionHead{background:linear-gradient(110deg,#f9fcf7,#edf4ed) !important;border-bottom-color:rgba(56,94,82,.10) !important}
+.sectionTitle,.statsTitle,.quickTitle{color:var(--heading) !important;letter-spacing:-.03em}
+.sectionKicker{color:#31745b !important}
+.sectionDesc,.statsText,.quickText{color:var(--muted) !important}
+.heroCard,.weatherHeroCard{
+  isolation:isolate;background:radial-gradient(circle at 85% 10%,rgba(151,227,192,.40),transparent 34%),
+  radial-gradient(circle at 2% 95%,rgba(88,164,139,.28),transparent 45%),
+  linear-gradient(130deg,#102d25 4%,#1d4a3b 75%,#346b53 100%) !important;
+  border:1px solid rgba(255,255,255,.05) !important;
+  box-shadow:0 24px 56px rgba(28,62,51,.21) !important;
+}
+.heroCard::after,.weatherHeroCard::after{border-color:rgba(255,255,255,.07) !important}
+.heroCard .eyebrow,.weatherHeroCard .eyebrow{color:#e4f6e9 !important;background:rgba(255,255,255,.10) !important;
+  border:1px solid rgba(255,255,255,.15) !important}
+.heroCard .eyebrow .dot,.weatherHeroCard .liveDot{background:#b4e2bc !important}
+.heroCard .heroTitle,.weatherHeroCard .weatherTitle{color:#fff !important;font-size:clamp(36px,4.5vw,64px) !important;
+  font-weight:900 !important;line-height:1.13 !important}
+.heroCard .heroTitle span,.weatherHeroCard .weatherTitle span{background:linear-gradient(105deg,#b7e3c6,#e5e1ac) !important;
+  background-clip:text !important;-webkit-background-clip:text !important;color:transparent !important}
+.heroCard .heroDesc,.weatherHeroCard .weatherDesc{color:#cce4d8 !important;max-width:730px !important;font-weight:500 !important}
+.heroCard .actionBtn,.weatherHeroCard .actionBtn{background:linear-gradient(125deg,#388d6a,#4a9778) !important;
+  color:#fff !important;box-shadow:0 10px 22px rgba(64,127,106,.30) !important;border:1px solid rgba(255,255,255,.10) !important}
+.heroCard .actionBtn.ghostBtn,.weatherHeroCard .actionBtn.ghostBtn{background:rgba(255,255,255,.11) !important;
+  border:1px solid rgba(255,255,255,.22) !important;color:#fff !important;box-shadow:none !important}
+/* Decorative section controls */
+.heroCard .miniPill,.statsPanel .miniPill,.quickPanel .miniPill{border-color:#d7eddd !important;background:#ebf6e8 !important;color:#2f7759 !important}
+.profileCard,.statsPanel,.quickPanel{background:#fff !important}
+.statBox,.quickStat{background:#f6faf4 !important;border-color:#ebf3ef !important;border-radius:17px !important}
+.statNum,.quickNum{color:#43826d !important}
+.profileText h2{color:var(--heading) !important}
+.profileText .subName,.profileText p{color:var(--muted) !important}
+.skinBox{background:linear-gradient(140deg,#f3f8f6,#f2f6f4) !important}
+/* Weather / earthquake: do not alter Leaflet map pane transform or markers */
+.weatherHeroCard{min-height:250px !important;padding:34px 38px !important;border-radius:28px !important}
+.section{scroll-margin-top:100px}
+.sectionHead{padding:23px 26px 19px !important}
+.sectionTitle{font-size:clamp(22px,2.5vw,32px) !important}
+.sectionHead .sectionKicker{letter-spacing:.11em;font-size:10px !important}
+.btn,.toggle,.chip{border-radius:12px !important;box-shadow:none !important}
+.section .btn:hover,.section .toggle:hover{border-color:#b6e2ce !important}
+.section .chip{background:#f6faf4 !important;color:#527e70 !important;border-color:#e7f0ec !important}
+.section .activeWarnTab{background:var(--seir-gradient) !important;color:#fff !important}
+/* Keyboard and motion */
+@media(prefers-reduced-motion:reduce){.seir-nav *{animation:none !important;transition:none !important}}
+@media(min-width:1650px){:root{--max:1560px}.page{width:min(var(--max),calc(100% - 80px)) !important}}
+@media(max-width:980px){
+  .seir-nav-pill{display:none}
+  .seir-nav-links a{padding:10px 11px}
+  .heroCard .heroTitle,.weatherHeroCard .weatherTitle{font-size:clamp(35px,5vw,54px) !important}
+}
+@media(max-width:740px){
+  html{scroll-padding-top:92px}
+  .page{width:calc(100% - 22px) !important;padding:10px 0 42px !important}
+  .seir-nav{top:8px;min-height:65px;padding:9px 11px;margin-bottom:15px;border-radius:20px;gap:10px}
+  .seir-nav-symbol{width:42px;height:42px;border-radius:14px}
+  .seir-nav-name{font-size:15px}
+  .seir-nav-caption{margin-top:3px;font-size:9px}
+  .seir-menu-trigger{display:grid}
+  .seir-nav-links{display:none;position:absolute;right:0;left:0;top:calc(100% + 8px);padding:10px;border-radius:19px;
+    flex-direction:column;align-items:stretch;gap:6px;
+    border:1px solid rgba(255,255,255,.15);background:#1c362e;
+    box-shadow:0 26px 46px rgba(14,38,30,.35)}
+  .seir-nav.menu-open .seir-nav-links{display:flex;animation:seirMenuIn .18s ease both}
+  @keyframes seirMenuIn{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:translateY(0)}}
+  .seir-nav-links a{width:100%;padding:13px 14px;justify-content:flex-start;border-radius:12px;font-size:13px}
+  .seir-nav-links a .seir-nav-link-icon{display:inline-block;width:24px;text-align:center}
+  #siteAnnouncement{margin-bottom:15px !important}
+  .announcementBar{padding:14px 14px 42px !important;min-height:125px !important;border-radius:18px !important}
+  .announcementIcon{width:36px !important;height:36px !important}
+  .announcementControls{top:auto !important;bottom:9px !important;right:12px !important}
+  .announcementDots{left:62px !important;bottom:20px !important;right:auto !important}
+  .heroCard,.weatherHeroCard{padding:25px 22px !important;min-height:0 !important}
+  .heroCard .heroTitle,.weatherHeroCard .weatherTitle{font-size:clamp(33px,9vw,46px) !important}
+  .heroCard .heroDesc,.weatherHeroCard .weatherDesc{font-size:12.5px !important;line-height:1.75 !important}
+  .heroCard .heroActions,.weatherHeroCard .heroActions{gap:8px}
+  .heroCard .actionBtn,.weatherHeroCard .actionBtn{min-height:42px;padding:0 12px !important;font-size:12px !important}
+  .profileCard,.statsPanel,.quickPanel{border-radius:23px !important}
+  .section,.appSection{border-radius:23px !important}
+  .sectionHead{padding:19px 17px 16px !important}
+  .sectionTitle{font-size:23px !important}
+  .sectionDesc{font-size:12px !important}
+  .seir-index .profileCard{grid-template-columns:104px minmax(0,1fr) !important;gap:13px !important;
+    padding:16px !important;min-height:0 !important;align-items:center !important}
+  .seir-index .skinBox{min-height:160px !important;border-radius:17px !important}
+  .seir-index .skinBox img{max-width:98px !important;max-height:155px !important}
+  .seir-index .profileText h2{font-size:21px !important;margin:8px 0 4px !important}
+  .seir-index .profileText .subName{font-size:12px !important;margin-bottom:7px !important}
+  .seir-index .profileText p{font-size:11px !important;line-height:1.6 !important}
+  .seir-earthquake .quakeVisual{min-height:116px !important}
+  .seir-earthquake .quickPanel{padding:16px !important}
+  .seir-earthquake .quickGrid{grid-template-columns:1fr 1fr !important}
+}
+
+</style>
+<style id="seir-evergreen-polish">
+
+/* ==============================================================
+   ITZSEIR · EVERGREEN / FINAL POLISH
+   One consistent forest-green palette for home/music/weather/quake.
+   All selectors remain visual-only; existing data APIs stay intact.
+   ============================================================== */
+:root{
+  --bg:#edf3ec;--bg2:#e2ece5;--surface:#fffefa;
+  --surface-soft:rgba(255,254,250,.90);--surface-glass:rgba(255,254,250,.92);
+  --line:rgba(28,71,53,.13);--line-strong:rgba(28,71,53,.22);
+  --text:#20392e;--heading:#112e23;--muted:#597366;--muted2:#809688;
+  --sea:#185442;--teal:#367b60;--blue:#185442;--blue2:#347b61;
+  --purple:#367b60;--ice:#b7dac4;--cyan:#a5d5bd;--warm:#d3a16a;
+  --seir-ink:#10291f;--seir-ink-2:#1b4435;
+  --seir-gradient:linear-gradient(125deg,#21654e,#3c8c6a 77%,#79ad85);
+  --shadow:0 18px 48px rgba(19,52,36,.10);
+  --shadow-soft:0 9px 28px rgba(19,52,36,.055);
+}
+html{scrollbar-color:#8ba99a #e5efe7}
+body{
+  background:radial-gradient(ellipse at 7% 0%,rgba(87,151,112,.13),transparent 34%),
+     radial-gradient(ellipse at 100% 6%,rgba(182,201,157,.16),transparent 35%),
+     linear-gradient(180deg,#f8faf4 0%,#edf3ec 62%,#f4f8f0 100%) !important;
+}
+::selection{background:#baddc3 !important;color:#153d2c !important}
+.seir-nav{
+  background:linear-gradient(120deg,rgba(14,43,32,.98),rgba(27,66,50,.98)) !important;
+  border-color:rgba(215,239,218,.15) !important;
+  box-shadow:0 15px 36px rgba(15,53,33,.17),inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+.seir-nav-symbol{background:linear-gradient(145deg,#24735a,#53a17b 76%,#a9bd85) !important;box-shadow:0 9px 24px rgba(12,53,31,.24) !important}
+.seir-nav-caption{color:#b6d4bd !important}
+.seir-nav-links{background:rgba(255,255,255,.055) !important}
+.seir-nav-links a{color:#cfdfd2 !important}
+.seir-nav-links a.active,.seir-nav-links a[aria-current=page]{
+  background:linear-gradient(120deg,#347f61,#54a17a) !important;
+  box-shadow:0 5px 14px rgba(9,33,22,.22) !important;
+}
+.seir-nav-pill{color:#d2e9d9 !important}
+.seir-nav-pill::before{background:#a9dfae !important}
+.seir-menu-trigger{background:rgba(255,255,255,.095) !important}
+.announcementBar{
+  background:linear-gradient(110deg,#fffefa,#f0f6ec) !important;
+  border-color:rgba(31,90,58,.13) !important;
+  box-shadow:0 10px 26px rgba(22,71,43,.06) !important;
+}
+.announcementBar::before{background:linear-gradient(180deg,#28735b,#a0bd87) !important}
+.announcementIcon{background:linear-gradient(130deg,#27795e,#64a37b) !important;box-shadow:0 8px 18px rgba(30,103,70,.18) !important}
+.announcementPill{background:#e4f3e8 !important;color:#286a51 !important;border-color:#cce5d5 !important}
+.announcementText{color:#4b6757 !important}
+.announcementText strong{color:#235b45 !important}
+.announcementArrow{color:#256b50 !important;background:#fffefa !important}
+.announcementDot.active{background:#347f61 !important}
+.heroCard,.weatherHeroCard{
+  background:radial-gradient(ellipse at 85% 0%,rgba(102,158,115,.23),transparent 39%),
+    radial-gradient(ellipse at 4% 100%,rgba(139,160,98,.14),transparent 48%),
+    linear-gradient(120deg,#102e24 4%,#1b4939 73%,#2a6048 100%) !important;
+  box-shadow:0 20px 44px rgba(14,61,39,.18) !important;
+}
+.heroCard .heroTitle span,.weatherHeroCard .weatherTitle span{
+  background:linear-gradient(100deg,#b5e3c6,#dcebb7) !important;
+  -webkit-background-clip:text !important;background-clip:text !important;
+}
+.heroCard .heroDesc,.weatherHeroCard .weatherDesc{color:#d5e6d8 !important}
+.heroCard .actionBtn,.weatherHeroCard .actionBtn{
+  background:linear-gradient(120deg,#398c6a,#59a57b) !important;
+  box-shadow:0 9px 20px rgba(7,41,25,.24) !important;
+}
+.heroCard .actionBtn.ghostBtn,.weatherHeroCard .actionBtn.ghostBtn{
+  background:rgba(255,255,255,.10) !important;color:#eef8ef !important;
+}
+.section,.appSection{background:#fffefa !important;border-color:#dfe9df !important}
+.sectionHead{background:linear-gradient(105deg,#fafcf7,#eff6ed) !important;border-bottom-color:#e2ece2 !important}
+.sectionTitle,.statsTitle,.quickTitle{color:#18392b !important}
+.sectionKicker{color:#38765b !important}
+.profileCard,.statsPanel,.quickPanel{background:#fffefa !important}
+.statBox,.quickStat{background:#f7faf5 !important;border-color:#e0e9dd !important}
+.statNum,.quickNum{color:#205841 !important}
+.eyebrow,.miniPill{letter-spacing:.015em}
+/* Keep maps, inputs, and forecast diagrams untouched beyond the general surfaces. */
+.seir-cover .seirMusicIntro{
+  background:radial-gradient(circle at 95% 0%,rgba(92,154,103,.24),transparent 40%),
+    linear-gradient(115deg,#102c23,#244e3b 67%,#386a4b) !important;
+  border-color:rgba(255,255,255,.07) !important;
+}
+.seir-cover .seirMusicIntro h1{color:#fffdf3 !important}
+.seir-cover .seirMusicIntro p{color:#d4e5d8 !important}
+.seir-cover .seirMusicStat{background:rgba(255,255,255,.10) !important;border-color:rgba(255,255,255,.14) !important}
+.seir-cover .seirMusicAction{background:linear-gradient(120deg,#3b926c,#64ab81) !important;color:#fff !important}
+.seir-cover .sidebar{
+  background:#fffefa !important;border-color:#dde8df !important;
+  box-shadow:0 12px 32px rgba(17,63,39,.06) !important;
+}
+.seir-cover .side-title span{color:#1d3d2e !important}
+.seir-cover .side-title::after{color:#789987 !important}
+.seir-cover .search{background:#f4f8f1 !important;border-color:#dce7dc !important;color:#1c4330 !important}
+.seir-cover .search:focus{border-color:#71ae8e !important;box-shadow:0 0 0 3px #d9eedc !important}
+.seir-cover .song-item{background:#fffefa !important;border-color:#e3ece2 !important}
+.seir-cover .song-item:hover{background:#f2f9f0 !important;border-color:#cce5d4 !important}
+.seir-cover .song-item.active{
+  background:linear-gradient(105deg,#e4f4e9,#f1f8ed) !important;
+  border-color:#b5d9c3 !important;box-shadow:inset 3px 0 0 #368565 !important;
+}
+.seir-cover .songName{color:#1c3b2e !important}
+.seir-cover .songMeta{color:#6e8677 !important}
+.seir-cover .songDate{color:#889b8b !important}
+.seir-cover .player.v3-info{
+  background:radial-gradient(ellipse at 100% 0%,rgba(99,154,107,.19),transparent 45%),
+    linear-gradient(145deg,#123427,#245540) !important;
+  box-shadow:0 18px 38px rgba(16,65,40,.17) !important;
+}
+.seir-cover .v3Kicker{color:#c8e8d2 !important}
+.seir-cover .v3Kicker .dot{background:#adddae !important}
+.seir-cover .v3Desc{color:#c2d9c8 !important}
+.seir-cover .v3Cover{
+  box-shadow:0 25px 45px rgba(6,27,17,.33),inset 0 1px 0 rgba(255,255,255,.24) !important;
+  border-color:rgba(231,249,233,.20) !important;
+  transform:rotate(-2deg) !important;
+}
+.seir-cover .v3Cover::before{
+  background:radial-gradient(circle at center,#eff9dc 0 5%,#5d9476 5.5% 8.5%,transparent 9%),
+    repeating-radial-gradient(circle,rgba(255,255,255,.045) 0px,rgba(255,255,255,.045) 1px,rgba(0,0,0,.055) 2px,rgba(0,0,0,.055) 5px),
+    radial-gradient(circle at 30% 25%,#365c4d,#102b25 70%) !important;
+}
+.seir-cover .v3MetaLabel{color:#c2d9c7 !important}
+.seir-cover .v3MetaValue{color:#fffefa !important}
+.seir-cover .v3Btn.active,.seir-cover .v3Btn.primary{background:linear-gradient(120deg,#3d8967,#67aa7e) !important;color:#fff !important}
+.seir-cover .lyricsCard.v3-lyrics{background:#fffefa !important;border-color:#e0e9de !important}
+.seir-cover .v3-lyrics .lyricsHead{border-bottom-color:#e8efe7 !important}
+.seir-cover .v3-lyrics .lyricsTitle{color:#173b2a !important}
+.seir-cover .v3-lyrics .lyricsTitle::before{color:#368967 !important}
+.seir-cover .v3-lyrics .smallBtn{background:#f2f7f0 !important;color:#526f5e !important;border-color:#e0e9de !important}
+.seir-cover .v3-lyrics .smallBtn.active{background:#e2f2e7 !important;color:#276a4a !important;border-color:#c5e0cc !important}
+.seir-cover .v3-lyrics .lyricsBox{background:linear-gradient(180deg,#f6f9f3,#fffefa) !important;border-color:#e6eee4 !important}
+.seir-cover .v3-lyrics .lyLine{color:#6c8573 !important}
+.seir-cover .v3-lyrics .lyLine.active{color:#1c6146 !important}
+.seir-cover .v3-lyrics .lyEmpty{color:#849a8b !important}
+.seir-cover .v3-lyrics .lyricsBox:has(.lyEmpty)::before{color:#bed8c0 !important}
+.seir-cover .bottomPlayer.v3Bottom{
+  background:linear-gradient(110deg,rgba(16,45,32,.98),rgba(26,65,47,.98)) !important;
+  border-color:rgba(230,249,229,.16) !important;
+  box-shadow:0 18px 42px rgba(14,52,31,.21) !important;
+}
+.seir-cover .v3BottomDesc,.seir-cover .v3ProgressWrap .time{color:#c1dccc !important}
+.seir-cover .v3ControlBtn{background:#2e5b47 !important;color:#eaf7ed !important}
+.seir-cover .v3ControlBtn.play{background:linear-gradient(120deg,#3f906c,#67ae80) !important}
+.seir-cover .v3ProgressWrap input[type=range]{accent-color:#63ad81 !important}
+@media(max-width:740px){
+  .page{width:calc(100% - 24px) !important;padding-top:10px !important}
+  .seir-nav{border-radius:19px !important;min-height:66px !important;margin-bottom:14px !important}
+  .seir-cover .seirMusicIntro{padding:20px 18px !important}
+}
+@media(prefers-reduced-motion:reduce){.seir-cover .v3Cover{transform:none !important}}
+
+</style>
+<style id="seir-light-evergreen-override">
+/* ================================================================
+   ITZSEIR · LIGHT EVERGREEN  |  2026-10-20
+   No dark header, hero, music player or bottom player backgrounds.
+   Preserves all existing HTML/JS, maps, alerts and content.
+   ================================================================ */
+:root{
+  --bg:#f6f9f4;--bg2:#eff5ed;
+  --surface:#fffefa;--surface-soft:#fffefa;--surface-glass:rgba(255,254,250,.96);
+  --text:#244a3b;--heading:#1e4232;--muted:#698374;--muted2:#91a698;
+  --sea:#347d62;--teal:#67a684;--blue:#347d62;--blue2:#6cad89;
+  --purple:#5d9c7a;--cyan:#c5e4d1;--ice:#d8eddb;
+  --line:rgba(54,105,76,.13);--line-strong:rgba(54,105,76,.22);
+  --shadow:0 16px 38px rgba(58,90,65,.075);
+  --shadow-soft:0 6px 24px rgba(58,90,65,.05);
+  --seir-gradient:linear-gradient(115deg,#e2f2e7,#d2eadd);
+}
+html{color-scheme:light !important}
+body,body.seir-cover{
+ background:radial-gradient(ellipse at 4% 0%,rgba(178,222,189,.20),transparent 31%),
+  radial-gradient(ellipse at 96% 3%,rgba(217,232,186,.22),transparent 33%),
+  linear-gradient(180deg,#fbfdf9 0%,#f5f8f2 53%,#f9fbf6 100%) !important;
+ color:#284938 !important;
+}
+/* Light, unobtrusive navigation */
+.seir-nav{
+ background:rgba(255,254,251,.96) !important;
+ color:#244b39 !important;
+ border:1px solid #dde9dc !important;
+ box-shadow:0 12px 32px rgba(51,81,57,.10) !important;
+}
+.seir-nav-brand{color:#244b39 !important}
+.seir-nav-name{color:#234735 !important}
+.seir-nav-caption{color:#779887 !important}
+.seir-nav-symbol{
+ background:linear-gradient(135deg,#e2f2e5,#b9ddca) !important;
+ border:1px solid #cfe7d7 !important;
+ box-shadow:0 5px 12px rgba(52,124,87,.09) !important;
+}
+.seir-nav-symbol::after{color:#397d60 !important}
+.seir-nav-links{
+ background:#f2f7f1 !important;
+ border:1px solid #e6eee3 !important;
+}
+.seir-nav-links a{color:#617c6b !important}
+.seir-nav-links a:hover{
+ background:#e5f0e6 !important;color:#245e44 !important;
+}
+.seir-nav-links a.active,.seir-nav-links a[aria-current=page]{
+ background:#d8eddf !important;color:#245f44 !important;
+ box-shadow:inset 0 0 0 1px #c6e5d0 !important;
+}
+.seir-nav-pill{
+ background:#f3f8f2 !important;border:1px solid #e3eddf !important;color:#5a866c !important;
+}
+.seir-nav-pill::before{background:#71ae88 !important;box-shadow:0 0 0 3px #e1f1e4 !important}
+.seir-menu-trigger{
+ background:#eff6ee !important;border:1px solid #d7e7da !important;color:#2a6046 !important;
+}
+.seir-menu-lines span{background:#3b785b !important}
+/* News banner stays airy */
+.announcementBar{
+ background:linear-gradient(112deg,#fffefa,#f4f9f0) !important;
+ border-color:#dfeadd !important;
+ box-shadow:0 10px 25px rgba(51,86,57,.055) !important;
+}
+.announcementBar::before{background:linear-gradient(180deg,#6dae8c,#bfdcbc) !important}
+.announcementIcon{
+ background:linear-gradient(135deg,#a5d6b9,#c3e3c9) !important;
+ box-shadow:none !important;color:#235f45 !important;
+}
+.announcementPill{background:#e7f3e8 !important;color:#417958 !important;border-color:#d5e7d7 !important}
+.announcementArrow{background:#fffefa !important;border-color:#dce9da !important;color:#3b7554 !important}
+.announcementDot.active{background:#75ac89 !important}
+/* Main hero: white/very light sage, no solid dark color */
+.heroCard,.weatherHeroCard{
+ background:radial-gradient(circle at 94% 4%,rgba(194,226,191,.38),transparent 39%),
+  radial-gradient(circle at 6% 100%,rgba(225,239,211,.34),transparent 50%),
+  linear-gradient(115deg,#fffefa,#f2f8ef) !important;
+ border:1px solid #dde9db !important;
+ box-shadow:0 12px 34px rgba(50,86,61,.075) !important;
+ color:#254b38 !important;
+}
+.heroCard::after,.weatherHeroCard::after{border-color:rgba(113,169,120,.11) !important}
+.heroCard .heroTitle,.weatherHeroCard .weatherTitle{color:#244735 !important}
+.heroCard .heroTitle span,.weatherHeroCard .weatherTitle span{
+ background:linear-gradient(105deg,#377b59,#6da37a) !important;
+ -webkit-background-clip:text !important;background-clip:text !important;
+}
+.heroCard .heroDesc,.weatherHeroCard .weatherDesc{color:#647e6d !important}
+.heroCard .actionBtn,.weatherHeroCard .actionBtn{
+ background:#d9eee0 !important;border:1px solid #bedfc9 !important;
+ color:#255d43 !important;box-shadow:none !important;
+}
+.heroCard .actionBtn:hover,.weatherHeroCard .actionBtn:hover{background:#cce9d6 !important}
+.heroCard .actionBtn.ghostBtn,.weatherHeroCard .actionBtn.ghostBtn{
+ background:#fffefa !important;color:#42745a !important;
+ border:1px solid #dce8da !important;
+}
+.eyebrow{background:#edf6ed !important;color:#447a58 !important;border-color:#d6e8d7 !important}
+.miniPill{background:#f0f7e9 !important;color:#6c8748 !important}
+/* Restore gentle separation to smaller cards */
+.section,.appSection,.profileCard,.statsPanel,.quickPanel{
+ background:#fffefa !important;border-color:#dde8dc !important;
+ box-shadow:0 10px 30px rgba(51,86,57,.055) !important;
+}
+.sectionHead{
+ background:linear-gradient(110deg,#fffefa,#f2f8ef) !important;
+ border-bottom-color:#e3ece0 !important;
+}
+.sectionTitle,.statsTitle,.quickTitle{color:#234834 !important}
+.statBox,.quickStat{background:#f8fbf6 !important;border-color:#e2ece2 !important}
+.statNum,.quickNum{color:#3b8160 !important}
+/* Light music-studio banner and player */
+.seir-cover .seirMusicIntro{
+ background:radial-gradient(ellipse at 94% 0%,rgba(179,222,193,.34),transparent 43%),
+  linear-gradient(115deg,#fffefa,#eaf5e9) !important;
+ color:#254c38 !important;border:1px solid #dce9dc !important;
+ box-shadow:0 12px 32px rgba(51,85,57,.07) !important;
+}
+.seir-cover .seirMusicIntro::after{color:rgba(99,157,108,.10) !important}
+.seirMusicEyebrow{color:#639774 !important}
+.seir-cover .seirMusicIntro h1{color:#264e39 !important}
+.seir-cover .seirMusicIntro p{color:#708b79 !important}
+.seir-cover .seirMusicStat{
+ background:#fffefa !important;border:1px solid #dce9db !important;
+}
+.seir-cover .seirMusicStat b{color:#387d5b !important}
+.seir-cover .seirMusicStat span{color:#799384 !important}
+.seir-cover .seirMusicAction{
+ color:#2c6447 !important;background:#d8ecdb !important;
+ border:1px solid #c6e2ce !important;
+}
+.seir-cover .sidebar{background:#fffefa !important;border-color:#dfeadd !important}
+.seir-cover .player.v3-info{
+ background:radial-gradient(circle at 95% 3%,rgba(183,221,189,.42),transparent 41%),
+  radial-gradient(circle at 0% 95%,rgba(228,237,207,.33),transparent 41%),
+  linear-gradient(150deg,#f9fcf6,#edf6ec) !important;
+ border:1px solid #dcebdc !important;
+ box-shadow:0 12px 34px rgba(45,85,59,.08) !important;
+}
+.seir-cover .player.v3-info::before{opacity:.08 !important;filter:blur(88px) !important}
+.seir-cover .v3Kicker{
+ color:#387b58 !important;background:#e5f2e8 !important;
+ border:1px solid #d2e9d9 !important;
+}
+.seir-cover .v3Kicker .dot{background:#82b793 !important}
+.seir-cover .v3Title{color:#1e4935 !important}
+.seir-cover .v3Desc{color:#728e7c !important}
+.seir-cover .v3Meta{
+ border:1px solid #d9e7d8 !important;
+ background:rgba(255,254,251,.94) !important;
+}
+.seir-cover .v3MetaLabel{color:#879c8c !important}
+.seir-cover .v3MetaValue{color:#305a43 !important}
+.seir-cover .v3Btn{
+ background:#fffefa !important;color:#48715a !important;
+ border:1px solid #dae9dc !important;
+}
+.seir-cover .v3Btn:hover{background:#edf7ee !important}
+.seir-cover .v3Btn.active,.seir-cover .v3Btn.primary{
+ background:#d6eee0 !important;color:#276247 !important;
+ border:1px solid #b8deca !important;
+}
+.seir-cover .v3Cover{
+ border:1px solid rgba(113,174,131,.36) !important;
+ box-shadow:0 19px 33px rgba(59,112,78,.17) !important;
+}
+.seir-cover .v3Cover::before{
+ border:1px solid rgba(122,166,131,.33) !important;
+ background:radial-gradient(circle at center,#f8f9e9 0 5%,#97b79a 5.5% 8.5%,transparent 9%),
+  repeating-radial-gradient(circle,rgba(255,255,255,.18) 0px,rgba(255,255,255,.18) 1px,rgba(103,153,112,.06) 2px,rgba(103,153,112,.06) 5px),
+  radial-gradient(circle at 35% 28%,#d4e6ce,#a7cbb7 75%) !important;
+ box-shadow:0 7px 20px rgba(62,107,72,.16) !important;
+}
+/* Bottom controls should not form a dark slab */
+.seir-cover .bottomPlayer.v3Bottom{
+ background:rgba(255,254,250,.97) !important;
+ border:1px solid #d4e7d6 !important;
+ box-shadow:0 12px 34px rgba(41,77,52,.14) !important;
+}
+.seir-cover .v3BottomName{color:#244f39 !important}
+.seir-cover .v3BottomDesc,.seir-cover .v3ProgressWrap .time{color:#7c9181 !important}
+.seir-cover .v3ControlBtn{
+ background:#eef6ec !important;color:#3a7757 !important;
+ border:1px solid #dce9db !important;
+}
+.seir-cover .v3ControlBtn.play{
+ background:#d0ebd9 !important;color:#246548 !important;
+ border:1px solid #b7dfc5 !important;
+}
+.seir-cover .v3ProgressWrap input[type=range]{accent-color:#75ae8a !important}
+.seir-cover .v3-lyrics .lyricsBox{
+ background:linear-gradient(180deg,#f7faf4,#fffefa) !important;
+}
+/* Keep mobile navigation white too (previous layout used a dark dropdown) */
+@media(max-width:740px){
+  .seir-nav-links{
+    background:rgba(255,254,250,.99) !important;
+    border:1px solid #dce9da !important;
+    box-shadow:0 16px 36px rgba(53,87,61,.13) !important;
+  }
+  .seir-nav-links a{color:#436f54 !important}
+  .seir-nav-links a:hover{background:#e9f4e9 !important;color:#245f42 !important}
+  .seir-nav-links a.active,.seir-nav-links a[aria-current=page]{background:#d8eddf !important;color:#245f44 !important}
+}
+
+
+/* Ensure labels remain legible after removing the previous dark hero. */
+.heroCard .eyebrow,.weatherHeroCard .eyebrow{
+ color:#477b58 !important;background:#e9f5e9 !important;
+ border:1px solid #d2e6d3 !important;
+}
+.heroCard .eyebrow .dot,.weatherHeroCard .liveDot{background:#75b38c !important}
+
+</style>
+<style id="seir-teal-ink-v3">
+/* ITZSEIR · 青墨綠 / TEAL INK · 共用視覺系統
+   淺色為底；核心色 #1B7274、淡色 #DDEFED，加入深青墨文字。
+   本段僅覆寫外觀，不碰音訊、資料、地圖或颱風色階。 */
+:root{
+  --bg:#f5f9f8; --bg2:#edf7f5;
+  --surface:#fffefa; --surface-soft:#f8fbfa; --surface-glass:rgba(255,254,250,.97);
+  --text:#224749; --heading:#103f42; --muted:#627c7d; --muted2:#8ca3a2;
+  --sea:#1b7274; --teal:#387f80; --blue:#1b7274; --blue2:#729b9a;
+  --purple:#6a9190; --ice:#e8f2f1; --cyan:#ddefed;
+  --line:rgba(27,114,116,.14); --line-strong:rgba(27,114,116,.23);
+  --shadow:0 16px 40px rgba(33,59,43,.075);
+  --shadow-soft:0 8px 23px rgba(33,59,43,.06);
+  --seir-gradient:linear-gradient(125deg,#195e61,#2d7e80);
+  --ink-900:#103f42;--ink-700:#1b7274;--ink-600:#397c7c;
+  --ink-500:#79a1a0;--ink-300:#b5d4d1;--ink-200:#d7e9e9;
+  --ink-100:#ddefed;--ink-050:#f6faf9;
+}
+html{color-scheme:light !important}
+body,body.seir-cover{
+  color:var(--ink-900) !important;
+  background:
+    radial-gradient(ellipse at 7% 0%,rgba(103,160,161,.095),transparent 34%),
+    radial-gradient(ellipse at 94% 8%,rgba(134,178,177,.10),transparent 34%),
+    linear-gradient(180deg,#f8fbfa 0%,#f1f8f6 60%,#f8fbfa 100%) !important;
+}
+/* 導航：暖白玻璃與低飽和的選中狀態 */
+.seir-nav{
+  color:var(--ink-900) !important;
+  background:rgba(255,254,250,.965) !important;
+  border:1px solid #d7e7e5 !important;
+  box-shadow:0 10px 30px rgba(21,87,90,.085) !important;
+}
+.seir-nav-name,.seir-nav-brand{color:var(--ink-900) !important}
+.seir-nav-caption{color:#49aaad !important}
+.seir-nav-symbol{
+  background:linear-gradient(145deg,#ddefed,#b5d0d1) !important;
+  border:1px solid #c6dfe0 !important;
+  box-shadow:0 5px 12px rgba(47,87,60,.11) !important;
+}
+.seir-nav-symbol::after{color:#1b7274 !important}
+.seir-nav-links{
+  background:#ecf5f5 !important;border-color:#e1efed !important;
+}
+.seir-nav-links a{color:#3f9497 !important}
+.seir-nav-links a:hover{color:#1b7274 !important;background:#e4f0f0 !important}
+.seir-nav-links a.active,.seir-nav-links a[aria-current=page]{
+  color:#1e4546 !important;background:#ddefed !important;
+  box-shadow:inset 0 0 0 1px #c2d8d9 !important;
+}
+.seir-nav-pill{background:#eef6f6 !important;border-color:#daeaeb !important;color:#388385 !important}
+.seir-nav-pill::before{background:#1b7274 !important;box-shadow:0 0 0 3px #ddecec !important}
+.seir-menu-trigger{background:#eaf5f3 !important;color:#1b7274 !important;border-color:#d0e5e6 !important}
+.seir-menu-lines span{background:#245f61 !important}
+/* 公告：柔和中性面板，不使用鮮綠漸層 */
+.announcementBar{
+  background:linear-gradient(108deg,#fffefa,#eff7f5) !important;
+  border-color:#ddefed !important;
+  box-shadow:0 10px 26px rgba(21,87,90,.058) !important;
+}
+.announcementBar::before{background:linear-gradient(180deg,#1b7274,#97bdbe) !important}
+.announcementIcon{background:#d1e5e6 !important;color:#1b7274 !important;box-shadow:none !important}
+.announcementTitle{color:var(--ink-900) !important}
+.announcementPill{background:#e3f0ee !important;color:#1b7274 !important;border-color:#bad9d6 !important}
+.announcementArrow{background:#fffefa !important;color:#2b6466 !important;border-color:#d4e7e8 !important}
+.announcementDot.active{background:#1b7274 !important}
+/* 主視覺、背景與卡片層次 */
+.heroCard,.weatherHeroCard{
+  background:radial-gradient(ellipse at 94% 3%,rgba(156,207,204,.18),transparent 43%),
+    linear-gradient(120deg,#fffefa,#eff7f5) !important;
+  border:1px solid #d7e9e9 !important;
+  color:var(--ink-900) !important;
+  box-shadow:0 14px 34px rgba(27,91,94,.068) !important;
+}
+.heroCard::after,.weatherHeroCard::after{border-color:rgba(27,114,116,.09) !important}
+.heroCard .heroTitle,.weatherHeroCard .weatherTitle{color:#103f42 !important}
+.heroCard .heroTitle span,.weatherHeroCard .weatherTitle span{
+  background:linear-gradient(105deg,#1b7274,#3a888a) !important;
+  -webkit-background-clip:text !important;background-clip:text !important;
+}
+.heroCard .heroDesc,.weatherHeroCard .weatherDesc{color:#409699 !important}
+.eyebrow,.heroCard .eyebrow,.weatherHeroCard .eyebrow{
+  color:#2c6769 !important;background:#e9f5f3 !important;border-color:#cee4e4 !important;
+}
+.heroCard .eyebrow .dot,.weatherHeroCard .liveDot{background:#1b7274 !important}
+.miniPill{color:#327679 !important;background:#f2f6f4 !important;border-color:#e3ecea !important}
+/* 重要 CTA 使用少量墨綠，卡片仍維持純淺色 */
+.heroCard .actionBtn:not(.ghostBtn),.weatherHeroCard .actionBtn:not(.ghostBtn){
+  color:#fff !important;background:#1b7274 !important;
+  border:1px solid #1b7274 !important;
+  box-shadow:0 7px 16px rgba(35,74,52,.13) !important;
+}
+.heroCard .actionBtn:not(.ghostBtn):hover,.weatherHeroCard .actionBtn:not(.ghostBtn):hover{background:#155c5f !important}
+.heroCard .ghostBtn,.weatherHeroCard .ghostBtn{
+  color:#1b7274 !important;background:#fffefa !important;border-color:#d2e6e7 !important;box-shadow:none !important;
+}
+.section,.appSection,.profileCard,.statsPanel,.quickPanel{
+  background:#fffefa !important;border-color:#d5e8e9 !important;
+  box-shadow:0 10px 27px rgba(27,91,94,.05) !important;
+}
+.sectionHead{background:linear-gradient(110deg,#fffefa,#f4f9f8) !important;border-bottom-color:#dcecec !important}
+.sectionTitle,.statsTitle,.quickTitle{color:var(--ink-900) !important}
+.statBox,.quickStat{background:#f6faf9 !important;border-color:#d9e9e7 !important}
+.statNum,.quickNum{color:#1b7274 !important}
+/* 展示用圖片容器／選項更有灰墨質感 */
+.skinBox,.albumVisual,.quakeVisual{background-color:#ebf4f4 !important}
+/* 翻唱頁：播放器、歌單、唱片與歌詞皆為淺色 */
+.seir-cover .seirMusicIntro{
+  color:var(--ink-900) !important;
+  background:radial-gradient(ellipse at 95% 0%,rgba(156,207,204,.21),transparent 44%),
+    linear-gradient(115deg,#fffefa,#edf7f5) !important;
+  border-color:#ddefed !important;
+  box-shadow:0 12px 30px rgba(27,91,94,.06) !important;
+}
+.seir-cover .seirMusicIntro::after{color:rgba(27,114,116,.085) !important}
+.seirMusicEyebrow{color:#367a7b !important}
+.seir-cover .seirMusicIntro h1{color:#103f42 !important}
+.seir-cover .seirMusicIntro p{color:#45a2a5 !important}
+.seir-cover .seirMusicStat{background:#fffefa !important;border-color:#d7e9e7 !important}
+.seir-cover .seirMusicStat b{color:#1b7274 !important}
+.seir-cover .seirMusicStat span{color:#4bb0b4 !important}
+.seir-cover .seirMusicAction{background:#ddefed !important;color:#1b7274 !important;border-color:#bad9d6 !important}
+.seir-cover .sidebar,.seir-cover .card.main{background:#fffefa !important;border-color:#ddefed !important}
+.seir-cover .song-item{background:#fffefa !important;border-color:#e1efed !important;color:#214c4d !important}
+.seir-cover .song-item:hover{background:#eff7f5 !important;border-color:#bddad7 !important}
+.seir-cover .song-item.active{
+  background:linear-gradient(110deg,#ddefed,#e8f2f3) !important;
+  border-color:#a8c7c8 !important;
+  box-shadow:inset 3px 0 0 #1b7274 !important;
+}
+.seir-cover .song-item.active::before{background:#1b7274 !important}
+.seir-cover .player.v3-info{
+  background:radial-gradient(circle at 95% 4%,rgba(156,207,204,.19),transparent 44%),
+    linear-gradient(160deg,#fbfdfb,#edf7f5) !important;
+  color:#103f42 !important;
+  border-color:#d7e9e7 !important;
+  box-shadow:0 12px 30px rgba(27,91,94,.075) !important;
+}
+.seir-cover .player.v3-info::before{opacity:.055 !important;filter:blur(85px) !important}
+.seir-cover .v3Kicker{background:#e4f0ef !important;color:#387a7c !important;border-color:#cce3e3 !important}
+.seir-cover .v3Kicker .dot{background:#397f80 !important}
+.seir-cover .v3Title{color:#103f42 !important}
+.seir-cover .v3Desc{color:#48a8ab !important}
+.seir-cover .v3Meta{background:#fffefa !important;border-color:#d7e9e7 !important}
+.seir-cover .v3MetaLabel{color:#5eb8bb !important}
+.seir-cover .v3MetaValue{color:#235f61 !important}
+.seir-cover .v3Btn{background:#fffefa !important;color:#387a7c !important;border-color:#d9e9e7 !important}
+.seir-cover .v3Btn:hover{background:#ebf6f4 !important}
+.seir-cover .v3Btn.active,.seir-cover .v3Btn.primary{
+  color:#fff !important;background:#1b7274 !important;border-color:#1b7274 !important;
+}
+.seir-cover .v3Cover{border-color:#9dc0c1 !important;box-shadow:0 14px 29px rgba(27,114,116,.14) !important}
+.seir-cover .v3Cover::before{
+  border:1px solid rgba(27,114,116,.24) !important;
+  background:radial-gradient(circle at center,#f7fbf9 0 5%,#a9cfcb 5.5% 8.5%,transparent 9%),
+   repeating-radial-gradient(circle,rgba(255,255,255,.17) 0px,rgba(255,255,255,.17) 1px,rgba(27,114,116,.07) 2px,rgba(27,114,116,.07) 5px),
+   radial-gradient(circle at 35% 28%,#ddefed,#95c1bd 75%) !important;
+  box-shadow:0 7px 20px rgba(27,114,116,.13) !important;
+}
+.seir-cover .bottomPlayer.v3Bottom{
+  background:rgba(255,254,250,.98) !important;
+  border:1px solid #d7e9e7 !important;
+  box-shadow:0 12px 32px rgba(21,87,90,.12) !important;
+}
+.seir-cover .v3BottomName{color:#103f42 !important}
+.seir-cover .v3BottomDesc,.seir-cover .v3ProgressWrap .time{color:#49acb0 !important}
+.seir-cover .v3ControlBtn{background:#edf7f5 !important;color:#2c6769 !important;border-color:#d7e9e7 !important}
+.seir-cover .v3ControlBtn.play{background:#1b7274 !important;color:#fff !important;border-color:#1b7274 !important}
+.seir-cover .v3ProgressWrap input[type=range]{accent-color:#1b7274 !important}
+.seir-cover .v3-lyrics .lyricsBox{background:linear-gradient(180deg,#f3f9f8,#fffefa) !important}
+.highlight-green{color:#1b7274 !important}
+.seir-cover .songName{color:#103f42 !important}
+.seir-cover .songMeta,.seir-cover .songDate{color:#4aaeb2 !important}
+.seir-cover .v3-lyrics .lyLine.active{color:#1b7274 !important}
+.seir-cover .v3-lyrics .smallBtn.active{background:#ddefed !important;color:#235f61 !important;border-color:#bddad7 !important}
+.seir-cover input[type=search]:focus,.seir-cover .search:focus-within{border-color:#57b5b8 !important;box-shadow:0 0 0 3px rgba(27,114,116,.10) !important}
+@media(max-width:740px){
+  .seir-nav-links{
+    background:rgba(255,254,250,.99) !important;border-color:#d9e9e7 !important;
+    box-shadow:0 16px 34px rgba(21,87,90,.12) !important;
+  }
+  .seir-nav-links a{color:#357b7d !important}
+  .seir-nav-links a.active,.seir-nav-links a[aria-current=page]{color:#204b4c !important;background:#ddefed !important}
+}
+
+/* 使用者指定的雙色品牌重點：深青墨綠 + 淡青綠 */
+:root{
+ --seir-primary:#1b7274;
+ --seir-primary-hover:#155b5e;
+ --seir-tint:#ddefed;
+ --seir-heading:#103f42;
+ --seir-canvas:#f8fbfa;
+ --seir-outline:#cbdedc;
+}
+.seir-nav-links a.active,.seir-nav-links a[aria-current="page"]{
+ background:var(--seir-tint) !important;color:var(--seir-primary-hover) !important;
+ box-shadow:inset 0 0 0 1px #c2dad8 !important;
+}
+.heroCard .actionBtn:not(.ghostBtn),.weatherHeroCard .actionBtn:not(.ghostBtn),
+.seir-cover .v3Btn.primary,.seir-cover .v3Btn.active,.seir-cover .v3ControlBtn.play{
+ background:#1b7274 !important;color:white !important;border-color:#1b7274 !important;
+}
+.heroCard .actionBtn:not(.ghostBtn):hover,.weatherHeroCard .actionBtn:not(.ghostBtn):hover{
+ background:#155b5e !important;border-color:#155b5e !important;
+}
+.seir-cover .song-item.active{
+ background:linear-gradient(110deg,#ddefed,#f1f8f7) !important;
+ border-color:#b7d6d3 !important;box-shadow:inset 3px 0 0 #1b7274 !important;
+}
+.seir-cover .song-item.active::before{background:#1b7274 !important}
+.seir-cover .v3-lyrics .lyLine.active{color:#1b7274 !important}
+.seir-cover .v3ProgressWrap input[type=range]{accent-color:#1b7274 !important}
+.announcementIcon{background:#ddefed !important;color:#1b7274 !important}
+.announcementDot.active{background:#1b7274 !important}
+.announcementBar::before{background:linear-gradient(#1b7274,#a8cfca) !important}
+/* Keep the map palette, warning colours and dynamic data graphics unchanged. */
+
+</style>
+<!-- Shared translucent grid + extended #1B7274 / #DDEFED palette -->
+<style id="seir-teal-grid-20261021">
+/* ===============================================================
+   ItzSeir · Teal Ink / 2026-10-21
+   Shared finishing layer for index / cover / weather / earthquake.
+   Restores the original translucent 42px grid without a dark UI.
+   Source anchors: #1B7274 and #DDEFED.
+   No changes to media, data, maps, or weather/earthquake colour scales.
+   =============================================================== */
+:root {
+  /* Deep -> light monochromatic extension of the user's two anchors */
+  --seir-ink-950: #103F42; /* headlines */
+  --seir-ink-900: #144F51;
+  --seir-ink-800: #155B5E; /* hover/strong */
+  --seir-ink-700: #1B7274; /* given primary */
+  --seir-ink-600: #348B8C;
+  --seir-ink-500: #649FA0;
+  --seir-ink-400: #91BBBA;
+  --seir-ink-300: #B6D6D3;
+  --seir-ink-200: #DDEFED; /* given light */
+  --seir-ink-100: #EAF5F3;
+  --seir-ink-050: #F5FAF9;
+  --seir-warm-white: #FFFEFA;
+
+  /* Preserve aliases expected by the four existing HTML files */
+  --bg: #F5FAF9;
+  --bg2: #EDF6F4;
+  --surface: var(--seir-warm-white);
+  --surface-soft: rgba(255,254,250,.90);
+  --surface-glass: rgba(255,254,250,.90);
+  --text: #21494B;
+  --heading: var(--seir-ink-950);
+  --muted: #55777A;
+  --muted2: #789697;
+  --sea: var(--seir-ink-700);
+  --teal: var(--seir-ink-600);
+  --blue: var(--seir-ink-700);
+  --blue2: var(--seir-ink-600);
+  --purple: var(--seir-ink-500);
+  --ice: var(--seir-ink-200);
+  --cyan: var(--seir-ink-200);
+  --line: rgba(27,114,116,.14);
+  --line-strong: rgba(27,114,116,.24);
+  --seir-primary: var(--seir-ink-700);
+  --seir-primary-hover: var(--seir-ink-800);
+  --seir-tint: var(--seir-ink-200);
+  --seir-heading: var(--seir-ink-950);
+  --seir-canvas: var(--seir-ink-050);
+  --seir-outline: var(--seir-ink-300);
+}
+
+/* Original translucent square grid, now restored and softened. */
+html { color-scheme: light; }
+body,
+body.seir-index,
+body.seir-cover,
+body.seir-weather,
+body.seir-earthquake {
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(27,114,116,.095), transparent 37%),
+    radial-gradient(ellipse at 95% 8%, rgba(100,159,160,.080), transparent 36%),
+    linear-gradient(180deg, #FBFDFC 0%, #F5FAF9 53%, #EFF7F5 100%) !important;
+  color: var(--text) !important;
+}
+body::before {
+  content: "" !important;
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-image:
+    linear-gradient(to bottom, rgba(27,114,116,.075) 1px, transparent 1px),
+    linear-gradient(to right, rgba(27,114,116,.075) 1px, transparent 1px) !important;
+  background-size: 42px 42px !important;
+  background-position: -1px -1px !important;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.75), rgba(0,0,0,.44) 55%, rgba(0,0,0,.20)) !important;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.75), rgba(0,0,0,.44) 55%, rgba(0,0,0,.20)) !important;
+  opacity: .82 !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+}
+/* Entire page remains above the decorative background, including maps and music. */
+body > .page { position: relative !important; z-index: 1 !important; }
+
+/* Light glass navigation, with readable ink accents. */
+.seir-nav {
+  background: rgba(255,254,250,.89) !important;
+  border-color: rgba(27,114,116,.17) !important;
+  box-shadow: 0 12px 32px rgba(16,63,66,.085) !important;
+}
+.seir-nav-name { color: var(--seir-ink-950) !important; }
+.seir-nav-caption { color: #557B7C !important; }
+.seir-nav-symbol {
+  background: linear-gradient(145deg, var(--seir-ink-200), var(--seir-ink-300)) !important;
+  border-color: var(--seir-ink-300) !important;
+}
+.seir-nav-symbol::after { color: var(--seir-ink-700) !important; }
+.seir-nav-links {
+  background: rgba(234,245,243,.76) !important;
+  border-color: var(--seir-ink-200) !important;
+}
+.seir-nav-links a { color: #476E70 !important; }
+.seir-nav-links a:hover { background: #DDEFED !important; color: var(--seir-ink-800) !important; }
+.seir-nav-links a.active,
+.seir-nav-links a[aria-current="page"] {
+  color: var(--seir-ink-950) !important;
+  background: var(--seir-ink-200) !important;
+  box-shadow: inset 0 0 0 1px var(--seir-ink-300) !important;
+}
+.seir-nav-pill { background: #EEF7F5 !important; color: #406F71 !important; border-color: var(--seir-ink-200) !important; }
+.seir-nav-pill::before { background: var(--seir-ink-700) !important; }
+.seir-menu-trigger {
+  background: var(--seir-ink-100) !important;
+  color: var(--seir-ink-800) !important;
+  border-color: var(--seir-ink-300) !important;
+}
+.seir-menu-lines span { background: var(--seir-ink-800) !important; }
+
+/* Pale, gently translucent information surfaces. */
+.announcementBar {
+  background: linear-gradient(112deg, rgba(255,254,250,.93), rgba(234,245,243,.91)) !important;
+  border-color: rgba(27,114,116,.16) !important;
+}
+.announcementBar::before { background: linear-gradient(180deg, #1B7274, #91BBBA) !important; }
+.announcementIcon { background: var(--seir-ink-200) !important; color: var(--seir-ink-700) !important; }
+.announcementPill { background: var(--seir-ink-100) !important; color: var(--seir-ink-800) !important; border-color: var(--seir-ink-300) !important; }
+.announcementDot.active { background: var(--seir-ink-700) !important; }
+
+.heroCard, .weatherHeroCard, .seir-cover .seirMusicIntro {
+  background:
+    radial-gradient(ellipse at 95% 0%, rgba(145,187,186,.16), transparent 40%),
+    linear-gradient(115deg, rgba(255,254,250,.97), rgba(234,245,243,.90)) !important;
+  border-color: rgba(27,114,116,.17) !important;
+}
+.heroCard .heroTitle, .weatherHeroCard .weatherTitle, .seir-cover .seirMusicIntro h1 {
+  color: var(--seir-ink-950) !important;
+}
+.heroCard .heroTitle span, .weatherHeroCard .weatherTitle span {
+  background: linear-gradient(100deg, #155B5E, #1B7274) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}
+.heroCard .heroDesc, .weatherHeroCard .weatherDesc, .seir-cover .seirMusicIntro p {
+  color: #55777A !important;
+}
+.section, .appSection, .profileCard, .statsPanel, .quickPanel {
+  background: rgba(255,254,250,.95) !important;
+  border-color: rgba(27,114,116,.16) !important;
+}
+.sectionHead { background: linear-gradient(110deg, rgba(255,254,250,.97), rgba(234,245,243,.78)) !important; }
+.statBox, .quickStat { background: #F5FAF9 !important; border-color: #DDEFED !important; }
+.statNum, .quickNum, .sectionKicker { color: var(--seir-ink-700) !important; }
+
+/* Buttons use the same anchored primary rather than mint. */
+.heroCard .actionBtn:not(.ghostBtn),
+.weatherHeroCard .actionBtn:not(.ghostBtn),
+.seir-cover .v3Btn.primary, .seir-cover .v3Btn.active,
+.seir-cover .v3ControlBtn.play {
+  background: #1B7274 !important;
+  border-color: #1B7274 !important;
+  color: white !important;
+}
+.heroCard .actionBtn:not(.ghostBtn):hover,
+.weatherHeroCard .actionBtn:not(.ghostBtn):hover { background: #155B5E !important; border-color: #155B5E !important; }
+
+/* Music player keeps the new layout and stays light. */
+.seir-cover .player.v3-info {
+  background: linear-gradient(150deg, rgba(255,254,250,.98), rgba(234,245,243,.91)) !important;
+  border-color: #B6D6D3 !important;
+}
+.seir-cover .v3Title, .seir-cover .v3BottomName, .seir-cover .songName { color: var(--seir-ink-950) !important; }
+.seir-cover .v3Desc, .seir-cover .v3BottomDesc, .seir-cover .v3ProgressWrap .time,
+.seir-cover .songMeta, .seir-cover .songDate, .seir-cover .v3MetaLabel {
+  color: #55777A !important;
+}
+.seir-cover .song-item.active {
+  background: linear-gradient(110deg, #DDEFED, #EAF5F3) !important;
+  border-color: #B6D6D3 !important;
+  box-shadow: inset 3px 0 0 #1B7274 !important;
+}
+.seir-cover .v3-lyrics .lyLine.active { color: #1B7274 !important; }
+.seir-cover .bottomPlayer.v3Bottom {
+  background: rgba(255,254,250,.96) !important;
+  border-color: #B6D6D3 !important;
+}
+.seir-cover .v3ProgressWrap input[type="range"] { accent-color: #1B7274 !important; }
+
+@media(max-width:740px) {
+  .seir-nav-links {
+    background: rgba(255,254,250,.985) !important;
+    border-color: #B6D6D3 !important;
+  }
+  .seir-nav-links a { color: #476E70 !important; }
+  .seir-nav-links a.active, .seir-nav-links a[aria-current="page"] { color: #103F42 !important; background: #DDEFED !important; }
+}
+@media print {
+  body::before { display: none !important; }
+  body, body.seir-index, body.seir-cover, body.seir-weather, body.seir-earthquake { background: white !important; }
+}
+
+</style>
+<style>
+/* 2026 refinement: accessible focus, calmer depth and mobile rhythm */
+:where(a,button,input,select,[tabindex]):focus-visible{outline:3px solid #319a91!important;outline-offset:3px}
+:where(.section,.appSection,.heroCard,.profileCard,.statsPanel,.quickPanel,.weatherHeroCard){box-shadow:0 16px 42px rgba(26,62,69,.075)!important}
+:where(.section,.appSection){border-color:rgba(36,79,89,.105)!important}
+:where(.actionBtn,.btn,.seirMusicAction){transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+:where(.actionBtn,.btn,.seirMusicAction):active{transform:scale(.98)}
+html{scroll-padding-top:110px}
+@media(max-width:680px){.page{width:calc(100% - 22px)!important;padding-top:15px!important}.section,.appSection{border-radius:22px!important}.sectionHead{padding:19px 17px 15px!important}.heroCard,.weatherHeroCard{padding:26px 23px!important;border-radius:25px!important}.heroTitle,.weatherTitle{font-size:clamp(32px,9vw,46px)!important;line-height:1.14!important}.heroDesc,.weatherDesc{font-size:13px!important;line-height:1.8!important}.heroActions{gap:9px!important}.heroActions .actionBtn{min-height:42px!important}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+<style id="nav-cleanup-override">
+.seir-nav-symbol::after{display:none !important;content:none !important;}
+.seir-nav-link-icon{display:none !important;}
+.seir-nav-links a{gap:0 !important;}
+</style>
+
 </head>
- 
-<body>
-  <main class="page">
-    <header class="topbar">
-      <a class="brand" href="https://itzseir.github.io/ItzSeir/" aria-label="筱風首頁">
-        <div class="brandMark">
-    <img src="https://raw.githubusercontent.com/ItzSeir/ItzSeir/6e11844bbbe5bee145b1f21804d7f1f289abec1d/Profile%20Pitcure/ItzSeirProfile.png" alt="筱風頭像"></div>
-        <div class="brandText">
-          <strong>筱風</strong>
-          <span>個人網頁</span>
-        </div>
-      </a>
-
-      <nav class="navPills" aria-label="主選單">
-        <a class="active" href="https://itzseir.github.io/ItzSeir/">首頁</a>
-        <a href="cover">翻唱</a>
-        <a href="weather">天氣情報</a>
-        <a href="earthquake">地震情報</a>
-
-      </nav>
-    </header>
+<body class="seir-index">
+<main class="page">
+<header aria-label="網站主導覽" class="seir-nav">
+<a aria-label="返回筱風個人首頁" class="seir-nav-brand" href="index.html">
+<span class="seir-nav-symbol"><img alt="筱風頭像" onerror="this.style.display='none';this.parentNode.classList.add('no-photo')" src="https://raw.githubusercontent.com/ItzSeir/ItzSeir/6e11844bbbe5bee145b1f21804d7f1f289abec1d/Profile%20Pitcure/ItzSeirProfile.png"/></span>
+<span><strong class="seir-nav-name">筱風 <span style="opacity:.57;font-weight:500">/</span> ItzSeir</strong><span class="seir-nav-caption">個人空間</span></span>
+</a>
+<div class="seir-nav-actions">
+<nav aria-label="頁面連結" class="seir-nav-links" id="seirLinks"><a aria-current="page" class="active" href="index.html">首頁</a>
+<a href="cover.html">翻唱</a>
+<a href="weather.html">天氣情報</a>
+<a href="earthquake.html">地震情報</a></nav>
+<span class="seir-nav-pill">PERSONAL SPACE</span>
+<button aria-controls="seirLinks" aria-expanded="false" aria-label="開啟選單" class="seir-menu-trigger" type="button"><span class="seir-menu-lines"><span></span><span></span><span></span></span></button>
+</div>
+</header>
 <div id="siteAnnouncement"></div>
-    <section class="hero" id="top">
-      <div class="heroCard">
-        <div class="eyebrow"><span class="dot"></span> 個人介紹</div>
-        <h1 class="heroTitle">筱風<span>ItzSeir</span></h1>
-        <p class="heroDesc">
+<section class="hero" id="top">
+<div class="heroCard">
+<div class="eyebrow"><span class="dot"></span> 個人介紹</div>
+<h1 class="heroTitle">筱風<span>ItzSeir</span></h1>
+<p class="heroDesc">
           主玩 Minecraft、原神、崩鐵、鳴潮等遊戲。也會唱歌，雖然不一定好聽。這個網站用來整理個人內容、社群入口、Minecraft 回憶與一些想發佈的東西。
         </p>
-        <div class="heroActions">
-          <a class="actionBtn" href="#news">查看最新消息</a>
-          <a class="actionBtn ghostBtn" href="floestsmp/">進入葉離社群</a>
-        </div>
-      </div>
-
-      <aside class="profileCard">
-        <div class="skinBox">
-          <img src="https://static.wixstatic.com/media/20a576_9d80bbbb34634bc3aca1450c8d153972~mv2.png/v1/fill/w_356,h_480,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/ddddbf_fae92f95e0f54297b7374f7123acc4b4~mv2.png" alt="筱風 Minecraft skin" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-          <div class="skinFallback" aria-hidden="true"></div>
-        </div>
-
-        <div class="profileText">
-          <div class="miniPill"><span class="pillDot"></span>個人介紹</div>
-          <h2>筱風</h2>
-          <p class="subName">ItzSeir｜射手座</p>
-          <p>
-            主玩<span class="highlight-red">麥塊</span>、<span class="highlight-red">原神</span>、<span class="highlight-red">崩鐵</span>、鳴潮等遊戲。<br>
-            此外愛<span class="highlight-red">唱歌</span>，但<span class="highlight-green">難聽</span>。<br>
+<div class="heroActions">
+<a class="actionBtn" href="#news">查看最新消息</a>
+<a class="actionBtn ghostBtn" href="floestsmp/">進入葉離社群</a>
+</div>
+</div>
+<aside class="profileCard">
+<div class="skinBox">
+<img alt="筱風 Minecraft skin" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" src="https://static.wixstatic.com/media/20a576_9d80bbbb34634bc3aca1450c8d153972~mv2.png/v1/fill/w_356,h_480,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/ddddbf_fae92f95e0f54297b7374f7123acc4b4~mv2.png"/>
+<div aria-hidden="true" class="skinFallback"></div>
+</div>
+<div class="profileText">
+<div class="miniPill"><span class="pillDot"></span>個人介紹</div>
+<h2>筱風</h2>
+<p class="subName">ItzSeir｜射手座</p>
+<p>
+            主玩<span class="highlight-red">麥塊</span>、<span class="highlight-red">原神</span>、<span class="highlight-red">崩鐵</span>、鳴潮等遊戲。<br/>
+            此外愛<span class="highlight-red">唱歌</span>，但<span class="highlight-green">難聽</span>。<br/>
             因興趣而製作此網站，發佈任何想發的東西。
           </p>
-        </div>
-      </aside>
-    </section>
-
-    <section class="section" id="news">
-      <div class="sectionHead">
-        <div>
-          <div class="sectionKicker"><span class="dot" style="background:var(--warm);"></span> News</div>
-          <h2 class="sectionTitle">最新消息</h2>
-          <p class="sectionDesc">任何新消息將會放在這裡。</p>
-        </div>
-      </div>
-
-      <div class="newsBody">
-        <article class="newsCard">
-          <div class="newsTop">
-            <span class="miniPill"><span class="pillDot"></span>通知</span>
-            <span class="dateLabel">2025年4月24日</span>
-          </div>
-          <h3>未來展望</h3>
-          <p>
+</div>
+</aside>
+</section>
+<section class="section" id="news">
+<div class="sectionHead">
+<div>
+<div class="sectionKicker"><span class="dot" style="background:var(--warm);"></span> News</div>
+<h2 class="sectionTitle">最新消息</h2>
+<p class="sectionDesc">任何新消息將會放在這裡。</p>
+</div>
+</div>
+<div class="newsBody">
+<article class="newsCard">
+<div class="newsTop">
+<span class="miniPill"><span class="pillDot"></span>通知</span>
+<span class="dateLabel">2025年4月24日</span>
+</div>
+<h3>未來展望</h3>
+<p>
             未來一年（至2026年9月），筱風可能無法時常出現，因爲有<span class="highlight-green">實習及一些大型專案</span>需要去實行。
           </p>
-          <div class="newsTags">
-            <span class="tag">編寫：筱風</span>
-            <span class="tag">剪輯：筱風</span>
-          </div>
-        </article>
-
-        <aside class="sidePanel">
-          <div class="miniCard">
-            <strong>目前狀態</strong>
-            <span>網站整理中，部分頁面會持續調整。</span>
-          </div>
-          <div class="miniCard">
-            <strong>暫無内容</strong>
-            <span>網站整理中，部分頁面會持續調整。</span>
-          </div>
-        </aside>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="sectionHead">
-        <div>
-          <div class="sectionKicker"><span class="dot"></span> Quick Links</div>
-          <h2 class="sectionTitle">快捷入口</h2>
-          <p class="sectionDesc">快速前往目前網站的主要頁面。</p>
-        </div>
-      </div>
-
-      <div class="quickGrid">
-        <a class="linkCard" href="https://itzseir.github.io/FloestSMP/">
-          <div class="miniPill"><span class="pillDot"></span>葉離</div>
-          <strong>葉離社群</strong>
-          <span>葉離社群的首頁 在努力整合中</span>
-        </a>
-
-        <a class="linkCard" href="earthquake">
-          <div class="miniPill"><span class="pillDot"></span>地震</div>
-          <strong>地震情報</strong>
-          <span>查看台灣近期地震報告。</span>
-        </a>
-
-        <a class="linkCard" href="weather">
-          <div class="miniPill"><span class="pillDot"></span>天氣</div>
-          <strong>天氣情報</strong>
-          <span>查看最新警報、颱風路徑、預報與地圖。</span>
-        </a>
-      </div>
-    </section>
-  </main>
+<div class="newsTags">
+<span class="tag">編寫：筱風</span>
+<span class="tag">剪輯：筱風</span>
+</div>
+</article>
+<aside class="sidePanel">
+<div class="miniCard">
+<strong>目前狀態</strong>
+<span>網站整理中，部分頁面會持續調整。</span>
+</div>
+<div class="miniCard">
+<strong>暫無内容</strong>
+<span>網站整理中，部分頁面會持續調整。</span>
+</div>
+</aside>
+</div>
+</section>
+<section class="section">
+<div class="sectionHead">
+<div>
+<div class="sectionKicker"><span class="dot"></span> Quick Links</div>
+<h2 class="sectionTitle">快捷入口</h2>
+<p class="sectionDesc">快速前往目前網站的主要頁面。</p>
+</div>
+</div>
+<div class="quickGrid">
+<a class="linkCard" href="https://itzseir.github.io/FloestSMP/">
+<div class="miniPill"><span class="pillDot"></span>葉離</div>
+<strong>葉離社群</strong>
+<span>葉離社群的首頁 在努力整合中</span>
+</a>
+<a class="linkCard" href="earthquake">
+<div class="miniPill"><span class="pillDot"></span>地震</div>
+<strong>地震情報</strong>
+<span>查看台灣近期地震報告。</span>
+</a>
+<a class="linkCard" href="weather">
+<div class="miniPill"><span class="pillDot"></span>天氣</div>
+<strong>天氣情報</strong>
+<span>查看最新警報、颱風路徑、預報與地圖。</span>
+</a>
+</div>
+</section>
+</main>
 <script>
 (async () => {
   const box = document.getElementById("siteAnnouncement");
@@ -1186,6 +2166,19 @@ background:linear-gradient(180deg,#6d8b98,#486773) padding-box;
   }
 })();
 </script>
+<script id="seir-unified-navigation">
+(function(){
+  const nav=document.querySelector('.seir-nav');
+  const btn=document.querySelector('.seir-menu-trigger');
+  if(!nav||!btn)return;
+  const links=nav.querySelector('.seir-nav-links');
+  function closeMenu(){nav.classList.remove('menu-open');btn.setAttribute('aria-expanded','false');}
+  btn.addEventListener('click',()=>{const show=!nav.classList.contains('menu-open');nav.classList.toggle('menu-open',show);btn.setAttribute('aria-expanded',String(show));});
+  document.addEventListener('click',e=>{if(!nav.contains(e.target))closeMenu();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+  links?.addEventListener('click',e=>{if(e.target.closest('a'))closeMenu();});
+  window.matchMedia('(min-width:741px)').addEventListener('change',closeMenu);
+})();
+</script>
 </body>
-
 </html>
