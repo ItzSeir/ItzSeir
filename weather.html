@@ -4459,6 +4459,11 @@ Implement by adjusting polygon style functions:
       <button class="btn refreshJsonBtn" id="refreshTyphoonBtn" data-refresh-typhoon type="button">刷新</button>
       <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
       <button class="btn" id="printBtn" type="button">下載 PNG</button>
+      <select id="typhoonVideoQuality" class="ty-video-quality" aria-label="影片輸出畫質" title="選擇高清影片輸出解析度">
+        <option value="1080p">Full HD · 1080p</option>
+        <option value="1440p" selected>2K · 1440p</option>
+      </select>
+      <button class="btn" id="exportTyphoonGifBtn" type="button" title="高解析度 WebM 影片｜依強度分段呈現路徑與暴風圈">生成高清影片</button>
       <button class="btn" id="printAllBtn" type="button" style="display:none;">產生全部颱風 PNG</button>
     </div>
   </div>
@@ -4550,6 +4555,82 @@ Implement by adjusting polygon style functions:
 
     const MAPBOX_TOKEN = "pk.eyJ1IjoiaXR6c2VpciIsImEiOiJja240bTE0ZXYxc2xqMm5tbng1ZDd0a3Y1In0.8z3D3HF0GTrWJXZ9YtVT8Q";
     const MAPBOX_STYLE = "itzseir/cmjoiqmu000g401qqh40c87nx";
+
+    /*
+      安全底圖管理：絕對不要在 Mapbox tileerror 時切到 OSM 公用圖磚。
+      tile.openstreetmap.org 會在不符合其圖磚使用政策時回傳 403／Access blocked，
+      而舊版在第一個 Mapbox 圖磚失敗時就把整張地圖切過去。
+      優先使用原本的 Mapbox Style；僅當多張圖磚失敗才改用 Mapbox 官方備援樣式。
+      兩者都無法載入時顯示明確提示與中性底色，不展示 403 圖磚。
+    */
+    window.installResilientMapboxTiles = function(leafletMap){
+      if(!leafletMap || typeof L === 'undefined') return null;
+      const mapEl = leafletMap.getContainer();
+      mapEl.style.backgroundColor = '#e5f0f5';
+      const existing = mapEl.querySelector('.mapbox-load-warning');
+      if(existing) existing.remove();
+      const warning = document.createElement('div');
+      warning.className = 'mapbox-load-warning';
+      warning.setAttribute('role','status');
+      warning.style.cssText = 'position:absolute;z-index:850;left:50%;top:14px;transform:translateX(-50%);max-width:calc(100% - 90px);padding:9px 14px;border:1px solid rgba(165,99,28,.22);border-radius:14px;background:rgba(255,251,237,.96);color:#8a4b14;font:700 12px/1.55 "Noto Sans TC",sans-serif;box-shadow:0 7px 22px rgba(20,45,58,.12);pointer-events:none;text-align:center;display:none;';
+      mapEl.appendChild(warning);
+      function showWarning(message){warning.textContent = message;warning.style.display='block';}
+      function hideWarning(){warning.style.display='none';}
+      // A neutral tile avoids leaking an external provider's 403 error graphic into the map.
+      const blankTile = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e5f0f5"/></svg>');
+      const styles = [MAPBOX_STYLE, 'mapbox/streets-v12'].filter((v,i,a)=>v&&a.indexOf(v)===i);
+      const validToken = MAPBOX_TOKEN && MAPBOX_TOKEN!=='YOUR_MAPBOX_TOKEN';
+      if(!validToken || !styles.length){
+        showWarning('Mapbox 底圖設定不完整，請檢查 Access Token 與 Style。');
+        return null;
+      }
+      let currentLayer = null;
+      let stage = -1;
+      function activate(nextStage){
+        if(nextStage <= stage || nextStage>=styles.length) return;
+        stage = nextStage;
+        if(currentLayer){leafletMap.removeLayer(currentLayer);currentLayer=null;}
+        hideWarning();
+        const chosenStyle = styles[stage];
+        const url = `https://api.mapbox.com/styles/v1/${chosenStyle}/tiles/256/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(MAPBOX_TOKEN)}`;
+        const layer = L.tileLayer(url,{
+          tileSize:256,
+          maxZoom:22,
+          maxNativeZoom:22,
+          detectRetina:false,
+          crossOrigin:'anonymous',
+          errorTileUrl:blankTile,
+          attribution:'© Mapbox © OpenStreetMap'
+        });
+        currentLayer=layer;
+        let failures=0, successes=0, changed=false;
+        function maybeFailed(){
+          if(changed || stage!==nextStage) return;
+          if(nextStage+1<styles.length){
+            changed=true;
+            activate(nextStage+1);
+          }else{
+            showWarning('地圖底圖載入失敗：請檢查 Mapbox Token、Style 公開權限及網站網域限制。');
+          }
+        }
+        layer.on('tileload',(event)=>{
+          // Leaflet may also fire tileload after loading errorTileUrl.
+          // Do not mistake a blank error tile for a successfully loaded map tile.
+          const tileUrl = event && event.tile && (event.tile.currentSrc || event.tile.src || '');
+          if(String(tileUrl).startsWith('data:image/')) return;
+          successes++;
+          hideWarning();
+        });
+        layer.on('tileerror',()=>{
+          failures++;
+          // A single intermittent tile error should not wipe out the full map.
+          if(failures>=3 && (successes===0 || failures>=6)) maybeFailed();
+        });
+        layer.addTo(leafletMap);
+      }
+      activate(0);
+      return currentLayer;
+    };
 
     let weatherMeta = { title: "颱風警報標示", source: "—" };
     let allTyphoons = [];
@@ -5920,17 +6001,20 @@ Implement by adjusting polygon style functions:
 
         if(a.typhoonId && b.typhoonId && a.typhoonId !== b.typhoonId) continue;
 
-        const st = getStyle(b.level);
         const isForecastSeg = (a.kind === "fcst" || b.kind === "fcst");
+        // Preserve each forecast segment's initial strength color.
+        const st = getStyle(isForecastSeg ? a.level : b.level);
 
         const seg = L.polyline([[a.lat,a.lon],[b.lat,b.lon]], {
           pane:"linePane",
-          weight:getLineWeight(b.level),
+          weight:getLineWeight(isForecastSeg ? a.level : b.level),
           color:st.color,
           dashArray:isForecastSeg ? "6 8" : null,
           opacity:isForecastSeg ? .92 : 1
         }).addTo(map);
 
+        // Keep historical observations visible while replay is running or map zooms.
+        seg.__tyHistory = !isForecastSeg;
         segmentLines.push(seg);
       }
 
@@ -8306,36 +8390,8 @@ Implement by adjusting polygon style functions:
       ensurePanes();
       addTyphoonFullscreenControl();
 
-      if(MAPBOX_TOKEN !== "YOUR_MAPBOX_TOKEN" && MAPBOX_STYLE !== "YOUR_USERNAME/YOUR_STYLE_ID"){
-        const mb = L.tileLayer(
-          `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
-          {
-            tileSize:512,
-            zoomOffset:-1,
-            maxZoom:22,
-            detectRetina:true,
-            crossOrigin:"anonymous",
-            attribution:"© Mapbox © OpenStreetMap"
-          }
-        );
-
-        mb.on("tileerror", () => {
-          if(map.hasLayer(mb)) map.removeLayer(mb);
-
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            maxZoom:19,
-            crossOrigin:"anonymous",
-            attribution:"© OpenStreetMap"
-          }).addTo(map);
-        });
-
-        mb.addTo(map);
-      }else{
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom:19,
-          attribution:"© OpenStreetMap"
-        }).addTo(map);
-      }
+      // 保留原有 Mapbox 自訂樣式；必要時只改用 Mapbox 官方樣式，不碰 OSM 公用圖磚。
+      window.installResilientMapboxTiles(map);
 
       addTyphoonCountyBoundaryOverlay();
       refreshTyphoonWarningOverlay();
@@ -10054,27 +10110,8 @@ Implement by adjusting polygon style functions:
         renderer: L.canvas({ padding:0.5 })
       }).setView([23.72, 121.0], 7);
 
-      // Custom Mapbox background layer + CAP GeoJSON overlay.
-      const twAreaBaseLayer = L.tileLayer(
-        `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
-        {
-          tileSize:512,
-          zoomOffset:-1,
-          maxZoom:22,
-          detectRetina:true,
-          crossOrigin:"anonymous",
-          attribution:"© Mapbox © OpenStreetMap"
-        }
-      ).addTo(twAreaLeafletMap);
-
-      twAreaBaseLayer.on("tileerror", () => {
-        if(twAreaLeafletMap.hasLayer(twAreaBaseLayer)) twAreaLeafletMap.removeLayer(twAreaBaseLayer);
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom:19,
-          crossOrigin:"anonymous",
-          attribution:"© OpenStreetMap"
-        }).addTo(twAreaLeafletMap);
-      });
+      // 自訂 Mapbox 底圖與安全備援；避免 OSM 公用伺服器的 403 封鎖畫面。
+      window.installResilientMapboxTiles(twAreaLeafletMap);
 
       if(status) status.textContent = "載入分區中…";
 
@@ -10430,15 +10467,8 @@ ${a.instruction}` : ''
       attributionControl:false
     }).setView([23.72, 121.0], 7);
 
-    const twAreaBaseLayer = L.tileLayer(
-      `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
-      { tileSize:512, zoomOffset:-1, maxZoom:22, detectRetina:true, crossOrigin:'anonymous', attribution:'© Mapbox © OpenStreetMap' }
-    ).addTo(twAreaLeafletMap);
-
-    twAreaBaseLayer.on('tileerror', () => {
-      if(twAreaLeafletMap.hasLayer(twAreaBaseLayer)) twAreaLeafletMap.removeLayer(twAreaBaseLayer);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, crossOrigin:'anonymous', attribution:'© OpenStreetMap' }).addTo(twAreaLeafletMap);
-    });
+    // 原本 Mapbox 優先，備援仍為 Mapbox，不再呼叫 OSM 公用圖磚。
+    window.installResilientMapboxTiles(twAreaLeafletMap);
 
     if(status) status.textContent = '載入分區中…';
     let loadedTown = false, loadedCounty = false;
@@ -17644,7 +17674,8 @@ ${a.instruction}` : ''
       const bR=Number.isFinite(Number(b.storm_radius_km)) ? Number(b.storm_radius_km) : aR;
       const radiusKm=lerp(aR,bR,t);
 
-      const level=t<0.5 ? (a.level || b.level) : (b.level || a.level);
+      // Do not switch to the next category before the next forecast point.
+      const level=t<1 ? (a.level || b.level) : (b.level || a.level);
       const color=getStyle(level).color || '#2563eb';
 
       return {
@@ -17707,7 +17738,6 @@ ${a.instruction}` : ''
     if(dimmedDuringAnim===!!dim) return;
     dimmedDuringAnim=!!dim;
 
-    const lineOpacity=dim ? 0.22 : null;
     const lineWeightMul=dim ? 0.86 : 1;
     (Array.isArray(segmentLines) ? segmentLines : []).forEach(layer=>{
       try{
@@ -17715,7 +17745,8 @@ ${a.instruction}` : ''
           if(layer.__origAnimStyle==null){
             layer.__origAnimStyle={ opacity:layer.options.opacity, weight:layer.options.weight };
           }
-          layer.setStyle({ opacity:lineOpacity, weight:(layer.__origAnimStyle.weight || layer.options.weight || 3)*lineWeightMul });
+          // Future forecasts are hidden, past observed routes remain visible.
+          layer.setStyle({ opacity:layer.__tyHistory ? 0.94 : 0, weight:(layer.__origAnimStyle.weight || layer.options.weight || 3)*(layer.__tyHistory ? 1 : lineWeightMul) });
         }else if(layer.__origAnimStyle){
           layer.setStyle({ opacity:layer.__origAnimStyle.opacity, weight:layer.__origAnimStyle.weight });
         }
@@ -17904,12 +17935,27 @@ ${a.instruction}` : ''
 
       animLayers.push(glow, line, marker, pulse, ring, label);
       const timeInfo=routeTimeInfo(g.route);
+      // A separate fixed-color layer for every official forecast interval.
+      // Earlier red pieces will not turn orange when the storm weakens later.
+      const stageLines=timeInfo.route.slice(0,-1).map((a,i)=>{
+        const b=timeInfo.route[i+1];
+        const path=L.polyline([],{
+          pane:'forecastAnimPane',
+          color:getStyle(a.level).color || g.color,
+          weight:4.6,opacity:.98,
+          lineCap:'round',lineJoin:'round',dashArray:'10 8',interactive:false
+        }).addTo(map);
+        animLayers.push(path);
+        return {a,b,path};
+      });
+      line.setStyle({opacity:0});
       return {
         ...g,
         metrics:routeMetrics(g.route),
         timedRoute:timeInfo.route,
         startTime:timeInfo.start,
         endTime:timeInfo.end,
+        stageLines,
         glow,line,marker,pulse,ring,label
       };
     }).filter(g=>g.timedRoute.length>=2 && Number.isFinite(g.startTime) && Number.isFinite(g.endTime) && g.endTime>g.startTime);
@@ -17984,6 +18030,7 @@ ${a.instruction}` : ''
         if(!state.active){
           g.glow.setStyle({opacity:0});
           g.line.setStyle({opacity:0});
+          g.stageLines.forEach(s=>s.path.setStyle({opacity:0}));
           g.marker.setStyle({opacity:0,fillOpacity:0});
           g.pulse.setStyle({opacity:0,fillOpacity:0});
           g.ring.setStyle({opacity:0,fillOpacity:0});
@@ -17994,8 +18041,18 @@ ${a.instruction}` : ''
         g.glow.setLatLngs(state.shown);
         g.glow.setStyle({opacity:.76});
 
-        g.line.setLatLngs(state.shown);
-        g.line.setStyle({color:state.color,opacity:.98});
+        // Show the track hour by hour but never recolor a finished interval.
+        g.line.setLatLngs([]);
+        g.stageLines.forEach(seg=>{
+          const ta=seg.a.__animTime,tb=seg.b.__animTime;
+          if(continuousGlobalTime<=ta){ seg.path.setLatLngs([]); return; }
+          const portion=Math.max(0,Math.min(1,(continuousGlobalTime-ta)/Math.max(1,tb-ta)));
+          seg.path.setLatLngs([
+            [seg.a.lat,seg.a.lon],
+            [lerp(Number(seg.a.lat),Number(seg.b.lat),portion),lerp(Number(seg.a.lon),Number(seg.b.lon),portion)]
+          ]);
+          seg.path.setStyle({opacity:.98});
+        });
 
         g.marker.setLatLng(state.current);
         g.marker.setStyle({
@@ -18201,6 +18258,486 @@ ${a.instruction}` : ''
 })();
 </script>
 
+
+
+
+<!-- ===== v4 GIF: stage-colored historical segments + moving map camera ===== -->
+<style>
+#exportTyphoonGifBtn{background:linear-gradient(135deg,#13566b,#229c92);color:#fff;border:1px solid rgba(15,76,92,.24);box-shadow:0 5px 18px rgba(15,76,92,.13)}
+.ty-video-quality{height:38px;min-width:155px;max-width:100%;padding:0 12px;border-radius:999px;border:1px solid var(--line-strong);background:#fff;color:#244150;font-size:12px;font-weight:900;box-shadow:0 8px 18px rgba(31,53,72,.06);cursor:pointer}
+.ty-video-quality:focus-visible{outline:2px solid #2a9d8f;outline-offset:3px}
+@media(max-width:520px){.ty-video-quality{flex:1 1 calc(50% - 7px);min-width:0;width:100%}}
+#exportTyphoonGifBtn:hover{box-shadow:0 8px 23px rgba(15,76,92,.25)}
+#exportTyphoonGifBtn:disabled{opacity:.65;cursor:progress}
+.ty-gif-progress{position:fixed;right:18px;bottom:18px;z-index:99999;width:min(390px,calc(100vw - 36px));padding:18px 19px 17px;border:1px solid rgba(26,94,111,.14);border-radius:20px;background:rgba(255,255,255,.98);box-shadow:0 18px 55px rgba(10,47,65,.24);color:#18394b;font:700 12px/1.6 'Noto Sans TC',sans-serif;backdrop-filter:blur(12px)}
+.ty-gif-progress-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.ty-gif-progress-head i{height:26px;width:26px;display:grid;place-items:center;font-style:normal;border-radius:9px;background:#e7f5f2;color:#198b7e}
+.ty-gif-progress strong{font-size:14px;letter-spacing:.01em}
+.ty-gif-progress .ty-gif-message{color:#5c7887;font-weight:700;min-height:21px}
+.ty-gif-progress progress{appearance:none;width:100%;height:7px;margin-top:12px;border:0;border-radius:20px;overflow:hidden;background:#e0eaed;accent-color:#219989}
+.ty-gif-progress progress::-webkit-progress-bar{background:#e0eaed;border-radius:20px}
+.ty-gif-progress progress::-webkit-progress-value{background:linear-gradient(90deg,#16576b,#29af9c);border-radius:20px}
+.ty-gif-progress button{position:absolute;top:12px;right:12px;border:0;background:transparent;font-size:19px;color:#6f8998;cursor:pointer}
+@media(max-width:520px){.ty-gif-progress{right:10px;bottom:10px;width:calc(100vw - 20px);padding:16px}}
+</style>
+<script>
+(function(){
+'use strict';
+// Logical 16:9 composition. Export canvas is rendered at the chosen TRUE pixel size.
+const WIDTH=1600, HEIGHT=900, TOPBAR_H=112, MAP_TOP=TOPBAR_H, MAP_HEIGHT=HEIGHT-TOPBAR_H, HOUR=3600000;
+const QUALITY_PRESETS={
+ '1080p':{width:1920,height:1080,fps:30,bitrate:18000000,label:'Full HD 1080p'},
+ '1440p':{width:2560,height:1440,fps:30,bitrate:32000000,label:'2K 1440p'}
+};
+const $=id=>document.getElementById(id);
+const HEADER_SAFE=MAP_TOP+14, FOOTER_SAFE=54;
+const ROUTE_HISTORY='#6f8392';
+// Historical track remains gray; forecast segments retain their own forecast intensity color.
+const REACHED_MARK='#647f96';
+let generating=false, worker=null, workerUrl=null, noticeTimer=null;
+const sleep=()=>new Promise(r=>setTimeout(r,0));
+const tileCache=new Map();
+function plainName(text){return String(text||'颱風').replace(/\bCWA\b/gi,'').replace(/中央氣象署/g,'').replace(/^[\s｜|\-–—:：]+|[\s｜|\-–—:：]+$/g,'').trim()||'颱風';}
+function notice(message,progress){
+  clearTimeout(noticeTimer);
+  let el=$('tyGifProgress');
+  if(!el){el=document.createElement('div');el.id='tyGifProgress';el.className='ty-gif-progress';el.setAttribute('role','status');el.innerHTML='<div class="ty-gif-progress-head"><i>◉</i><strong>颱風動態影片</strong></div><div class="ty-gif-message"></div><progress max="100" value="0"></progress><button title="關閉提示" aria-label="關閉提示" type="button">×</button>';el.querySelector('button').onclick=()=>el.remove();document.body.appendChild(el)}
+  el.querySelector('.ty-gif-message').textContent=message;
+  const bar=el.querySelector('progress');bar.style.display=progress==null?'none':'block';bar.value=Math.min(100,Math.max(0,progress||0));
+  if(progress===100||progress==null)noticeTimer=setTimeout(()=>el.remove(),7500);
+}
+function asTime(p){try{const d=typeof parseLocalDateTime==='function'?parseLocalDateTime(p.time):new Date(p.time);return d&&Number.isFinite(d.getTime())?d.getTime():NaN}catch(_){return NaN}}
+function styleOf(p){try{return getStyle(p.level)?.color||'#249988'}catch(_){return '#249988'}}
+function normalizedLon(lon,reference){return reference+((((lon-reference)+540)%360+360)%360-180)}
+function storms(){
+ let src=[];try{src=Array.isArray(points)?points:[]}catch(_){ }
+ const byId=new Map();
+ for(const p of src){if(!Number.isFinite(+p.lat)||!Number.isFinite(+p.lon))continue;const key=String(p.typhoonId||p.typhoonName||'typhoon');if(!byId.has(key))byId.set(key,[]);byId.get(key).push({...p,_t:asTime(p)});}
+ return [...byId.entries()].map(([key,raw])=>{
+   const arr=raw.filter(p=>Number.isFinite(p._t)).sort((a,b)=>a._t-b._t);
+   const obs=arr.filter(p=>p.kind==='obs');if(!obs.length)return null;
+   const lastObs=obs.at(-1);
+   const fc=arr.filter(p=>p.kind==='fcst'&&p._t>lastObs._t);
+   if(!fc.length)return null;
+   const forecast=[lastObs];
+   for(const p of fc){if(p._t>forecast.at(-1)._t)forecast.push(p);}
+   if(forecast.length<2)return null;
+   return {key,name:plainName(lastObs.typhoonName||key),history:obs.filter(p=>p._t<=lastObs._t),forecast,start:lastObs._t,end:forecast.at(-1)._t};
+ }).filter(Boolean);
+}
+function merc(lat,lon,z){const size=512*Math.pow(2,z),clamped=Math.max(-85,Math.min(85,+lat)),s=Math.sin(clamped*Math.PI/180);return{x:(lon+180)/360*size,y:(.5-Math.log((1+s)/(1-s))/(4*Math.PI))*size};}
+function mercatorX(lon){return (lon+180)/360;}
+function mercatorY(lat){const s=Math.sin(lat*Math.PI/180);return 0.5-Math.log((1+s)/(1-s))/(4*Math.PI);}
+function viewport(storms){
+ const ps=storms.flatMap(g=>[...g.history,...g.forecast]);const lon0=+ps[0].lon;
+ const unwrap=lon=>normalizedLon(+lon,lon0);
+ let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+ function push(lat,lon){const q=merc(lat,unwrap(lon),0);x0=Math.min(x0,q.x);x1=Math.max(x1,q.x);y0=Math.min(y0,q.y);y1=Math.max(y1,q.y);}
+ for(const p of ps){const km=Math.max(0,Math.min(550,+p.storm_radius_km||0));
+   const lat=+p.lat,lon=+p.lon,halfLat=km/111.2,halfLon=km/(111.2*Math.max(.25,Math.cos(lat*Math.PI/180)));
+   push(lat-halfLat,lon-halfLon);push(lat+halfLat,lon+halfLon);
+ }
+ const dx=Math.max(0.001,x1-x0),dy=Math.max(0.001,y1-y0);
+ const zoom=Math.max(1,Math.min(10.8,Math.log2(Math.min(WIDTH*.68/dx,(MAP_HEIGHT-44)*.72/dy))));
+ const cx=(x0+x1)/2*Math.pow(2,zoom),cy=(y0+y1)/2*Math.pow(2,zoom);
+ const world=512*Math.pow(2,zoom),rawLon=cx/world*360-180;
+ const lat=(2*Math.atan(Math.exp((.5-cy/world)*2*Math.PI))-Math.PI/2)*180/Math.PI;
+ const centerLon=((rawLon+180)%360+360)%360-180;
+ return {lat,lon:centerLon,zoom,cx,cy,unwrap};
+}
+function xyFor(view,lat,lon){const q=merc(lat,view.unwrap(lon),view.zoom);return{x:q.x-view.cx+WIDTH/2,y:q.y-view.cy+MAP_TOP+MAP_HEIGHT/2};}
+// Follow the storm rather than shrinking the map to fit its entire lifetime.
+// Historical positions never get removed: camera movement only clips what lies
+// outside the frame. Reproject the same original coordinates for every frame.
+function cameraAt(view,groups,time){
+ const zoom=Math.min(8.4,view.zoom+(groups.length>1?0.95:1.60));
+ const tracked=[];
+ for(const g of groups){
+  if(time<g.start)continue;
+  const now=positionAt(g,Math.min(time,g.end),view);
+  const prev=positionAt(g,Math.min(g.end,Math.max(g.start,time-6*HOUR)),view);
+  const a=merc(now.lat,view.unwrap(now.lon),zoom);
+  const b=merc(prev.lat,view.unwrap(prev.lon),zoom);
+  tracked.push({x:a.x*.74+b.x*.26,y:a.y*.74+b.y*.26});
+ }
+ if(!tracked.length){const g=groups[0],v=merc(+g.forecast[0].lat,view.unwrap(g.forecast[0].lon),zoom);tracked.push(v);}
+ return {zoom,unwrap:view.unwrap,cx:tracked.reduce((sum,p)=>sum+p.x,0)/tracked.length,cy:tracked.reduce((sum,p)=>sum+p.y,0)/tracked.length};
+}
+function ringPx(km,lat,z){return (Math.max(0,km)/40075.017)*(512*Math.pow(2,z))/Math.max(.20,Math.cos(+lat*Math.PI/180));}
+function loadImage(url){
+  if(tileCache.has(url))return tileCache.get(url);
+  const p=new Promise((resolve)=>{const img=new Image();img.crossOrigin='anonymous';img.referrerPolicy='no-referrer';img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=url;});
+  tileCache.set(url,p);return p;
+}
+function rounded(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
+function textTime(ms){const d=new Date(ms),p=n=>String(n).padStart(2,'0');return `${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+function rgba(hex,alpha){const s=String(hex||'').match(/^#([0-9a-f]{6})$/i);if(!s)return `rgba(30,157,143,${alpha})`;const v=s[1];return `rgba(${parseInt(v.slice(0,2),16)},${parseInt(v.slice(2,4),16)},${parseInt(v.slice(4,6),16)},${alpha})`;}
+function segmentPosition(a,b,t,view){const frac=Math.max(0,Math.min(1,t));const lat=+a.lat+(+b.lat-+a.lat)*frac;const al=view.unwrap(+a.lon),bl=view.unwrap(+b.lon);const lon=al+(bl-al)*frac;let radiusA=+a.storm_radius_km||0,radiusB=+b.storm_radius_km||0;if(radiusA<=0&&radiusB>0)radiusA=radiusB;if(radiusB<=0&&radiusA>0)radiusB=radiusA;return {lat,lon,km:radiusA+(radiusB-radiusA)*frac,level:frac<1?a.level:b.level};}
+function positionAt(g,t,view){const arr=g.forecast;if(t<=arr[0]._t)return segmentPosition(arr[0],arr[0],0,view);for(let i=0;i<arr.length-1;i++)if(t<=arr[i+1]._t)return segmentPosition(arr[i],arr[i+1],(t-arr[i]._t)/(arr[i+1]._t-arr[i]._t),view);return segmentPosition(arr.at(-1),arr.at(-1),0,view);}
+function poly(ctx,pts,stroke,width,dash=[]){if(pts.length<2)return;ctx.save();ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash(dash);ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke();ctx.restore();}
+function dot(ctx,pos,r,color,stroke='#fff',lineWidth=2){ctx.beginPath();ctx.arc(pos.x,pos.y,r,0,2*Math.PI);ctx.fillStyle=color;ctx.fill();if(lineWidth){ctx.lineWidth=lineWidth;ctx.strokeStyle=stroke;ctx.stroke();}}
+function distancePointRect(pt,x,y,w,h){return Math.hypot(Math.max(x-pt.x,0,pt.x-(x+w)),Math.max(y-pt.y,0,pt.y-(y+h)));}
+// Tiles are fetched once for the full camera travel, then independently placed
+// for each frame using exactly the same 512px Mercator projection as markers.
+function tilePlan(view){
+ // One extra native Mapbox zoom level provides sharper cartography in Full HD and 2K.
+ const tileZ=Math.max(1,Math.min(14,Math.floor(view.zoom)+1));
+ const tileSizeView=512*Math.pow(2,view.zoom-tileZ);
+ const left=view.cx-WIDTH/2,top=view.cy-MAP_HEIGHT/2;
+ const n=Math.pow(2,tileZ);
+ const items=[];
+ for(let tx=Math.floor(left/tileSizeView);tx<=Math.floor((left+WIDTH-0.001)/tileSizeView);tx++){
+  for(let ty=Math.floor(top/tileSizeView);ty<=Math.floor((top+MAP_HEIGHT-0.001)/tileSizeView);ty++){
+   if(ty<0||ty>=n)continue;
+   const wrappedTx=((tx%n)+n)%n;
+   items.push({key:`${tileZ}/${wrappedTx}/${ty}`,tx,ty,dx:tx*tileSizeView-left,dy:ty*tileSizeView-top,size:tileSizeView});
+  }
+ }
+ return items;
+}
+async function buildTileBackground(views){
+ const plans=views.map(tilePlan);
+ const keys=new Set(plans.flatMap(p=>p.map(x=>x.key)));
+ if(keys.size>550)throw Error('超高清地圖需載入過多圖磚（'+keys.size+' 張），請縮短颱風時間範圍或改用 1080p。');
+ const style=typeof MAPBOX_STYLE!=='undefined'?MAPBOX_STYLE:'';
+ const token=typeof MAPBOX_TOKEN!=='undefined'?MAPBOX_TOKEN:'';
+ const tiles=new Map(), entries=[...keys];
+ let cursor=0,loaded=0;
+ async function loader(){
+  while(cursor<entries.length){
+   const key=entries[cursor++];
+   const img=await loadImage(`https://api.mapbox.com/styles/v1/${style}/tiles/512/${key}@2x?access_token=${encodeURIComponent(token)}`);
+   if(img){loaded++;tiles.set(key,img);}
+  }
+ }
+ await Promise.all(Array.from({length:Math.min(8,entries.length)},()=>loader()));
+ if(loaded<Math.max(1,Math.ceil(keys.size*.93)))throw Error(`底圖只有 ${loaded}/${keys.size} 張圖磚成功載入，已停止輸出以避免產生破損地圖。`);
+ return {tiles,plans};
+}
+function renderBase(ctx,bg,frameIndex){
+ ctx.fillStyle='#f5f7f9';
+ ctx.fillRect(0,0,WIDTH,HEIGHT);
+ ctx.fillStyle='rgba(255,255,255,.98)';
+ ctx.fillRect(0,0,WIDTH,TOPBAR_H);
+ ctx.strokeStyle='rgba(31,55,71,.09)';
+ ctx.lineWidth=1;
+ ctx.beginPath();ctx.moveTo(0,TOPBAR_H+.5);ctx.lineTo(WIDTH,TOPBAR_H+.5);ctx.stroke();
+ ctx.save();
+ ctx.beginPath();ctx.rect(0,MAP_TOP,WIDTH,MAP_HEIGHT);ctx.clip();
+ ctx.fillStyle='#f4fafb';
+ ctx.fillRect(0,MAP_TOP,WIDTH,MAP_HEIGHT);
+ const plan=bg.plans[frameIndex];
+ for(const tile of plan){
+   const image=bg.tiles.get(tile.key);
+   if(image)ctx.drawImage(image,tile.dx,MAP_TOP+tile.dy,tile.size+.35,tile.size+.35);
+ }
+ ctx.restore();
+}
+
+function drawTopUi(ctx,nowText){
+  ctx.save();
+  const grad=ctx.createLinearGradient(0,0,0,TOPBAR_H);
+  grad.addColorStop(0,'rgba(255,255,255,.98)');
+  grad.addColorStop(1,'rgba(247,250,251,.98)');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,WIDTH,TOPBAR_H);
+  ctx.restore();
+}
+function drawLegendUi(ctx){
+ ctx.save();
+ ctx.shadowColor='rgba(10,36,48,.15)';ctx.shadowBlur=9;ctx.shadowOffsetY=2;
+ rounded(ctx,16,HEIGHT-46,404,30,14);ctx.fillStyle='rgba(255,255,255,.96)';ctx.fill();
+ ctx.shadowColor='transparent';ctx.shadowBlur=0;
+ const y=HEIGHT-28;
+ ctx.font='800 11px "Noto Sans TC",sans-serif';
+ dot(ctx,{x:31,y:y-1},4,ROUTE_HISTORY,'transparent',0);ctx.fillStyle='#426078';ctx.fillText('歷史',42,y+3);
+ dot(ctx,{x:90,y:y-1},4,'#ef4444','transparent',0);ctx.fillStyle='#426078';ctx.fillText('強颱',101,y+3);
+ dot(ctx,{x:149,y:y-1},4,'#f59e0b','transparent',0);ctx.fillStyle='#426078';ctx.fillText('中颱',160,y+3);
+ dot(ctx,{x:208,y:y-1},4,'#22c55e','transparent',0);ctx.fillStyle='#426078';ctx.fillText('輕颱',219,y+3);
+ ctx.beginPath();ctx.arc(279,y-1,5,0,Math.PI*2);ctx.strokeStyle='#ec705f';ctx.lineWidth=1.8;ctx.stroke();ctx.fillStyle='#426078';ctx.fillText('暴風圈',291,y+3);
+ // Lower-right caption removed: only the legend remains on the map.
+ ctx.restore();
+}
+function infoValue(value){
+ const n=Number(value);
+ return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)&&n>0?n:null;
+}
+function stageName(stage){
+ const names={LOW:'低壓',TD:'熱帶低壓',TS:'輕度颱風',STS:'輕度颱風',TY:'中度颱風',STY:'強烈颱風'};
+ return names[stage]||String(stage||'未提供');
+}
+function fitLabel(ctx,content,x,y,maxWidth){
+ ctx.fillText(String(content),x,y,maxWidth);
+}
+function infoCardPosition(items,labels,w,h){
+ const candidates=[
+   {x:WIDTH-w-18,y:78},
+   {x:18,y:80},
+   {x:WIDTH-w-18,y:HEIGHT-h-57},
+   {x:18,y:HEIGHT-h-57},
+   {x:WIDTH-w-18,y:142},
+   {x:18,y:145}
+ ];
+ const blocked=[{x:18,y:14,w:310,h:60},{x:WIDTH-192,y:12,w:178,h:52}];
+ function overlap(a,b){return Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));}
+ function circleCollision(p,ring,rect){
+   const dx=Math.max(rect.x-p.x,0,p.x-(rect.x+rect.w));
+   const dy=Math.max(rect.y-p.y,0,p.y-(rect.y+rect.h));
+   const distance=Math.hypot(dx,dy);
+   return Math.max(0,ring+15-distance);
+ }
+ let best=null;
+ candidates.forEach((candidate,index)=>{
+   const rect={x:candidate.x,y:candidate.y,w,h};
+   let score=index*1.4;
+   for(const item of items){
+     const collision=circleCollision(item.p,Math.max(item.ring,12),rect);
+     if(collision>0)score+=1300+collision*16;
+     // Also avoid covering the current eye/center, if ring radius is unavailable.
+   }
+   for(const label of labels)score+=overlap(rect,label)*3.5;
+   for(const b of blocked)score+=overlap(rect,b)*12;
+   for(const item of items){
+     // Prefer panels away from the completed route, without removing route segments.
+     const points=[...item.g.history,...item.g.forecast.filter(p=>p._t<=item.time)];
+     const stride=Math.max(1,Math.ceil(points.length/130));
+     for(let j=0;j<points.length;j+=stride){
+       const q=xyFor(item.view,points[j].lat,points[j].lon);
+       if(q.x>=rect.x-8&&q.x<=rect.x+w+8&&q.y>=rect.y-8&&q.y<=rect.y+h+8)score+=20;
+     }
+   }
+   if(!best||score<best.score)best={...candidate,score};
+ });
+ return best||candidates[0];
+}
+function drawStormInfoPanel(ctx,item,items,labels){
+ if(!item)return;
+ const accent=item.color||'#2a9d8f';
+ const current=item.current||{};
+ const latest=item.latestPoint||{};
+ const upcoming=item.nextPoint||null;
+ const wind=infoValue(latest.wind);
+ const pressure=infoValue(latest.pressure);
+ const radius=infoValue(current.km);
+ const rowY=16, cardH=80, gap=14;
+ const startX=20, usable=WIDTH-2*startX-5*gap;
+ const nameW=Math.round(usable*.215),metricW=Math.round(usable*.132),nextW=Math.round(usable*.18);
+ const timeW=usable-nameW-3*metricW-nextW;
+ function card(x,w){
+   ctx.shadowColor='rgba(15,48,65,.12)';ctx.shadowBlur=14;ctx.shadowOffsetY=3;
+   rounded(ctx,x,rowY,w,cardH,18);ctx.fillStyle='rgba(255,255,255,.98)';ctx.fill();
+   ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+   ctx.strokeStyle='rgba(45,77,93,.14)';ctx.lineWidth=1;ctx.stroke();
+ }
+ ctx.save();
+ let x=startX;
+ card(x,nameW);
+ ctx.fillStyle='#688693';ctx.font='800 10px "Noto Sans TC",sans-serif';ctx.fillText('颱風資訊',x+16,rowY+18);
+ ctx.fillStyle='#17384a';ctx.font='900 24px "Noto Sans TC",sans-serif';fitLabel(ctx,plainName(item.g.name||'颱風'),x+16,rowY+48,130);
+ const intensity=stageName(current.level);ctx.font='900 11px "Noto Sans TC",sans-serif';
+ const chipW=Math.min(120,Math.max(70,Math.ceil(ctx.measureText(intensity).width)+24));
+ rounded(ctx,x+nameW-chipW-16,rowY+18,chipW,24,12);ctx.fillStyle=rgba(accent,.13);ctx.fill();ctx.strokeStyle=rgba(accent,.38);ctx.lineWidth=1;ctx.stroke();
+ ctx.fillStyle=accent;ctx.textAlign='center';ctx.fillText(intensity,x+nameW-chipW/2-16,rowY+34);ctx.textAlign='left';
+ ctx.fillStyle='#7e949f';ctx.font='700 11px "Noto Sans TC",sans-serif';ctx.fillText('預報中心位置與強度資訊',x+16,rowY+66);
+ function metricCard(px,title,val,unit){
+   card(px,metricW);
+   ctx.fillStyle='#718a97';ctx.font='800 11px "Noto Sans TC",sans-serif';ctx.fillText(title,px+14,rowY+20);
+   ctx.fillStyle='#14384b';ctx.font='900 26px "Noto Sans TC",sans-serif';ctx.fillText(val,px+14,rowY+48,metricW-28);
+   ctx.fillStyle='#7d919c';ctx.font='700 11px "Noto Sans TC",sans-serif';ctx.fillText(val==='—'?'無資料':unit,px+14,rowY+66);
+ }
+ x += nameW + gap;
+ metricCard(x,'最大風速',wind===null?'—':Number(wind.toFixed(1)).toString(),'m/s');
+ x += metricW + gap;
+ metricCard(x,'中心氣壓',pressure===null?'—':Math.round(pressure).toString(),'hPa');
+ x += metricW + gap;
+ metricCard(x,'暴風半徑',radius===null?'—':Math.round(radius).toString(),'km');
+ x += metricW + gap;
+ card(x,nextW);
+ ctx.fillStyle='#688693';ctx.font='800 11px "Noto Sans TC",sans-serif';ctx.fillText('下一個預報',x+14,rowY+20);
+ if(upcoming){
+   ctx.fillStyle='#153b4d';ctx.font='900 20px "Noto Sans TC",sans-serif';ctx.fillText(stageName(upcoming.level),x+14,rowY+47,120);
+   ctx.fillStyle='#2a6878';ctx.font='900 13px "Noto Sans TC",sans-serif';ctx.fillText(textTime(upcoming._t),x+14,rowY+67,nextW-28);
+ } else {
+   ctx.fillStyle='#5f7c8a';ctx.font='900 18px "Noto Sans TC",sans-serif';ctx.fillText('暫無後續預報',x+14,rowY+48);
+ }
+ x += nextW + gap;
+ card(x,timeW);
+ ctx.fillStyle='#688693';ctx.font='800 11px "Noto Sans TC",sans-serif';ctx.fillText('目前時間',x+14,rowY+20);
+ ctx.fillStyle='#0f4960';ctx.font='900 28px "Noto Sans TC",sans-serif';ctx.textAlign='center';ctx.fillText(textTime(item.time),x+timeW/2,rowY+50);
+ ctx.fillStyle='#7d919c';ctx.font='700 11px "Noto Sans TC",sans-serif';ctx.fillText('逐小時路徑動畫',x+timeW/2,rowY+68);
+ ctx.textAlign='left';
+ ctx.restore();
+}
+
+
+function draws(ctx,bg,groups,view,t,frameIndex){
+ ctx.clearRect(0,0,WIDTH,HEIGHT);renderBase(ctx,bg,frameIndex);
+ const active=[];
+ for(const g of groups){
+  if(t<g.start)continue;
+  const current=positionAt(g,Math.min(t,g.end),view),p=xyFor(view,current.lat,current.lon);
+  // Original historical route is always retained, even as the camera pans/zooms.
+  // Only the part within the current view is visible; nothing is ever deleted.
+  const history=g.history.map(item=>xyFor(view,item.lat,item.lon));
+  poly(ctx,history,'rgba(255,255,255,.96)',7.0);poly(ctx,history,ROUTE_HISTORY,3.7);
+  for(const h of g.history.slice(0,-1))dot(ctx,xyFor(view,h.lat,h.lon),3.0,'#7a91a0','#fff',1.1);
+
+  // Draw forecast *per segment*. Each completed piece retains its own stage
+  // color even after the live cyclone subsequently weakens or strengthens.
+  // No not-yet-reached coordinates are drawn.
+  const arr=g.forecast;
+  for(let i=0;i<arr.length-1;i++){
+   const a=arr[i],b=arr[i+1];
+   if(t<=a._t)break;
+   const frac=Math.max(0,Math.min(1,(t-a._t)/(b._t-a._t)));
+   const reached=segmentPosition(a,b,frac,view);
+   const v=xyFor(view,a.lat,a.lon),w=xyFor(view,reached.lat,reached.lon);
+   const segmentColor=styleOf(a);  // STY red stays red; later TY segments are orange.
+   poly(ctx,[v,w],'rgba(255,255,255,.98)',8.0);
+   poly(ctx,[v,w],segmentColor,4.6);
+   if(t<b._t)break;
+  }
+  // Place actual forecast observations as the animation reaches each valid time.
+  for(const pt of arr){
+   if(pt._t>t)break;
+   const v=xyFor(view,pt.lat,pt.lon);
+   dot(ctx,v,pt.kind==='obs'?5.5:4.6,styleOf(pt),'#ffffff',1.9);
+  }
+  const intensityColor=styleOf({...g.forecast[0],level:current.level});
+  const rp=ringPx(current.km,current.lat,view.zoom);
+  if(rp>1){ctx.beginPath();ctx.arc(p.x,p.y,rp,0,Math.PI*2);ctx.fillStyle=rgba(intensityColor,.065);ctx.fill();ctx.strokeStyle=rgba(intensityColor,.92);ctx.lineWidth=2.4;ctx.stroke();}
+  dot(ctx,p,11,rgba(intensityColor,.19),'rgba(255,255,255,.8)',1.2);dot(ctx,p,6.4,intensityColor,'#ffffff',2.6);
+  let latestPoint=arr[0], nextPoint=null;
+  for(const pt of arr){ if(pt._t<=t) latestPoint=pt; else { nextPoint=pt; break; } }
+  active.push({g,p,ring:rp,color:intensityColor,time:Math.min(t,g.end),current,latestPoint,nextPoint,view});
+ }
+ const placed=[];
+ for(const item of active){
+  const {g,p,ring,color,time}=item;
+  const labelName=plainName(g.name),date=textTime(time),tag=`${labelName} ${date}`;
+  ctx.font='900 14px "Noto Sans TC",sans-serif';const lw=Math.min(WIDTH-34,Math.max(172,Math.ceil(ctx.measureText(tag).width)+44)),lh=38;
+  let best=null;
+  const angles=[-Math.PI/4,-3*Math.PI/4,Math.PI/4,3*Math.PI/4,0,Math.PI,-Math.PI/2,Math.PI/2];
+  angles.forEach((angle,i)=>{
+   const a=Math.cos(angle),b=Math.sin(angle),dist=Math.max(22,ring+22);
+   const center={x:p.x+a*(dist+lw*Math.abs(a)/2),y:p.y+b*(dist+lh*Math.abs(b)/2)};
+   const xx=Math.max(14,Math.min(WIDTH-lw-14,center.x-lw/2));
+   const yy=Math.max(HEADER_SAFE,Math.min(HEIGHT-FOOTER_SAFE-lh,center.y-lh/2));
+   let score=(Math.abs((center.x-lw/2)-xx)+Math.abs((center.y-lh/2)-yy))*1.1+i*.5;
+   for(const other of active){const dd=distancePointRect(other.p,xx,yy,lw,lh);if(dd<other.ring+13)score+=260+(other.ring+13-dd)*3.2;}
+   for(const used of placed){const overlap=Math.max(0,Math.min(xx+lw,used.x+used.w)-Math.max(xx,used.x))*Math.max(0,Math.min(yy+lh,used.y+used.h)-Math.max(yy,used.y));score+=overlap*2.8;}
+   if(!best||score<best.score)best={x:xx,y:yy,w:lw,h:lh,score};
+  });
+  placed.push(best);
+  const cx=best.x+lw/2,cy=best.y+lh/2,dx=cx-p.x,dy=cy-p.y,len=Math.max(1,Math.hypot(dx,dy));
+  ctx.save();ctx.beginPath();ctx.moveTo(p.x+dx/len*Math.min(Math.max(ring,8),len),p.y+dy/len*Math.min(Math.max(ring,8),len));ctx.lineTo(cx-dx/len*(lw*.22),cy-dy/len*10);ctx.strokeStyle=rgba(color,.76);ctx.lineWidth=1.5;ctx.stroke();
+  ctx.shadowColor='rgba(14,45,60,.16)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;rounded(ctx,best.x,best.y,lw,lh,18);ctx.fillStyle='rgba(255,255,255,.97)';ctx.fill();ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.strokeStyle=rgba(color,.74);ctx.lineWidth=1.1;ctx.stroke();
+  dot(ctx,{x:best.x+16,y:best.y+lh/2},4.2,color,'transparent',0);
+  ctx.fillStyle='#17384a';ctx.font='900 14px "Noto Sans TC",sans-serif';ctx.fillText(tag,best.x+28,best.y+24);
+  ctx.restore();
+ }
+ drawTopUi(ctx,textTime(t));
+ drawStormInfoPanel(ctx,active[0]||null,active,placed);
+ drawLegendUi(ctx);
+}
+function inlineGifWorker(){
+ 'use strict';
+ let w=0,h=0,frames=[],count=0;
+ const u16=n=>[n&255,(n>>8)&255];
+ const palette=(()=>{const p=new Uint8Array(256*3);for(let i=0;i<256;i++){p[i*3]=Math.round((i>>5)*255/7);p[i*3+1]=Math.round(((i>>2)&7)*255/7);p[i*3+2]=Math.round((i&3)*255/3);}return p;})();
+ function rawPixels(data){const a=new Uint8Array(w*h);for(let i=0,j=0;i<a.length;i++,j+=4){a[i]=(data[j]&224)|((data[j+1]&224)>>3)|(data[j+2]>>6);}return a;}
+ function lzw(pixels){const CLEAR=256,STOP=257;let next=258,bits=9,dict=new Map(),out=[],byte=0,bit=0;function code(c){byte|=c<<bit;bit+=bits;while(bit>=8){out.push(byte&255);byte>>>=8;bit-=8;}}code(CLEAR);let prefix=pixels[0];for(let i=1;i<pixels.length;i++){const sym=pixels[i],key=(prefix<<8)|sym,old=dict.get(key);if(old!==undefined){prefix=old;continue;}code(prefix);if(next<4096){dict.set(key,next++);if(next>(1<<bits)&&bits<12)bits++;}else{code(CLEAR);dict=new Map();next=258;bits=9;}prefix=sym;}code(prefix);code(STOP);if(bit>0)out.push(byte&255);return Uint8Array.from(out);}
+ function frame(pixels,delay){const compressed=lzw(rawPixels(pixels));const parts=[];const begin=[0x21,0xF9,0x04,0x04,...u16(Math.max(2,Math.round(delay/10))),0,0,0x2C,0,0,0,0,...u16(w),...u16(h),0,0x08];parts.push(Uint8Array.from(begin));for(let i=0;i<compressed.length;i+=255){const b=compressed.subarray(i,i+255);parts.push(Uint8Array.from([b.length]),b);}parts.push(Uint8Array.from([0]));return parts;}
+ self.onmessage=e=>{try{const m=e.data;if(m.type==='start'){w=m.width;h=m.height;count=0;frames=[];const header=new Uint8Array([71,73,70,56,57,97,...u16(w),...u16(h),247,0,0]);frames.push(header,palette,Uint8Array.from([33,255,11,78,69,84,83,67,65,80,69,50,46,48,3,1,0,0,0]));self.postMessage({type:'ready'});}else if(m.type==='frame'){frames.push(...frame(new Uint8ClampedArray(m.pixels),m.delay));count++;self.postMessage({type:'ready',count});}else if(m.type==='finish'){frames.push(Uint8Array.from([59]));const blob=new Blob(frames,{type:'image/gif'});self.postMessage({type:'finished',blob,frames:count});frames=[];}}catch(err){self.postMessage({type:'error',message:String(err?.message||err)});}};
+}
+function chooseVideoMime(){
+ const types=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+ for(const type of types){try{if(window.MediaRecorder && MediaRecorder.isTypeSupported(type))return type;}catch(_){}}
+ return '';
+}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function exportVideo(){
+ if(generating)return;
+ const button=$('exportTyphoonGifBtn');if(!button)return;
+ const groups=storms();if(!groups.length){notice('找不到有效的颱風觀測位置與後續預報資料。');return;}
+ const quality=QUALITY_PRESETS[$('typhoonVideoQuality')?.value]||QUALITY_PRESETS['1440p'];
+ if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream){notice('目前瀏覽器不支援影片錄製，請使用最新版 Chrome / Edge。');return;}
+ const mimeType=chooseVideoMime();if(!mimeType){notice('目前瀏覽器無法使用 WebM 影片編碼。');return;}
+ generating=true;button.disabled=true;button.textContent=quality.label+' 生成中…';
+ let recorder=null,stream=null;
+ try{
+  const view=viewport(groups);
+  const style=typeof MAPBOX_STYLE!=='undefined'?MAPBOX_STYLE:'';
+  const token=typeof MAPBOX_TOKEN!=='undefined'?MAPBOX_TOKEN:'';
+  if(!style||!token)throw Error('未設定 Mapbox 底圖。');
+  const first=Math.min(...groups.map(g=>g.start)),end=Math.max(...groups.map(g=>g.end));
+  const hours=Math.ceil((end-first)/HOUR);
+  if(hours>220)throw Error('時間跨度超過 220 小時，請先選擇單一颱風。');
+  // Exactly one animation position per forecast hour, starting at the latest
+  // observation timestamp. No intermediate 5/10/20-minute animation frames.
+  const hourlyTimes=[];
+  for(let t=first;t<=end;t+=HOUR)hourlyTimes.push(t);
+  const cameras=hourlyTimes.map(t=>cameraAt(view,groups,t));
+  notice('載入高解析度 Mapbox 底圖…',3);
+  tileCache.clear();
+  const bg=await buildTileBackground(cameras);
+  const canvas=document.createElement('canvas');
+  canvas.width=quality.width;canvas.height=quality.height;
+  const ctx=canvas.getContext('2d',{alpha:false,desynchronized:false});
+  if(!ctx)throw Error('瀏覽器無法建立高畫質 Canvas。');
+  // All labels, points, circles and map tiles are rasterised at the OUTPUT
+  // resolution. This is not a low-resolution video resized after recording.
+  const physicalScale=quality.width/WIDTH;
+  ctx.setTransform(physicalScale,0,0,physicalScale,0,0);
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality='high';
+  try{await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1800))])}catch(_){ }
+  draws(ctx,bg,groups,cameras[0],hourlyTimes[0],0);
+  stream=canvas.captureStream(quality.fps);
+  const chunks=[];
+  recorder=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:quality.bitrate});
+  recorder.ondataavailable=e=>{if(e.data&&e.data.size>0)chunks.push(e.data)};
+  const stopped=new Promise((resolve,reject)=>{
+    recorder.addEventListener('stop',resolve,{once:true});
+    recorder.addEventListener('error',e=>reject(e.error||new Error('影片錄製失敗')),{once:true});
+  });
+  recorder.start(1000);
+  notice('正在錄製 '+quality.label+' · 每小時一個位置…',7);
+  // Show each hour as a distinct step, held on screen long enough to read.
+  // captureStream still uses the original high-resolution 30-fps stream, but
+  // storm coordinates and camera only change at exact one-hour intervals.
+  const hourHoldMs=550;
+  for(let i=0;i<hourlyTimes.length;i++){
+    draws(ctx,bg,groups,cameras[i],hourlyTimes[i],i);
+    if(i%3===0||i===hourlyTimes.length-1){
+      notice(`${quality.label} · 第 ${i+1}/${hourlyTimes.length} 小時`,8+Math.round((i+1)/hourlyTimes.length*85));
+    }
+    await wait(hourHoldMs);
+  }
+  // Hold last frame so the final forecast information is readable.
+  await wait(900);
+  recorder.stop();
+  notice('正在封裝高畫質影片…',97);
+  await stopped;
+  const blob=new Blob(chunks,{type:mimeType});
+  if(blob.size<1000)throw Error('影片資料不完整，請重試。');
+  const blobUrl=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=blobUrl;
+  link.download=`颱風逐小時路徑_${quality.width}x${quality.height}_${new Date().toISOString().slice(0,10)}.webm`;
+  document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
+  notice(`${quality.label} 完成（${quality.width}×${quality.height}，${(blob.size/1024/1024).toFixed(1)} MB）`,100);
+ }catch(err){console.error('[Typhoon Video]',err);notice('影片生成失敗：'+(err?.message||String(err)));}
+ finally{
+   if(recorder&&recorder.state!=='inactive')try{recorder.stop()}catch(_){ }
+   if(stream)stream.getTracks().forEach(t=>t.stop());
+   tileCache.clear();
+   generating=false;button.disabled=false;button.textContent='生成高清影片';
+ }
+}
+function install(){const btn=$('exportTyphoonGifBtn');if(btn&&!btn.dataset.videoV1){btn.dataset.videoV1='yes';btn.addEventListener('click',exportVideo)}}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+})();
+</script>
 
 </body>
 </html>
