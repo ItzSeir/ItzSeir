@@ -5413,7 +5413,7 @@ Implement by adjusting polygon style functions:
 <option value="webm">WebM</option>
 </select>
 <button class="btn" id="exportTyphoonGifBtn" title="逐小時快速播放，保留高清畫質｜優先輸出 MP4，不支援時改用 WebM" type="button">生成高清影片</button>
-<span id="tyVideoGeoStatus" class="ty-video-geo-status" title="依網站 data 資料夾自動讀取，不需上傳">邊界資料：載入中…</span>
+<span id="tyVideoGeoStatus" class="ty-video-geo-status" title="依網站 data 資料夾自動讀取，不需上傳">影片 Border：準備讀取縣市資料…</span>
 <button class="btn" id="printAllBtn" style="display:none;" type="button">產生全部颱風 PNG</button>
 </div>
 </div>
@@ -19180,21 +19180,24 @@ let generating=false, worker=null, workerUrl=null, noticeTimer=null;
 const sleep=()=>new Promise(r=>setTimeout(r,0));
 const tileCache=new Map();
 
-// Auto-load administrative outlines from the site's EXISTING data/ directory.
-// No upload and no external border providers are required.
+// Administrative borders for the SAME fixed-timestamp MP4 / WebM renderer.
+// Try the existing site data/ first, and then the original GitHub repository.
+// Relative data/ is unavailable when a standalone downloaded HTML is opened as file://.
 const VIDEO_BORDER_SOURCES=[
- {id:'twCounty',label:'台灣縣市',url:'data/tw-countys.geojson',tier:'major',region:'tw',tol:.0006},
- {id:'myState',label:'馬來西亞州屬',url:'data/malaysia.state.geojson',tier:'major',region:'my',tol:.0010},
- {id:'twTown',label:'台灣鄉鎮',url:'data/tw-towns.geojson',tier:'minor',region:'tw',tol:.0020},
- {id:'myDistrict',label:'馬來西亞縣區',url:'data/malaysia.district.geojson',tier:'minor',region:'my',tol:.0025},
- {id:'hk',label:'香港',url:'data/hong-kong.geojson',alternates:['data/hongkong.geojson','data/hk.geojson'],tier:'major',region:'hk',tol:.00045,optional:true}
+ {id:'twCounty',label:'台灣縣市',url:'data/tw-countys.geojson',tier:'major',region:'tw',tol:.00038,required:true},
+ {id:'myState',label:'馬來西亞州屬',url:'data/malaysia.state.geojson',tier:'major',region:'my',tol:.00065},
+ {id:'twTown',label:'台灣鄉鎮',url:'data/tw-towns.geojson',tier:'minor',region:'tw',tol:.0015,optional:true},
+ {id:'myDistrict',label:'馬來西亞縣區',url:'data/malaysia.district.geojson',tier:'minor',region:'my',tol:.0018,optional:true},
+ {id:'hk',label:'香港',url:'data/hong-kong.geojson',alternates:['data/hongkong.geojson','data/hk.geojson'],tier:'major',region:'hk',tol:.0004,optional:true}
 ];
+const GITHUB_BORDER_DATA_ROOT='https://raw.githubusercontent.com/ItzSeir/ItzSeir/main/';
 let videoBordersPromise=null;
 let videoBorderLayers=[];
 let videoBorderMaps=[];
+let videoBorderProblems=[];
 function setVideoBorderStatus(message){
  const el=document.getElementById('tyVideoGeoStatus');
- if(el)el.textContent=message;
+ if(el){el.textContent=message;el.title=message;}
 }
 function validGeoFeatureCollection(input){
  if(!input || typeof input!=='object')return null;
@@ -19206,13 +19209,13 @@ function validGeoFeatureCollection(input){
 function collectGeoRings(geom,output){
  if(!geom || typeof geom!=='object')return;
  const t=geom.type,coords=geom.coordinates;
- if(t==='Polygon' && Array.isArray(coords)) output.push(...coords);
+ if(t==='Polygon' && Array.isArray(coords))output.push(...coords);
  else if(t==='MultiPolygon' && Array.isArray(coords)){
-   for(const polygon of coords)if(Array.isArray(polygon))output.push(...polygon);
- }else if(t==='LineString' && Array.isArray(coords)) output.push(coords);
- else if(t==='MultiLineString' && Array.isArray(coords)) output.push(...coords);
+  for(const polygon of coords)if(Array.isArray(polygon))output.push(...polygon);
+ }else if(t==='LineString' && Array.isArray(coords))output.push(coords);
+ else if(t==='MultiLineString' && Array.isArray(coords))output.push(...coords);
  else if(t==='GeometryCollection' && Array.isArray(geom.geometries)){
-   for(const part of geom.geometries)collectGeoRings(part,output);
+  for(const part of geom.geometries)collectGeoRings(part,output);
  }
 }
 function prepGeoPaths(geo,tolerance){
@@ -19225,115 +19228,123 @@ function prepGeoPaths(geo,tolerance){
    let minLon=Infinity,maxLon=-Infinity,minLat=Infinity,maxLat=-Infinity;
    let lastLon=NaN,lastLat=NaN;
    for(let i=0;i<ring.length;i++){
-     const pair=ring[i];if(!Array.isArray(pair) || pair.length<2)continue;
-     const lon=Number(pair[0]),lat=Number(pair[1]);
-     if(!Number.isFinite(lon)||!Number.isFinite(lat)||Math.abs(lat)>90||Math.abs(lon)>360)continue;
-     if(i!==ring.length-1 && points.length>0 &&
-        Math.abs(lon-lastLon)<tolerance && Math.abs(lat-lastLat)<tolerance)continue;
-     points.push(lon,lat);
-     minLon=Math.min(minLon,lon);maxLon=Math.max(maxLon,lon);
-     minLat=Math.min(minLat,lat);maxLat=Math.max(maxLat,lat);
-     lastLon=lon;lastLat=lat;
+    const pair=ring[i];if(!Array.isArray(pair) || pair.length<2)continue;
+    const lon=Number(pair[0]),lat=Number(pair[1]);
+    if(!Number.isFinite(lon)||!Number.isFinite(lat)||Math.abs(lat)>90||Math.abs(lon)>360)continue;
+    // Keep every corner above minimum distance without changing the region outline.
+    if(i!==ring.length-1 && points.length>0 &&
+       Math.abs(lon-lastLon)<tolerance && Math.abs(lat-lastLat)<tolerance)continue;
+    points.push(lon,lat);
+    minLon=Math.min(minLon,lon);maxLon=Math.max(maxLon,lon);
+    minLat=Math.min(minLat,lat);maxLat=Math.max(maxLat,lat);
+    lastLon=lon;lastLat=lat;
    }
-   if(points.length>=4){result.push({points:Float32Array.from(points),bbox:[minLon,minLat,maxLon,maxLat]});}
+   if(points.length>=4)result.push({points:Float64Array.from(points),bbox:[minLon,minLat,maxLon,maxLat]});
   }
  }
  return result;
 }
-async function fetchOneGeoSource(entry){
- for(const url of [entry.url,...(entry.alternates||[])]){
-  try{
-   const response=await fetch(url,{cache:'force-cache'});
-   if(!response.ok)continue;
-   const fc=validGeoFeatureCollection(await response.json());
-   if(!fc || !fc.features.length)continue;
-   const paths=prepGeoPaths(fc,entry.tol);
-   if(!paths.length)continue;
-   return {...entry,paths,featureCount:fc.features.length,geo:fc,url};
-  }catch(e){console.debug('[Typhoon Borders] '+url,e);}
+function borderCandidateUrls(entry){
+ const urls=[entry.url,...(entry.alternates||[])];
+ for(const path of [entry.url,...(entry.alternates||[])]){
+  urls.push(GITHUB_BORDER_DATA_ROOT+path);
  }
+ return [...new Set(urls)];
+}
+async function fetchOneGeoSource(entry){
+ let lastError='';
+ for(const url of borderCandidateUrls(entry)){
+  const ctrl=new AbortController();
+  const timeout=setTimeout(()=>ctrl.abort(),28000);
+  try{
+   const response=await fetch(url,{cache:'force-cache',signal:ctrl.signal});
+   if(!response.ok){lastError=`HTTP ${response.status}: ${url}`;continue;}
+   const fc=validGeoFeatureCollection(await response.json());
+   if(!fc || !fc.features.length){lastError=`GeoJSON features 為空: ${url}`;continue;}
+   const paths=prepGeoPaths(fc,entry.tol);
+   if(!paths.length){lastError=`GeoJSON 沒有可用多邊形: ${url}`;continue;}
+   console.info('[Typhoon video border] loaded',entry.label,'features',fc.features.length,'paths',paths.length,'from',url);
+   return {...entry,paths,featureCount:fc.features.length,url};
+  }catch(e){lastError=(e?.message||String(e))+' '+url;}
+  finally{clearTimeout(timeout);}
+ }
+ if(!entry.optional)videoBorderProblems.push(entry.label+'：'+lastError);
+ console.warn('[Typhoon video border] Failed:',entry.label,lastError);
  return null;
 }
 function attachVideoBorderMapLayers(){
- if(typeof L==='undefined')return;
- for(const map of videoBorderMaps){
-  if(!map || !map.getPane || !map.hasLayer)continue;
-  try{
-   if(!map.getPane('tyAutoBorderPane')){
-    map.createPane('tyAutoBorderPane');
-    map.getPane('tyAutoBorderPane').style.zIndex='328';
-    map.getPane('tyAutoBorderPane').style.pointerEvents='none';
-   }
-   for(const entry of videoBorderLayers){
-    // Existing interactive typhoon map already draws Taiwan counties.
-    if(entry.region==='tw' || entry.tier!=='major' || entry._mapLayers?.has(map))continue;
-    const obj=L.geoJSON(entry.geo,{
-     pane:'tyAutoBorderPane',interactive:false,
-     style:{fill:false,color:'#1d6071',weight:1.75,opacity:.87}
-    }).addTo(map);
-    if(!entry._mapLayers)entry._mapLayers=new WeakMap();
-    entry._mapLayers.set(map,obj);
-   }
-  }catch(e){console.warn('[Typhoon Borders] interactive overlay',e);}
- }
+ // Interactive map has its own county outlines. Video export is independent.
+ // Don't try adding GeoJSON to Leaflet from simplified video paths.
 }
 window.__attachTyphoonAutoGeoBorders=function(map){
  if(map && !videoBorderMaps.includes(map))videoBorderMaps.push(map);
- if(videoBordersPromise)videoBordersPromise.then(attachVideoBorderMapLayers);
 };
 function loadVideoGeoBorders(){
  if(videoBordersPromise)return videoBordersPromise;
+ setVideoBorderStatus('正在讀取縣市邊界…');
+ videoBorderProblems=[];
  videoBordersPromise=(async()=>{
-  // Parallel requests; missing optional HK does not block Taiwan/Malaysia exports.
   const loaded=await Promise.all(VIDEO_BORDER_SOURCES.map(fetchOneGeoSource));
   videoBorderLayers=loaded.filter(Boolean);
-  const hasTW=videoBorderLayers.some(x=>x.region==='tw');
-  const hasMY=videoBorderLayers.some(x=>x.region==='my');
-  const hasHK=videoBorderLayers.some(x=>x.region==='hk');
-  setVideoBorderStatus(`邊界：台灣${hasTW?' ✓':'未載入'} · 馬來西亞${hasMY?' ✓':'未載入'} · 香港${hasHK?' ✓':'待提供 GeoJSON'}`);
-  attachVideoBorderMapLayers();
+  const tw=videoBorderLayers.find(x=>x.id==='twCounty');
+  const my=videoBorderLayers.find(x=>x.id==='myState');
+  const twTown=videoBorderLayers.find(x=>x.id==='twTown');
+  const hk=videoBorderLayers.find(x=>x.id==='hk');
+  const msg=`影片 Border：台灣縣市 ${tw?tw.featureCount+' 區 ✓':'載入失敗'} · 馬來西亞州屬 ${my?my.featureCount+' 區 ✓':'載入失敗'} · 鄉鎮 ${twTown?'已載入':'未載入'} · 香港 ${hk?'✓':'未提供'}`;
+  setVideoBorderStatus(msg);
+  window.__typhoonVideoGeoStatus={sources:videoBorderLayers.map(x=>({id:x.id,features:x.featureCount,paths:x.paths.length,url:x.url})),issues:[...videoBorderProblems]};
   return videoBorderLayers;
  })();
  return videoBordersPromise;
 }
 function borderPathIsVisible(path,view){
- // Mercator bounding-box check before expensive per-point projections.
  const [west,south,east,north]=path.bbox;
- const a=merc(north,view.unwrap(west),view.zoom), b=merc(south,view.unwrap(east),view.zoom);
- const left=view.cx-WIDTH/2-15,right=view.cx+WIDTH/2+15;
- const top=view.cy-MAP_HEIGHT/2-15,bottom=view.cy+MAP_HEIGHT/2+15;
+ const a=merc(north,view.unwrap(west),view.zoom),b=merc(south,view.unwrap(east),view.zoom);
+ const left=view.cx-WIDTH/2-30,right=view.cx+WIDTH/2+30;
+ const top=view.cy-MAP_HEIGHT/2-30,bottom=view.cy+MAP_HEIGHT/2+30;
  return !(Math.min(a.x,b.x)>right || Math.max(a.x,b.x)<left ||
    Math.min(a.y,b.y)>bottom || Math.max(a.y,b.y)<top);
+}
+function drawOneBorderLayer(ctx,view,layer){
+ const isCounty=layer.id==='twCounty';
+ const isState=layer.id==='myState';
+ const major=layer.tier==='major';
+ const lineWidth=isCounty?2.8:(isState?2.4:(major?2.1:.86));
+ const lineColor=isCounty?'rgba(20,61,79,.96)':isState?'rgba(23,75,94,.92)':major?'rgba(26,81,103,.94)':'rgba(51,97,112,.52)';
+ ctx.beginPath();let pathCount=0;
+ for(const path of layer.paths){
+  if(!borderPathIsVisible(path,view))continue;
+  const coords=path.points;
+  if(coords.length<4)continue;
+  const q0=xyFor(view,coords[1],coords[0]);
+  ctx.moveTo(q0.x,q0.y);
+  for(let i=2;i<coords.length;i+=2){
+   const p=xyFor(view,coords[i+1],coords[i]);
+   ctx.lineTo(p.x,p.y);
+  }
+  pathCount++;
+ }
+ if(!pathCount)return 0;
+ ctx.lineJoin='round';ctx.lineCap='round';
+ if(major){
+  // Light halo makes counties visible over green coastlines, without recoloring the map.
+  ctx.strokeStyle='rgba(255,255,255,.87)';ctx.lineWidth=lineWidth+2.3;ctx.stroke();
+ }
+ ctx.strokeStyle=lineColor;ctx.lineWidth=lineWidth;ctx.stroke();
+ return pathCount;
 }
 function drawVideoGeoBorders(ctx,view){
  if(!videoBorderLayers.length)return;
  ctx.save();
  ctx.beginPath();ctx.rect(0,MAP_TOP,WIDTH,MAP_HEIGHT);ctx.clip();
- // Draw minor internal boundaries first, then main county/state outlines.
+ // Town/district boundaries are subordinate to county/state lines.
+ // Hide minor boundaries at extremely low map zooms to avoid visual clutter.
  for(const tier of ['minor','major']){
-  ctx.save();
-  ctx.lineJoin='round';ctx.lineCap='round';
-  ctx.strokeStyle=tier==='major'?'rgba(13,77,96,.93)':'rgba(49,107,119,.48)';
-  ctx.lineWidth=tier==='major'?1.9:.78;
-  ctx.beginPath();
-  let any=false;
+  if(tier==='minor' && view.zoom<6.8)continue;
   for(const layer of videoBorderLayers){
    if(layer.tier!==tier)continue;
-   for(const path of layer.paths){
-    if(!borderPathIsVisible(path,view))continue;
-    const coords=path.points;
-    if(coords.length<4)continue;
-    let first=true;
-    for(let i=0;i<coords.length;i+=2){
-      const projected=xyFor(view,coords[i+1],coords[i]);
-      if(first){ctx.moveTo(projected.x,projected.y);first=false;}
-      else ctx.lineTo(projected.x,projected.y);
-    }
-    any=true;
-   }
+   drawOneBorderLayer(ctx,view,layer);
   }
-  if(any)ctx.stroke();
-  ctx.restore();
  }
  ctx.restore();
 }
@@ -19853,8 +19864,11 @@ async function exportVideo(){
   if(!style||!token)throw Error('未設定 Mapbox 底圖。');
   const plan=await selectFixedEncoder(quality,preferredFormat);
   if(plan.format!==preferredFormat)notice(`所選格式的編碼器不受支援，將改用 ${plan.format.toUpperCase()}。`,2);
-  notice('正在讀取 data/ GeoJSON 地圖邊界…',2);
+  notice('正在讀取台灣 County / 馬來西亞州屬 GeoJSON 邊界…',2);
   await loadVideoGeoBorders();
+  if(!videoBorderLayers.some(x=>x.id==='twCounty')){
+   throw new Error('台灣 County GeoJSON 尚未成功載入。請確認網路可讀取 data/tw-countys.geojson 或 GitHub 原始檔；為避免輸出沒有邊界的影片，已停止生成。');
+  }
   const view=viewport(groups);
   const first=Math.min(...groups.map(g=>g.start)),end=Math.max(...groups.map(g=>g.end));
   if((end-first)/HOUR>220)throw Error('時間跨度超過 220 小時，請先選擇單一颱風。');
