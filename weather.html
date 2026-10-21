@@ -19328,7 +19328,7 @@ function drawOneBorderLayer(ctx,view,layer){
  ctx.lineJoin='round';ctx.lineCap='round';
  if(major){
   // Light halo makes counties visible over green coastlines, without recoloring the map.
-  ctx.strokeStyle='rgba(255,255,255,.40)';ctx.lineWidth=lineWidth+.62;ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=lineWidth+.34;ctx.stroke();
  }
  ctx.strokeStyle=lineColor;ctx.lineWidth=lineWidth;ctx.stroke();
  return pathCount;
@@ -19467,8 +19467,8 @@ async function buildTileBackground(views){
  return {tiles,plans};
 }
 function renderBase(ctx,bg,frameIndex){
- ctx.fillStyle='#f5f7f9';
- ctx.fillRect(0,0,WIDTH,HEIGHT);
+ ctx.clearRect(0,0,WIDTH,HEIGHT);
+ // Top information strip only. Keep map colors fully raw to match the interactive map.
  ctx.fillStyle='rgba(255,255,255,.98)';
  ctx.fillRect(0,0,WIDTH,TOPBAR_H);
  ctx.strokeStyle='rgba(31,55,71,.09)';
@@ -19476,8 +19476,6 @@ function renderBase(ctx,bg,frameIndex){
  ctx.beginPath();ctx.moveTo(0,TOPBAR_H+.5);ctx.lineTo(WIDTH,TOPBAR_H+.5);ctx.stroke();
  ctx.save();
  ctx.beginPath();ctx.rect(0,MAP_TOP,WIDTH,MAP_HEIGHT);ctx.clip();
- ctx.fillStyle='#f4fafb';
- ctx.fillRect(0,MAP_TOP,WIDTH,MAP_HEIGHT);
  const plan=bg.plans[frameIndex];
  for(const tile of plan){
    const image=bg.tiles.get(tile.key);
@@ -19659,7 +19657,7 @@ function draws(ctx,bg,groups,view,t,frameIndex){
   }
   const intensityColor=styleOf({...g.forecast[0],level:current.level});
   const rp=ringPx(current.km,current.lat,view.zoom);
-  if(rp>1){ctx.beginPath();ctx.arc(p.x,p.y,rp,0,Math.PI*2);ctx.fillStyle=rgba(intensityColor,.06);ctx.fill();ctx.strokeStyle=rgba(intensityColor,.65);ctx.lineWidth=1.5;ctx.stroke();}
+  if(rp>1){ctx.beginPath();ctx.arc(p.x,p.y,rp,0,Math.PI*2);ctx.fillStyle=rgba(intensityColor,.12);ctx.fill();ctx.strokeStyle=rgba(intensityColor,.74);ctx.lineWidth=1.65;ctx.stroke();}
   dot(ctx,p,11,rgba(intensityColor,.19),'rgba(255,255,255,.8)',1.2);dot(ctx,p,6.4,intensityColor,'#ffffff',2.6);
   let latestPoint=arr[0], nextPoint=null;
   for(const pt of arr){ if(pt._t<=t) latestPoint=pt; else { nextPoint=pt; break; } }
