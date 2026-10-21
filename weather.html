@@ -18480,6 +18480,47 @@ ${a.instruction}` : ''
 
   function lerp(a,b,t){ return a+(b-a)*t; }
 
+// Transitional levels are a *visual interpolation* between official forecast fixes.
+// The original forecast observations are not modified or replaced.
+const ANIM_STRENGTH_LEVELS=['STY','TY','TS','TD','LOW'];
+function animNormalizeLevel(raw){
+ const key=String(raw||'').trim().toUpperCase();
+ return key==='STS'?'TS':key;
+}
+function animColorMix(first,second,fraction){
+ const t=Math.max(0,Math.min(1,fraction));
+ const m1=/^#([0-9a-f]{6})$/i.exec(first||'');
+ const m2=/^#([0-9a-f]{6})$/i.exec(second||'');
+ if(!m1||!m2)return t<.5?(first||'#2a9d8f'):(second||'#2a9d8f');
+ const a=parseInt(m1[1],16),b=parseInt(m2[1],16);
+ const result=[16,8,0].map(shift=>{
+  const x=(a>>shift)&255,y=(b>>shift)&255;
+  return Math.round(x+(y-x)*t).toString(16).padStart(2,'0');
+ });
+ return '#'+result.join('');
+}
+function animStrengthAt(firstLevel,lastLevel,fraction){
+ const t=Math.max(0,Math.min(1,Number(fraction)||0));
+ const a=animNormalizeLevel(firstLevel),b=animNormalizeLevel(lastLevel);
+ const startIndex=ANIM_STRENGTH_LEVELS.indexOf(a);
+ const endIndex=ANIM_STRENGTH_LEVELS.indexOf(b);
+ const fallbackColor=lev=>getStyle(lev).color||'#2a9d8f';
+ if(startIndex<0||endIndex<0 || startIndex===endIndex){
+  const level=t>=1?(lastLevel||firstLevel):(firstLevel||lastLevel);
+  return {level,color:fallbackColor(level),interpolated:false};
+ }
+ const index=startIndex+(endIndex-startIndex)*t;
+ const lower=Math.floor(index),higher=Math.ceil(index);
+ const color=animColorMix(
+  fallbackColor(ANIM_STRENGTH_LEVELS[lower]),
+  fallbackColor(ANIM_STRENGTH_LEVELS[higher]),
+  index-lower
+ );
+ const stageIndex=Math.max(0,Math.min(ANIM_STRENGTH_LEVELS.length-1,Math.round(index)));
+ const level=t>=1?lastLevel:(t<=0?firstLevel:ANIM_STRENGTH_LEVELS[stageIndex]);
+ return {level,color,interpolated:true};
+}
+
   function fmtAnimTime(raw){
     if(!raw) return '預報動畫';
     try{ return fmtTime(raw,'short') || String(raw); }catch(e){ return String(raw); }
@@ -18559,9 +18600,10 @@ ${a.instruction}` : ''
       const bR=Number.isFinite(Number(b.storm_radius_km)) ? Number(b.storm_radius_km) : aR;
       const radiusKm=lerp(aR,bR,t);
 
-      // Do not switch to the next category before the next forecast point.
-      const level=t<1 ? (a.level || b.level) : (b.level || a.level);
-      const color=getStyle(level).color || '#2563eb';
+      // Hour-by-hour display follows strength stages (e.g. TY -> TS -> TD),
+      // with interpolated color instead of switching at the final forecast fix.
+      const stage=animStrengthAt(a.level,b.level,t);
+      const {level,color}=stage;
 
       return {
         active:true,
@@ -18820,18 +18862,26 @@ ${a.instruction}` : ''
 
       animLayers.push(glow, line, marker, pulse, ring, label);
       const timeInfo=routeTimeInfo(g.route);
-      // A separate fixed-color layer for every official forecast interval.
-      // Earlier red pieces will not turn orange when the storm weakens later.
+      // Subdivide each official interval into colored pieces so that red / orange
+      // / green / blue stages remain on the historical line after passage.
       const stageLines=timeInfo.route.slice(0,-1).map((a,i)=>{
         const b=timeInfo.route[i+1];
-        const path=L.polyline([],{
-          pane:'forecastAnimPane',
-          color:getStyle(a.level).color || g.color,
-          weight:4.6,opacity:.98,
-          lineCap:'round',lineJoin:'round',dashArray:'10 8',interactive:false
-        }).addTo(map);
-        animLayers.push(path);
-        return {a,b,path};
+        const durationHours=Math.max(1,(b.__animTime-a.__animTime)/3600000);
+        // At most 12 subdivisions per forecast interval; min. 1 per hour when feasible.
+        const pieceCount=Math.max(2,Math.min(12,Math.ceil(durationHours)));
+        const pieces=[];
+        for(let k=0;k<pieceCount;k++){
+          const f0=k/pieceCount, f1=(k+1)/pieceCount;
+          const stage=animStrengthAt(a.level,b.level,(f0+f1)/2);
+          const path=L.polyline([] ,{
+            pane:'forecastAnimPane',color:stage.color,
+            weight:4.6,opacity:.98,lineCap:'round',lineJoin:'round',
+            dashArray:'10 8',interactive:false
+          }).addTo(map);
+          animLayers.push(path);
+          pieces.push({f0,f1,path});
+        }
+        return {a,b,pieces};
       });
       line.setStyle({opacity:0});
       return {
@@ -18915,7 +18965,7 @@ ${a.instruction}` : ''
         if(!state.active){
           g.glow.setStyle({opacity:0});
           g.line.setStyle({opacity:0});
-          g.stageLines.forEach(s=>s.path.setStyle({opacity:0}));
+          g.stageLines.forEach(s=>s.pieces.forEach(piece=>piece.path.setStyle({opacity:0})));
           g.marker.setStyle({opacity:0,fillOpacity:0});
           g.pulse.setStyle({opacity:0,fillOpacity:0});
           g.ring.setStyle({opacity:0,fillOpacity:0});
@@ -18926,17 +18976,23 @@ ${a.instruction}` : ''
         g.glow.setLatLngs(state.shown);
         g.glow.setStyle({opacity:.76});
 
-        // Show the track hour by hour but never recolor a finished interval.
+        // Reached subsections retain the intensity color they had at that hour.
         g.line.setLatLngs([]);
         g.stageLines.forEach(seg=>{
           const ta=seg.a.__animTime,tb=seg.b.__animTime;
-          if(continuousGlobalTime<=ta){ seg.path.setLatLngs([]); return; }
           const portion=Math.max(0,Math.min(1,(continuousGlobalTime-ta)/Math.max(1,tb-ta)));
-          seg.path.setLatLngs([
-            [seg.a.lat,seg.a.lon],
-            [lerp(Number(seg.a.lat),Number(seg.b.lat),portion),lerp(Number(seg.a.lon),Number(seg.b.lon),portion)]
-          ]);
-          seg.path.setStyle({opacity:.98});
+          for(const piece of seg.pieces){
+            if(continuousGlobalTime<=ta || portion<=piece.f0){
+              piece.path.setLatLngs([]);
+              continue;
+            }
+            const f1=Math.min(piece.f1,portion);
+            piece.path.setLatLngs([
+              [lerp(Number(seg.a.lat),Number(seg.b.lat),piece.f0),lerp(Number(seg.a.lon),Number(seg.b.lon),piece.f0)],
+              [lerp(Number(seg.a.lat),Number(seg.b.lat),f1),lerp(Number(seg.a.lon),Number(seg.b.lon),f1)]
+            ]);
+            piece.path.setStyle({opacity:.98});
+          }
         });
 
         g.marker.setLatLng(state.current);
@@ -19360,6 +19416,46 @@ function notice(message,progress){
 }
 function asTime(p){try{const d=typeof parseLocalDateTime==='function'?parseLocalDateTime(p.time):new Date(p.time);return d&&Number.isFinite(d.getTime())?d.getTime():NaN}catch(_){return NaN}}
 function styleOf(p){try{return getStyle(p.level)?.color||'#249988'}catch(_){return '#249988'}}
+// Transitional levels are a *visual interpolation* between official forecast fixes.
+// The original forecast observations are not modified or replaced.
+const ANIM_STRENGTH_LEVELS=['STY','TY','TS','TD','LOW'];
+function animNormalizeLevel(raw){
+ const key=String(raw||'').trim().toUpperCase();
+ return key==='STS'?'TS':key;
+}
+function animColorMix(first,second,fraction){
+ const t=Math.max(0,Math.min(1,fraction));
+ const m1=/^#([0-9a-f]{6})$/i.exec(first||'');
+ const m2=/^#([0-9a-f]{6})$/i.exec(second||'');
+ if(!m1||!m2)return t<.5?(first||'#2a9d8f'):(second||'#2a9d8f');
+ const a=parseInt(m1[1],16),b=parseInt(m2[1],16);
+ const result=[16,8,0].map(shift=>{
+  const x=(a>>shift)&255,y=(b>>shift)&255;
+  return Math.round(x+(y-x)*t).toString(16).padStart(2,'0');
+ });
+ return '#'+result.join('');
+}
+function animStrengthAt(firstLevel,lastLevel,fraction){
+ const t=Math.max(0,Math.min(1,Number(fraction)||0));
+ const a=animNormalizeLevel(firstLevel),b=animNormalizeLevel(lastLevel);
+ const startIndex=ANIM_STRENGTH_LEVELS.indexOf(a);
+ const endIndex=ANIM_STRENGTH_LEVELS.indexOf(b);
+ const fallbackColor=lev=>getStyle(lev).color||'#2a9d8f';
+ if(startIndex<0||endIndex<0 || startIndex===endIndex){
+  const level=t>=1?(lastLevel||firstLevel):(firstLevel||lastLevel);
+  return {level,color:fallbackColor(level),interpolated:false};
+ }
+ const index=startIndex+(endIndex-startIndex)*t;
+ const lower=Math.floor(index),higher=Math.ceil(index);
+ const color=animColorMix(
+  fallbackColor(ANIM_STRENGTH_LEVELS[lower]),
+  fallbackColor(ANIM_STRENGTH_LEVELS[higher]),
+  index-lower
+ );
+ const stageIndex=Math.max(0,Math.min(ANIM_STRENGTH_LEVELS.length-1,Math.round(index)));
+ const level=t>=1?lastLevel:(t<=0?firstLevel:ANIM_STRENGTH_LEVELS[stageIndex]);
+ return {level,color,interpolated:true};
+}
 function normalizedLon(lon,reference){return reference+((((lon-reference)+540)%360+360)%360-180)}
 function storms(){
  let src=[];try{src=Array.isArray(points)?points:[]}catch(_){ }
@@ -19424,7 +19520,16 @@ function loadImage(url){
 function rounded(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
 function textTime(ms){const d=new Date(ms),p=n=>String(n).padStart(2,'0');return `${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
 function rgba(hex,alpha){const s=String(hex||'').match(/^#([0-9a-f]{6})$/i);if(!s)return `rgba(30,157,143,${alpha})`;const v=s[1];return `rgba(${parseInt(v.slice(0,2),16)},${parseInt(v.slice(2,4),16)},${parseInt(v.slice(4,6),16)},${alpha})`;}
-function segmentPosition(a,b,t,view){const frac=Math.max(0,Math.min(1,t));const lat=+a.lat+(+b.lat-+a.lat)*frac;const al=view.unwrap(+a.lon),bl=view.unwrap(+b.lon);const lon=al+(bl-al)*frac;let radiusA=+a.storm_radius_km||0,radiusB=+b.storm_radius_km||0;if(radiusA<=0&&radiusB>0)radiusA=radiusB;if(radiusB<=0&&radiusA>0)radiusB=radiusA;return {lat,lon,km:radiusA+(radiusB-radiusA)*frac,level:frac<1?a.level:b.level};}
+function segmentPosition(a,b,t,view){
+ const frac=Math.max(0,Math.min(1,t));
+ const lat=+a.lat+(+b.lat-+a.lat)*frac;
+ const al=view.unwrap(+a.lon),bl=view.unwrap(+b.lon),lon=al+(bl-al)*frac;
+ let radiusA=+a.storm_radius_km||0,radiusB=+b.storm_radius_km||0;
+ if(radiusA<=0&&radiusB>0)radiusA=radiusB;
+ if(radiusB<=0&&radiusA>0)radiusB=radiusA;
+ const stage=animStrengthAt(a.level,b.level,frac);
+ return {lat,lon,km:radiusA+(radiusB-radiusA)*frac,level:stage.level,color:stage.color};
+}
 function positionAt(g,t,view){const arr=g.forecast;if(t<=arr[0]._t)return segmentPosition(arr[0],arr[0],0,view);for(let i=0;i<arr.length-1;i++)if(t<=arr[i+1]._t)return segmentPosition(arr[i],arr[i+1],(t-arr[i]._t)/(arr[i+1]._t-arr[i]._t),view);return segmentPosition(arr.at(-1),arr.at(-1),0,view);}
 function poly(ctx,pts,stroke,width,dash=[]){if(pts.length<2)return;ctx.save();ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash(dash);ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke();ctx.restore();}
 function dot(ctx,pos,r,color,stroke='#fff',lineWidth=2){ctx.beginPath();ctx.arc(pos.x,pos.y,r,0,2*Math.PI);ctx.fillStyle=color;ctx.fill();if(lineWidth){ctx.lineWidth=lineWidth;ctx.strokeStyle=stroke;ctx.stroke();}}
@@ -19588,7 +19693,7 @@ function drawStormInfoPanel(ctx,item,items,labels){
  const chipW=Math.min(120,Math.max(70,Math.ceil(ctx.measureText(intensity).width)+24));
  rounded(ctx,x+nameW-chipW-16,rowY+18,chipW,24,12);ctx.fillStyle=rgba(accent,.13);ctx.fill();ctx.strokeStyle=rgba(accent,.38);ctx.lineWidth=1;ctx.stroke();
  ctx.fillStyle=accent;ctx.textAlign='center';ctx.fillText(intensity,x+nameW-chipW/2-16,rowY+34);ctx.textAlign='left';
- ctx.fillStyle='#7e949f';ctx.font='700 11px "Noto Sans TC",sans-serif';ctx.fillText('預報中心位置與強度資訊',x+16,rowY+66);
+ ctx.fillStyle='#7e949f';ctx.font='700 11px "Noto Sans TC",sans-serif';ctx.fillText('兩個預報點間的強度為動畫插值',x+16,rowY+66);
  function metricCard(px,title,val,unit){
    card(px,metricW);
    ctx.fillStyle='#718a97';ctx.font='800 11px "Noto Sans TC",sans-serif';ctx.fillText(title,px+14,rowY+20);
@@ -19644,9 +19749,19 @@ function draws(ctx,bg,groups,view,t,frameIndex){
    const frac=Math.max(0,Math.min(1,(t-a._t)/(b._t-a._t)));
    const reached=segmentPosition(a,b,frac,view);
    const v=xyFor(view,a.lat,a.lon),w=xyFor(view,reached.lat,reached.lon);
-   const segmentColor=styleOf(a);  // STY red stays red; later TY segments are orange.
+   // Gradient only along already reached coordinates. The same geographical
+   // location keeps its original interpolated intensity color in later frames.
    poly(ctx,[v,w],'rgba(255,255,255,.98)',8.0);
-   poly(ctx,[v,w],segmentColor,4.6);
+   const dist=Math.hypot(w.x-v.x,w.y-v.y);
+   if(dist>.01){
+     const routeGradient=ctx.createLinearGradient(v.x,v.y,w.x,w.y);
+     const steps=Math.max(2,Math.ceil(frac*18));
+     for(let s=0;s<=steps;s++){
+       const local=s/steps;
+       routeGradient.addColorStop(local,animStrengthAt(a.level,b.level,frac*local).color);
+     }
+     poly(ctx,[v,w],routeGradient,4.6);
+   }
    if(t<b._t)break;
   }
   // Place actual forecast observations as the animation reaches each valid time.
@@ -19655,7 +19770,7 @@ function draws(ctx,bg,groups,view,t,frameIndex){
    const v=xyFor(view,pt.lat,pt.lon);
    dot(ctx,v,pt.kind==='obs'?5.5:4.6,styleOf(pt),'#ffffff',1.9);
   }
-  const intensityColor=styleOf({...g.forecast[0],level:current.level});
+  const intensityColor=current.color||styleOf({...g.forecast[0],level:current.level});
   const rp=ringPx(current.km,current.lat,view.zoom);
   if(rp>1){ctx.beginPath();ctx.arc(p.x,p.y,rp,0,Math.PI*2);ctx.fillStyle=rgba(intensityColor,.12);ctx.fill();ctx.strokeStyle=rgba(intensityColor,.74);ctx.lineWidth=1.65;ctx.stroke();}
   dot(ctx,p,11,rgba(intensityColor,.19),'rgba(255,255,255,.8)',1.2);dot(ctx,p,6.4,intensityColor,'#ffffff',2.6);
