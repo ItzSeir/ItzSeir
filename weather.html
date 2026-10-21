@@ -16396,7 +16396,7 @@ ${a.instruction}` : ''
   function buildMercatorForecastCone(srcPoints){
     /*
       Robust 70% forecast cone
-      - keeps the original 70% radius smoothing
+      - follows the reported 70% forecast-error radii at each forecast fix
       - follows the forecast centre line in Web Mercator
       - avoids convex-hull shortcuts
       - avoids tangent self-intersections on sharp turns
@@ -16432,10 +16432,18 @@ ${a.instruction}` : ''
     for(let i=1;i<route.length;i++) route[i].lon=unwrap(route[i].lon,route[i-1].lon);
     const originX=R*toRad(route[0].lon), originY=myKm(route[0].lat);
     const toXY=p=>({x:R*toRad(p.lon)-originX,y:myKm(p.lat)-originY});
+    // Use the supplied forecast-error radii in kilometres (never multiply the
+    // values by an arbitrary map scale).  Gradually introduce the first error
+    // circle from the observed position.  The prior version used the FULL
+    // first circle immediately, creating a visually oversized initial cone.
+    // Preserve the final forecast radius exactly at the forecast endpoint.
     const rawRadii=fc.map(p=>clamp(Number(p.fcst_radius_km)||0,0,350));
-    const startRadius=clamp((rawRadii[0]||30)*.38,12,120);
-    const radii=rawRadii.map((r,i)=>i===0 ? clamp((startRadius+r)/2,8,350)
-      : clamp((rawRadii[i-1]+r+(rawRadii[i+1]??r))/3,8,350));
+    const startRadius=Math.min(6,rawRadii[0]*0.05);
+    const radii=rawRadii.map((r,i)=>{
+      if(i===0 && rawRadii.length>1) return (startRadius+r)*0.5;
+      if(i===rawRadii.length-1) return r;
+      return (rawRadii[i-1]+r+rawRadii[i+1])/3;
+    });
     const node=(p,rKm)=>({...toXY(p),rKm,r:rKm/Math.cos(toRad(clamp(p.lat,-LIMIT,LIMIT)))});
     const nodes=[node(route[0],startRadius),...route.slice(1).map((p,i)=>node(p,radii[i]))];
 
@@ -17696,9 +17704,16 @@ ${a.instruction}` : ''
     const route=obs ? [obs,...list.filter(p=>p.kind==='fcst')] : [];
     const key=JSON.stringify(route.map(p=>[p.kind,p.time,p.lat,p.lon,p.fcst_radius_km]));
     if(coneCache.has(key)) return coneCache.get(key);
-    const highLatitude=route.some(p=>Math.abs(p.lat)>=35);
-    const polygon=highLatitude && typeof window.__buildMercatorForecastCone==='function'
-      ? window.__buildMercatorForecastCone(list) : buildOriginalConeFixed(list);
+    // One geodesic envelope at every latitude. The previous >=35° switch
+    // chose the tangent-offset legacy algorithm for Taiwan/Japan paths; its
+    // inner/outer sides could cross when the storm curved sharply, producing
+    // a huge skewed forecast cone. Use the physically sized, continuous
+    // union-of-circles contour for the interactive map AND every export.
+    const mercator=window.__buildMercatorForecastCone;
+    let polygon=typeof mercator==='function' ? mercator(list) : null;
+    // Only retain the legacy geometry as a last-resort fallback for malformed
+    // datasets; do not fall back merely because the track is low latitude.
+    if(!polygon || polygon.length<4) polygon=buildOriginalConeFixed(list);
     if(coneCache.size>=64) coneCache.delete(coneCache.keys().next().value);
     coneCache.set(key,polygon);
     return polygon;
