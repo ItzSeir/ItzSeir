@@ -5134,6 +5134,113 @@ html{scroll-padding-top:110px}
 .seir-nav-links a{gap:0 !important;}
 </style>
 
+<style id="weather-mobile-redesign-20261021">
+/* Mobile-only redesign: reset legacy size overrides without touching map projections or export styles. */
+.weather-mobile-jump{display:none}
+@media (max-width: 780px){
+  html{scroll-padding-top:96px !important;scrollbar-gutter:auto}
+  body.seir-weather{overflow-x:clip !important}
+  .seir-weather .page{width:100% !important;padding:10px 10px 40px !important;max-width:100% !important}
+  .seir-weather .page > *{max-width:100%;min-width:0}
+  .seir-weather .seir-nav{position:sticky;top:7px;z-index:1100;margin:0 0 12px !important;border-radius:17px !important;min-height:58px !important;padding:8px 11px !important}
+  .seir-weather .seir-nav-symbol{width:37px !important;height:37px !important;border-radius:12px !important}
+  .seir-weather .seir-nav-name{font-size:14px !important}
+  .seir-weather .seir-nav-caption{font-size:9px !important}
+  .weather-mobile-jump{display:flex;position:sticky;top:75px;z-index:1050;gap:7px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;padding:6px 1px 12px;margin-bottom:4px;background:linear-gradient(180deg,#f6f9f4 82%,rgba(246,249,244,0))}
+  .weather-mobile-jump::-webkit-scrollbar{display:none}
+  .weather-mobile-jump a{flex:0 0 auto;scroll-snap-align:start;text-decoration:none;white-space:nowrap;font-size:12px;font-weight:800;color:#305e54;background:#fffefa;border:1px solid #d7e5df;padding:10px 14px;border-radius:999px;min-height:40px;display:flex;align-items:center;justify-content:center}
+  .weather-mobile-jump a:active{background:#ddefed}
+  .seir-weather #overview,.seir-weather #warnings,.seir-weather #tracker,.seir-weather #typhoonMapPanel,.seir-weather #fcstList{scroll-margin-top:138px !important}
+  .seir-weather .weatherHeroCard{padding:23px 19px 21px !important;min-height:0 !important;border-radius:22px !important}
+  .seir-weather .weatherTitle{font-size:clamp(28px,8vw,36px) !important;margin:15px 0 10px !important;letter-spacing:-.035em !important;line-height:1.16 !important}
+  .seir-weather .eyebrow{font-size:11px;padding:6px 10px}
+  .seir-weather .heroActions{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px !important;margin-top:17px}
+  .seir-weather .heroActions .actionBtn{width:100% !important;min-height:43px !important;font-size:12px !important;white-space:normal;line-height:1.3}
+  .seir-weather .section{margin-top:14px !important;border-radius:21px !important;overflow:hidden}
+  .seir-weather .sectionHead{padding:18px 15px 15px !important;gap:13px !important;flex-direction:column !important;align-items:stretch !important}
+  .seir-weather .sectionTitle{font-size:22px !important;line-height:1.25 !important}
+  .seir-weather .sectionDesc{font-size:11px !important;line-height:1.6 !important;margin-top:7px}
+  .seir-weather .sectionKicker{font-size:10px !important;letter-spacing:.06em !important}
+  .seir-weather .toolbar{width:100%;justify-content:flex-start !important;gap:8px !important}
+  /* Country tabs remain equal-width in one compact row. */
+  .seir-weather #warnings .sectionHead .toolbar{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .seir-weather #warnings .sectionHead .toolbar .btn{width:100% !important;min-width:0 !important;flex:none !important;min-height:42px}
+  .seir-weather .warningBody,.seir-weather .trackerBody,.seir-weather .trackerBodyNew{padding:12px !important}
+  .seir-weather .warningTop{gap:11px !important;margin-bottom:13px}
+  .seir-weather .warningTop h3{font-size:17px;margin:8px 0 4px}
+  .seir-weather .warningTop p{font-size:11px;line-height:1.5}
+  .seir-weather .warningControls{display:flex;align-items:center;flex-wrap:wrap;gap:7px;width:100%;justify-content:flex-start}
+  .seir-weather .warningControls > *{min-width:0}
+  .seir-weather .warningControls .warningSelect{width:auto !important;flex:1 1 145px}
+  .seir-weather .btn,.seir-weather .toggle,.seir-weather .chip{font-size:11px !important;min-height:37px;height:auto !important;line-height:1.3;padding:9px 10px !important;flex:0 0 auto !important}
+  /* Taiwan weather alert content: eliminate fixed desktop heights. */
+  .seir-weather .twOfficialGrid{display:grid !important;grid-template-columns:minmax(0,1fr) !important;gap:12px !important}
+  .seir-weather .twOfficialRight{display:contents !important}
+  .seir-weather .twOfficialMapPanel,.seir-weather .twOfficialTablePanel,.seir-weather .twOfficialDetailPanel,.seir-weather .twOfficialBottomDetailPanel{grid-column:1 / -1 !important;min-width:0 !important;min-height:0 !important;height:auto !important;max-height:none !important;border-radius:16px !important;box-shadow:none !important}
+  .seir-weather #twAreaMap{height:clamp(290px,90vw,420px) !important;min-height:290px !important}
+  .seir-weather .twOfficialLegend{display:flex !important;flex-wrap:wrap !important;gap:6px !important;grid-template-columns:unset !important;padding:9px !important}
+  .seir-weather .twOfficialLegendItem{width:auto !important;min-width:0 !important;flex:1 1 44%;font-size:10px !important;line-height:1.4}
+  .seir-weather .twOfficialMapHead,.seir-weather .twOfficialTableHead,.seir-weather .twOfficialDetailHead{padding:12px !important;gap:7px;flex-wrap:wrap}
+  .seir-weather .twOfficialFilters{grid-template-columns:minmax(0,1fr) !important;gap:8px;padding:10px !important}
+  .seir-weather .twOfficialCountyTables{grid-template-columns:minmax(0,1fr) !important;overflow-x:auto !important;max-height:440px !important;overflow-y:auto !important}
+  .seir-weather .twOfficialTable{width:100% !important;min-width:0 !important}
+  .seir-weather .twOfficialTable th,.seir-weather .twOfficialTable td{font-size:11px !important;padding:9px 7px !important;overflow-wrap:anywhere}
+  .seir-weather .twImportantGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important}
+  .seir-weather .twImportantCard{min-width:0 !important;padding:11px !important}
+  .seir-weather .twImportantCard.wide{grid-column:1 / -1 !important}
+  .seir-weather .twOfficialDetailBody{padding:11px !important}
+  .seir-weather .twOfficialDetailText{overflow-wrap:anywhere}
+  /* Malaysia and HKO: reduce oversized map/list regions. */
+  .seir-weather .myWarningGrid{grid-template-columns:minmax(0,1fr) !important;gap:12px}
+  .seir-weather .myMapBox{min-height:0 !important;border-radius:17px}
+  .seir-weather .myMapHead{padding:12px !important;flex-wrap:wrap}
+  .seir-weather #myMap{height:340px !important;min-height:340px}
+  .seir-weather .warningSimpleList{max-height:520px}
+  /* Tracker compact selection/actions without two-column flex-basis issues. */
+  .seir-weather .trackerHeadRight{width:100% !important;max-width:100% !important;min-width:0;gap:10px !important;align-items:stretch !important}
+  .seir-weather .trackerSourceTop{padding:11px 13px !important;border-radius:15px !important}
+  .seir-weather .trackerHeadRight > .toolbar{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px !important;align-items:stretch}
+  .seir-weather .trackerHeadRight > .toolbar > *{min-width:0 !important;max-width:100%;width:100% !important;flex:none !important;margin:0 !important;min-height:39px !important;box-sizing:border-box}
+  .seir-weather #typhoonSelect{grid-column:1 / -1 !important;border-radius:12px !important;padding:7px 10px !important}
+  .seir-weather .trackerHeadRight .toggle{justify-content:center !important;gap:6px}
+  .seir-weather .trackerHeadRight .toggle input{margin:0;flex:0 0 auto}
+  .seir-weather .trackerHeadRight .btn{justify-content:center !important;white-space:normal !important}
+  .seir-weather .trackerHeadRight select.ty-video-quality{font-size:11px !important;border-radius:12px !important;padding:6px !important}
+  .seir-weather .typhoonInfoGrid,.seir-weather .infoGrid{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important}
+  .seir-weather .infoGrid > .ibox:first-child{grid-column:1 / -1}
+  .seir-weather .ibox{min-height:76px;padding:12px !important;border-radius:14px !important;min-width:0}
+  .seir-weather .ival{font-size:clamp(16px,5vw,23px) !important;line-height:1.2 !important;word-break:break-word}
+  .seir-weather .ilabel{font-size:10px !important;margin-top:6px}
+  .seir-weather .statusTop{padding:11px 12px !important;gap:8px !important;flex-wrap:wrap}
+  .seir-weather .statusBody{padding:11px !important}
+  .seir-weather .noteBox{margin-top:9px;padding:11px !important;font-size:11px !important}
+  /* Map first on mobile; forecast stays in a swipeable card list after it. */
+  .seir-weather .typhoonMainGrid{display:flex !important;flex-direction:column !important;gap:12px !important}
+  .seir-weather .typhoonMainGrid > .mapShell{order:0;display:flex;flex-direction:column;width:100% !important;height:auto !important;min-height:0 !important;border-radius:17px !important;overflow:hidden}
+  .seir-weather .typhoonMainGrid > .typhoonForecastSide{order:1;height:auto !important;min-height:0 !important;max-height:none !important;border-radius:17px !important}
+  .seir-weather .mapHeader{padding:11px 11px 9px !important;gap:8px !important;display:block !important;min-height:0 !important}
+  .seir-weather .mapHeader strong{font-size:12px !important;margin-bottom:7px}
+  .seir-weather .mapLegend{display:flex !important;flex-wrap:nowrap !important;overflow-x:auto !important;max-height:none !important;gap:6px !important;scrollbar-width:none;padding:2px 0 5px;justify-content:flex-start !important}
+  .seir-weather .mapLegend::-webkit-scrollbar{display:none}
+  .seir-weather .legendItem{flex:0 0 auto !important;white-space:nowrap !important;font-size:10px !important;padding:5px 8px !important}
+  .seir-weather .typhoonMainGrid > .mapShell #map{display:block !important;width:100% !important;height:clamp(360px,108vw,540px) !important;min-height:360px !important;flex:none !important}
+  .seir-weather .fcstTop{padding:11px !important;gap:6px}
+  .seir-weather .typhoonForecastSide .fcstList{display:flex !important;flex-direction:row !important;gap:10px !important;overflow-x:auto !important;overflow-y:hidden !important;scroll-snap-type:x mandatory;scrollbar-gutter:auto;padding:12px !important;min-height:0 !important;max-height:none !important}
+  .seir-weather .typhoonForecastSide .fcstCard{width:min(80vw,295px) !important;min-width:min(80vw,295px) !important;flex:0 0 auto !important;scroll-snap-align:start;padding:13px !important;border-radius:15px !important}
+  .seir-weather .fcstTime{font-size:13px !important}
+  .seir-weather .fcstKv{font-size:11px !important;grid-template-columns:52px minmax(0,1fr) !important}
+  .seir-weather .leaflet-control-zoom a{width:31px;height:31px;line-height:31px}
+  .seir-weather .leaflet-control-attribution{font-size:9px !important}
+}
+@media(max-width:390px){
+  .seir-weather .page{padding-left:7px !important;padding-right:7px !important}
+  .seir-weather .sectionHead{padding:15px 12px !important}
+  .seir-weather .warningBody,.seir-weather .trackerBodyNew{padding:9px !important}
+  .seir-weather .twOfficialLegendItem{flex-basis:100%}
+  .seir-weather .trackerHeadRight > .toolbar{gap:6px !important}
+  .seir-weather .trackerHeadRight .btn{font-size:10px !important}
+}
+</style>
 </head>
 <body class="seir-weather">
 <!--
@@ -5162,6 +5269,7 @@ Implement by adjusting polygon style functions:
 </div>
 </header>
 <div id="siteAnnouncement"></div>
+<nav class="weather-mobile-jump" aria-label="天氣頁面快速切換"><a href="#warnings">天氣警報</a><a href="#tracker">颱風動態</a><a href="#typhoonMapPanel">路徑地圖</a><a href="#fcstList">預報列表</a></nav>
 <section class="weatherHero" id="overview">
 <div class="weatherHeroCard">
 <div class="eyebrow">
@@ -5458,7 +5566,7 @@ Implement by adjusting polygon style functions:
 </div>
 <div aria-label="forecast-list" class="fcstList" id="fcstList"></div>
 </div>
-<div class="mapShell">
+<div class="mapShell" id="typhoonMapPanel">
 <div class="mapHeader">
 <strong>
 <span class="dot" style="background:#4f8cff;"></span>
