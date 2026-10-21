@@ -5413,7 +5413,7 @@ Implement by adjusting polygon style functions:
 <option value="webm">WebM</option>
 </select>
 <button class="btn" id="exportTyphoonGifBtn" title="逐小時快速播放，保留高清畫質｜優先輸出 MP4，不支援時改用 WebM" type="button">生成高清影片</button>
-<span id="tyVideoGeoStatus" class="ty-video-geo-status" title="依網站 data 資料夾自動讀取，不需上傳">影片 Border：準備讀取縣市資料…</span>
+
 <button class="btn" id="printAllBtn" style="display:none;" type="button">產生全部颱風 PNG</button>
 </div>
 </div>
@@ -19309,7 +19309,7 @@ function drawOneBorderLayer(ctx,view,layer){
  const isCounty=layer.id==='twCounty';
  const isState=layer.id==='myState';
  const major=layer.tier==='major';
- const lineWidth=isCounty?2.8:(isState?2.4:(major?2.1:.86));
+ const lineWidth=isCounty?1.55:(isState?1.35:(major?1.15:.62));
  const lineColor=isCounty?'rgba(20,61,79,.96)':isState?'rgba(23,75,94,.92)':major?'rgba(26,81,103,.94)':'rgba(51,97,112,.52)';
  ctx.beginPath();let pathCount=0;
  for(const path of layer.paths){
@@ -19328,7 +19328,7 @@ function drawOneBorderLayer(ctx,view,layer){
  ctx.lineJoin='round';ctx.lineCap='round';
  if(major){
   // Light halo makes counties visible over green coastlines, without recoloring the map.
-  ctx.strokeStyle='rgba(255,255,255,.87)';ctx.lineWidth=lineWidth+2.3;ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.82)';ctx.lineWidth=lineWidth+1.25;ctx.stroke();
  }
  ctx.strokeStyle=lineColor;ctx.lineWidth=lineWidth;ctx.stroke();
  return pathCount;
