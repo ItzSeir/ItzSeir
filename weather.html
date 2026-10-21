@@ -19309,8 +19309,8 @@ function drawOneBorderLayer(ctx,view,layer){
  const isCounty=layer.id==='twCounty';
  const isState=layer.id==='myState';
  const major=layer.tier==='major';
- const lineWidth=isCounty?1.55:(isState?1.35:(major?1.15:.62));
- const lineColor=isCounty?'rgba(20,61,79,.96)':isState?'rgba(23,75,94,.92)':major?'rgba(26,81,103,.94)':'rgba(51,97,112,.52)';
+ const lineWidth=isCounty?1.02:(isState?0.92:(major?0.82:.46));
+ const lineColor=isCounty?'rgba(24,66,83,.88)':isState?'rgba(26,79,97,.86)':major?'rgba(29,84,105,.84)':'rgba(51,97,112,.40)';
  ctx.beginPath();let pathCount=0;
  for(const path of layer.paths){
   if(!borderPathIsVisible(path,view))continue;
@@ -19328,7 +19328,7 @@ function drawOneBorderLayer(ctx,view,layer){
  ctx.lineJoin='round';ctx.lineCap='round';
  if(major){
   // Light halo makes counties visible over green coastlines, without recoloring the map.
-  ctx.strokeStyle='rgba(255,255,255,.82)';ctx.lineWidth=lineWidth+1.25;ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.40)';ctx.lineWidth=lineWidth+.62;ctx.stroke();
  }
  ctx.strokeStyle=lineColor;ctx.lineWidth=lineWidth;ctx.stroke();
  return pathCount;
@@ -19659,7 +19659,7 @@ function draws(ctx,bg,groups,view,t,frameIndex){
   }
   const intensityColor=styleOf({...g.forecast[0],level:current.level});
   const rp=ringPx(current.km,current.lat,view.zoom);
-  if(rp>1){ctx.beginPath();ctx.arc(p.x,p.y,rp,0,Math.PI*2);ctx.fillStyle=rgba(intensityColor,.065);ctx.fill();ctx.strokeStyle=rgba(intensityColor,.92);ctx.lineWidth=2.4;ctx.stroke();}
+  if(rp>1){ctx.beginPath();ctx.arc(p.x,p.y,rp,0,Math.PI*2);ctx.fillStyle=rgba(intensityColor,.06);ctx.fill();ctx.strokeStyle=rgba(intensityColor,.65);ctx.lineWidth=1.5;ctx.stroke();}
   dot(ctx,p,11,rgba(intensityColor,.19),'rgba(255,255,255,.8)',1.2);dot(ctx,p,6.4,intensityColor,'#ffffff',2.6);
   let latestPoint=arr[0], nextPoint=null;
   for(const pt of arr){ if(pt._t<=t) latestPoint=pt; else { nextPoint=pt; break; } }
