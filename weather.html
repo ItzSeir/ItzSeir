@@ -19877,7 +19877,7 @@ async function encodeCanvasSequenceMp4(canvas, renderFrame, count, quality, onPr
   const codecCandidates=['avc1.640032','avc1.4d4032','avc1.420032','avc1.640028','avc1.4d4028','avc1.420028'];
   let config=null;
   for(const codec of codecCandidates){
-    const candidate={codec,width:quality.width,height:quality.height,bitrate:quality.bitrate,framerate:30,latencyMode:'realtime',avc:{format:'avc'}};
+    const candidate={codec,width:quality.width,height:quality.height,bitrate:quality.bitrate,framerate:1000/stepMs,latencyMode:'quality',bitrateMode:'constant',avc:{format:'avc'}};
     try{if((await VideoEncoder.isConfigSupported(candidate)).supported){config=candidate;break;}}catch(_){}
   }
   if(!config)throw Error('此瀏覽器不支援 WebCodecs H.264 高畫質編碼。');
@@ -19953,13 +19953,32 @@ function videoCodecOptions(preference){
 }
 async function selectFixedEncoder(quality,preference){
  if(!('VideoEncoder' in window)||!('VideoFrame' in window))throw Error('此瀏覽器沒有 WebCodecs 固定時間戳編碼功能。請使用最新版 Chrome 或 Edge，並透過 HTTPS 開啟網頁。');
+ // The video displays one forecast hour every 300ms (3.33fps), NOT 30fps.
+ // Encoding a 3.33fps stream as 30fps can starve every frame of bitrate.
+ const realFps=1000/FIXED_HOUR_MS;
+ // Prefer high-fidelity CBR and offline/quality latency; try combinations
+ // because not every browser/driver supports every rate-control mode.
+ const qualityModes=[
+  {latencyMode:'quality',bitrateMode:'constant',description:'高畫質恆定位元率'},
+  {latencyMode:'realtime',bitrateMode:'constant',description:'恆定位元率'},
+  {latencyMode:'quality',bitrateMode:'variable',description:'高畫質動態位元率'},
+  {latencyMode:'realtime',bitrateMode:'variable',description:'動態位元率'}
+ ];
  for(const option of videoCodecOptions(preference)){
-  const config={codec:option.codec,width:quality.width,height:quality.height,bitrate:quality.bitrate,framerate:30,latencyMode:'realtime'};
-  if(option.format==='mp4')config.avc={format:'avc'};
-  try{
-   const result=await VideoEncoder.isConfigSupported(config);
-   if(result?.supported)return {...option,config};
-  }catch(_){ }
+  for(const mode of qualityModes){
+   const config={codec:option.codec,width:quality.width,height:quality.height,
+     bitrate:quality.bitrate,framerate:realFps,
+     latencyMode:mode.latencyMode,bitrateMode:mode.bitrateMode};
+   if(option.format==='mp4')config.avc={format:'avc'};
+   try{
+    const result=await VideoEncoder.isConfigSupported(config);
+    if(!result?.supported)continue;
+    // Do not silently present an ignored bitrate-mode request as CBR.
+    const supported=result.config||config;
+    if(supported.bitrateMode && supported.bitrateMode!==mode.bitrateMode)continue;
+    return {...option,config:supported,mode:mode.description};
+   }catch(_){ }
+  }
  }
  throw Error('此裝置沒有支援的高清影片編碼器，請改用 Chrome / Edge 或改選 1080p。');
 }
@@ -20008,13 +20027,13 @@ async function exportVideo(){
    error:error=>{encodingError=error;}
   });
   encoder.configure(plan.config);
-  notice(`離線編碼 ${quality.label} · ${plan.format.toUpperCase()} · 每小時固定 ${FIXED_HOUR_MS/1000} 秒…`,6);
+  notice(`2K 原生畫布／高畫質編碼 ${quality.label} · ${plan.mode} · 固定每小時 ${FIXED_HOUR_MS/1000} 秒…`,6);
   for(let i=0;i<hourlyTimes.length;i++){
    if(encodingError)throw encodingError;
    // Frame rendering can be slow: it does not affect the output timestamps.
    draws(ctx,bg,groups,cameras[i],hourlyTimes[i],i);
    const frame=new VideoFrame(canvas,{timestamp:i*FIXED_HOUR_MS*1000,duration:FIXED_HOUR_MS*1000});
-   try{encoder.encode(frame,{keyFrame:i===0 || i%48===0})}finally{frame.close();}
+   try{encoder.encode(frame,{keyFrame:i===0 || i%5===0})}finally{frame.close();}
    if(encoder.encodeQueueSize>3)await encoder.flush();
    if(i%3===0||i===hourlyTimes.length-1){
     notice(`${quality.label} · 編碼 ${i+1}/${hourlyTimes.length} 小時 · 固定每小時 0.30 秒`,8+Math.round((i+1)/hourlyTimes.length*85));
@@ -20030,11 +20049,22 @@ async function exportVideo(){
     ?encodeFixedRateMp4(encoded,avcConfig,quality.width,quality.height,FIXED_HOUR_MS)
     :encodeFixedRateWebM(encoded,quality.width,quality.height,FIXED_HOUR_MS,plan.codecId);
   if(blob.size<1000)throw Error('影片資料不完整，請重試。');
+  // Container dimensions alone do not guarantee sharpness; calculate real bitrate.
+  const realBitrateMbps=blob.size*8/(hourlyTimes.length*FIXED_HOUR_MS/1000)/1000000;
+  console.info('[Typhoon video 2K quality]',{
+    resolution:quality.width+'x'+quality.height,
+    targetMbps:quality.bitrate/1000000,
+    actualMbps:+realBitrateMbps.toFixed(2),
+    encoder:plan.mode,
+    keyframeInterval:5,
+    seconds:hourlyTimes.length*FIXED_HOUR_MS/1000
+  });
   const url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;
   link.download=`颱風逐小時路徑_等速_${quality.width}x${quality.height}_${new Date().toISOString().slice(0,10)}.${plan.format}`;
   document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  notice(`影片完成：${quality.label} ${plan.format.toUpperCase()} · 每小時恆定 0.30 秒 · ${(blob.size/1048576).toFixed(1)} MB`,100);
+  const qualityWarn=realBitrateMbps<3.5?' · 注意：瀏覽器仍壓縮得較低，建議試試 WebM／最新版 Chrome 或 Edge':'';
+  notice(`影片完成：${quality.label} ${plan.format.toUpperCase()} · 實際 ${realBitrateMbps.toFixed(2)} Mbps · ${(blob.size/1048576).toFixed(1)} MB${qualityWarn}`,100);
  }catch(error){console.error('[Typhoon Fixed-Rate Video]',error);notice('輸出失敗：'+(error?.message||String(error)));}
  finally{
   if(encoder)try{encoder.close()}catch(_){ }
