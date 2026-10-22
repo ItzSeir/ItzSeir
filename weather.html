@@ -20270,7 +20270,7 @@ function drawTopUi(ctx,nowText){
 function drawLegendUi(ctx){
  ctx.save();
  ctx.shadowColor='rgba(10,36,48,.15)';ctx.shadowBlur=9;ctx.shadowOffsetY=2;
- rounded(ctx,16,HEIGHT-46,448,30,14);ctx.fillStyle='rgba(255,255,255,.96)';ctx.fill();
+ rounded(ctx,16,HEIGHT-46,715,30,14);ctx.fillStyle='rgba(255,255,255,.96)';ctx.fill();
  ctx.shadowColor='transparent';ctx.shadowBlur=0;
  const y=HEIGHT-28;
  ctx.font='800 11px "Noto Sans TC",sans-serif';
@@ -20279,7 +20279,15 @@ function drawLegendUi(ctx){
  dot(ctx,{x:149,y:y-1},4,'#f59e0b','transparent',0);ctx.fillStyle='#426078';ctx.fillText('中颱',160,y+3);
  dot(ctx,{x:208,y:y-1},4,'#22c55e','transparent',0);ctx.fillStyle='#426078';ctx.fillText('輕颱',219,y+3);
  ctx.beginPath();ctx.arc(279,y-1,5,0,Math.PI*2);ctx.strokeStyle='#ec705f';ctx.lineWidth=1.8;ctx.stroke();ctx.fillStyle='#426078';ctx.fillText('7級／10級',291,y+3);
- rounded(ctx,364,y-10,18,18,4);ctx.fillStyle='rgba(212,0,0,.18)';ctx.fill();ctx.strokeStyle='rgba(212,0,0,.72)';ctx.lineWidth=1.2;ctx.stroke();ctx.fillStyle='#426078';ctx.fillText('陸警',390,y+3);
+ rounded(ctx,364,y-10,18,18,4);ctx.fillStyle='rgba(212,0,0,.18)';ctx.fill();ctx.strokeStyle='rgba(212,0,0,.72)';ctx.lineWidth=1.2;ctx.stroke();ctx.fillStyle='#426078';ctx.fillText('陸上颱風警報',390,y+3);
+ // Official maritime warning: same red diagonal hatch as the drawn warning overlay.
+ ctx.save();
+ rounded(ctx,508,y-10,19,18,4);ctx.fillStyle='rgba(220,38,38,.14)';ctx.fill();ctx.clip();
+ ctx.strokeStyle='rgba(196,29,42,.8)';ctx.lineWidth=1.4;
+ for(let k=-18;k<32;k+=7){ctx.beginPath();ctx.moveTo(508+k,y+9);ctx.lineTo(508+k+18,y-10);ctx.stroke();}
+ ctx.restore();
+ rounded(ctx,508,y-10,19,18,4);ctx.strokeStyle='rgba(196,29,42,.9)';ctx.lineWidth=1.1;ctx.stroke();
+ ctx.fillStyle='#426078';ctx.fillText('海上颱風警報',535,y+3);
  ctx.restore();
 }
 function infoValue(value){
@@ -21176,7 +21184,8 @@ async function paint(storm,sea,land){
   // Original weather.html visual language: quiet typography, white cards, teal accents.
   ctx.fillStyle='#fff';ctx.fillRect(0,0,WIDTH,MAPY);
   ctx.fillStyle='#d54348';ctx.fillRect(0,0,6,MAPY);
-  panel(30,23,132,31,15,'rgba(213,67,72,.08)','rgba(213,67,72,.20)');
+  // Keep this status badge close to the text, instead of leaving a wide empty pill.
+  panel(30,23,101,31,15,'rgba(213,67,72,.08)','rgba(213,67,72,.20)');
   fillText(ctx,'颱風警報',49,44,15,'#c52c37',900);
   fillText(ctx,`${plainName(storm.name)} · 未來 24 小時`,32,95,39,'#122c3b',900);
   fillText(ctx,`最新實況 ${pretty(storm.now.time)}   ·   預報位置 ${storm.fut?pretty(storm.fut.time):'尚無預報'}`,32,130,17,'#687c8b',750);
@@ -21186,16 +21195,17 @@ async function paint(storm,sea,land){
     {k:'七級風圈',v:(storm.now.storm_radius_km||'—')+' km'},
     {k:'十級風圈',v:(storm.now.storm_radius_10_km||'—')+' km'}
   ];
-  const boxX=WIDTH-372, boxY=26, boxW=340, boxH=112;
-  panel(boxX,boxY,boxW,boxH,22,'rgba(255,255,255,.94)','rgba(27,64,82,.10)');
-  fillText(ctx,'最新資料',boxX+18,boxY+22,12,'#90a2ae',850);
-  const cellW=154, cellH=34, gapX=12, gapY=12;
+  // Four roomy metrics use the spare width next to the title.
+  // This only changes the new top warning poster, not the site's other cards.
+  const statX=690, statY=34, statW=208, statH=89, statGap=12;
   stats.forEach((item,i)=>{
-    const col=i%2, row=Math.floor(i/2);
-    const x=boxX+16+col*(cellW+gapX), y=boxY+32+row*(cellH+gapY);
-    panel(x,y,cellW,cellH,12,'rgba(247,250,252,.96)','rgba(27,64,82,.08)');
-    fillText(ctx,item.k,x+12,y+14,11,'#8a9ba7',850);
-    fillText(ctx,item.v,x+12,y+30,17,'#244556',900);
+    const x=statX+i*(statW+statGap), y=statY;
+    panel(x,y,statW,statH,17,'rgba(248,251,252,.97)','rgba(27,64,82,.12)');
+    ctx.save();
+    panel(x+16,y+17,5,5,2.5,i>=2?'#dc6560':'#238b8c','transparent');
+    ctx.restore();
+    fillText(ctx,item.k,x+29,y+23,14,'#748a96',850);
+    fillText(ctx,item.v,x+17,y+67,28,'#203e51',900);
   });
   const view=createView(storm,sea,land),proj=projector(view);
   ctx.save();ctx.beginPath();ctx.rect(0,MAPY,WIDTH,MAPH);ctx.clip();
