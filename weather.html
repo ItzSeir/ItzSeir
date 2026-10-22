@@ -5594,6 +5594,10 @@ Implement by adjusting polygon style functions:
 <input id="toggleRings" type="checkbox"/>
         暴風圈
       </label>
+<label class="toggle" title="在颱風互動地圖中顯示或隱藏海上及陸上警報範圍">
+<input checked="" id="toggleWarningAreas" type="checkbox"/>
+        警報區域
+      </label>
 <button class="btn refreshJsonBtn" data-refresh-typhoon="" id="refreshTyphoonBtn" type="button">刷新</button>
 <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
 <button class="btn shareBtn" id="openShareModalBtn" type="button">分享</button>
@@ -5737,7 +5741,7 @@ Implement by adjusting polygon style functions:
 <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
 <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
 <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 70%預測誤差範圍</span>
-<span class="legendItem"><span class="dot" style="background:#d40000;"></span> 陸上颱風警報區</span>
+<span class="legendItem" id="typhoonLandMapLegend"><span class="dot" style="background:#d40000;"></span> 陸上颱風警報區</span>
 <span class="legendItem" id="cwaOfficialMarineMapLegend"><span class="seaWarningHatchIcon" aria-hidden="true"></span> 海上颱風警報</span>
 <button type="button" id="cwaMarinePreviewBtn" title="檢視海岸線裁切及合併效果；此為示意，非目前發布警報">預覽海警</button>
 <span class="legendItem"><span class="dot" style="background:#94a3b8;"></span> 暴風圈(可選)</span>
@@ -7192,12 +7196,13 @@ Implement by adjusting polygon style functions:
 
         const layer = L.polygon(polygon, {
           pane:"conePane",
-          color:"#60a5fa",
-          weight:1.8,
-          opacity:.78,
+          color:"#5298e8",
+          weight:2,
+          opacity:.86,
+          lineJoin:"round",
           dashArray:null,
           fillColor:"#60a5fa",
-          fillOpacity:.16,
+          fillOpacity:.14,
           interactive:false
         }).addTo(map);
 
@@ -15121,7 +15126,7 @@ ${a.instruction}` : ''
   function conePointsAsObjects(poly){ return (poly || []).map(p=>({lat:p[0], lon:p[1]})); }
   function drawCone(ctx, pts, proj){
     const poly = buildForecastConePolygonSmoothFixed(pts); if(!poly || poly.length < 4) return null;
-    ctx.save(); ctx.beginPath(); poly.forEach(([la,lo], i)=>{ const q = proj(la,lo); if(i===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y); }); ctx.closePath(); ctx.fillStyle='rgba(96,165,250,.16)'; ctx.fill(); ctx.strokeStyle='rgba(96,165,250,.84)'; ctx.lineWidth=1.8; ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.beginPath(); poly.forEach(([la,lo], i)=>{ const q = proj(la,lo); if(i===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y); }); ctx.closePath(); ctx.fillStyle='rgba(96,165,250,.14)'; ctx.fill(); ctx.strokeStyle='rgba(82,152,232,.86)'; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke(); ctx.restore();
     const qq = poly.map(([la,lo])=>proj(la,lo)); return {minX:Math.min(...qq.map(q=>q.x)), maxX:Math.max(...qq.map(q=>q.x)), minY:Math.min(...qq.map(q=>q.y)), maxY:Math.max(...qq.map(q=>q.y))};
   }
   function drawRoute(ctx, pts, proj){
@@ -16956,11 +16961,23 @@ ${a.instruction}` : ''
       .filter(p=>Number.isFinite(Number(p?.lat)) && Number.isFinite(Number(p?.lon)))
       .map((p,i)=>({...p,lat:Number(p.lat),lon:Number(p.lon),__i:i}));
 
+    const parseTime=p=>{
+      const t=Date.parse(String(p?.time||'').replace(' ','T'));
+      return Number.isFinite(t)?t:NaN;
+    };
     const obsList=list.filter(p=>p.kind==='obs');
-    const obs=obsList.length ? obsList[obsList.length-1] : list[0];
+    // The source order may change after a live refresh: use the latest observation,
+    // not simply the last row from an API response.
+    const obs=obsList.length ? obsList.slice().sort((a,b)=>{
+      const ta=parseTime(a), tb=parseTime(b);
+      return Number.isFinite(ta)&&Number.isFinite(tb)&&ta!==tb ? ta-tb : a.__i-b.__i;
+    }).at(-1) : list[0];
+    const obsTime=parseTime(obs);
 
     let fc=list
-      .filter(p=>p.kind==='fcst' && Number.isFinite(Number(p.fcst_radius_km)) && Number(p.fcst_radius_km)>0)
+      .filter(p=>p.kind==='fcst' && Number.isFinite(Number(p.fcst_radius_km))
+        && Number(p.fcst_radius_km)>0
+        && (!Number.isFinite(obsTime)||!Number.isFinite(parseTime(p))||parseTime(p)>obsTime))
       .slice();
 
     if(!obs || !fc.length) return null;
@@ -17004,7 +17021,7 @@ ${a.instruction}` : ''
       const a=clean[i], b=clean[i+1];
       const d=Math.hypot(b.x-a.x,b.y-a.y);
       const localR=Math.max(a.r,b.r,1);
-      const stepKm=Math.max(8,Math.min(28,Math.max(a.rKm,b.rKm)*0.16))
+      const stepKm=Math.max(7,Math.min(22,Math.max(a.rKm,b.rKm)*0.13))
         /Math.max(.08,Math.cos(toRad(invY(originY+(a.y+b.y)/2))));
       const n=Math.max(2,Math.ceil(d/stepKm));
       for(let k=0;k<n;k++){
@@ -17040,9 +17057,11 @@ ${a.instruction}` : ''
 
     const spanX=Math.max(20,maxX-minX);
     const spanY=Math.max(20,maxY-minY);
-    const cell=Math.max(1.8,Math.min(5.0,Math.max(spanX,spanY)/300));
-    const nx=Math.max(70,Math.min(320,Math.ceil(spanX/cell)));
-    const ny=Math.max(70,Math.min(320,Math.ceil(spanY/cell)));
+    // Denser contour extraction makes the outline smoother at large zoom levels.
+    // The upper grid bound controls CPU cost on multi-storm and long-range routes.
+    const cell=Math.max(1.5,Math.min(4.0,Math.max(spanX,spanY)/350));
+    const nx=Math.max(80,Math.min(360,Math.ceil(spanX/cell)));
+    const ny=Math.max(80,Math.min(360,Math.ceil(spanY/cell)));
     const dx=(maxX-minX)/nx;
     const dy=(maxY-minY)/ny;
 
@@ -17162,29 +17181,59 @@ ${a.instruction}` : ''
     loops.sort((a,b)=>Math.abs(polyArea(b))-Math.abs(polyArea(a)));
     let poly=loops[0].slice(0,-1);
 
+    // Gently smooth contour grid noise without replacing the actual published
+    // forecast radii or constructing a convex hull that cuts across bends.
     if(poly.length>=12){
-      const smooth=[];
+      const smoothed=[];
       for(let i=0;i<poly.length;i++){
         const a=poly[(i-1+poly.length)%poly.length];
         const b=poly[i];
         const c=poly[(i+1)%poly.length];
-        smooth.push({x:a.x*.08+b.x*.84+c.x*.08,y:a.y*.08+b.y*.84+c.y*.08});
+        smoothed.push({x:a.x*.07+b.x*.86+c.x*.07,y:a.y*.07+b.y*.86+c.y*.07});
       }
-      poly=smooth;
+      poly=smoothed;
     }
 
-    // Do NOT force one contour vertex onto the analysed centre.
-    // The previous version did that to create an exact apex, but it produced
-    // the visible triangular notch / inward spike near the current position.
-    // Let the natural outer contour from the tiny analysed-point radius form
-    // the start of the cone instead.
-
-    if(poly.length>500){
-      const keep=[];
-      const step=Math.ceil(poly.length/420);
-      for(let i=0;i<poly.length;i+=step) keep.push(poly[i]);
-      poly=keep;
+    // Do not discard every nth vertex: that produces long chords, kinks and
+    // jagged edges where the predicted track turns. Simplify by actual shape
+    // deviation in projected km and preserve the circular ends.
+    function simplifyOpen(points,tolerance){
+      if(points.length<=2)return points.slice();
+      const keep=new Uint8Array(points.length);
+      keep[0]=keep[points.length-1]=1;
+      const stack=[[0,points.length-1]];
+      const tol2=tolerance*tolerance;
+      while(stack.length){
+        const [start,end]=stack.pop();
+        const a=points[start],b=points[end];
+        const vx=b.x-a.x,vy=b.y-a.y,den=vx*vx+vy*vy;
+        let best=tol2,index=-1;
+        for(let i=start+1;i<end;i++){
+          const p=points[i];
+          const t=den>1e-9?Math.max(0,Math.min(1,((p.x-a.x)*vx+(p.y-a.y)*vy)/den)):0;
+          const dx=p.x-a.x-t*vx,dy=p.y-a.y-t*vy,d2=dx*dx+dy*dy;
+          if(d2>best){best=d2;index=i;}
+        }
+        if(index>=0){keep[index]=1;stack.push([start,index],[index,end]);}
+      }
+      return points.filter((_,i)=>keep[i]);
     }
+    if(poly.length>440){
+      const anchor=poly[0];
+      let far=1, maxD=-1;
+      for(let i=1;i<poly.length;i++){
+        const d=(poly[i].x-anchor.x)**2+(poly[i].y-anchor.y)**2;
+        if(d>maxD){maxD=d;far=i;}
+      }
+      const tolerance=Math.max(.35,Math.min(1.6,Math.max(dx,dy)*.34));
+      let outA=simplifyOpen(poly.slice(0,far+1),tolerance);
+      let outB=simplifyOpen(poly.slice(far).concat([poly[0]]),tolerance);
+      poly=outA.concat(outB.slice(1,-1));
+    }
+
+    // Reject malformed self-crossing loops rather than drawing a huge skewed
+    // polygon across oceans. The union contour itself remains the source.
+    if(poly.length<8 || poly.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))return null;
 
     const out=poly.map(p=>[clamp(invY(originY+p.y),-LIMIT,LIMIT),toDeg((originX+p.x)/R)]);
     if(out.length) out.push(out[0]);
@@ -17467,7 +17516,7 @@ ${a.instruction}` : ''
     if(!poly || poly.length<3) return;
     const proj=projector(view,width,height);
     const d=poly.map((p,i)=>{ const q=proj(p[0],p[1]); return `${i?'L':'M'}${q.x.toFixed(2)},${q.y.toFixed(2)}`; }).join(' ') + ' Z';
-    svg.appendChild(svgEl('path',{d, fill:'rgba(96,165,250,.18)', stroke:'rgba(67,139,225,.86)', 'stroke-width':'2'}));
+    svg.appendChild(svgEl('path',{d, fill:'rgba(96,165,250,.15)', stroke:'rgba(67,139,225,.86)', 'stroke-width':'2', 'stroke-linejoin':'round'}));
   }
   function addRoute(svg, pts, view, width, height, lineColor, showCone){
     const proj=projector(view,width,height);
@@ -18358,9 +18407,9 @@ ${a.instruction}` : ''
     // union-of-circles contour for the interactive map AND every export.
     const mercator=window.__buildMercatorForecastCone;
     let polygon=typeof mercator==='function' ? mercator(list) : null;
-    // Only retain the legacy geometry as a last-resort fallback for malformed
-    // datasets; do not fall back merely because the track is low latitude.
-    if(!polygon || polygon.length<4) polygon=buildOriginalConeFixed(list);
+    // If valid error radii are missing, leave the cone hidden. The older
+    // tangent-offset fallback invents radii and can self-cross at sharp bends.
+    if(!polygon || polygon.length<4) polygon=null;
     if(coneCache.size>=64) coneCache.delete(coneCache.keys().next().value);
     coneCache.set(key,polygon);
     return polygon;
@@ -21559,6 +21608,45 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     }, 80);
   });
   syncSections();
+})();
+</script>
+<!-- Interactive typhoon-map warning visibility, without changing any exported artwork. -->
+<style id="typhoon-warning-area-visibility-style">
+/* Leaflet panes are intentionally left loaded so restoring the warning is immediate. */
+#typhoonMapPanel.typhoon-warning-areas-hidden .leaflet-pane[class*="typhoonWarning"],
+#typhoonMapPanel.typhoon-warning-areas-hidden .leaflet-pane[class*="cwaOfficialSea"] {
+  display: none !important;
+}
+#typhoonMapPanel.typhoon-warning-areas-hidden #typhoonLandMapLegend,
+#typhoonMapPanel.typhoon-warning-areas-hidden #cwaOfficialMarineMapLegend {
+  display: none !important;
+}
+</style>
+<script id="typhoon-warning-area-visibility-script">
+(function(){
+  'use strict';
+  const STORAGE_KEY = 'seir-weather-show-typhoon-warning-areas';
+  function init(){
+    const checkbox=document.getElementById('toggleWarningAreas');
+    const panel=document.getElementById('typhoonMapPanel');
+    if(!checkbox||!panel)return;
+    let enabled=true;
+    try{
+      const saved=window.localStorage.getItem(STORAGE_KEY);
+      if(saved==='0')enabled=false;
+    }catch(err){ /* Private browsing / local files may disable storage. */ }
+    checkbox.checked=enabled;
+    function apply(){
+      const show=checkbox.checked;
+      panel.classList.toggle('typhoon-warning-areas-hidden',!show);
+      checkbox.setAttribute('aria-label',show?'隱藏海上與陸上颱風警報區':'顯示海上與陸上颱風警報區');
+      try{window.localStorage.setItem(STORAGE_KEY,show?'1':'0');}catch(err){}
+    }
+    checkbox.addEventListener('change',apply);
+    apply();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
 })();
 </script>
 </body>
