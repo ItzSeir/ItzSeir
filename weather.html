@@ -5897,7 +5897,8 @@ Implement by adjusting polygon style functions:
         pressure: firstValue(p, ["pressure", "airPressure", "centralPressure", "Pressure", "中心氣壓"]) === null ? null : Number(firstValue(p, ["pressure", "airPressure", "centralPressure", "Pressure", "中心氣壓"])),
         note: String(firstValue(p, ["note", "remark", "description", "MovingPrediction", "StateTransfer", "備註"]) ?? ""),
         fcst_radius_km: firstValue(p, ["fcst_radius_km", "forecastRadius", "forecast_error_km", "errorRadiusKm", "Radius70PercentProbability", "radius70PercentProbability", "radius", "誤差半徑", "預測誤差"]) === null ? 0 : Number(firstValue(p, ["fcst_radius_km", "forecastRadius", "forecast_error_km", "errorRadiusKm", "Radius70PercentProbability", "radius70PercentProbability", "radius", "誤差半徑", "預測誤差"])),
-        storm_radius_km: firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"]) === null ? 0 : Number(firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"]))
+        storm_radius_km: firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"]) === null ? 0 : Number(firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"])),
+        storm_radius_10_km: firstValue(p, ["storm_radius_10_km", "stormRadius10", "Circle25ms", "十級暴風半徑"]) === null ? 0 : Number(firstValue(p, ["storm_radius_10_km", "stormRadius10", "Circle25ms", "十級暴風半徑"]))
       };
     }
 
@@ -6071,6 +6072,7 @@ Implement by adjusting polygon style functions:
       const dateTime = childText(fixEl, "DateTime");
       const validTime = kind === "fcst" ? addHoursToCwaTime(initialTime, Number(forecastHour || 0)) : dateTime;
       const stormRadius = parseCwaCircleRadiusKm(fixEl, "Circle15ms");
+      const stormRadius10 = parseCwaCircleRadiusKm(fixEl, "Circle25ms");
       const rawFcstRadius = Number(childText(fixEl, "Radius70PercentProbability"));
       const fcstRadius = Number.isFinite(rawFcstRadius) && rawFcstRadius > 0 ? rawFcstRadius : fallbackForecastErrorRadiusKm(forecastHour);
       const noteParts = [];
@@ -6092,7 +6094,8 @@ Implement by adjusting polygon style functions:
         pressure:isFinite(pressure) ? pressure : null,
         note:noteParts.join("｜"),
         fcst_radius_km:isFinite(fcstRadius) ? fcstRadius : 0,
-        storm_radius_km:stormRadius
+        storm_radius_km:stormRadius,
+        storm_radius_10_km:stormRadius10
       };
     }
 
@@ -6203,6 +6206,7 @@ Implement by adjusting polygon style functions:
       const dateTime = getJsonText(fix, ["DateTime", "dateTime"]);
       const validTime = kind === "fcst" ? addHoursToCwaTime(initialTime, Number(forecastHour || 0)) : dateTime;
       const stormRadius = cwaRadiusFromJsonFix(fix, "Circle15ms");
+      const stormRadius10 = cwaRadiusFromJsonFix(fix, "Circle25ms");
       const rawFcstRadius = Number(getJsonText(fix, ["Radius70PercentProbability", "radius70PercentProbability", "forecast_error_km", "errorRadiusKm"]));
       const fcstRadius = Number.isFinite(rawFcstRadius) && rawFcstRadius > 0 ? rawFcstRadius : fallbackForecastErrorRadiusKm(forecastHour);
       const noteParts = [];
@@ -6223,7 +6227,8 @@ Implement by adjusting polygon style functions:
         pressure:isFinite(pressure) ? pressure : null,
         note:noteParts.join("｜"),
         fcst_radius_km:isFinite(fcstRadius) ? fcstRadius : 0,
-        storm_radius_km:stormRadius
+        storm_radius_km:stormRadius,
+        storm_radius_10_km:stormRadius10
       };
     }
 
@@ -16472,11 +16477,13 @@ ${a.instruction}` : ''
     border-top:1px solid var(--line);
     display:flex;
     flex-wrap:wrap;
-    gap:12px 18px;
+    gap:12px 16px;
     align-items:center;
     background:#fff;
   }
-  .trackLegendItem{display:inline-flex;align-items:center;gap:8px;color:#4d6673;font-size:11.5px;font-weight:900;line-height:1.45}
+  .trackLegendItem{display:inline-flex;align-items:center;gap:8px;color:#4d6673;font-size:11.5px;font-weight:900;line-height:1.45;white-space:nowrap}
+  .trackLegendItem > i{flex:none}
+  .trackLegendItem .trackMiniLegend{display:inline-flex;align-items:center}
   .trackLegendLine{width:24px;height:0;border-top:3px solid #22323c;border-radius:999px}
   .trackLegendLine.fcst{border-top-color:#355c9a;border-top-style:dashed}
   .trackLegendBox{width:20px;height:12px;border-radius:4px;background:rgba(96,165,250,.20);border:1px solid rgba(67,139,225,.85)}
@@ -18189,31 +18196,25 @@ ${a.instruction}` : ''
       );
     }
 
+    const legendMetricsCtx=document.createElement('canvas').getContext('2d');
+    legendMetricsCtx.font='900 11px "Noto Sans TC","Microsoft JhengHei","Segoe UI",Arial,sans-serif';
+    function legendItemWidth(item){
+      const labelW=legendMetricsCtx.measureText(item.label).width;
+      if(item.type==='line') return 24+10+labelW;
+      if(item.type==='cone'||item.type==='land-warning') return 20+10+labelW;
+      return 10+8+labelW;
+    }
     function measureLegendHeight(){
       if(!legendItems.length) return 0;
-      const leftPad = 16, rightPad = 16, gap = 14;
-      const rowH = 24, topPad = 12, bottomPad = 10;
-      const maxW = width - leftPad - rightPad;
-      let rows = 1, rowW = 0;
-
-      const itemW = item => {
-        const labelW = Math.max(24, item.label.length * 12);
-        if(item.type === 'line') return 26 + 10 + labelW;
-        if(item.type === 'cone' || item.type === 'land-warning') return 20 + 10 + labelW;
-        return 10 + 10 + labelW;
-      };
-
-      legendItems.forEach((item, idx) => {
-        const need = itemW(item) + (rowW > 0 ? gap : 0);
-        if(rowW > 0 && rowW + need > maxW){
-          rows += 1;
-          rowW = itemW(item);
-        }else{
-          rowW += need;
-        }
+      const leftPad=16,rightPad=16,gap=14,rowH=28,topPad=12,bottomPad=12;
+      const maxW=width-leftPad-rightPad;
+      let rows=1,rowW=0;
+      legendItems.forEach(item=>{
+        const w=legendItemWidth(item);
+        if(rowW>0 && rowW+gap+w>maxW){rows++;rowW=w;}
+        else rowW+=w+(rowW>0?gap:0);
       });
-
-      return topPad + rows * rowH + bottomPad;
+      return topPad+rows*rowH+bottomPad;
     }
 
     const legendH = legend ? measureLegendHeight() : 0;
@@ -18324,16 +18325,11 @@ ${a.instruction}` : ''
         ctx.beginPath();
         ctx.moveTo(0,legendY+.5); ctx.lineTo(width,legendY+.5); ctx.stroke();
 
-        const leftPad=16, rightPad=16, gap=14, rowH=24, topPad=12;
+        const leftPad=16, rightPad=16, gap=14, rowH=28, topPad=12;
         const maxW=width-rightPad;
         let x=leftPad, y=legendY + topPad + 14;
 
-        const itemWidth = (item) => {
-          const labelW = ctx.measureText(item.label).width;
-          if(item.type === 'line') return 24 + 10 + labelW;
-          if(item.type === 'cone' || item.type === 'land-warning') return 20 + 10 + labelW;
-          return 10 + 8 + labelW;
-        };
+        const itemWidth = legendItemWidth;
 
         const nextRow = () => { x = leftPad; y += rowH; };
         const ensureSpace = (w) => {
@@ -18926,6 +18922,9 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
       const aR=Number.isFinite(Number(a.storm_radius_km)) ? Number(a.storm_radius_km) : 0;
       const bR=Number.isFinite(Number(b.storm_radius_km)) ? Number(b.storm_radius_km) : aR;
       const radiusKm=lerp(aR,bR,t);
+      const a10=Number(a.storm_radius_10_km), b10=Number(b.storm_radius_10_km);
+      const radius10Km=(a10>0 && b10>0 && Number.isFinite(a10) && Number.isFinite(b10))
+        ? lerp(a10,b10,t) : (t===0 && Number.isFinite(a10) && a10>0 ? a10 : 0);
 
       // Hour-by-hour display follows strength stages (e.g. TY -> TS -> TD),
       // with interpolated color instead of switching at the final forecast fix.
@@ -18937,6 +18936,7 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
         shown,
         current:[lat,lon],
         radiusKm,
+        radius10Km,
         color,
         level,
         timeMs:currentTime,
@@ -18952,6 +18952,7 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
       shown:route.map(p=>[p.lat,p.lon]),
       current:[last.lat,last.lon],
       radiusKm:lastRadius,
+      radius10Km:Number.isFinite(Number(last.storm_radius_10_km)) ? Math.max(0,Number(last.storm_radius_10_km)) : 0,
       color:getStyle(last.level).color || '#2563eb',
       level:last.level,
       timeMs:currentTime,
@@ -19169,8 +19170,19 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
         weight:2.1,
         opacity:.82,
         fillColor:g.color,
-        fillOpacity:.09,
+        fillOpacity:.12,
         dashArray:null,
+        interactive:false
+      }).addTo(map);
+      const initialR10=Number(g.route[0].storm_radius_10_km);
+      const ring10=L.circle([g.route[0].lat, g.route[0].lon],{
+        pane:'forecastAnimPane',
+        radius:Number.isFinite(initialR10) && initialR10>0 ? kmToMeters(initialR10) : 0,
+        color:g.color,
+        weight:2.0,
+        opacity:Number.isFinite(initialR10) && initialR10>0 ? .92 : 0,
+        fillColor:g.color,
+        fillOpacity:Number.isFinite(initialR10) && initialR10>0 ? .26 : 0,
         interactive:false
       }).addTo(map);
 
@@ -19187,7 +19199,7 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
         })
       }).addTo(map);
 
-      animLayers.push(glow, line, marker, pulse, ring, label);
+      animLayers.push(glow, line, marker, pulse, ring, ring10, label);
       const timeInfo=routeTimeInfo(g.route);
       // Subdivide each official interval into colored pieces so that red / orange
       // / green / blue stages remain on the historical line after passage.
@@ -19218,7 +19230,7 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
         startTime:timeInfo.start,
         endTime:timeInfo.end,
         stageLines,
-        glow,line,marker,pulse,ring,label
+        glow,line,marker,pulse,ring,ring10,label
       };
     }).filter(g=>g.timedRoute.length>=2 && Number.isFinite(g.startTime) && Number.isFinite(g.endTime) && g.endTime>g.startTime);
 
@@ -19296,6 +19308,7 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
           g.marker.setStyle({opacity:0,fillOpacity:0});
           g.pulse.setStyle({opacity:0,fillOpacity:0});
           g.ring.setStyle({opacity:0,fillOpacity:0});
+          g.ring10.setStyle({opacity:0,fillOpacity:0});
           try{ g.label.setOpacity(0); }catch(e){}
           return;
         }
@@ -19346,6 +19359,12 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
           fillOpacity:.09
         });
         g.ring.setRadius(Math.max(0,kmToMeters(state.radiusKm || 0)));
+        const valid10=Number.isFinite(state.radius10Km) && state.radius10Km>0
+          && state.radius10Km<=state.radiusKm;
+        g.ring10.setLatLng(state.current);
+        g.ring10.setStyle({color:state.color,opacity:valid10 ? .92 : 0,
+          fillColor:state.color,fillOpacity:valid10 ? .26 : 0});
+        g.ring10.setRadius(valid10?kmToMeters(state.radius10Km):0);
 
         g.label.setLatLng(state.current);
         try{ g.label.setOpacity(1); }catch(e){}
@@ -19445,21 +19464,37 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
     });
 
     targets.forEach(p=>{
-      const rKm=Number(p.storm_radius_km);
-      if(!Number.isFinite(rKm) || rKm<=0) return;
+      const r7=Number(p.storm_radius_km);
+      const r10=Number(p.storm_radius_10_km);
+      if(!Number.isFinite(r7) || r7<=0) return;
       const st=getStyle(p.level);
-      const ring=L.circle([p.lat,p.lon],{
+      // Keep the existing ring positions, draw the larger 7-level ring first.
+      const outer=L.circle([p.lat,p.lon],{
         pane:'ringPane',
-        radius:kmToMeters(rKm),
+        radius:kmToMeters(r7),
         color:st.color,
         weight:p.__current?2.45:1.5,
         opacity:p.__current?0.90:0.65,
         fillColor:st.color,
-        fillOpacity:p.__current?0.10:0.05,
+        fillOpacity:p.__current?0.13:0.07,
         dashArray:p.__current?null:'5 5',
         interactive:false
       }).addTo(map);
-      stormRings.push(ring);
+      stormRings.push(outer);
+      // Circle25ms must actually exist: never guess a 10-level radius.
+      if(Number.isFinite(r10) && r10>0 && r10<=r7){
+        const inner=L.circle([p.lat,p.lon],{
+          pane:'ringPane',
+          radius:kmToMeters(r10),
+          color:st.color,
+          weight:p.__current?2.35:1.7,
+          opacity:p.__current?0.98:0.86,
+          fillColor:st.color,
+          fillOpacity:p.__current?0.29:0.23,
+          interactive:false
+        }).addTo(map);
+        stormRings.push(inner);
+      }
     });
   }
 
@@ -19510,7 +19545,7 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
   function updateLegend(){
     document.querySelectorAll('.mapLegend .legendItem').forEach(el=>{
       if((el.textContent||'').includes('暴風圈')){
-        el.innerHTML='<span class="dot" style="background:#94a3b8;"></span> 暴風圈（目前＋預報）';
+        el.innerHTML='<span class="dot" style="background:#94a3b8;"></span> 七級／十級風圈（目前＋預報）';
       }
     });
   }
@@ -19936,8 +19971,12 @@ function segmentPosition(a,b,t,view){
  let radiusA=+a.storm_radius_km||0,radiusB=+b.storm_radius_km||0;
  if(radiusA<=0&&radiusB>0)radiusA=radiusB;
  if(radiusB<=0&&radiusA>0)radiusB=radiusA;
+ const innerA=Number(a.storm_radius_10_km),innerB=Number(b.storm_radius_10_km);
+ // Unlike the 7-level legacy interpolation, do not invent missing Circle25ms data.
+ const km10=(Number.isFinite(innerA)&&innerA>0&&Number.isFinite(innerB)&&innerB>0)
+    ?innerA+(innerB-innerA)*frac:(frac===0&&innerA>0?innerA:0);
  const stage=animStrengthAt(a.level,b.level,frac);
- return {lat,lon,km:radiusA+(radiusB-radiusA)*frac,level:stage.level,color:stage.color};
+ return {lat,lon,km:radiusA+(radiusB-radiusA)*frac,km10,level:stage.level,color:stage.color};
 }
 function positionAt(g,t,view){const arr=g.forecast;if(t<=arr[0]._t)return segmentPosition(arr[0],arr[0],0,view);for(let i=0;i<arr.length-1;i++)if(t<=arr[i+1]._t)return segmentPosition(arr[i],arr[i+1],(t-arr[i]._t)/(arr[i+1]._t-arr[i]._t),view);return segmentPosition(arr.at(-1),arr.at(-1),0,view);}
 function poly(ctx,pts,stroke,width,dash=[]){if(pts.length<2)return;ctx.save();ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash(dash);ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke();ctx.restore();}
@@ -20018,7 +20057,7 @@ function drawLegendUi(ctx){
  dot(ctx,{x:90,y:y-1},4,'#ef4444','transparent',0);ctx.fillStyle='#426078';ctx.fillText('強颱',101,y+3);
  dot(ctx,{x:149,y:y-1},4,'#f59e0b','transparent',0);ctx.fillStyle='#426078';ctx.fillText('中颱',160,y+3);
  dot(ctx,{x:208,y:y-1},4,'#22c55e','transparent',0);ctx.fillStyle='#426078';ctx.fillText('輕颱',219,y+3);
- ctx.beginPath();ctx.arc(279,y-1,5,0,Math.PI*2);ctx.strokeStyle='#ec705f';ctx.lineWidth=1.8;ctx.stroke();ctx.fillStyle='#426078';ctx.fillText('暴風圈',291,y+3);
+ ctx.beginPath();ctx.arc(279,y-1,5,0,Math.PI*2);ctx.strokeStyle='#ec705f';ctx.lineWidth=1.8;ctx.stroke();ctx.fillStyle='#426078';ctx.fillText('7級／10級',291,y+3);
  rounded(ctx,364,y-10,18,18,4);ctx.fillStyle='rgba(212,0,0,.18)';ctx.fill();ctx.strokeStyle='rgba(212,0,0,.72)';ctx.lineWidth=1.2;ctx.stroke();ctx.fillStyle='#426078';ctx.fillText('陸警',390,y+3);
  ctx.restore();
 }
@@ -20183,6 +20222,9 @@ function draws(ctx,bg,groups,view,t,frameIndex){
   const intensityColor=current.color||styleOf({...g.forecast[0],level:current.level});
   const rp=ringPx(current.km,current.lat,view.zoom);
   if(rp>1){ctx.beginPath();ctx.arc(p.x,p.y,rp,0,Math.PI*2);ctx.fillStyle=rgba(intensityColor,.12);ctx.fill();ctx.strokeStyle=rgba(intensityColor,.74);ctx.lineWidth=1.65;ctx.stroke();}
+  const rp10=Number.isFinite(current.km10)&&current.km10>0&&current.km10<=current.km
+    ?ringPx(current.km10,current.lat,view.zoom):0;
+  if(rp10>1){ctx.beginPath();ctx.arc(p.x,p.y,rp10,0,Math.PI*2);ctx.fillStyle=rgba(intensityColor,.28);ctx.fill();ctx.strokeStyle=rgba(intensityColor,.92);ctx.lineWidth=1.85;ctx.stroke();}
   dot(ctx,p,11,rgba(intensityColor,.19),'rgba(255,255,255,.8)',1.2);dot(ctx,p,6.4,intensityColor,'#ffffff',2.6);
   let latestPoint=arr[0], nextPoint=null;
   for(const pt of arr){ if(pt._t<=t) latestPoint=pt; else { nextPoint=pt; break; } }
