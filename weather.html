@@ -5626,7 +5626,7 @@ Implement by adjusting polygon style functions:
 <span class="legendItem"><span class="legendLine"></span> 歷史路徑</span>
 <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
 <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 70%預測誤差範圍</span>
-<span class="legendItem"><span class="dot" style="background:#ff7a00;"></span> 颱風警報範圍</span>
+<span class="legendItem"><span class="dot" style="background:#d40000;"></span> 陸上颱風警報區</span>
 <span class="legendItem"><span class="dot" style="background:#94a3b8;"></span> 暴風圈(可選)</span>
 <span class="legendItem"><span class="dot" style="background:#6b7280;"></span> 低壓</span>
 <span class="legendItem"><span class="dot" style="background:#536ab8;"></span> 熱帶低壓</span>
@@ -6702,6 +6702,15 @@ Implement by adjusting polygon style functions:
     let typhoonWarningCountyData = null;
     let typhoonWarningTownData = null;
 
+    function typhoonAlertText(alert){
+      return `${alert?.headline || ""} ${alert?.event || ""} ${alert?.description || ""} ${alert?.datasetName || ""}`.trim();
+    }
+
+    function isLandTyphoonAlert(alert){
+      const hay = typhoonAlertText(alert);
+      return /海上.*陸上|陸上.*海上|陸上颱風|陸上/.test(hay);
+    }
+
     function getTyphoonCapAlerts(){
       const src = Array.isArray(window.__twAllCapAlerts) ? window.__twAllCapAlerts : (Array.isArray(window.__twCapAlerts) ? window.__twCapAlerts : []);
       return src.filter(a => a && (a.kind === "typhoon" || /颱風|熱帶性低氣壓|熱帶低氣壓/.test(`${a.datasetName || ""} ${a.event || ""} ${a.headline || ""}`)));
@@ -6719,17 +6728,24 @@ Implement by adjusting polygon style functions:
       return withTyphoonAlertsOnly(() => twAreaBestAlertForFeature(feature, mode));
     }
 
+    function typhoonLandWarningBestAlert(feature, mode){
+      if(typeof twAreaBestAlertForFeature !== "function") return null;
+      const old = window.__twCapAlerts;
+      window.__twCapAlerts = getTyphoonCapAlerts().filter(isLandTyphoonAlert);
+      try{ return twAreaBestAlertForFeature(feature, mode); }
+      finally{ window.__twCapAlerts = old; }
+    }
+
     function typhoonWarningStyle(feature, mode="any"){
-      const a = feature ? typhoonWarningBestAlert(feature, mode) : null;
-      const color = (typeof twAreaAlertColor === "function") ? twAreaAlertColor(a) : (a?.color || "#ff7a00");
+      const a = feature ? typhoonLandWarningBestAlert(feature, mode) : null;
       return {
         pane:"typhoonWarningPane",
-        color: a ? color : "rgba(15,76,92,.22)",
-        weight: a ? (mode === "town" ? 1.0 : 1.5) : .35,
-        opacity: a ? .86 : .22,
-        fillColor: a ? color : "transparent",
-        fillOpacity: a ? (mode === "town" ? .36 : .20) : 0,
-        dashArray: a ? null : "4 6",
+        color: a ? "#d40000" : "rgba(15,76,92,.18)",
+        weight: a ? (mode === "town" ? 1.15 : 1.75) : .35,
+        opacity: a ? .92 : .18,
+        fillColor: a ? "#d40000" : "transparent",
+        fillOpacity: a ? (mode === "town" ? .26 : .17) : 0,
+        dashArray: null,
         interactive:false
       };
     }
@@ -6800,7 +6816,7 @@ Implement by adjusting polygon style functions:
     }
 
     function drawGeoJsonWarningToCanvas(ctx, geojson, project, styleMode="county"){
-      const alerts = getTyphoonCapAlerts();
+      const alerts = getTyphoonCapAlerts().filter(isLandTyphoonAlert);
       if(!geojson || !alerts.length || typeof twAreaBestAlertForFeature !== "function") return;
       const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
 
@@ -6826,39 +6842,37 @@ Implement by adjusting polygon style functions:
         return started;
       }
 
-      withTyphoonAlertsOnly(() => {
+      const old = window.__twCapAlerts;
+      window.__twCapAlerts = alerts;
+      try{
         features.forEach(feature => {
-          const alert = twAreaBestAlertForFeature(feature, styleMode);
+          const alert = typhoonLandWarningBestAlert(feature, styleMode);
           if(!alert) return;
-          const color = (typeof twAreaAlertColor === "function") ? twAreaAlertColor(alert) : (alert.color || "#ff7a00");
           const rings = ringsFromGeometry(feature.geometry);
           rings.forEach((ring) => {
             if(!Array.isArray(ring) || ring.length < 3) return;
             ctx.save();
             if(!makePath(ring)){ ctx.restore(); return; }
-
-            // County = broader warning block. Town = sharper local boundary.
             const isTown = styleMode === "town";
-            ctx.fillStyle = isTown ? hexToRgbaForCanvas(color, .26) : hexToRgbaForCanvas(color, .14);
+            ctx.fillStyle = isTown ? 'rgba(212,0,0,.24)' : 'rgba(212,0,0,.16)';
             ctx.fill("evenodd");
-
-            // White halo first, then color stroke. This separates adjacent warning districts clearly in PNG.
             ctx.lineJoin = "round";
             ctx.lineCap = "round";
             ctx.strokeStyle = "rgba(255,255,255,.92)";
-            ctx.lineWidth = isTown ? 3.4 : 4.2;
+            ctx.lineWidth = isTown ? 3.2 : 4.0;
             ctx.setLineDash([]);
             ctx.stroke();
-
             if(!makePath(ring)){ ctx.restore(); return; }
-            ctx.strokeStyle = hexToRgbaForCanvas(color, isTown ? .95 : .88);
-            ctx.lineWidth = isTown ? 1.55 : 2.15;
-            ctx.setLineDash(isTown ? [5, 4] : []);
+            ctx.strokeStyle = isTown ? 'rgba(212,0,0,.94)' : 'rgba(212,0,0,.88)';
+            ctx.lineWidth = isTown ? 1.45 : 2.0;
+            ctx.setLineDash([]);
             ctx.stroke();
             ctx.restore();
           });
         });
-      });
+      }finally{
+        window.__twCapAlerts = old;
+      }
     }
 
     function hexToRgbaForCanvas(hex, alpha){
@@ -15347,7 +15361,7 @@ ${a.instruction}` : ''
       const cards=[['目前座標',`${Number(latest.lat).toFixed(2)}, ${Number(latest.lon).toFixed(2)}`],['中心附近最大風速',fmtWind(latest.wind)],['中心氣壓',latest.pressure?`${latest.pressure} hPa`:'—']]; const gap=12, sw=Math.floor((leftW-40-gap*2)/3);
       cards.forEach((c,i)=>{ const x=leftX+20+i*(sw+gap); panel(ctx,x,238,sw,58,17,'#fff','rgba(25,42,58,.10)'); text(ctx,c[1],x+18,263,{size:i===0?23:24,weight:900,maxWidth:sw-36}); text(ctx,c[0],x+18,286,{size:12,weight:900,color:'#718692'}); });
 
-      const panelY=330,panelH=620; panel(ctx,leftX,panelY,leftW,panelH,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'颱風警報圖',leftX+20,panelY+36,{size:16,weight:900}); text(ctx,'藍色區域為 70% 預報誤差範圍',leftX+leftW-20,panelY+36,{size:12,weight:900,color:'#617785',align:'right'});
+      const panelY=330,panelH=620; panel(ctx,leftX,panelY,leftW,panelH,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'颱風警報圖',leftX+20,panelY+36,{size:16,weight:900}); text(ctx,'藍色為 70% 預測誤差範圍｜紅色為陸上颱風警報區',leftX+leftW-20,panelY+36,{size:12,weight:900,color:'#617785',align:'right'});
       const warningTop=panelY-8; const warningH=drawWarningPanel(ctx,rightX,warningTop,rightW,warn); const forecastY=warningTop+warningH+12; const forecastH=panelY+panelH-forecastY; drawForecastCards(ctx,rightX,forecastY,rightW,forecastH,fc);
 
       const mapX=leftX+16,mapY=panelY+58,mapW=leftW-32,mapH=panelH-136, view=fitView(focusFit.length?focusFit:pts,mapW,mapH,90,11.2);
@@ -15356,7 +15370,7 @@ ${a.instruction}` : ''
       forecastLabels(pts,4).forEach((p,i)=>{ const q=proj(p.lat,p.lon), st=levelInfo(p.level), v=fmtTime(p.time,'short'); ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const w=pillWidth(ctx,v,72,34,150), h=30; const b=pickLabel([{x:q.x+22,y:q.y-48},{x:q.x-w-22,y:q.y-48},{x:q.x+22,y:q.y+18},{x:q.x-w-22,y:q.y+18},{x:q.x-w/2,y:q.y-60}],bounds,w,h,used,blocked); pill(ctx,b,v,st.color,q); used.push(b); });
       ctx.restore();
 
-      const ly=mapY+mapH+8; panel(ctx,mapX,ly,mapW,52,16,'rgba(255,255,255,.94)','rgba(25,42,58,.13)'); text(ctx,'圖例',mapX+16,ly+31,{size:13,weight:900,color:'#0f4c5c'}); let xx=mapX+74, yy=ly+27; ctx.lineCap='round'; ctx.lineWidth=4; ctx.strokeStyle='#6b7280'; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+34,yy); ctx.stroke(); text(ctx,'歷史',xx+44,yy+5,{size:12,weight:900,color:'#617785'}); xx+=96; ctx.strokeStyle='#22c55e'; ctx.setLineDash([8,7]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+34,yy); ctx.stroke(); ctx.setLineDash([]); text(ctx,'預報',xx+44,yy+5,{size:12,weight:900,color:'#617785'}); xx+=102; panel(ctx,xx,yy-10,30,18,9,'rgba(96,165,250,.22)','rgba(96,165,250,.48)'); text(ctx,'70% 預測誤差範圍',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=174; [['LOW','低壓'],['TD','熱低'],['TS','輕颱'],['TY','中颱'],['STY','強颱']].forEach(([k,l])=>{ const s=levelInfo(k); ctx.beginPath(); ctx.arc(xx,yy,5,0,Math.PI*2); ctx.fillStyle=s.color; ctx.fill(); text(ctx,l,xx+12,yy+5,{size:12,weight:900}); xx+=66; }); text(ctx,`資料來源：${meta.source||'—'}`,width-36,988,{size:13,weight:900,color:'#617785',align:'right'});
+      const ly=mapY+mapH+8; panel(ctx,mapX,ly,mapW,52,16,'rgba(255,255,255,.94)','rgba(25,42,58,.13)'); text(ctx,'圖例',mapX+16,ly+31,{size:13,weight:900,color:'#0f4c5c'}); let xx=mapX+74, yy=ly+27; ctx.lineCap='round'; ctx.lineWidth=4; ctx.strokeStyle='#6b7280'; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+34,yy); ctx.stroke(); text(ctx,'歷史',xx+44,yy+5,{size:12,weight:900,color:'#617785'}); xx+=96; ctx.strokeStyle='#22c55e'; ctx.setLineDash([8,7]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+34,yy); ctx.stroke(); ctx.setLineDash([]); text(ctx,'預報',xx+44,yy+5,{size:12,weight:900,color:'#617785'}); xx+=102; panel(ctx,xx,yy-10,30,18,9,'rgba(96,165,250,.22)','rgba(96,165,250,.48)'); text(ctx,'70% 預測誤差範圍',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=174; panel(ctx,xx,yy-10,30,18,9,'rgba(212,0,0,.18)','rgba(212,0,0,.50)'); text(ctx,'陸上颱風警報區',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=154; [['LOW','低壓'],['TD','熱低'],['TS','輕颱'],['TY','中颱'],['STY','強颱']].forEach(([k,l])=>{ const s=levelInfo(k); ctx.beginPath(); ctx.arc(xx,yy,5,0,Math.PI*2); ctx.fillStyle=s.color; ctx.fill(); text(ctx,l,xx+12,yy+5,{size:12,weight:900}); xx+=62; }); text(ctx,`資料來源：${meta.source||'—'}`,width-36,988,{size:13,weight:900,color:'#617785',align:'right'});
       downloadDataUrl(`${String(mainTitle||'typhoon').replace(/[\\/:*?"<>|]/g,'_')}_${suffix}.png`, cv.toDataURL('image/png'));
     }catch(e){ console.error(e); alert('PNG 產生失敗，請重新整理後再試。'); }
     finally{ if(btn){ btn.disabled=false; btn.textContent=old||'下載 PNG'; } }
@@ -19578,6 +19592,88 @@ function borderPathIsVisible(path,view){
  return !(Math.min(a.x,b.x)>right || Math.max(a.x,b.x)<left ||
    Math.min(a.y,b.y)>bottom || Math.max(a.y,b.y)<top);
 }
+let videoTyphoonWarningCountyGeo=null;
+let videoTyphoonWarningTownGeo=null;
+function videoGlobal(name,fallback){
+ try{ const v=Function('return (typeof '+name+' !== "undefined") ? '+name+' : undefined;')(); return typeof v!=='undefined'?v:fallback; }
+ catch(_){ return fallback; }
+}
+function videoTyphoonAlertText(alert){
+ return `${alert?.headline||''} ${alert?.event||''} ${alert?.description||''} ${alert?.datasetName||''}`.trim();
+}
+function videoIsLandTyphoonAlert(alert){
+ const hay=videoTyphoonAlertText(alert);
+ return /海上.*陸上|陸上.*海上|陸上颱風|陸上/.test(hay);
+}
+function videoTyphoonLandAlerts(){
+ const src=Array.isArray(videoGlobal('__twAllCapAlerts',null)) ? videoGlobal('__twAllCapAlerts',[]) : (Array.isArray(videoGlobal('__twCapAlerts',null)) ? videoGlobal('__twCapAlerts',[]) : []);
+ return src.filter(a=>a && (a.kind==='typhoon' || /颱風|熱帶性低氣壓|熱帶低氣壓/.test(`${a.datasetName||''} ${a.event||''} ${a.headline||''}`)) && videoIsLandTyphoonAlert(a));
+}
+async function ensureVideoTyphoonWarningGeo(){
+ if(videoTyphoonWarningCountyGeo && videoTyphoonWarningTownGeo) return;
+ const loader=videoGlobal('twAreaLoadGeoJson',null);
+ if(typeof loader!=='function') return;
+ if(!videoTyphoonWarningCountyGeo){ try{ videoTyphoonWarningCountyGeo=await loader('data/./tw-countys.geojson'); }catch(_){} }
+ if(!videoTyphoonWarningTownGeo){ try{ videoTyphoonWarningTownGeo=await loader('data/./tw-towns.geojson'); }catch(_){} }
+}
+function drawVideoLandWarningOverlay(ctx,view){
+ const alerts=videoTyphoonLandAlerts();
+ const bestFn=videoGlobal('twAreaBestAlertForFeature',null);
+ if(!alerts.length || typeof bestFn!=='function') return;
+ function ringsFromGeometry(geom){
+  if(!geom) return [];
+  if(geom.type==='Polygon') return geom.coordinates || [];
+  if(geom.type==='MultiPolygon') return (geom.coordinates || []).flat();
+  return [];
+ }
+ function drawGeo(geo,mode){
+  const features=geo?.type==='FeatureCollection' ? geo.features : [geo];
+  features.filter(Boolean).forEach(feature=>{
+   let alert=null;
+   const old=window.__twCapAlerts;
+   try{ window.__twCapAlerts=alerts; alert=bestFn(feature,mode); }
+   catch(_){ alert=null; }
+   finally{ window.__twCapAlerts=old; }
+   if(!alert || !videoIsLandTyphoonAlert(alert)) return;
+   const rings=ringsFromGeometry(feature.geometry);
+   rings.forEach(r=>{
+    if(!Array.isArray(r) || r.length<3) return;
+    ctx.save();
+    ctx.beginPath();
+    let started=false;
+    r.forEach(co=>{
+      const lon=Number(co?.[0]),lat=Number(co?.[1]);
+      if(!Number.isFinite(lat)||!Number.isFinite(lon)) return;
+      const q=xyFor(view,lat,lon);
+      if(!started){ ctx.moveTo(q.x,q.y); started=true; }
+      else ctx.lineTo(q.x,q.y);
+    });
+    if(!started){ ctx.restore(); return; }
+    ctx.closePath();
+    const isTown=mode==='town';
+    ctx.fillStyle=isTown ? 'rgba(212,0,0,.22)' : 'rgba(212,0,0,.14)';
+    ctx.fill('evenodd');
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.strokeStyle='rgba(255,255,255,.88)'; ctx.lineWidth=isTown ? 2.6 : 3.4; ctx.stroke();
+    ctx.beginPath(); started=false;
+    r.forEach(co=>{
+      const lon=Number(co?.[0]),lat=Number(co?.[1]);
+      if(!Number.isFinite(lat)||!Number.isFinite(lon)) return;
+      const q=xyFor(view,lat,lon);
+      if(!started){ ctx.moveTo(q.x,q.y); started=true; }
+      else ctx.lineTo(q.x,q.y);
+    });
+    if(started){ ctx.closePath(); ctx.strokeStyle=isTown ? 'rgba(212,0,0,.92)' : 'rgba(212,0,0,.86)'; ctx.lineWidth=isTown ? 1.2 : 1.7; ctx.stroke(); }
+    ctx.restore();
+   });
+  });
+ }
+ ctx.save();
+ ctx.beginPath(); ctx.rect(0,MAP_TOP,WIDTH,MAP_HEIGHT); ctx.clip();
+ if(videoTyphoonWarningCountyGeo) drawGeo(videoTyphoonWarningCountyGeo,'county');
+ if(videoTyphoonWarningTownGeo) drawGeo(videoTyphoonWarningTownGeo,'town');
+ ctx.restore();
+}
 function drawOneBorderLayer(ctx,view,layer){
  const isCounty=layer.id==='twCounty';
  const isState=layer.id==='myState';
@@ -19818,7 +19914,7 @@ function drawTopUi(ctx,nowText){
 function drawLegendUi(ctx){
  ctx.save();
  ctx.shadowColor='rgba(10,36,48,.15)';ctx.shadowBlur=9;ctx.shadowOffsetY=2;
- rounded(ctx,16,HEIGHT-46,404,30,14);ctx.fillStyle='rgba(255,255,255,.96)';ctx.fill();
+ rounded(ctx,16,HEIGHT-46,448,30,14);ctx.fillStyle='rgba(255,255,255,.96)';ctx.fill();
  ctx.shadowColor='transparent';ctx.shadowBlur=0;
  const y=HEIGHT-28;
  ctx.font='800 11px "Noto Sans TC",sans-serif';
@@ -19827,7 +19923,7 @@ function drawLegendUi(ctx){
  dot(ctx,{x:149,y:y-1},4,'#f59e0b','transparent',0);ctx.fillStyle='#426078';ctx.fillText('中颱',160,y+3);
  dot(ctx,{x:208,y:y-1},4,'#22c55e','transparent',0);ctx.fillStyle='#426078';ctx.fillText('輕颱',219,y+3);
  ctx.beginPath();ctx.arc(279,y-1,5,0,Math.PI*2);ctx.strokeStyle='#ec705f';ctx.lineWidth=1.8;ctx.stroke();ctx.fillStyle='#426078';ctx.fillText('暴風圈',291,y+3);
- // Lower-right caption removed: only the legend remains on the map.
+ rounded(ctx,364,y-10,18,18,4);ctx.fillStyle='rgba(212,0,0,.18)';ctx.fill();ctx.strokeStyle='rgba(212,0,0,.72)';ctx.lineWidth=1.2;ctx.stroke();ctx.fillStyle='#426078';ctx.fillText('陸警',390,y+3);
  ctx.restore();
 }
 function infoValue(value){
@@ -19946,6 +20042,7 @@ function draws(ctx,bg,groups,view,t,frameIndex){
  ctx.clearRect(0,0,WIDTH,HEIGHT);renderBase(ctx,bg,frameIndex);
  // Use same GeoJSON for MP4 and WebM, projected afresh for moving camera.
  drawVideoGeoBorders(ctx,view);
+ drawVideoLandWarningOverlay(ctx,view);
  const active=[];
  for(const g of groups){
   if(t<g.start)continue;
@@ -20215,6 +20312,7 @@ async function exportVideo(){
   if(plan.format!==preferredFormat)notice(`所選格式的編碼器不受支援，將改用 ${plan.format.toUpperCase()}。`,2);
   notice('正在讀取台灣 County / 馬來西亞州屬 GeoJSON 邊界…',2);
   await loadVideoGeoBorders();
+  await ensureVideoTyphoonWarningGeo();
   if(!videoBorderLayers.some(x=>x.id==='twCounty')){
    throw new Error('台灣 County GeoJSON 尚未成功載入。請確認網路可讀取 data/tw-countys.geojson 或 GitHub 原始檔；為避免輸出沒有邊界的影片，已停止生成。');
   }
