@@ -5570,6 +5570,10 @@ Implement by adjusting polygon style functions:
 <option selected="" value="mp4">MP4 · 優先</option>
 <option value="webm">WebM</option>
 </select>
+<select aria-label="影片動畫流暢度" class="ty-video-quality" id="typhoonVideoMotion" title="原本：每小時一格。絲滑：每小時補上過渡影格；畫面時間只在整點更新，播放速度維持相同">
+<option selected="" value="hourly">原本 · 逐小時</option>
+<option value="smooth">絲滑 · 平順過渡</option>
+</select>
 <button class="btn" id="exportTyphoonGifBtn" title="逐小時快速播放，保留高清畫質｜優先輸出 MP4，不支援時改用 WebM" type="button">生成高清影片</button>
 
 <button class="btn" id="printAllBtn" style="display:none;" type="button">產生全部颱風 PNG</button>
@@ -20411,14 +20415,14 @@ function drawStormInfoPanel(ctx,item,items,labels){
  x += nextW + gap;
  card(x,timeW);
  ctx.fillStyle='#688693';ctx.font='800 11px "Noto Sans TC",sans-serif';ctx.fillText('目前時間',x+14,rowY+20);
- ctx.fillStyle='#0f4960';ctx.font='900 28px "Noto Sans TC",sans-serif';ctx.textAlign='center';ctx.fillText(textTime(item.time),x+timeW/2,rowY+50);
- ctx.fillStyle='#7d919c';ctx.font='700 11px "Noto Sans TC",sans-serif';ctx.fillText('逐小時路徑動畫',x+timeW/2,rowY+68);
+ ctx.fillStyle='#0f4960';ctx.font='900 28px "Noto Sans TC",sans-serif';ctx.textAlign='center';ctx.fillText(textTime(item.displayTime ?? item.time),x+timeW/2,rowY+50);
+ ctx.fillStyle='#7d919c';ctx.font='700 11px "Noto Sans TC",sans-serif';ctx.fillText(item.smoothMotion?'平順過渡 · 時間按小時更新':'逐小時路徑動畫',x+timeW/2,rowY+68);
  ctx.textAlign='left';
  ctx.restore();
 }
 
 
-function draws(ctx,bg,groups,view,t,frameIndex){
+function draws(ctx,bg,groups,view,t,frameIndex,displayTime=t,smoothMotion=false){
  ctx.clearRect(0,0,WIDTH,HEIGHT);renderBase(ctx,bg,frameIndex);
  // Use same GeoJSON for MP4 and WebM, projected afresh for moving camera.
  if(typeof window.__drawCwaMarineWarningCanvas==='function'){
@@ -20477,12 +20481,12 @@ function draws(ctx,bg,groups,view,t,frameIndex){
   dot(ctx,p,11,rgba(intensityColor,.19),'rgba(255,255,255,.8)',1.2);dot(ctx,p,6.4,intensityColor,'#ffffff',2.6);
   let latestPoint=arr[0], nextPoint=null;
   for(const pt of arr){ if(pt._t<=t) latestPoint=pt; else { nextPoint=pt; break; } }
-  active.push({g,p,ring:rp,color:intensityColor,time:Math.min(t,g.end),current,latestPoint,nextPoint,view});
+  active.push({g,p,ring:rp,color:intensityColor,time:Math.min(t,g.end),displayTime:Math.min(displayTime,g.end),smoothMotion,current,latestPoint,nextPoint,view});
  }
  const placed=[];
  for(const item of active){
   const {g,p,ring,color,time}=item;
-  const labelName=plainName(g.name),date=textTime(time),tag=`${labelName} ${date}`;
+  const labelName=plainName(g.name),date=textTime(Math.min(displayTime,g.end)),tag=`${labelName} ${date}`;
   ctx.font='900 14px "Noto Sans TC",sans-serif';const lw=Math.min(WIDTH-34,Math.max(172,Math.ceil(ctx.measureText(tag).width)+44)),lh=38;
   let best=null;
   const angles=[-Math.PI/4,-3*Math.PI/4,Math.PI/4,3*Math.PI/4,0,Math.PI,-Math.PI/2,Math.PI/2];
@@ -20504,7 +20508,7 @@ function draws(ctx,bg,groups,view,t,frameIndex){
   ctx.fillStyle='#17384a';ctx.font='900 14px "Noto Sans TC",sans-serif';ctx.fillText(tag,best.x+28,best.y+24);
   ctx.restore();
  }
- drawTopUi(ctx,textTime(t));
+ drawTopUi(ctx,textTime(displayTime));
  drawStormInfoPanel(ctx,active[0]||null,active,placed);
  drawLegendUi(ctx);
 }
@@ -20652,11 +20656,11 @@ function videoCodecOptions(preference){
  const webm=[{format:'webm',codec:'vp09.00.10.08',codecId:'V_VP9'},{format:'webm',codec:'vp8',codecId:'V_VP8'}];
  return preference==='webm'?[...webm,...h264]:[...h264,...webm];
 }
-async function selectFixedEncoder(quality,preference){
+async function selectFixedEncoder(quality,preference,sampleDurationMs=FIXED_HOUR_MS){
  if(!('VideoEncoder' in window)||!('VideoFrame' in window))throw Error('此瀏覽器沒有 WebCodecs 固定時間戳編碼功能。請使用最新版 Chrome 或 Edge，並透過 HTTPS 開啟網頁。');
  // The video displays one forecast hour every 300ms (3.33fps), NOT 30fps.
  // Encoding a 3.33fps stream as 30fps can starve every frame of bitrate.
- const realFps=1000/FIXED_HOUR_MS;
+ const realFps=1000/sampleDurationMs;
  // Prefer high-fidelity CBR and offline/quality latency; try combinations
  // because not every browser/driver supports every rate-control mode.
  const qualityModes=[
@@ -20683,19 +20687,53 @@ async function selectFixedEncoder(quality,preference){
  }
  throw Error('此裝置沒有支援的高清影片編碼器，請改用 Chrome / Edge 或改選 1080p。');
 }
+// The original export uses one image per hour. Smooth mode samples six
+// interpolated positions per hour without altering source observations.
+// Six subframes fit in the original 300ms/hour runtime (20fps total).
+const SMOOTH_FRAMES_PER_HOUR=6;
+function makeVideoFrameSchedule(hourlyTimes,motion){
+ const smooth=motion==='smooth',parts=smooth?SMOOTH_FRAMES_PER_HOUR:1;
+ const times=[],displayTimes=[];
+ if(!hourlyTimes.length)return {smooth,parts,stepMs:FIXED_HOUR_MS/parts,times,displayTimes};
+ for(let i=0;i<hourlyTimes.length-1;i++){
+  const from=hourlyTimes[i],to=hourlyTimes[i+1];
+  for(let j=0;j<parts;j++){
+   // Smooth physics between the two published hourly samples.
+   times.push(from+(to-from)*j/parts);
+   // Only show the existing hourly timestamp; never show changing minutes/seconds.
+   displayTimes.push(from);
+  }
+ }
+ // Hold the last official hour for the same total duration as the original mode.
+ const last=hourlyTimes[hourlyTimes.length-1];
+ for(let j=0;j<parts;j++){
+  times.push(last);
+  displayTimes.push(last);
+ }
+ return {smooth,parts,stepMs:FIXED_HOUR_MS/parts,times,displayTimes};
+}
 async function exportVideo(){
  if(generating)return;
  const button=$('exportTyphoonGifBtn');if(!button)return;
  const groups=storms();if(!groups.length){notice('找不到有效的颱風觀測位置與後續預報資料。');return;}
  const quality=QUALITY_PRESETS[$('typhoonVideoQuality')?.value]||QUALITY_PRESETS['1440p'];
  const preferredFormat=$('typhoonVideoFormat')?.value==='webm'?'webm':'mp4';
+ const motion=$('typhoonVideoMotion')?.value==='smooth'?'smooth':'hourly';
  generating=true;button.disabled=true;button.textContent=quality.label+' 生成中…';
  let encoder=null;
  try{
   const style=typeof MAPBOX_STYLE!=='undefined'?MAPBOX_STYLE:'';
   const token=typeof MAPBOX_TOKEN!=='undefined'?MAPBOX_TOKEN:'';
   if(!style||!token)throw Error('未設定 Mapbox 底圖。');
-  const plan=await selectFixedEncoder(quality,preferredFormat);
+  // Select video mode before configuration so fps and timestamps match.
+  const timeGroups=groups;
+  const first=Math.min(...timeGroups.map(g=>g.start)),end=Math.max(...timeGroups.map(g=>g.end));
+  if((end-first)/HOUR>220)throw Error('時間跨度超過 220 小時，請先選擇單一颱風。');
+  const hourlyTimes=[];
+  for(let t=first;t<=end;t+=HOUR)hourlyTimes.push(t);
+  const schedule=makeVideoFrameSchedule(hourlyTimes,motion);
+  const {times,displayTimes,stepMs}=schedule;
+  const plan=await selectFixedEncoder(quality,preferredFormat,stepMs);
   if(plan.format!==preferredFormat)notice(`所選格式的編碼器不受支援，將改用 ${plan.format.toUpperCase()}。`,2);
   notice('正在讀取台灣 County / 馬來西亞州屬 GeoJSON 邊界…',2);
   await loadVideoGeoBorders();
@@ -20704,11 +20742,7 @@ async function exportVideo(){
    throw new Error('台灣 County GeoJSON 尚未成功載入。請確認網路可讀取 data/tw-countys.geojson 或 GitHub 原始檔；為避免輸出沒有邊界的影片，已停止生成。');
   }
   const view=viewport(groups);
-  const first=Math.min(...groups.map(g=>g.start)),end=Math.max(...groups.map(g=>g.end));
-  if((end-first)/HOUR>220)throw Error('時間跨度超過 220 小時，請先選擇單一颱風。');
-  const hourlyTimes=[];
-  for(let t=first;t<=end;t+=HOUR)hourlyTimes.push(t);
-  const cameras=hourlyTimes.map(t=>cameraAt(view,groups,t));
+  const cameras=times.map(t=>cameraAt(view,groups,t));
   notice('預載高解析度底圖…',3);
   tileCache.clear();
   const bg=await buildTileBackground(cameras);
@@ -20729,16 +20763,16 @@ async function exportVideo(){
    error:error=>{encodingError=error;}
   });
   encoder.configure(plan.config);
-  notice(`2K 原生畫布／高畫質編碼 ${quality.label} · ${plan.mode} · 固定每小時 ${FIXED_HOUR_MS/1000} 秒…`,6);
-  for(let i=0;i<hourlyTimes.length;i++){
+  notice(`${quality.label} · ${schedule.smooth?'絲滑過渡':'原本逐小時'} · ${plan.mode} · 每預報小時 0.30 秒…`,6);
+  for(let i=0;i<times.length;i++){
    if(encodingError)throw encodingError;
-   // Frame rendering can be slow: it does not affect the output timestamps.
-   draws(ctx,bg,groups,cameras[i],hourlyTimes[i],i);
-   const frame=new VideoFrame(canvas,{timestamp:i*FIXED_HOUR_MS*1000,duration:FIXED_HOUR_MS*1000});
-   try{encoder.encode(frame,{keyFrame:i===0 || i%5===0})}finally{frame.close();}
+   // Render positions/rings/camera smoothly while displayTime changes only at hours.
+   draws(ctx,bg,groups,cameras[i],times[i],i,displayTimes[i],schedule.smooth);
+   const frame=new VideoFrame(canvas,{timestamp:i*stepMs*1000,duration:stepMs*1000});
+   try{encoder.encode(frame,{keyFrame:i===0 || i%(schedule.parts*5)===0})}finally{frame.close();}
    if(encoder.encodeQueueSize>3)await encoder.flush();
-   if(i%3===0||i===hourlyTimes.length-1){
-    notice(`${quality.label} · 編碼 ${i+1}/${hourlyTimes.length} 小時 · 固定每小時 0.30 秒`,8+Math.round((i+1)/hourlyTimes.length*85));
+   if(i%Math.max(3,schedule.parts)===0||i===times.length-1){
+    notice(`${quality.label} · ${schedule.smooth?'絲滑過渡':'逐小時'} · 影格 ${i+1}/${times.length}`,8+Math.round((i+1)/times.length*85));
     await sleep();
    }
   }
@@ -20746,27 +20780,29 @@ async function exportVideo(){
   await encoder.flush();
   if(encodingError)throw encodingError;
   encoded.sort((a,b)=>a.timestamp-b.timestamp);
-  if(encoded.length!==hourlyTimes.length)throw Error(`影格數不完整：預期 ${hourlyTimes.length}，實際 ${encoded.length}。`);
+  if(encoded.length!==times.length)throw Error(`影格數不完整：預期 ${times.length}，實際 ${encoded.length}。`);
   const blob=plan.format==='mp4'
-    ?encodeFixedRateMp4(encoded,avcConfig,quality.width,quality.height,FIXED_HOUR_MS)
-    :encodeFixedRateWebM(encoded,quality.width,quality.height,FIXED_HOUR_MS,plan.codecId);
+    ?encodeFixedRateMp4(encoded,avcConfig,quality.width,quality.height,stepMs)
+    :encodeFixedRateWebM(encoded,quality.width,quality.height,stepMs,plan.codecId);
   if(blob.size<1000)throw Error('影片資料不完整，請重試。');
   // Container dimensions alone do not guarantee sharpness; calculate real bitrate.
-  const realBitrateMbps=blob.size*8/(hourlyTimes.length*FIXED_HOUR_MS/1000)/1000000;
+  const realBitrateMbps=blob.size*8/(times.length*stepMs/1000)/1000000;
   console.info('[Typhoon video 2K quality]',{
     resolution:quality.width+'x'+quality.height,
     targetMbps:quality.bitrate/1000000,
     actualMbps:+realBitrateMbps.toFixed(2),
     encoder:plan.mode,
     keyframeInterval:5,
-    seconds:hourlyTimes.length*FIXED_HOUR_MS/1000
+    motion:schedule.smooth?'smooth':'hourly',
+    framesPerHour:schedule.parts,
+    seconds:times.length*stepMs/1000
   });
   const url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;
-  link.download=`颱風逐小時路徑_等速_${quality.width}x${quality.height}_${new Date().toISOString().slice(0,10)}.${plan.format}`;
+  link.download=`颱風${schedule.smooth?'絲滑':'逐小時'}路徑_等速_${quality.width}x${quality.height}_${new Date().toISOString().slice(0,10)}.${plan.format}`;
   document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   const qualityWarn=realBitrateMbps<3.5?' · 注意：瀏覽器仍壓縮得較低，建議試試 WebM／最新版 Chrome 或 Edge':'';
-  notice(`影片完成：${quality.label} ${plan.format.toUpperCase()} · 實際 ${realBitrateMbps.toFixed(2)} Mbps · ${(blob.size/1048576).toFixed(1)} MB${qualityWarn}`,100);
+  notice(`影片完成：${quality.label} ${schedule.smooth?'絲滑模式':'原本逐小時'} ${plan.format.toUpperCase()} · 實際 ${realBitrateMbps.toFixed(2)} Mbps · ${(blob.size/1048576).toFixed(1)} MB${qualityWarn}`,100);
  }catch(error){console.error('[Typhoon Fixed-Rate Video]',error);notice('輸出失敗：'+(error?.message||String(error)));}
  finally{
   if(encoder)try{encoder.close()}catch(_){ }
