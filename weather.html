@@ -16883,7 +16883,7 @@ ${a.instruction}` : ''
         <strong>颱風路徑圖</strong>\
       </div>\
       <div class="trackGalleryBody">\
-        <p class="trackGalleryNote">可右鍵另存圖片</p>\
+        <p class="trackGalleryNote">可右鍵另存圖片，圖中已包含陸上颱風警報區圖例</p>\
         <section class="trackFigureBlock overview">\
           <div class="trackFigureTitle"><strong>西北太平洋颱風路徑總覽</strong></div>\
           <div id="trackOverviewHost"></div>\
@@ -17049,6 +17049,91 @@ ${a.instruction}` : ''
       const t=svgEl('text',{x:8,y:q.y-4,'text-anchor':'start'}); t.textContent=`${Math.abs(Math.round(lat))}°`; labels.appendChild(t);
     }
     svg.appendChild(g); svg.appendChild(labels);
+  }
+  let galleryWarningGeoLoadPromise = null;
+  function galleryTyphoonAlertText(alert){
+    return `${alert?.headline || ''} ${alert?.event || ''} ${alert?.description || ''} ${alert?.datasetName || ''}`.trim();
+  }
+  function galleryIsLandTyphoonAlert(alert){
+    const hay = galleryTyphoonAlertText(alert);
+    return /海上.*陸上|陸上.*海上|陸上颱風|陸上/.test(hay);
+  }
+  function galleryTyphoonAlerts(){
+    const src = Array.isArray(getGlobal('__twAllCapAlerts', null)) ? getGlobal('__twAllCapAlerts', []) : (Array.isArray(getGlobal('__twCapAlerts', null)) ? getGlobal('__twCapAlerts', []) : []);
+    return src.filter(a => a && (a.kind === 'typhoon' || /颱風|熱帶性低氣壓|熱帶低氣壓/.test(`${a.datasetName || ''} ${a.event || ''} ${a.headline || ''}`)));
+  }
+  function galleryLandTyphoonAlerts(){
+    return galleryTyphoonAlerts().filter(galleryIsLandTyphoonAlert);
+  }
+  async function ensureGalleryWarningGeo(){
+    if(getGlobal('typhoonWarningCountyData', null) && getGlobal('typhoonWarningTownData', null)) return true;
+    if(galleryWarningGeoLoadPromise) return galleryWarningGeoLoadPromise;
+    const loader = getGlobal('twAreaLoadGeoJson', null);
+    if(typeof loader !== 'function') return false;
+    galleryWarningGeoLoadPromise = (async()=>{
+      try{
+        if(!getGlobal('typhoonWarningCountyData', null)) window.typhoonWarningCountyData = await loader('data/./tw-countys.geojson');
+      }catch(e){}
+      try{
+        if(!getGlobal('typhoonWarningTownData', null)) window.typhoonWarningTownData = await loader('data/./tw-towns.geojson');
+      }catch(e){}
+      return !!(getGlobal('typhoonWarningCountyData', null) || getGlobal('typhoonWarningTownData', null));
+    })();
+    return galleryWarningGeoLoadPromise;
+  }
+  function addLandWarningOverlay(svg, view, width, height){
+    const alerts = galleryLandTyphoonAlerts();
+    const bestFn = getGlobal('twAreaBestAlertForFeature', null);
+    const county = getGlobal('typhoonWarningCountyData', null);
+    const town = getGlobal('typhoonWarningTownData', null);
+    if(!alerts.length || typeof bestFn !== 'function' || (!county && !town)) return;
+    const proj = projector(view, width, height);
+    const group = svgEl('g', {});
+
+    function drawGeo(geo, mode){
+      const features = geo?.type === 'FeatureCollection' ? geo.features : [geo];
+      features.filter(Boolean).forEach(feature => {
+        let alert = null;
+        const old = window.__twCapAlerts;
+        try{ window.__twCapAlerts = alerts; alert = bestFn(feature, mode); }
+        catch(e){ alert = null; }
+        finally{ window.__twCapAlerts = old; }
+        if(!alert || !galleryIsLandTyphoonAlert(alert)) return;
+        let rings = [];
+        const geom = feature.geometry;
+        if(geom?.type === 'Polygon') rings = geom.coordinates || [];
+        else if(geom?.type === 'MultiPolygon') rings = (geom.coordinates || []).flat();
+        rings.forEach(ring => {
+          if(!Array.isArray(ring) || ring.length < 3) return;
+          const d = ring.map((co, i) => {
+            const lon = Number(co?.[0]), lat = Number(co?.[1]);
+            if(!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+            const q = proj(lat, lon);
+            return `${i ? 'L' : 'M'}${q.x.toFixed(2)},${q.y.toFixed(2)}`;
+          }).filter(Boolean).join(' ') + ' Z';
+          if(!d || d === ' Z') return;
+          group.appendChild(svgEl('path', {
+            d,
+            fill: mode === 'town' ? 'rgba(212,0,0,.22)' : 'rgba(212,0,0,.14)',
+            stroke: '#ffffff',
+            'stroke-width': mode === 'town' ? '2.8' : '3.6',
+            'stroke-linejoin': 'round',
+            'stroke-linecap': 'round'
+          }));
+          group.appendChild(svgEl('path', {
+            d,
+            fill: 'none',
+            stroke: 'rgba(212,0,0,.90)',
+            'stroke-width': mode === 'town' ? '1.2' : '1.7',
+            'stroke-linejoin': 'round',
+            'stroke-linecap': 'round'
+          }));
+        });
+      });
+    }
+    if(county) drawGeo(county, 'county');
+    if(town) drawGeo(town, 'town');
+    svg.appendChild(group);
   }
   function addCone(svg, poly, view, width, height){
     if(!poly || poly.length<3) return;
@@ -17467,6 +17552,7 @@ ${a.instruction}` : ''
         <span class="trackLegendItem"><i class="trackLegendLine"></i>歷史路徑</span>\
         <span class="trackLegendItem"><i class="trackLegendLine fcst"></i>預報路徑</span>';
     if(includeCone) html += '<span class="trackLegendItem"><i class="trackLegendBox"></i>70% 預報誤差範圍</span>';
+    html += '<span class="trackLegendItem"><i class="trackLegendBox" style="background:rgba(212,0,0,.18);border-color:rgba(212,0,0,.56)"></i>陸上颱風警報區</span>';
     if(includeLevels){
       html += '<span class="trackLegendItem"><span class="trackMiniLegend">\
         <span class="trackLegendItem"><i class="trackLegendDot" style="background:#94a3b8"></i>低壓</span>\
@@ -17529,6 +17615,7 @@ ${a.instruction}` : ''
       svg.setAttribute('width', width); svg.setAttribute('height', height);
       svg.innerHTML='';
       addGrid(svg, view, width, height);
+      addLandWarningOverlay(svg, view, width, height);
       addCone(svg, cone, view, width, height);
       addRoute(svg, pts, view, width, height);
       addSingleForecastTimeLabels(svg, pts, view, width, height);
@@ -17567,6 +17654,7 @@ ${a.instruction}` : ''
       svg.setAttribute('width', width); svg.setAttribute('height', height);
       svg.innerHTML='';
       addGrid(svg, view, width, height);
+      addLandWarningOverlay(svg, view, width, height);
       groups.forEach((g,idx)=>{
         const pts=sortPts(g.points || []); if(!pts.length) return;
         const cone=buildCleanForecastCone(pts);
@@ -17588,6 +17676,10 @@ ${a.instruction}` : ''
     const grid=document.getElementById('trackCardGrid');
     if(!host || !overviewHost || !grid) return;
     const token=++renderToken;
+    const needWarningGeo = !(getGlobal('typhoonWarningCountyData', null) && getGlobal('typhoonWarningTownData', null));
+    if(needWarningGeo){
+      ensureGalleryWarningGeo().then(ok=>{ if(ok) scheduleRender(120); }).catch(()=>{});
+    }
     const groups=getTyphoonGroups();
     overviewHost.innerHTML=''; grid.innerHTML='';
     if(!groups.length){
