@@ -5291,6 +5291,41 @@ html{scroll-padding-top:110px}
   }
 }
 </style>
+
+<style>
+.shareBtn{background:linear-gradient(135deg,#13566b,#229c92)!important;color:#fff!important;border:1px solid rgba(15,76,92,.22)!important;box-shadow:0 6px 18px rgba(19,86,107,.16)}
+.shareBtn:hover{box-shadow:0 10px 24px rgba(19,86,107,.24)}
+.shareLegacyControls{display:none!important}
+.shareModal[hidden]{display:none!important}
+.shareModal{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(10,25,35,.34);backdrop-filter:blur(6px)}
+.shareModalPanel{width:min(680px,calc(100vw - 28px));max-height:min(86vh,900px);overflow:auto;background:rgba(255,255,255,.98);border:1px solid rgba(18,44,59,.12);border-radius:26px;box-shadow:0 28px 90px rgba(12,36,52,.22);padding:22px 22px 18px;transform:translateY(10px) scale(.98);opacity:0;transition:transform .18s ease,opacity .18s ease}
+.shareModal.is-open .shareModalPanel{transform:translateY(0) scale(1);opacity:1}
+.shareModalHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}
+.shareModalTitle h3{margin:0;font-size:24px;line-height:1.15;color:#173648;font-weight:900}
+.shareModalTitle p{margin:7px 0 0;font-size:13px;color:#6b7f8c;font-weight:700}
+.shareCloseBtn{border:none;background:#f3f7f9;color:#4d6573;width:40px;height:40px;border-radius:999px;font-size:24px;cursor:pointer;line-height:1;flex:0 0 auto}
+.shareModalBody{display:grid;gap:14px}
+.shareGroup{border:1px solid rgba(18,44,59,.10);background:#fbfdfe;border-radius:20px;padding:16px}
+.shareGroupTitle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.shareGroupTitle strong{font-size:15px;color:#173648}
+.shareGroupTitle span{font-size:12px;color:#7a8f9d;font-weight:800}
+.shareChoiceRow{display:flex;flex-wrap:wrap;gap:10px}
+.shareOption{position:relative;display:flex;align-items:center;gap:10px;min-height:52px;padding:0 14px;border:1px solid rgba(18,44,59,.11);border-radius:16px;background:#fff;cursor:pointer;font-weight:800;color:#294658;transition:.16s ease;box-shadow:0 2px 8px rgba(18,44,59,.04)}
+.shareOption input{position:absolute;opacity:0;pointer-events:none}
+.shareOption:hover{border-color:rgba(34,156,146,.42)}
+.shareOption.is-active{background:rgba(27,183,164,.08);border-color:rgba(22,138,126,.45);color:#13566b;box-shadow:0 8px 22px rgba(19,86,107,.10)}
+.shareOption small{display:block;font-size:11px;font-weight:700;color:#7e919d}
+.shareGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.shareField label{display:block;font-size:12px;font-weight:900;color:#6b7f8c;margin-bottom:6px}
+.shareField select{width:100%;height:48px;border-radius:14px;border:1px solid rgba(18,44,59,.12);background:#fff;padding:0 14px;font:800 15px/1 'Noto Sans TC',sans-serif;color:#173648;outline:none}
+.shareActions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
+.shareGhostBtn,.sharePrimaryBtn{height:48px;border-radius:16px;padding:0 18px;font:900 15px/1 'Noto Sans TC',sans-serif;cursor:pointer;border:1px solid rgba(18,44,59,.10)}
+.shareGhostBtn{background:#fff;color:#506876}
+.sharePrimaryBtn{background:linear-gradient(135deg,#13566b,#229c92);color:#fff;border-color:rgba(15,76,92,.20);box-shadow:0 8px 22px rgba(19,86,107,.15)}
+.shareHint{font-size:12px;color:#7d919c;font-weight:800;margin-top:6px}
+.bodyShareModalOpen{overflow:hidden}
+@media (max-width:640px){.shareModal{padding:14px}.shareModalPanel{padding:18px 16px 16px;border-radius:22px}.shareGrid{grid-template-columns:1fr}.shareActions{flex-direction:column-reverse}.shareGhostBtn,.sharePrimaryBtn{width:100%}}
+</style>
 </head>
 <body class="seir-weather">
 <!--
@@ -5561,6 +5596,8 @@ Implement by adjusting polygon style functions:
       </label>
 <button class="btn refreshJsonBtn" data-refresh-typhoon="" id="refreshTyphoonBtn" type="button">刷新</button>
 <button class="btn" id="fitAllBtn" type="button">完整路徑</button>
+<button class="btn shareBtn" id="openShareModalBtn" type="button">分享</button>
+<div class="shareLegacyControls" aria-hidden="true">
 <button class="btn" id="printBtn" type="button">下載 PNG</button>
 <select aria-label="影片輸出畫質" class="ty-video-quality" id="typhoonVideoQuality" title="選擇高清影片輸出解析度">
 <option value="1080p">Full HD · 1080p</option>
@@ -5575,10 +5612,80 @@ Implement by adjusting polygon style functions:
 <option value="smooth">絲滑 · 平順過渡</option>
 </select>
 <button class="btn" id="exportTyphoonGifBtn" title="逐小時快速播放，保留高清畫質｜優先輸出 MP4，不支援時改用 WebM" type="button">生成高清影片</button>
-
 <button class="btn" id="printAllBtn" style="display:none;" type="button">產生全部颱風 PNG</button>
 </div>
 </div>
+</div>
+</div>
+<div class="shareModal" hidden id="shareExportModal" aria-hidden="true">
+  <div class="shareModalPanel" role="dialog" aria-modal="true" aria-labelledby="shareExportTitle">
+    <div class="shareModalHeader">
+      <div class="shareModalTitle">
+        <h3 id="shareExportTitle">分享匯出</h3>
+        <p>把圖片與影片整合成同一個分享入口，所有設定都在彈窗內選擇。</p>
+      </div>
+      <button class="shareCloseBtn" id="shareExportCloseBtn" type="button" aria-label="關閉">×</button>
+    </div>
+    <div class="shareModalBody">
+      <section class="shareGroup">
+        <div class="shareGroupTitle"><strong>要分享什麼？</strong><span>先選輸出類型</span></div>
+        <div class="shareChoiceRow" id="shareTypeChoices">
+          <label class="shareOption is-active">
+            <input checked type="radio" name="shareExportType" value="image">
+            <div><div>PNG 圖片</div><small>快速輸出地圖圖片</small></div>
+          </label>
+          <label class="shareOption">
+            <input type="radio" name="shareExportType" value="video">
+            <div><div>高清影片</div><small>輸出 MP4 / WebM 動畫</small></div>
+          </label>
+        </div>
+      </section>
+      <section class="shareGroup" id="shareImageSection">
+        <div class="shareGroupTitle"><strong>圖片設定</strong><span>PNG</span></div>
+        <div class="shareChoiceRow" id="shareImageChoices">
+          <label class="shareOption is-active">
+            <input checked type="radio" name="sharePngTarget" value="current">
+            <div><div>依目前選擇輸出</div><small>單一颱風或目前地圖內容</small></div>
+          </label>
+          <label class="shareOption">
+            <input type="radio" name="sharePngTarget" value="all">
+            <div><div>全部颱風 PNG</div><small>一次輸出全部圖卡</small></div>
+          </label>
+        </div>
+        <div class="shareHint">若目前選單是「全部颱風」，依目前選擇輸出會沿用現有邏輯。</div>
+      </section>
+      <section class="shareGroup" hidden id="shareVideoSection">
+        <div class="shareGroupTitle"><strong>影片設定</strong><span>MP4 / WebM</span></div>
+        <div class="shareGrid">
+          <div class="shareField">
+            <label for="shareVideoQuality">畫質</label>
+            <select id="shareVideoQuality">
+              <option value="1080p">Full HD · 1080p</option>
+              <option value="1440p">2K · 1440p</option>
+            </select>
+          </div>
+          <div class="shareField">
+            <label for="shareVideoFormat">格式</label>
+            <select id="shareVideoFormat">
+              <option value="mp4">MP4 · 優先</option>
+              <option value="webm">WebM</option>
+            </select>
+          </div>
+          <div class="shareField">
+            <label for="shareVideoMotion">動畫流暢度</label>
+            <select id="shareVideoMotion">
+              <option value="hourly">原本 · 逐小時</option>
+              <option value="smooth">絲滑 · 平順過渡</option>
+            </select>
+          </div>
+        </div>
+      </section>
+      <div class="shareActions">
+        <button class="shareGhostBtn" id="shareExportCancelBtn" type="button">取消</button>
+        <button class="sharePrimaryBtn" id="shareExportConfirmBtn" type="button">開始分享匯出</button>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="trackerBody trackerBodyNew">
 <div class="typhoonSummary">
@@ -21351,6 +21458,80 @@ async function render(){
 function install(){ const hero=document.querySelector('main.page .weatherHero'); if(!hero||card)return; card=document.createElement('section'); card.id='cwa24WarningPoster'; card.setAttribute('aria-label','24 小時海陸颱風警報圖'); card.innerHTML='<div class="cwa24Top"><div><h2>颱風警報 · 24 小時路徑</h2><p>目前中心、24 小時預報位置與海陸警戒區</p></div><div class="controls"><button id="cwa24Save" type="button">儲存警報 PNG</button></div></div><canvas id="cwa24Canvas" width="1600" height="1060"></canvas><div class="cwa24Foot">僅顯示生效中的颱風警報。若未提供接近 +24 小時的預報點，則只顯示目前中心；沒有半徑資料時不推算風圈。</div>';
 hero.parentElement.insertBefore(card,hero); canvas=card.querySelector('canvas'); ctx=canvas.getContext('2d'); card.querySelector('#cwa24Save').addEventListener('click',()=>{ try{ const a=document.createElement('a'); a.download='24小時颱風警報圖.png'; a.href=canvas.toDataURL('image/png'); a.click(); }catch(e){ alert('PNG 無法儲存，可能是地圖來源限制跨來源畫布。'); } }); setTimeout(render,1400); setInterval(render,12000); }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+})();
+</script>
+
+<script>
+(function(){
+  function $s(id){ return document.getElementById(id); }
+  const modal=$s('shareExportModal');
+  const openBtn=$s('openShareModalBtn');
+  if(!modal || !openBtn) return;
+  const panel=modal.querySelector('.shareModalPanel');
+  const closeBtn=$s('shareExportCloseBtn');
+  const cancelBtn=$s('shareExportCancelBtn');
+  const confirmBtn=$s('shareExportConfirmBtn');
+  const imageSection=$s('shareImageSection');
+  const videoSection=$s('shareVideoSection');
+  const radioSets=[...modal.querySelectorAll('.shareOption input[type="radio"]')];
+  function refreshActiveStates(){
+    modal.querySelectorAll('.shareOption').forEach(el=>{
+      const input=el.querySelector('input[type="radio"]');
+      el.classList.toggle('is-active', !!input?.checked);
+    });
+  }
+  function selectedType(){ return modal.querySelector('input[name="shareExportType"]:checked')?.value || 'image'; }
+  function syncSections(){
+    const type=selectedType();
+    const isVideo=type==='video';
+    imageSection.hidden=isVideo;
+    videoSection.hidden=!isVideo;
+    confirmBtn.textContent=isVideo ? '開始生成影片' : '開始產生 PNG';
+    refreshActiveStates();
+  }
+  function syncFromHiddenControls(){
+    const q=$s('typhoonVideoQuality'), f=$s('typhoonVideoFormat'), m=$s('typhoonVideoMotion');
+    if(q && $s('shareVideoQuality')) $s('shareVideoQuality').value=q.value || '1440p';
+    if(f && $s('shareVideoFormat')) $s('shareVideoFormat').value=f.value || 'mp4';
+    if(m && $s('shareVideoMotion')) $s('shareVideoMotion').value=m.value || 'hourly';
+  }
+  function openModal(){
+    syncFromHiddenControls();
+    modal.hidden=false;
+    modal.setAttribute('aria-hidden','false');
+    document.body.classList.add('bodyShareModalOpen');
+    requestAnimationFrame(()=>{ modal.classList.add('is-open'); syncSections(); });
+  }
+  function closeModal(){
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('bodyShareModalOpen');
+    setTimeout(()=>{ modal.hidden=true; },180);
+  }
+  openBtn.addEventListener('click', openModal);
+  closeBtn?.addEventListener('click', closeModal);
+  cancelBtn?.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && !modal.hidden) closeModal(); });
+  radioSets.forEach(input=> input.addEventListener('change', syncSections));
+  confirmBtn?.addEventListener('click', ()=>{
+    const type=selectedType();
+    if(type==='video'){
+      if($s('typhoonVideoQuality')) $s('typhoonVideoQuality').value=$s('shareVideoQuality')?.value || '1440p';
+      if($s('typhoonVideoFormat')) $s('typhoonVideoFormat').value=$s('shareVideoFormat')?.value || 'mp4';
+      if($s('typhoonVideoMotion')) $s('typhoonVideoMotion').value=$s('shareVideoMotion')?.value || 'hourly';
+      closeModal();
+      setTimeout(()=>{ $s('exportTyphoonGifBtn')?.click(); }, 80);
+      return;
+    }
+    const pngTarget=modal.querySelector('input[name="sharePngTarget"]:checked')?.value || 'current';
+    closeModal();
+    setTimeout(()=>{
+      if(pngTarget==='all') $s('printAllBtn')?.click();
+      else $s('printBtn')?.click();
+    }, 80);
+  });
+  syncSections();
 })();
 </script>
 </body>
