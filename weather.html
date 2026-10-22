@@ -21081,12 +21081,16 @@ function pickPoints(){
 }
 function featureList(){try{return window.__getCwaMarineWarningGeoJson?.().features||[]}catch(_){return []}}
 function pickLandFeatures(){
-const hasLand=activeAlerts().some(a=>/陸上/.test(`${a.headline||''} ${a.event||''} ${a.description||''}`));
-if(!hasLand)return [];
+const allTyAlerts=(typeof galleryTyphoonAlerts==='function'?galleryTyphoonAlerts():activeAlerts().filter(a=>a && (a.kind==='typhoon'||/颱風|熱帶性低氣壓|熱帶低氣壓/.test(`${a.datasetName||''} ${a.event||''} ${a.headline||''}`))));
+const landAlerts=allTyAlerts.filter(a=>/海上.*陸上|陸上.*海上|陸上颱風|陸上/.test(`${a.headline||''} ${a.event||''} ${a.description||''} ${a.datasetName||''}`));
+if(!landAlerts.length)return [];
 const county=G('typhoonWarningCountyData',null),town=G('typhoonWarningTownData',null),best=G('twAreaBestAlertForFeature',null);
-if(typeof best!=='function')return [];
-const out=[];
-for(const [geo,mode] of [[county,'county'],[town,'town']]){ if(!geo)continue; for(const f of (geo.type==='FeatureCollection'?geo.features:[geo])){ if(!f?.geometry)continue; try{const alert=best(f,mode); if(alert&&/颱風/.test(`${alert.headline||''} ${alert.event||''}`)) out.push(f);}catch(_){ } } }
+if(typeof best!=='function' || (!county && !town))return [];
+const out=[]; const seen=new Set();
+const oldCaps=window.__twCapAlerts;
+try{ window.__twCapAlerts=landAlerts; }catch(_){ }
+for(const [geo,mode] of [[county,'county'],[town,'town']]){ if(!geo)continue; for(const f of (geo.type==='FeatureCollection'?geo.features:[geo])){ if(!f?.geometry)continue; try{const alert=best(f,mode); if(alert&&/颱風|熱帶/.test(`${alert.headline||''} ${alert.event||''} ${alert.datasetName||''}`)){ const id=f.properties?.TOWNCODE||f.properties?.COUNTYCODE||f.properties?.id||JSON.stringify(f.geometry.coordinates?.[0]?.[0]||Math.random()); if(!seen.has(mode+':'+id)){ seen.add(mode+':'+id); out.push(f); } }}catch(_){ } } }
+try{ window.__twCapAlerts=oldCaps; }catch(_){ }
 return out; }
 function createView(storm,seaFeatures,landFeatures){
 const pts=[];
@@ -21175,21 +21179,24 @@ async function paint(storm,sea,land){
   panel(30,23,132,31,15,'rgba(213,67,72,.08)','rgba(213,67,72,.20)');
   fillText(ctx,'颱風警報',49,44,15,'#c52c37',900);
   fillText(ctx,`${plainName(storm.name)} · 未來 24 小時`,32,95,39,'#122c3b',900);
-  fillText(ctx,`最新實況 ${pretty(storm.now.time)}   ·   預報位置 ${storm.fut?pretty(storm.fut.time):'尚無預報'}   ·   過往觀測路徑`,32,130,17,'#687c8b',750);
-  const pills=[
+  fillText(ctx,`最新實況 ${pretty(storm.now.time)}   ·   預報位置 ${storm.fut?pretty(storm.fut.time):'尚無預報'}`,32,130,17,'#687c8b',750);
+  const stats=[
     {k:'風速',v:Number.isFinite(Number(storm.now.wind))?storm.now.wind+' m/s':'—'},
     {k:'氣壓',v:storm.now.pressure?storm.now.pressure+' hPa':'—'},
-    {k:'七級',v:(storm.now.storm_radius_km||'—')+' km'},
-    {k:'十級',v:(storm.now.storm_radius_10_km||'—')+' km'}
+    {k:'七級風圈',v:(storm.now.storm_radius_km||'—')+' km'},
+    {k:'十級風圈',v:(storm.now.storm_radius_10_km||'—')+' km'}
   ];
-  let px=WIDTH-595;
-  for(const item of pills){
-    const w=136, h=46;
-    panel(px,40,w,h,15,'rgba(250,252,253,.98)','rgba(29,72,92,.10)');
-    fillText(ctx,item.k,px+15,59,12,'#7b8f9c',850);
-    fillText(ctx,item.v,px+15,77,18,'#244556',900);
-    px+=w+10;
-  }
+  const boxX=WIDTH-372, boxY=26, boxW=340, boxH=112;
+  panel(boxX,boxY,boxW,boxH,22,'rgba(255,255,255,.94)','rgba(27,64,82,.10)');
+  fillText(ctx,'最新資料',boxX+18,boxY+22,12,'#90a2ae',850);
+  const cellW=154, cellH=34, gapX=12, gapY=12;
+  stats.forEach((item,i)=>{
+    const col=i%2, row=Math.floor(i/2);
+    const x=boxX+16+col*(cellW+gapX), y=boxY+32+row*(cellH+gapY);
+    panel(x,y,cellW,cellH,12,'rgba(247,250,252,.96)','rgba(27,64,82,.08)');
+    fillText(ctx,item.k,x+12,y+14,11,'#8a9ba7',850);
+    fillText(ctx,item.v,x+12,y+30,17,'#244556',900);
+  });
   const view=createView(storm,sea,land),proj=projector(view);
   ctx.save();ctx.beginPath();ctx.rect(0,MAPY,WIDTH,MAPH);ctx.clip();
   drawFallback();await drawMap(view);
@@ -21212,8 +21219,8 @@ async function paint(storm,sea,land){
   fillText(ctx,'資料：中央氣象署',32,HEIGHT-15,13,'#778b96',700);
 }
 
-async function render(){ if(rendering){pending=true;return;} const storm=pickPoints(), sea=featureList(); if(!storm||!hasWarnings()){card?.classList.remove('is-visible');return;} const sig=signature(storm,sea); if(sig===lastSignature&&Date.now()-lastRenderAt<20000)return; rendering=true; try{ card.classList.add('is-visible'); await paint(storm,sea,pickLandFeatures()); lastSignature=sig; lastRenderAt=Date.now(); }catch(e){ console.warn('[24h typhoon warning map]',e); try{ ctx.restore(); ctx.clearRect(0,0,WIDTH,HEIGHT); ctx.fillStyle='#f8fbfc'; ctx.fillRect(0,0,WIDTH,HEIGHT); fillText(ctx,'颱風警報圖暫時無法繪製',48,94,33,'#142d3e',900); fillText(ctx,'請重新整理頁面或檢查瀏覽器主控台。',48,134,17,'#718692',750); }catch(_){} lastSignature=''; } finally{ rendering=false; if(pending){ pending=false; setTimeout(render,80); } } }
-function install(){ const hero=document.querySelector('main.page .weatherHero'); if(!hero||card)return; card=document.createElement('section'); card.id='cwa24WarningPoster'; card.setAttribute('aria-label','24 小時海陸颱風警報圖'); card.innerHTML='<div class="cwa24Top"><div><h2>颱風警報 · 24 小時路徑</h2><p>觀測路徑、兩個預報時間點與海陸警戒區</p></div><div class="controls"><button id="cwa24Save" type="button">儲存警報 PNG</button></div></div><canvas id="cwa24Canvas" width="1600" height="1060"></canvas><div class="cwa24Foot">僅顯示生效中的颱風警報。若未提供接近 +24 小時的預報點，則只顯示目前中心；沒有半徑資料時不推算風圈。</div>';
+async function render(){ if(rendering){pending=true;return;} const storm=pickPoints(), sea=featureList(); if(!storm||!hasWarnings()){card?.classList.remove('is-visible');return;} if(typeof ensureGalleryWarningGeo==='function'){ try{ await ensureGalleryWarningGeo(); }catch(_){} } const land=pickLandFeatures(); const sig=signature(storm,sea)+'|land:'+land.length; if(sig===lastSignature&&Date.now()-lastRenderAt<20000)return; rendering=true; try{ card.classList.add('is-visible'); await paint(storm,sea,land); lastSignature=sig; lastRenderAt=Date.now(); }catch(e){ console.warn('[24h typhoon warning map]',e); try{ ctx.restore(); ctx.clearRect(0,0,WIDTH,HEIGHT); ctx.fillStyle='#f8fbfc'; ctx.fillRect(0,0,WIDTH,HEIGHT); fillText(ctx,'颱風警報圖暫時無法繪製',48,94,33,'#142d3e',900); fillText(ctx,'請重新整理頁面或檢查瀏覽器主控台。',48,134,17,'#718692',750); }catch(_){} lastSignature=''; } finally{ rendering=false; if(pending){ pending=false; setTimeout(render,80); } } }
+function install(){ const hero=document.querySelector('main.page .weatherHero'); if(!hero||card)return; card=document.createElement('section'); card.id='cwa24WarningPoster'; card.setAttribute('aria-label','24 小時海陸颱風警報圖'); card.innerHTML='<div class="cwa24Top"><div><h2>颱風警報 · 24 小時路徑</h2><p>目前中心、24 小時預報位置與海陸警戒區</p></div><div class="controls"><button id="cwa24Save" type="button">儲存警報 PNG</button></div></div><canvas id="cwa24Canvas" width="1600" height="1060"></canvas><div class="cwa24Foot">僅顯示生效中的颱風警報。若未提供接近 +24 小時的預報點，則只顯示目前中心；沒有半徑資料時不推算風圈。</div>';
 hero.parentElement.insertBefore(card,hero); canvas=card.querySelector('canvas'); ctx=canvas.getContext('2d'); card.querySelector('#cwa24Save').addEventListener('click',()=>{ try{ const a=document.createElement('a'); a.download='24小時颱風警報圖.png'; a.href=canvas.toDataURL('image/png'); a.click(); }catch(e){ alert('PNG 無法儲存，可能是地圖來源限制跨來源畫布。'); } }); setTimeout(render,1400); setInterval(render,12000); }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
