@@ -21013,10 +21013,23 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     }
     return [...edges.values()].filter(e=>e.count===1);
   }
-  function ensurePattern(root){
+  // Anchor hatch lines to a fixed world position, never to the current screen origin.
+  // Otherwise a smoothly following video camera makes the hatch appear to slide.
+  function hatchAnchor(proj){
+    const origin=proj(23.5,121.0);
+    const east=proj(23.5,121.05);
+    // The same 0.05 degree geographic spacing is used in SVG and Canvas.
+    const interval=Math.max(.1,Math.abs(east.x-origin.x));
+    return {x:origin.x,y:origin.y,interval};
+  }
+  function ensurePattern(root,proj){
     let defs=root.querySelector('defs');
     if(!defs){ defs=document.createElementNS(NS,'defs'); root.insertBefore(defs,root.firstChild); }
-    if(defs.querySelector('#cwaSeaWarnPattern')) return;
+    const existing=defs.querySelector('#cwaSeaWarnPattern');
+    if(existing){
+      if(typeof proj==='function') setPatternAnchor(existing,proj);
+      return;
+    }
     const pattern=document.createElementNS(NS,'pattern');
     pattern.setAttribute('id','cwaSeaWarnPattern');
     pattern.setAttribute('patternUnits','userSpaceOnUse');
@@ -21029,6 +21042,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     line.setAttribute('x1','0'); line.setAttribute('y1','0'); line.setAttribute('x2','0'); line.setAttribute('y2','12');
     line.setAttribute('stroke','rgba(220,38,38,0.45)'); line.setAttribute('stroke-width','4');
     pattern.appendChild(bg); pattern.appendChild(line); defs.appendChild(pattern);
+    if(typeof proj==='function') setPatternAnchor(pattern,proj);
+  }
+  function setPatternAnchor(pattern,proj){
+    const ref=hatchAnchor(proj);
+    // Translation ties the stripe phase to lat 23.5 / lon 121.0.
+    // Scale keeps stripe spacing constant in geographical (not viewport) units.
+    const factor=ref.interval/12;
+    pattern.setAttribute('patternTransform',`translate(${ref.x.toFixed(3)} ${ref.y.toFixed(3)}) rotate(45) scale(${factor.toFixed(6)})`);
   }
   function createSvg(map){
     if(activeMap===map&&svg)return;
@@ -21088,10 +21109,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     svg.setAttribute('width',Math.ceil(size.x)); svg.setAttribute('height',Math.ceil(size.y));
     svg.setAttribute('viewBox',`0 0 ${size.x} ${size.y}`);
     const d=pathData(activeMap), outlineD=boundaryPathData(activeMap);
+    ensurePattern(svg,(lat,lon)=>activeMap.latLngToContainerPoint([lat,lon]));
     basePath.setAttribute('d',d); hatchPath.setAttribute('d',d); outlinePath.setAttribute('d',outlineD);
   }
   function schedule(){ if(!frame) frame=requestAnimationFrame(render); }
-  function drawCanvasPattern(ctx, pathBuilder, outlineBuilder){
+  function drawCanvasPattern(ctx, pathBuilder, outlineBuilder, proj){
     ctx.save();
     pathBuilder();
     ctx.fillStyle='rgba(220,38,38,.10)';
@@ -21099,14 +21121,19 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     ctx.clip();
     const box=ctx.canvas;
     const w=box.width, h=box.height;
-    for(let x=-h; x<w+h; x+=18){
-      ctx.beginPath();
-      ctx.moveTo(x, h);
-      ctx.lineTo(x+h, 0);
-      ctx.strokeStyle='rgba(220,38,38,.42)';
-      ctx.lineWidth=2;
-      ctx.stroke();
+    const {x:anchorX,y:anchorY,interval}=hatchAnchor(proj);
+    // Diagonal stripes have the invariant x+y=constant. Their phase and
+    // spacing are derived from the projected world anchor, so camera movement
+    // cannot introduce independent stripe animation.
+    const phase=((anchorX+anchorY)%interval+interval)%interval;
+    ctx.strokeStyle='rgba(220,38,38,.42)';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    for(let constant=phase-interval;constant<w+h+interval;constant+=interval){
+      ctx.moveTo(constant-h,h);
+      ctx.lineTo(constant,0);
     }
+    ctx.stroke();
     ctx.restore();
     ctx.save();
     outlineBuilder();
@@ -21148,13 +21175,13 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     if(!geoFeatures.length||typeof proj!=='function') return false;
     const pathBuilder=buildCanvasPath(ctx, proj);
     const outlineBuilder=buildCanvasOutlinePath(ctx, proj);
-    drawCanvasPattern(ctx, pathBuilder, outlineBuilder);
+    drawCanvasPattern(ctx, pathBuilder, outlineBuilder, proj);
     return true;
   };
   window.__appendCwaMarineWarningSvg=function(svgRoot, proj){
     geoFeatures=collectOfficialGeo();
     if(!geoFeatures.length||!svgRoot||typeof proj!=='function') return false;
-    ensurePattern(svgRoot);
+    ensurePattern(svgRoot,proj);
     const d=[], outlineD=[];
     for(const ring of allRings()){
       ring.forEach((p,i)=>{ const q=proj(p[1],p[0]); d.push(`${i?'L':'M'}${q.x.toFixed(2)} ${q.y.toFixed(2)}`); });
