@@ -17181,15 +17181,15 @@ ${a.instruction}` : ''
     loops.sort((a,b)=>Math.abs(polyArea(b))-Math.abs(polyArea(a)));
     let poly=loops[0].slice(0,-1);
 
-    // Gently smooth contour grid noise without replacing the actual published
-    // forecast radii or constructing a convex hull that cuts across bends.
+    // Only remove fine raster noise. Preserve visible contour direction changes
+    // around each published forecast fix; do not make the whole cone ultra-smooth.
     if(poly.length>=12){
       const smoothed=[];
       for(let i=0;i<poly.length;i++){
         const a=poly[(i-1+poly.length)%poly.length];
         const b=poly[i];
         const c=poly[(i+1)%poly.length];
-        smoothed.push({x:a.x*.07+b.x*.86+c.x*.07,y:a.y*.07+b.y*.86+c.y*.07});
+        smoothed.push({x:a.x*.025+b.x*.95+c.x*.025,y:a.y*.025+b.y*.95+c.y*.025});
       }
       poly=smoothed;
     }
@@ -17218,16 +17218,19 @@ ${a.instruction}` : ''
       }
       return points.filter((_,i)=>keep[i]);
     }
-    if(poly.length>440){
+    // Moderate detail reduction (in projected kilometres) removes excessively
+    // soft-looking micro-segments while retaining meaningful turns and caps.
+    // Keep the deviation small compared with the published forecast radii.
+    if(poly.length>180){
       const anchor=poly[0];
       let far=1, maxD=-1;
       for(let i=1;i<poly.length;i++){
         const d=(poly[i].x-anchor.x)**2+(poly[i].y-anchor.y)**2;
         if(d>maxD){maxD=d;far=i;}
       }
-      const tolerance=Math.max(.35,Math.min(1.6,Math.max(dx,dy)*.34));
-      let outA=simplifyOpen(poly.slice(0,far+1),tolerance);
-      let outB=simplifyOpen(poly.slice(far).concat([poly[0]]),tolerance);
+      const tolerance=Math.max(1.0,Math.min(2.0,Math.max(dx,dy)*.55));
+      const outA=simplifyOpen(poly.slice(0,far+1),tolerance);
+      const outB=simplifyOpen(poly.slice(far).concat([poly[0]]),tolerance);
       poly=outA.concat(outB.slice(1,-1));
     }
 
@@ -18400,15 +18403,82 @@ ${a.instruction}` : ''
     const route=obs ? [obs,...list.filter(p=>p.kind==='fcst')] : [];
     const key=JSON.stringify(route.map(p=>[p.kind,p.time,p.lat,p.lon,p.fcst_radius_km]));
     if(coneCache.has(key)) return coneCache.get(key);
-    // One geodesic envelope at every latitude. The previous >=35° switch
-    // chose the tangent-offset legacy algorithm for Taiwan/Japan paths; its
-    // inner/outer sides could cross when the storm curved sharply, producing
-    // a huge skewed forecast cone. Use the physically sized, continuous
-    // union-of-circles contour for the interactive map AND every export.
+
+    function unwrapPoly(poly){
+      if(!Array.isArray(poly) || !poly.length) return [];
+      const out=[[Number(poly[0][0]), Number(poly[0][1])]];
+      for(let i=1;i<poly.length;i++){
+        const lat=Number(poly[i][0]);
+        let lon=Number(poly[i][1]);
+        const prevLon=out[out.length-1][1];
+        while(lon-prevLon>180) lon-=360;
+        while(lon-prevLon<-180) lon+=360;
+        out.push([lat,lon]);
+      }
+      return out;
+    }
+    function polyMetrics(poly){
+      const pts=unwrapPoly(poly);
+      if(pts.length<4) return null;
+      const lat0=pts.reduce((s,p)=>s+p[0],0)/pts.length;
+      const cos=Math.max(.18, Math.cos(toRad(lat0)));
+      const kx=111.32*cos, ky=110.574;
+      let area=0, minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+      for(let i=0;i<pts.length-1;i++){
+        const x1=pts[i][1]*kx, y1=pts[i][0]*ky;
+        const x2=pts[i+1][1]*kx, y2=pts[i+1][0]*ky;
+        area += x1*y2 - x2*y1;
+        minX=Math.min(minX,x1,x2); maxX=Math.max(maxX,x1,x2);
+        minY=Math.min(minY,y1,y2); maxY=Math.max(maxY,y1,y2);
+      }
+      return { area:Math.abs(area/2), width:maxX-minX, height:maxY-minY, pts };
+    }
+    function segmentsCross(a,b,c,d){
+      const cross=(o,p,q)=>(p.x-o.x)*(q.y-o.y)-(p.y-o.y)*(q.x-o.x);
+      const onSeg=(o,p,q)=>Math.min(o.x,p.x)<=q.x+1e-9 && q.x<=Math.max(o.x,p.x)+1e-9 && Math.min(o.y,p.y)<=q.y+1e-9 && q.y<=Math.max(o.y,p.y)+1e-9;
+      const c1=cross(a,b,c), c2=cross(a,b,d), c3=cross(c,d,a), c4=cross(c,d,b);
+      if(((c1>0&&c2<0)||(c1<0&&c2>0)) && ((c3>0&&c4<0)||(c3<0&&c4>0))) return true;
+      if(Math.abs(c1)<1e-9 && onSeg(a,b,c)) return true;
+      if(Math.abs(c2)<1e-9 && onSeg(a,b,d)) return true;
+      if(Math.abs(c3)<1e-9 && onSeg(c,d,a)) return true;
+      if(Math.abs(c4)<1e-9 && onSeg(c,d,b)) return true;
+      return false;
+    }
+    function polySelfCrosses(poly){
+      const m=polyMetrics(poly); if(!m) return true;
+      const pts=m.pts.map(p=>({x:p[1],y:p[0]}));
+      const n=pts.length-1;
+      for(let i=0;i<n;i++){
+        const a=pts[i], b=pts[i+1];
+        for(let j=i+1;j<n;j++){
+          if(Math.abs(i-j)<=1) continue;
+          if(i===0 && j===n-1) continue;
+          const c=pts[j], d=pts[j+1];
+          if(segmentsCross(a,b,c,d)) return true;
+        }
+      }
+      return false;
+    }
+
     const mercator=window.__buildMercatorForecastCone;
-    let polygon=typeof mercator==='function' ? mercator(list) : null;
-    // If valid error radii are missing, leave the cone hidden. The older
-    // tangent-offset fallback invents radii and can self-cross at sharp bends.
+    const original=window.buildOriginalConeFixed || buildOriginalConeFixed;
+    let mercPoly=typeof mercator==='function' ? mercator(list) : null;
+    if(!mercPoly || mercPoly.length<4) mercPoly=null;
+    let symPoly=typeof original==='function' ? original(list) : null;
+    if(!symPoly || symPoly.length<4 || polySelfCrosses(symPoly)) symPoly=null;
+
+    let polygon=mercPoly;
+    if(symPoly && mercPoly){
+      const a=polyMetrics(symPoly), b=polyMetrics(mercPoly);
+      const areaRatio=(a&&b&&b.area>1e-6)? a.area/b.area : 1;
+      const widthRatio=(a&&b&&b.width>1e-6)? a.width/b.width : 1;
+      const heightRatio=(a&&b&&b.height>1e-6)? a.height/b.height : 1;
+      const closeEnough=areaRatio>.70 && areaRatio<1.35 && widthRatio>.78 && widthRatio<1.28 && heightRatio>.78 && heightRatio<1.28;
+      if(closeEnough) polygon=symPoly;
+    }else if(symPoly){
+      polygon=symPoly;
+    }
+
     if(!polygon || polygon.length<4) polygon=null;
     if(coneCache.size>=64) coneCache.delete(coneCache.keys().next().value);
     coneCache.set(key,polygon);
