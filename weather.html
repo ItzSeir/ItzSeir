@@ -5241,6 +5241,56 @@ html{scroll-padding-top:110px}
   .seir-weather .trackerHeadRight .btn{font-size:10px !important}
 }
 </style>
+<style>
+/* Mobile typhoon interactive map: last-in-cascade sizing and usable fit control. */
+.ty-mobile-map-actions{display:none}
+@media(max-width:780px){
+  .seir-weather #typhoonMapPanel{width:100%!important;min-width:0!important;max-width:100%!important;min-height:0!important;overflow:hidden!important;position:relative}
+  .seir-weather #typhoonMapPanel .mapHeader{flex:0 0 auto!important;padding:10px 12px!important}
+  .seir-weather #typhoonMapPanel .mapLegend{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto!important;overflow-y:hidden!important;gap:6px!important;max-width:100%!important;scrollbar-width:none!important;overscroll-behavior-x:contain}
+  .seir-weather #typhoonMapPanel .mapLegend::-webkit-scrollbar{display:none}
+  .seir-weather #typhoonMapPanel .legendItem{flex-shrink:0!important}
+  .seir-weather #typhoonMapPanel #map{box-sizing:border-box!important;width:100%!important;max-width:100%!important;height:clamp(450px,72svh,680px)!important;min-height:0!important;flex:0 0 auto!important;position:relative!important}
+  .seir-weather .ty-mobile-map-actions{display:block;position:absolute;z-index:550;top:auto;right:11px;bottom:14px;pointer-events:none}
+  .seir-weather .ty-mobile-map-actions button{pointer-events:auto;border:1px solid rgba(20,50,65,.17);background:rgba(255,255,255,.96);border-radius:30px;padding:10px 13px;color:#163042;font:800 11px 'Noto Sans TC',sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.16)}
+  .seir-weather #typhoonMapPanel:fullscreen #map{height:calc(100dvh - 85px)!important;min-height:0!important}
+}
+</style>
+<style>
+/* v3 — Correct the actual mobile container overflow, not the map camera. */
+@media (max-width:780px){
+  .seir-weather #tracker,
+  .seir-weather #tracker .trackerBodyNew,
+  .seir-weather #tracker .typhoonMainGrid,
+  .seir-weather #tracker .typhoonMainGrid > .mapShell,
+  .seir-weather #tracker .typhoonMainGrid > .typhoonForecastSide {
+    box-sizing:border-box !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+  }
+  .seir-weather #tracker .typhoonMainGrid {
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:stretch !important;
+  }
+  .seir-weather #tracker .typhoonMainGrid > * {
+    flex:0 0 auto !important;
+    min-width:0 !important;
+  }
+  .seir-weather #tracker #typhoonMapPanel #map,
+  .seir-weather #tracker #typhoonMapPanel .mapHeader {
+    min-width:0 !important;
+    width:100% !important;
+    max-width:100% !important;
+  }
+  .seir-weather #tracker .typhoonForecastSide .fcstList {
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+  }
+}
+</style>
 </head>
 <body class="seir-weather">
 <!--
@@ -5585,6 +5635,7 @@ Implement by adjusting polygon style functions:
 <span class="legendItem"><span class="dot" style="background:#ef4444;"></span> 強烈颱風</span>
 </div>
 </div>
+<div class="ty-mobile-map-actions"><button id="tyMobileFitBtn" type="button" aria-label="顯示完整颱風路徑">◎ 顯示完整路徑</button></div>
 <div id="map"></div>
 </div>
 </div>
@@ -7639,6 +7690,8 @@ Implement by adjusting polygon style functions:
         maxZoom: compact ? 6 : undefined,
         animate:false
       });
+      // A second pass after Leaflet updates tile/container dimensions prevents stale mobile views.
+      if(compact) requestAnimationFrame(() => { try { map.invalidateSize({pan:false}); } catch(e){} });
     }
 
     function renderTyphoonLayers(options = {}){
@@ -9535,6 +9588,29 @@ Implement by adjusting polygon style functions:
       window.addEventListener("resize", resizeTyphoonMapForViewport);
       window.addEventListener("orientationchange", () => setTimeout(() => {restoreMobileTyphoonMapSize(); safeFit();}, 400));
       $("fitAllBtn").addEventListener("click", safeFit);
+      $("tyMobileFitBtn")?.addEventListener("click", () => {
+        requestAnimationFrame(() => { map.invalidateSize({pan:false}); safeFit(); });
+      });
+      // Changes in the CSS grid/legend can occur without a window resize event.
+      // Refit only when the real map width changes; avoid disrupting user zoom while scrolling.
+      let lastTyMapWidth = 0;
+      const tyMapEl = $("map");
+      if(tyMapEl && typeof ResizeObserver !== 'undefined'){
+        const tyMapResizeObserver = new ResizeObserver(entries => {
+          const w = Math.round(entries[0]?.contentRect?.width || 0);
+          if(!w || Math.abs(w-lastTyMapWidth)<2) return;
+          const hadWidth = lastTyMapWidth > 0;
+          lastTyMapWidth=w;
+          if(window.innerWidth<=780){
+            requestAnimationFrame(() => {
+              try { map.invalidateSize({pan:false}); if(!hadWidth || Math.abs(w - mobileViewportWidth) > 20) fitAll(); }catch(e){}
+            });
+          }
+        });
+        tyMapResizeObserver.observe(tyMapEl);
+      }
+      // Refit once after asynchronous fonts, map tiles and controls have settled.
+      setTimeout(() => { if(window.innerWidth<=780) safeFit(); }, 1100);
 
       let __printOldRingState = null;
 
