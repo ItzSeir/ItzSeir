@@ -5627,7 +5627,7 @@ Implement by adjusting polygon style functions:
 <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
 <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 70%預測誤差範圍</span>
 <span class="legendItem"><span class="dot" style="background:#d40000;"></span> 陸上颱風警報區</span>
-<span class="legendItem" id="cwaMarineMapLegend" style="display:none"><span class="dot" style="background:#287eb2;"></span> 海上警戒海域（參考分區）</span>
+<span class="legendItem" id="cwaOfficialMarineMapLegend"><span class="seaWarningHatchIcon" aria-hidden="true"></span> 海上颱風警報</span>
 <button type="button" id="cwaMarinePreviewBtn" title="檢視海岸線裁切及合併效果；此為示意，非目前發布警報">預覽海警</button>
 <span class="legendItem"><span class="dot" style="background:#94a3b8;"></span> 暴風圈(可選)</span>
 <span class="legendItem"><span class="dot" style="background:#6b7280;"></span> 低壓</span>
@@ -17770,7 +17770,7 @@ ${a.instruction}` : ''
         <span class="trackLegendItem"><i class="trackLegendLine fcst"></i>預報路徑</span>';
     if(includeCone) html += '<span class="trackLegendItem"><i class="trackLegendBox"></i>70% 預報誤差範圍</span>';
     html += '<span class="trackLegendItem"><i class="trackLegendBox" style="background:rgba(212,0,0,.18);border-color:rgba(212,0,0,.56)"></i>陸上颱風警報區</span>';
-    html += '<span class="trackLegendItem cwaMarineLegend" style="display:none"><i class="trackLegendBox" style="background:rgba(26,119,178,.22);border-color:rgba(26,119,178,.55)"></i>海上警戒海域（參考分區）</span>';
+    html += '<span class="trackLegendItem cwaMarineLegend"><i class="trackLegendBox seaWarningHatchIcon"></i>海上颱風警報</span>';
     if(includeLevels){
       html += '<span class="trackLegendItem"><span class="trackMiniLegend">\
         <span class="trackLegendItem"><i class="trackLegendDot" style="background:#94a3b8"></i>低壓</span>\
@@ -17836,7 +17836,7 @@ ${a.instruction}` : ''
       if(typeof window.__appendCwaMarineWarningSvg === 'function') {
         const activeMarine=window.__appendCwaMarineWarningSvg(svg, projector(view,width,height));
         const item=frame.querySelector('.cwaMarineLegend');
-        if(item) item.style.display=activeMarine ? 'inline-flex' : 'none';
+        if(item) item.style.display='inline-flex';
       }
       addLandWarningOverlay(svg, view, width, height);
       addCone(svg, cone, view, width, height);
@@ -17880,7 +17880,7 @@ ${a.instruction}` : ''
       if(typeof window.__appendCwaMarineWarningSvg === 'function') {
         const activeMarine=window.__appendCwaMarineWarningSvg(svg, projector(view,width,height));
         const item=frame.querySelector('.cwaMarineLegend');
-        if(item) item.style.display=activeMarine ? 'inline-flex' : 'none';
+        if(item) item.style.display='inline-flex';
       }
       addLandWarningOverlay(svg, view, width, height);
       groups.forEach((g,idx)=>{
@@ -18407,6 +18407,9 @@ ${a.instruction}` : ''
     if(legendText.includes('陸上颱風警報區')){
       legendItems.push({type:'land-warning', label:'陸上颱風警報區'});
     }
+    if(legendText.includes('海上颱風警報')){
+      legendItems.push({type:'sea-warning', label:'海上颱風警報'});
+    }
     if(legendText.includes('低壓')){
       legendItems.push(
         {type:'dot', color:'#94a3b8', label:'低壓'},
@@ -18422,7 +18425,7 @@ ${a.instruction}` : ''
     function legendItemWidth(item){
       const labelW=legendMetricsCtx.measureText(item.label).width;
       if(item.type==='line') return 24+10+labelW;
-      if(item.type==='cone'||item.type==='land-warning') return 20+10+labelW;
+      if(item.type==='cone'||item.type==='land-warning'||item.type==='sea-warning') return 20+10+labelW;
       return 10+8+labelW;
     }
     function measureLegendHeight(){
@@ -18574,15 +18577,28 @@ ${a.instruction}` : ''
             ctx.restore();
             text(item.label, x+34, y, {size:11,weight:900,color:'#4d6673'});
             x += w + gap;
-          }else if(item.type === 'cone' || item.type === 'land-warning'){
-            const isLand = item.type === 'land-warning';
-            ctx.fillStyle=isLand ? 'rgba(212,0,0,.18)' : 'rgba(96,165,250,.20)';
-            ctx.strokeStyle=isLand ? 'rgba(212,0,0,.72)' : 'rgba(67,139,225,.85)';
-            ctx.lineWidth=1;
+          }else if(item.type === 'cone' || item.type === 'land-warning' || item.type === 'sea-warning'){
+            const isLand=item.type === 'land-warning', isSea=item.type === 'sea-warning';
+            ctx.save();
             ctx.beginPath();
             ctx.roundRect(x, y-13, 20, 12, 4);
+            ctx.fillStyle=(isLand||isSea) ? 'rgba(212,0,0,.16)' : 'rgba(96,165,250,.20)';
             ctx.fill();
+            ctx.strokeStyle=(isLand||isSea) ? 'rgba(212,0,0,.72)' : 'rgba(67,139,225,.85)';
+            ctx.lineWidth=1.1;
             ctx.stroke();
+            if(isSea){
+              ctx.clip();
+              ctx.strokeStyle='rgba(205,45,56,.82)';
+              ctx.lineWidth=1.2;
+              for(let d=-18;d<32;d+=7){
+                ctx.beginPath();
+                ctx.moveTo(x+d, y+1);
+                ctx.lineTo(x+d+16, y-15);
+                ctx.stroke();
+              }
+            }
+            ctx.restore();
             text(item.label, x+30, y, {size:11,weight:900,color:'#4d6673'});
             x += w + gap;
           }else{
@@ -21032,6 +21048,19 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 </script>
 
+<style id="sea-warning-unified-legends">
+#typhoonMapPanel .seaWarningHatchIcon, .trackLegendBar .seaWarningHatchIcon{
+  display:inline-block!important;
+  flex:none;
+  box-sizing:border-box;
+  width:20px;
+  height:14px;
+  border-radius:5px;
+  border:1.25px solid rgba(212,0,0,.72);
+  background:repeating-linear-gradient(135deg,transparent 0px,transparent 5px,rgba(211,49,61,.78) 5px,rgba(211,49,61,.78) 7px,transparent 7px,transparent 12px),rgba(212,0,0,.13)!important;
+}
+#typhoonMapPanel #cwaOfficialMarineMapLegend{display:inline-flex!important;align-items:center}
+</style>
 <!-- Top-of-page official CAP 24-hour warning poster: standalone preview, no changes to existing maps/gallery/video -->
 <style>
 #cwa24WarningPoster{display:none;margin:0 0 24px;background:linear-gradient(180deg,#ffffff 0%,#fbfcff 100%);border:1px solid rgba(214,40,40,.24);border-radius:28px;overflow:hidden;box-shadow:0 22px 50px rgba(20,45,62,.10),0 6px 18px rgba(20,45,62,.05)}
@@ -21109,7 +21138,7 @@ for(const point of [storm.now,storm.fut]){
 for(const featureSet of [seaFeatures||[],landFeatures||[]]){
   for(const f of featureSet){
     const polys=f.geometry?.type==='Polygon'?[f.geometry.coordinates]:(f.geometry?.type==='MultiPolygon'?f.geometry.coordinates:[]);
-    for(const poly of polys) for(const ring of poly) for(const xy of ring) if(Number.isFinite(xy[0])&&Number.isFinite(xy[1])) pts.push([xy[1],xy[0]]);
+    for(const poly of polys||[]) for(const ring of poly||[]) for(const xy of ring||[]) if(Array.isArray(xy)&&Number.isFinite(Number(xy[0]))&&Number.isFinite(Number(xy[1]))) pts.push([Number(xy[1]),Number(xy[0])]);
   }
 }
 // Keep Taiwan and its nearby warning area in frame; do not zoom out for the entire historical route.
@@ -21207,29 +21236,82 @@ async function paint(storm,sea,land){
     fillText(ctx,item.k,x+29,y+23,14,'#748a96',850);
     fillText(ctx,item.v,x+17,y+67,28,'#203e51',900);
   });
-  const view=createView(storm,sea,land),proj=projector(view);
-  ctx.save();ctx.beginPath();ctx.rect(0,MAPY,WIDTH,MAPH);ctx.clip();
-  drawFallback();await drawMap(view);
-  drawCoordGrid(view,proj);
-  drawSea(sea,proj); fillLand(land,proj);
-  drawObservedPath(storm.history,proj);
-  drawForecastSegment(storm.now,storm.fut,proj);
-  for(const pt of [storm.fut,storm.now]){
-    if(!pt)continue; const color=levelColor(pt.level),r7=Number(pt.storm_radius_km)||0,r10=Number(pt.storm_radius_10_km)||0;
-    windCircle(pt,r7,proj,color,false);
-    if(r10>0&&r10<=(r7||Infinity))windCircle(pt,r10,proj,color,true);
+  let view;
+  try{view=createView(storm,sea,land);}catch(err){
+    console.warn('[24h poster map framing]',err);
+    view=createView(storm,[],[]);
   }
-  const labelBoxes=[];
-  if(storm.fut)centerDot(storm.fut,proj,levelColor(storm.fut.level),labelBoxes);
-  centerDot(storm.now,proj,levelColor(storm.now.level),labelBoxes);
-  ctx.restore();
+  const proj=projector(view);
+  ctx.save();ctx.beginPath();ctx.rect(0,MAPY,WIDTH,MAPH);ctx.clip();
+  // One malformed GeoJSON warning boundary must never clear the entire poster.
+  const safeLayer=(label,task)=>{try{return task();}catch(err){console.warn('[24h warning poster layer]',label,err);return null;}};
+  try{
+    drawFallback();
+    try{await drawMap(view);}catch(err){console.warn('[24h warning poster map tiles]',err);}
+    safeLayer('coordinate-grid',()=>drawCoordGrid(view,proj));
+    safeLayer('marine-area',()=>drawSea(sea,proj));
+    safeLayer('land-area',()=>fillLand(land,proj));
+    safeLayer('observed-track',()=>drawObservedPath(storm.history,proj));
+    safeLayer('forecast-track',()=>drawForecastSegment(storm.now,storm.fut,proj));
+    for(const pt of [storm.fut,storm.now]){
+      if(!pt)continue;
+      safeLayer('7/10-force wind circles',()=>{
+        const color=levelColor(pt.level),r7=Number(pt.storm_radius_km)||0,r10=Number(pt.storm_radius_10_km)||0;
+        windCircle(pt,r7,proj,color,false);
+        if(r10>0&&r10<=(r7||Infinity))windCircle(pt,r10,proj,color,true);
+      });
+    }
+    const labelBoxes=[];
+    if(storm.fut)safeLayer('forecast label',()=>centerDot(storm.fut,proj,levelColor(storm.fut.level),labelBoxes));
+    safeLayer('current label',()=>centerDot(storm.now,proj,levelColor(storm.now.level),labelBoxes));
+  }finally{ctx.restore();}
   // Compact, aligned native weather-site legend below the map.
   ctx.fillStyle='#fff';ctx.fillRect(0,MAPY+MAPH,WIDTH,HEIGHT-MAPY-MAPH);
   drawKey();
   fillText(ctx,'資料：中央氣象署',32,HEIGHT-15,13,'#778b96',700);
 }
 
-async function render(){ if(rendering){pending=true;return;} const storm=pickPoints(), sea=featureList(); if(!storm||!hasWarnings()){card?.classList.remove('is-visible');return;} if(typeof ensureGalleryWarningGeo==='function'){ try{ await ensureGalleryWarningGeo(); }catch(_){} } const land=pickLandFeatures(); const sig=signature(storm,sea)+'|land:'+land.length; if(sig===lastSignature&&Date.now()-lastRenderAt<20000)return; rendering=true; try{ card.classList.add('is-visible'); await paint(storm,sea,land); lastSignature=sig; lastRenderAt=Date.now(); }catch(e){ console.warn('[24h typhoon warning map]',e); try{ ctx.restore(); ctx.clearRect(0,0,WIDTH,HEIGHT); ctx.fillStyle='#f8fbfc'; ctx.fillRect(0,0,WIDTH,HEIGHT); fillText(ctx,'颱風警報圖暫時無法繪製',48,94,33,'#142d3e',900); fillText(ctx,'請重新整理頁面或檢查瀏覽器主控台。',48,134,17,'#718692',750); }catch(_){} lastSignature=''; } finally{ rendering=false; if(pending){ pending=false; setTimeout(render,80); } } }
+async function render(){
+  if(rendering){pending=true;return;}
+  let storm=null,sea=[],land=[];
+  try{storm=pickPoints();sea=featureList();}catch(err){console.warn('[24h poster selection]',err);}
+  if(!storm||!hasWarnings()){card?.classList.remove('is-visible');return;}
+  rendering=true;
+  try{
+    // Geometry may arrive later than the typhoon route; retry rather than blocking the map.
+    if(typeof ensureGalleryWarningGeo==='function'){
+      try{await ensureGalleryWarningGeo();}catch(err){console.warn('[24h land-warning geometry]',err);}
+    }
+    try{land=pickLandFeatures();}catch(err){console.warn('[24h land-warning match]',err);land=[];}
+    const sig=signature(storm,sea)+'|land:'+land.length;
+    if(sig===lastSignature&&Date.now()-lastRenderAt<20000)return;
+    card.classList.add('is-visible');
+    await paint(storm,sea,land);
+    lastSignature=sig;
+    lastRenderAt=Date.now();
+  }catch(err){
+    console.error('[24h poster rendering error]',err?.stack||err);
+    window.__typhoonPosterLastError=String(err?.stack||err);
+    // Recover using the official center positions rather than showing a blank canvas.
+    try{
+      await paint(storm,[],[]);
+      ctx.save();
+      ctx.fillStyle='rgba(255,248,232,.96)';
+      ctx.fillRect(0,MAPY+MAPH-32,WIDTH,32);
+      fillText(ctx,'部分警報區域暫時無法顯示；中心位置及風圈仍可參考。',24,MAPY+MAPH-11,15,'#8b5e24',800);
+      ctx.restore();
+    }catch(fallbackError){
+      console.error('[24h poster recovery failed]',fallbackError);
+      try{
+        ctx.fillStyle='rgba(255,255,255,.98)';
+        ctx.fillRect(0,0,WIDTH,MAPY);
+        fillText(ctx,`${plainName(storm.name)} · 未來 24 小時`,32,92,37,'#122c3b',900);
+        fillText(ctx,'警報資料載入異常，請重新整理頁面。',32,128,18,'#718692',750);
+      }catch(_){ }
+    }
+    lastSignature='';
+  }finally{rendering=false;if(pending){pending=false;setTimeout(render,80);}}
+}
 function install(){ const hero=document.querySelector('main.page .weatherHero'); if(!hero||card)return; card=document.createElement('section'); card.id='cwa24WarningPoster'; card.setAttribute('aria-label','24 小時海陸颱風警報圖'); card.innerHTML='<div class="cwa24Top"><div><h2>颱風警報 · 24 小時路徑</h2><p>目前中心、24 小時預報位置與海陸警戒區</p></div><div class="controls"><button id="cwa24Save" type="button">儲存警報 PNG</button></div></div><canvas id="cwa24Canvas" width="1600" height="1060"></canvas><div class="cwa24Foot">僅顯示生效中的颱風警報。若未提供接近 +24 小時的預報點，則只顯示目前中心；沒有半徑資料時不推算風圈。</div>';
 hero.parentElement.insertBefore(card,hero); canvas=card.querySelector('canvas'); ctx=canvas.getContext('2d'); card.querySelector('#cwa24Save').addEventListener('click',()=>{ try{ const a=document.createElement('a'); a.download='24小時颱風警報圖.png'; a.href=canvas.toDataURL('image/png'); a.click(); }catch(e){ alert('PNG 無法儲存，可能是地圖來源限制跨來源畫布。'); } }); setTimeout(render,1400); setInterval(render,12000); }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
