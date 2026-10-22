@@ -20831,6 +20831,21 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     return list;
   }
   function allRings(){ return geoFeatures.map(f=>f.geometry.coordinates[0]).filter(r=>Array.isArray(r)&&r.length>=4); }
+  function ptKey(p){ return `${Number(p[0]).toFixed(6)},${Number(p[1]).toFixed(6)}`; }
+  function edgeKey(a,b){ const ka=ptKey(a), kb=ptKey(b); return ka<kb ? `${ka}|${kb}` : `${kb}|${ka}`; }
+  function uniqueBoundarySegments(){
+    const edges=new Map();
+    for(const ring of allRings()){
+      for(let i=0;i<ring.length-1;i++){
+        const a=ring[i], b=ring[i+1];
+        const key=edgeKey(a,b);
+        const hit=edges.get(key);
+        if(hit) hit.count+=1;
+        else edges.set(key,{count:1,a,b});
+      }
+    }
+    return [...edges.values()].filter(e=>e.count===1);
+  }
   function ensurePattern(root){
     let defs=root.querySelector('defs');
     if(!defs){ defs=document.createElementNS(NS,'defs'); root.insertBefore(defs,root.firstChild); }
@@ -20887,6 +20902,15 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     }
     return commands.join(' ');
   }
+  function boundaryPathData(map){
+    const commands=[];
+    for(const seg of uniqueBoundarySegments()){
+      const a=map.latLngToContainerPoint([seg.a[1],seg.a[0]]);
+      const b=map.latLngToContainerPoint([seg.b[1],seg.b[0]]);
+      commands.push(`M${a.x.toFixed(2)} ${a.y.toFixed(2)}L${b.x.toFixed(2)} ${b.y.toFixed(2)}`);
+    }
+    return commands.join(' ');
+  }
   function render(){
     frame=0;
     if(!activeMap||!svg)return;
@@ -20896,11 +20920,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     svg.style.left=offset.x+'px'; svg.style.top=offset.y+'px';
     svg.setAttribute('width',Math.ceil(size.x)); svg.setAttribute('height',Math.ceil(size.y));
     svg.setAttribute('viewBox',`0 0 ${size.x} ${size.y}`);
-    const d=pathData(activeMap);
-    basePath.setAttribute('d',d); hatchPath.setAttribute('d',d); outlinePath.setAttribute('d',d);
+    const d=pathData(activeMap), outlineD=boundaryPathData(activeMap);
+    basePath.setAttribute('d',d); hatchPath.setAttribute('d',d); outlinePath.setAttribute('d',outlineD);
   }
   function schedule(){ if(!frame) frame=requestAnimationFrame(render); }
-  function drawCanvasPattern(ctx, pathBuilder){
+  function drawCanvasPattern(ctx, pathBuilder, outlineBuilder){
     ctx.save();
     pathBuilder();
     ctx.fillStyle='rgba(220,38,38,.10)';
@@ -20918,7 +20942,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     }
     ctx.restore();
     ctx.save();
-    pathBuilder();
+    outlineBuilder();
     ctx.strokeStyle='rgba(220,38,38,.72)';
     ctx.lineWidth=1.8;
     ctx.setLineDash([8,6]);
@@ -20941,30 +20965,46 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       return started;
     };
   }
+  function buildCanvasOutlinePath(ctx, proj){
+    let started=false;
+    return function(){
+      ctx.beginPath();
+      uniqueBoundarySegments().forEach(seg=>{
+        const a=proj(seg.a[1],seg.a[0]), b=proj(seg.b[1],seg.b[0]);
+        ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); started=true;
+      });
+      return started;
+    };
+  }
   window.__drawCwaMarineWarningCanvas=function(ctx, proj){
     geoFeatures=collectOfficialGeo();
     if(!geoFeatures.length||typeof proj!=='function') return false;
     const pathBuilder=buildCanvasPath(ctx, proj);
-    drawCanvasPattern(ctx, pathBuilder);
+    const outlineBuilder=buildCanvasOutlinePath(ctx, proj);
+    drawCanvasPattern(ctx, pathBuilder, outlineBuilder);
     return true;
   };
   window.__appendCwaMarineWarningSvg=function(svgRoot, proj){
     geoFeatures=collectOfficialGeo();
     if(!geoFeatures.length||!svgRoot||typeof proj!=='function') return false;
     ensurePattern(svgRoot);
-    const d=[];
+    const d=[], outlineD=[];
     for(const ring of allRings()){
       ring.forEach((p,i)=>{ const q=proj(p[1],p[0]); d.push(`${i?'L':'M'}${q.x.toFixed(2)} ${q.y.toFixed(2)}`); });
       d.push('Z');
     }
-    const path=d.join(' ');
+    uniqueBoundarySegments().forEach(seg=>{
+      const a=proj(seg.a[1],seg.a[0]), b=proj(seg.b[1],seg.b[0]);
+      outlineD.push(`M${a.x.toFixed(2)} ${a.y.toFixed(2)}L${b.x.toFixed(2)} ${b.y.toFixed(2)}`);
+    });
+    const path=d.join(' '), outlinePathD=outlineD.join(' ');
     const g=document.createElementNS(NS,'g');
     const base=document.createElementNS(NS,'path');
     base.setAttribute('d',path); base.setAttribute('fill','rgba(220,38,38,0.10)'); base.setAttribute('stroke','none');
     const hatch=document.createElementNS(NS,'path');
     hatch.setAttribute('d',path); hatch.setAttribute('fill','url(#cwaSeaWarnPattern)'); hatch.setAttribute('stroke','none');
     const outline=document.createElementNS(NS,'path');
-    outline.setAttribute('d',path); outline.setAttribute('fill','none'); outline.setAttribute('stroke','rgba(220,38,38,0.72)'); outline.setAttribute('stroke-width','1.5'); outline.setAttribute('stroke-dasharray','8 6');
+    outline.setAttribute('d',outlinePathD); outline.setAttribute('fill','none'); outline.setAttribute('stroke','rgba(220,38,38,0.72)'); outline.setAttribute('stroke-width','1.5'); outline.setAttribute('stroke-dasharray','8 6');
     g.appendChild(base); g.appendChild(hatch); g.appendChild(outline); svgRoot.appendChild(g);
     return true;
   };
@@ -20981,6 +21021,151 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     if(map&&typeof map.getSize==='function') window.__refreshCwaMarineWarnings(map);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+
+<!-- Top-of-page official CAP 24-hour warning poster: standalone preview, no changes to existing maps/gallery/video -->
+<style>
+#cwa24WarningPoster{display:none;margin:0 0 22px;background:#fff;border:1px solid rgba(214,40,40,.32);border-radius:24px;overflow:hidden;box-shadow:0 14px 40px rgba(31,53,72,.10)}
+#cwa24WarningPoster.is-visible{display:block}
+.cwa24Top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:17px 20px;background:linear-gradient(110deg,#fff7f7,#f7fbfd);border-bottom:1px solid rgba(214,40,40,.13)}
+.cwa24Top h2{font-size:clamp(17px,2.3vw,25px);margin:0;font-weight:900;letter-spacing:-.035em;color:#142d3e}
+.cwa24Top p{margin:5px 0 0;font-size:12px;font-weight:700;color:#71818c}
+.cwa24Top .controls{display:flex;gap:8px;align-items:center}
+#cwa24Save{padding:10px 15px;background:#cf3036;border:0;color:#fff;border-radius:12px;font-size:12px;font-weight:900;cursor:pointer}
+#cwa24Canvas{display:block;width:100%;height:auto;max-height:none;background:#e3f2f8}
+.cwa24Foot{border-top:1px solid #e5edf2;color:#657784;font-size:11px;font-weight:750;padding:11px 20px;line-height:1.7}
+@media(max-width:600px){.cwa24Top{padding:13px 14px}.cwa24Top h2{font-size:17px}.cwa24Foot{padding:10px 13px}}
+</style>
+<script id="cwa24-warning-poster">
+(function(){
+'use strict';
+const WIDTH=1200,HEIGHT=760, MAPY=126, MAPH=572, R=6371;
+let card=null,canvas=null,ctx=null,rendering=false,pending=false,lastSignature='',lastRenderAt=0;
+const G=(name,defaultValue)=>{try{const v=Function('return (typeof '+name+'!=="undefined")?'+name+':undefined')();return v===undefined?defaultValue:v;}catch(_){return window[name]??defaultValue;}};
+const ts=t=>{const v=Date.parse(t||'');return Number.isFinite(v)?v:NaN;};
+const pretty=t=>{const d=new Date(t);if(!Number.isFinite(d.getTime()))return '—';return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
+const fillText=(c,str,x,y,size=18,color='#142d3e',weight=800)=>{c.font=`${weight} ${size}px "Noto Sans TC","Segoe UI",Arial,sans-serif`;c.fillStyle=color;c.fillText(String(str),x,y)};
+const levelColor=lev=>({LOW:'#94a3b8',TD:'#536ab8',TS:'#22c55e',STS:'#22c55e',TY:'#f59e0b',STY:'#ef4444'})[String(lev||'').toUpperCase()]||'#ef4444';
+const dest=(lat,lon,az,km)=>{const d=km/R,t=az*Math.PI/180,p=lat*Math.PI/180,l=lon*Math.PI/180;const lat2=Math.asin(Math.sin(p)*Math.cos(d)+Math.cos(p)*Math.sin(d)*Math.cos(t));const lon2=l+Math.atan2(Math.sin(t)*Math.sin(d)*Math.cos(p),Math.cos(d)-Math.sin(p)*Math.sin(lat2));return [lat2*180/Math.PI,lon2*180/Math.PI]};
+const my=lat=>.5-Math.log((1+Math.sin(Math.max(-85,Math.min(85,lat))*Math.PI/180))/(1-Math.sin(Math.max(-85,Math.min(85,lat))*Math.PI/180)))/(4*Math.PI);
+const mx=lon=>(lon+180)/360;
+const revY=y=>(Math.atan(Math.sinh(Math.PI*(1-2*y)))*180/Math.PI);
+function getAlerts(){return Array.isArray(window.__twAllCapAlerts)?window.__twAllCapAlerts:(Array.isArray(window.__twCapAlerts)?window.__twCapAlerts:[])}
+function activeAlerts(){return getAlerts().filter(a=>{
+const hay=`${a.headline||''} ${a.event||''} ${a.datasetName||''}`;
+if(!/颱風|熱帶性低氣壓/.test(hay) || /解除|取消/.test(a.headline||'')||/cancel/i.test(a.msgType||''))return false;
+const e=ts(a.expires);return !Number.isFinite(e)||e>Date.now();
+});}
+function hasWarnings(){return activeAlerts().some(a=>/海上|陸上|颱風警報/.test(`${a.headline||''} ${a.event||''}`))}
+function pickPoints(){
+let groups=G('allTyphoons',[]);if(!Array.isArray(groups))groups=[];
+if(!groups.length){let pts=G('points',[]);if(Array.isArray(pts)&&pts.length)groups=[{name:pts[0].typhoonName||'颱風',points:pts}];}
+const options=[];
+for(const g of groups){
+const pts=(g.points||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))&&Number.isFinite(ts(p.time)));
+const obs=pts.filter(p=>p.kind==='obs').sort((a,b)=>ts(a.time)-ts(b.time));
+if(!obs.length)continue;
+const now=obs[obs.length-1],target=ts(now.time)+24*3600000;
+const forecasts=pts.filter(p=>p.kind==='fcst' && ts(p.time)>ts(now.time));
+forecasts.sort((a,b)=>Math.abs(ts(a.time)-target)-Math.abs(ts(b.time)-target));
+const fut=forecasts.length&&Math.abs(ts(forecasts[0].time)-target)<=9*3600000?forecasts[0]:null;
+options.push({name:g.name||now.typhoonName||'颱風',now,fut});
+}
+options.sort((a,b)=>ts(b.now.time)-ts(a.now.time));
+return options[0]||null;
+}
+function featureList(){try{return window.__getCwaMarineWarningGeoJson?.().features||[]}catch(_){return []}}
+function pickLandFeatures(){
+const hasLand=activeAlerts().some(a=>/陸上/.test(`${a.headline||''} ${a.event||''} ${a.description||''}`));
+if(!hasLand)return [];
+const county=G('typhoonWarningCountyData',null),town=G('typhoonWarningTownData',null),best=G('twAreaBestAlertForFeature',null);
+if(typeof best!=='function')return [];
+const out=[];
+for(const [geo,mode] of [[county,'county'],[town,'town']]){
+ if(!geo)continue;
+ for(const f of (geo.type==='FeatureCollection'?geo.features:[geo])){
+  if(!f?.geometry)continue;
+  try{const alert=best(f,mode);if(alert&&/颱風/.test(`${alert.headline||''} ${alert.event||''}`))out.push(f)}catch(_){ }
+ }
+}
+return out;
+}
+function createView(storm,seaFeatures){
+const pts=[];
+for(const point of [storm.now,storm.fut]){
+if(!point)continue;pts.push([Number(point.lat),Number(point.lon)]);
+const r=Number(point.storm_radius_km)||0;
+if(r>0&&r<1500)for(const ang of [0,90,180,270])pts.push(dest(Number(point.lat),Number(point.lon),ang,r));
+}
+for(const f of seaFeatures){
+const polys=f.geometry?.type==='Polygon'?[f.geometry.coordinates]:f.geometry?.coordinates||[];
+for(const poly of polys)for(const ring of poly)for(const xy of ring)if(Number.isFinite(xy[0])&&Number.isFinite(xy[1]))pts.push([xy[1],xy[0]]);
+}
+// Keep geographic framing centered around Taiwan as with official warning charts.
+pts.push([24.2,120.5],[23.2,122.0]);
+const lats=pts.map(p=>p[0]),lons=pts.map(p=>p[1]);
+const a=Math.max(-84,Math.min(...lats)-.5),b=Math.min(84,Math.max(...lats)+.5);
+const c=Math.min(...lons)-.5,d=Math.max(...lons)+.5;
+const z=Math.max(3.2,Math.min(8.5,Math.log2(Math.min((WIDTH-120)/(512*((d-c)/360)),(MAPH-100)/(512*(my(a)-my(b)))))));
+return {lat:revY((my(a)+my(b))/2),lon:(c+d)/2,zoom:z};
+}
+function projector(view){const scale=512*Math.pow(2,view.zoom),cx=mx(view.lon)*scale,cy=my(view.lat)*scale;return (lat,lon)=>({x:WIDTH/2+(mx(lon)*scale-cx),y:MAPY+MAPH/2+(my(lat)*scale-cy)})}
+function drawFallback(){ctx.fillStyle='#e4f1f7';ctx.fillRect(0,MAPY,WIDTH,MAPH);ctx.strokeStyle='#c7d8e1';ctx.setLineDash([3,9]);for(let i=0;i<WIDTH;i+=100){ctx.beginPath();ctx.moveTo(i,MAPY);ctx.lineTo(i,MAPY+MAPH);ctx.stroke()}for(let i=MAPY;i<MAPY+MAPH;i+=100){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(WIDTH,i);ctx.stroke()}ctx.setLineDash([])}
+function drawMap(view){
+const style=G('MAPBOX_STYLE',''),token=G('MAPBOX_TOKEN','');
+if(!style||!token)return Promise.resolve();
+const u=`https://api.mapbox.com/styles/v1/${style}/static/${view.lon.toFixed(5)},${view.lat.toFixed(5)},${view.zoom.toFixed(3)},0/${WIDTH}x${MAPH}@2x?access_token=${encodeURIComponent(token)}`;
+return new Promise(resolve=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>{try{ctx.drawImage(img,0,MAPY,WIDTH,MAPH)}catch(_){}resolve()};img.onerror=()=>resolve();img.src=u;});
+}
+function geoPath(feature,proj){
+const g=feature.geometry;if(!g)return;
+const polys=g.type==='Polygon'?[g.coordinates]:(g.type==='MultiPolygon'?g.coordinates:[]);
+for(const poly of polys)for(const ring of poly){
+ ring.forEach((xy,i)=>{const p=proj(xy[1],xy[0]);if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)});ctx.closePath();
+}
+}
+function fillLand(land,proj){ctx.save();for(const f of land){ctx.beginPath();geoPath(f,proj);ctx.fillStyle='rgba(222,36,46,.23)';ctx.fill('evenodd');ctx.strokeStyle='rgba(205,31,45,.9)';ctx.lineWidth=1.2;ctx.stroke()}ctx.restore()}
+function drawSea(seas,proj){
+if(!seas.length)return;
+ctx.save();ctx.beginPath();for(const f of seas)geoPath(f,proj);
+ctx.fillStyle='rgba(220,38,38,.10)';ctx.fill();ctx.clip();
+ctx.strokeStyle='rgba(200,31,43,.56)';ctx.lineWidth=2;
+for(let x=-MAPH;x<WIDTH+MAPH;x+=17){ctx.beginPath();ctx.moveTo(x,MAPY+MAPH);ctx.lineTo(x+MAPH,MAPY);ctx.stroke()}ctx.restore();
+// Only draw segments that belong to the outer boundary of the union.
+const edges=new Map();const key=p=>`${Number(p[0]).toFixed(6)},${Number(p[1]).toFixed(6)}`;
+for(const f of seas){const poly=f.geometry?.coordinates?.[0];if(!Array.isArray(poly))continue;for(let i=0;i<poly.length;i++)for(const ring of [poly[i]]){
+ for(let j=0;j<ring.length-1;j++){const a=key(ring[j]),b=key(ring[j+1]),k=a<b?a+'|'+b:b+'|'+a;const e=edges.get(k);if(e)e.n++;else edges.set(k,{n:1,a:ring[j],b:ring[j+1]});}
+}}
+ctx.save();ctx.beginPath();for(const e of edges.values())if(e.n===1){const a=proj(e.a[1],e.a[0]),b=proj(e.b[1],e.b[0]);ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)}ctx.setLineDash([8,6]);ctx.strokeStyle='rgba(196,29,42,.84)';ctx.lineWidth=1.9;ctx.stroke();ctx.restore();
+}
+function windCircle(point,km,proj,color,inner){if(!(km>0&&km<1500))return;ctx.save();ctx.beginPath();for(let a=0;a<=360;a+=4){const q=dest(Number(point.lat),Number(point.lon),a,km),p=proj(q[0],q[1]);if(!a)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)}ctx.closePath();ctx.fillStyle=inner?color+'42':color+'20';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=inner?1.8:2.4;ctx.setLineDash([]);ctx.stroke();ctx.restore()}
+function centerDot(point,proj,color,label){const p=proj(Number(point.lat),Number(point.lon));ctx.beginPath();ctx.arc(p.x,p.y,8,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=3;ctx.stroke();const str=label+' '+pretty(point.time);ctx.font='900 16px "Noto Sans TC",sans-serif';const w=Math.min(340,ctx.measureText(str).width+28),x=Math.max(12,Math.min(WIDTH-w-12,p.x+16)),y=Math.max(MAPY+18,Math.min(MAPY+MAPH-39,p.y-50));ctx.fillStyle='rgba(255,255,255,.96)';ctx.strokeStyle=color;ctx.lineWidth=1.1;ctx.beginPath();ctx.roundRect(x,y,w,33,13);ctx.fill();ctx.stroke();fillText(ctx,str,x+14,y+23,15,'#142d3e',900)}
+function drawKey(){ctx.fillStyle='#fff';ctx.fillRect(0,MAPY+MAPH,WIDTH,HEIGHT-MAPY-MAPH);fillText(ctx,'圖例',26,MAPY+MAPH+32,16,'#173447',900);let x=100;const y=MAPY+MAPH+28;ctx.font='800 15px "Noto Sans TC",sans-serif';for(const [typ,label] of [['sea','海上警戒（紅色斜線）'],['land','陸上警戒'],['outer','七級風圈'],['inner','十級風圈']]){
+ if(typ==='sea'){ctx.fillStyle='#fde7e8';ctx.fillRect(x,y-14,32,20);ctx.strokeStyle='#d33';for(let t=0;t<30;t+=8){ctx.beginPath();ctx.moveTo(x+t,y+6);ctx.lineTo(x+t+14,y-14);ctx.stroke()}}
+ else{ctx.fillStyle=typ==='land'?'#f6b1b7':typ==='outer'?'#ffe6d5':'#ef9e82';ctx.fillRect(x,y-14,32,20);ctx.strokeStyle='#d33';ctx.strokeRect(x,y-14,32,20)}
+ fillText(ctx,label,x+42,y+3,14,'#344e5c',850);x+=typ==='sea'?263:typ==='land'?185:typ==='outer'?160:158;
+}}
+function signature(storm,sea){return JSON.stringify([storm?.name,storm?.now?.time,storm?.fut?.time,storm?.now?.storm_radius_km,storm?.now?.storm_radius_10_km,storm?.fut?.storm_radius_km,storm?.fut?.storm_radius_10_km,sea.map(f=>f.properties?.areaDesc).sort(),getAlerts().map(a=>a.headline).sort()])}
+async function paint(storm,sea,land){
+ctx.clearRect(0,0,WIDTH,HEIGHT);ctx.fillStyle='#f7f9fc';ctx.fillRect(0,0,WIDTH,HEIGHT);
+ctx.fillStyle='#d72630';ctx.fillRect(0,0,WIDTH,8);fillText(ctx,`海上／陸上颱風警報｜${storm.name}`,25,51,29,'#102a3c',900);
+fillText(ctx,`最新中心 ${pretty(storm.now.time)}  ·  預報 +24 小時`,25,88,18,'#607383',750);
+const view=createView(storm,sea),proj=projector(view);
+ctx.save();ctx.beginPath();ctx.rect(0,MAPY,WIDTH,MAPH);ctx.clip();drawFallback();await drawMap(view);drawSea(sea,proj);fillLand(land,proj);
+const future=storm.fut;
+if(future){const a=proj(Number(storm.now.lat),Number(storm.now.lon)),b=proj(Number(future.lat),Number(future.lon));ctx.save();ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.setLineDash([12,8]);ctx.strokeStyle='#8b6937';ctx.lineWidth=3.4;ctx.stroke();ctx.restore();}
+// Exactly two positions; each gets only its published seven/ten-force radii.
+for(const pt of [future,storm.now]){if(!pt)continue;const color=levelColor(pt.level);windCircle(pt,Number(pt.storm_radius_km)||0,proj,color,false);const r10=Number(pt.storm_radius_10_km)||0;if(r10>0&&r10<=(Number(pt.storm_radius_km)||Infinity))windCircle(pt,r10,proj,color,true)}
+if(future)centerDot(future,proj,levelColor(future.level),'24 小時');centerDot(storm.now,proj,levelColor(storm.now.level),'目前');ctx.restore();drawKey();
+fillText(ctx,'資料來源：中央氣象署 CWA ｜海警依官方 CAP polygon ｜僅供防災資訊參考',25,HEIGHT-12,13,'#677988',750);
+}
+async function render(){if(rendering){pending=true;return;}const storm=pickPoints(),sea=featureList();if(!storm||!hasWarnings()){card?.classList.remove('is-visible');return;}const sig=signature(storm,sea);if(sig===lastSignature && Date.now()-lastRenderAt<20000)return;rendering=true;try{card.classList.add('is-visible');await paint(storm,sea,pickLandFeatures());lastSignature=sig;lastRenderAt=Date.now()}catch(e){console.warn('[CWA top 24h warning poster]',e)}finally{rendering=false;if(pending){pending=false;setTimeout(render,80)}}}
+function install(){const hero=document.querySelector('main.page .weatherHero');if(!hero||card)return;card=document.createElement('section');card.id='cwa24WarningPoster';card.setAttribute('aria-label','24 小時海陸颱風警報圖');card.innerHTML='<div class="cwa24Top"><div><h2>海上／陸上颱風警報 · 24 小時路徑圖</h2><p>目前中心與 24 小時後預報位置，含七級／十級暴風圈和警戒區</p></div><div class="controls"><button id="cwa24Save" type="button">儲存警報 PNG</button></div></div><canvas id="cwa24Canvas" width="1200" height="760"></canvas><div class="cwa24Foot">僅顯示生效中的颱風警報。若 CWA 未提供接近 +24 小時的預報點，則只顯示目前中心；沒有半徑資料時不推算風圈。</div>';
+hero.parentElement.insertBefore(card,hero);canvas=card.querySelector('canvas');ctx=canvas.getContext('2d');card.querySelector('#cwa24Save').addEventListener('click',()=>{try{const a=document.createElement('a');a.download='CWA_24小時颱風警報圖.png';a.href=canvas.toDataURL('image/png');a.click()}catch(e){alert('PNG 無法儲存，可能是地圖來源限制跨來源畫布。')}});
+setTimeout(render,1400);setInterval(render,12000);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
 </script>
 </body>
