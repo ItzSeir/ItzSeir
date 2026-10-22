@@ -5627,6 +5627,8 @@ Implement by adjusting polygon style functions:
 <span class="legendItem"><span class="legendLine dash"></span> 預報路徑</span>
 <span class="legendItem"><span class="dot" style="background:#60a5fa;"></span> 70%預測誤差範圍</span>
 <span class="legendItem"><span class="dot" style="background:#d40000;"></span> 陸上颱風警報區</span>
+<span class="legendItem" id="cwaMarineMapLegend" style="display:none"><span class="dot" style="background:#287eb2;"></span> 海上警戒海域（參考分區）</span>
+<button type="button" id="cwaMarinePreviewBtn" title="檢視海岸線裁切及合併效果；此為示意，非目前發布警報">預覽海警</button>
 <span class="legendItem"><span class="dot" style="background:#94a3b8;"></span> 暴風圈(可選)</span>
 <span class="legendItem"><span class="dot" style="background:#6b7280;"></span> 低壓</span>
 <span class="legendItem"><span class="dot" style="background:#536ab8;"></span> 熱帶低壓</span>
@@ -6757,6 +6759,8 @@ Implement by adjusting polygon style functions:
 
     async function refreshTyphoonWarningOverlay(){
       if(!map || typeof L === "undefined") return;
+      // Sea warning: one blended, coast-excluded overlay for all active CAP marine areas.
+      if(typeof window.__refreshCwaMarineWarnings === 'function') window.__refreshCwaMarineWarnings(map);
       const alerts = getTyphoonCapAlerts();
       if(!alerts.length){
         if(typhoonWarningCountyLayer) typhoonWarningCountyLayer.setStyle(() => typhoonWarningStyle(null));
@@ -9943,6 +9947,132 @@ Implement by adjusting polygon style functions:
         throw lastErr || new Error(`CWA CAP 讀取失敗 (${datasetId})`);
       }
 
+      // The official REST W-C0034-001 JSON is the preferred source for typhoon
+      // warning information. Keep CAP XML as fallback: a filtered JSON query
+      // may legitimately contain zero warnings, be unavailable, or change shape.
+      function cwaTyphoonJsonEntries(json){
+        if(!json || typeof json !== 'object') throw new Error('CWA JSON is empty');
+        if(json.success === false || json.success === 'false') throw new Error('CWA JSON success=false');
+        const result = [];
+        const visited = new WeakSet();
+        function plain(val){
+          if(val == null) return '';
+          if(typeof val === 'string' || typeof val === 'number') return String(val).trim();
+          if(Array.isArray(val)) return val.map(plain).filter(Boolean).join('；');
+          return '';
+        }
+        function areasOf(value){
+          const out=[];
+          function scan(node, depth){
+            if(depth>9 || node==null)return;
+            if(typeof node === 'string'){ if(node.trim()) out.push(node.trim()); return; }
+            if(Array.isArray(node)){ node.forEach(x=>scan(x,depth+1)); return; }
+            if(typeof node !== 'object')return;
+            const direct=node.areaDesc ?? node.area_desc ?? node.name;
+            if(typeof direct === 'string' && direct.trim())out.push(direct.trim());
+            for(const [k,v] of Object.entries(node)){
+              if(['areaDesc','area_desc','name','geocode','polygon','circle'].includes(k))continue;
+              if(/^(area|areas|affectedArea|affectedAreas)$/i.test(k))scan(v,depth+1);
+            }
+          }
+          scan(value,0);
+          return [...new Set(out)];
+        }
+        function parametersOf(node){
+          const ret={};
+          const arr=node?.parameter ?? node?.parameters ?? [];
+          const items=Array.isArray(arr)?arr:[arr];
+          items.forEach(p=>{
+            if(!p || typeof p!=='object')return;
+            const name=plain(p.valueName||p.name), value=plain(p.value);
+            if(name)ret[name]=value;
+          });
+          return ret;
+        }
+        function alertFrom(info, parent){
+          if(!info || typeof info!=='object')return;
+          const headline=plain(info.headline || info.title || parent.headline);
+          const event=plain(info.event || parent.event || '颱風');
+          if(!/颱風|熱帶性低氣壓|熱帶低氣壓/.test(headline+' '+event))return;
+          const areas=[...areasOf(info.area || info.areas),...areasOf(info.areaDesc)];
+          let description=plain(info.description);
+          if(!description && info.description && typeof info.description==='object'){
+            // Some CWA JSON versions expose the individual narrative sections.
+            const sections=info.description.section;
+            if(sections){const arr=Array.isArray(sections)?sections:[sections];
+              description=arr.map(x=>typeof x==='object' ? `${plain(x.title)}：${plain(x.value||x.text||x.content)}` : plain(x)).join('；');}
+          }
+          const capMarineAreas=[];
+          const rawAreas=info.area ?? info.areas ?? parent.area ?? parent.areas ?? [];
+          const polygonAreas=Array.isArray(rawAreas)?rawAreas:[rawAreas];
+          for(const part of polygonAreas){
+            if(!part || typeof part!=='object')continue;
+            const areaDesc=plain(part.areaDesc || part.area_desc || part.name);
+            const polygon=part.polygon;
+            if(!areaDesc || !/海面|海峽|海域|近海|外海/.test(areaDesc))continue;
+            if(typeof polygon==='string' && polygon.trim()){
+              capMarineAreas.push({areaDesc,polygon:polygon.trim()});
+            }
+          }
+          result.push({
+            datasetId:'W-C0034-001',datasetName:'颱風警報',kind:'typhoon',color:'#ff7a00',
+            headline,event,
+            sent:plain(parent.sent||info.sent),
+            effective:plain(info.effective||parent.effective),
+            expires:plain(info.expires||parent.expires),
+            description,instruction:plain(info.instruction),
+            area:[...new Set(areas)].join('；'),
+            parameters:parametersOf(info),
+            msgType:plain(parent.msgType||info.msgType),
+            capMarineAreas,
+            source:'CWA REST W-C0034-001 JSON'
+          });
+        }
+        function visit(node,depth=0){
+          if(depth>12 || node==null)return;
+          if(typeof node==='string'){
+            if(/^\s*<\??(?:xml|alert|cap:alert)/i.test(node)){
+              try{const cap=parseCapXml(node);if(cap?.ok){
+                (cap.infos?.length?cap.infos:[cap]).forEach(info=>alertFrom(info,cap));
+              }}catch(_){}
+            }
+            return;
+          }
+          if(typeof node!=='object')return;
+          if(visited.has(node))return;
+          visited.add(node);
+          if(Array.isArray(node)){node.forEach(x=>visit(x,depth+1));return;}
+          if(node.info){
+            const infos=Array.isArray(node.info)?node.info:[node.info];
+            infos.forEach(info=>alertFrom(info,node));
+            return;
+          }
+          if((node.headline || node.event) && (node.area || node.areaDesc || node.description)){
+            alertFrom(node,node);return;
+          }
+          for(const [key,value] of Object.entries(node)){
+            if(['data','raw','xml','records','record','alert','alerts','warning','warnings','cap','CAP','typhoon','typhoonWarnings'].includes(key) ||
+               (depth<4 && typeof value==='object'))visit(value,depth+1);
+          }
+        }
+        visit(json.records ?? json);
+        return result;
+      }
+
+      async function fetchCwaTyphoonRestJson(){
+        const auth='CWA-BC6BF68E-0B38-43B1-A5F5-811E1C06742B';
+        const url=new URL('https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-001');
+        url.searchParams.set('Authorization',auth);
+        url.searchParams.set('format','JSON');
+        url.searchParams.set('expires','true');
+        const response=await fetch(url.toString(),{cache:'no-store'});
+        if(!response.ok)throw new Error(`CWA REST HTTP ${response.status}`);
+        const raw=await response.json();
+        const items=cwaTyphoonJsonEntries(raw).filter(a=>
+          !/解除|取消/.test(a.headline) && !/cancel/i.test(a.msgType||'') && isCapAlertActive(a));
+        return items.map(enrichAlert);
+      }
+
       function buildFilters(){
         const typeSel = q("twTypeFilter");
         if(!typeSel) return;
@@ -10450,6 +10580,16 @@ Implement by adjusting polygon style functions:
         try{
           const results = await Promise.allSettled(
             DATASETS.map(async d => {
+              if(d.id === 'W-C0034-001'){
+                // Prefer the user's REST JSON query, without replacing other
+                // warning feeds or losing the existing CAP backup.
+                try{
+                  const restItems=await fetchCwaTyphoonRestJson();
+                  if(restItems.length)return restItems;
+                }catch(err){
+                  console.info('[CWA typhoon REST JSON] CAP fallback:',err?.message||err);
+                }
+              }
               const xmlText = await fetchCap(d.id);
               const parsed = parseCapXml(xmlText);
 
@@ -16367,6 +16507,72 @@ ${a.instruction}` : ''
     if(fc.length>visible) text(ctx,`+${fc.length-visible} 筆更多預報資料`,x+w/2,y+h-10,{size:12,weight:900,color:'#718692',align:'center'});
   }
 
+
+  function pickForecast24hCanvas(pts){
+    const arr=sortPts(pts), obs=latestObs(arr)||arr[arr.length-1], fc=arr.filter(p=>p.kind==='fcst');
+    if(!obs||!fc.length) return null;
+    const target=tval(obs.time)+24*3600*1000;
+    let best=null, bestDiff=Infinity;
+    fc.forEach(p=>{ const d=Math.abs(tval(p.time)-target); if(d<bestDiff){ bestDiff=d; best=p; } });
+    return best || fc[0] || null;
+  }
+  function pushRingFitPts(out,p){
+    if(!p||!out) return;
+    const outer=Number(p.storm_radius_km||0), inner=Number(p.storm_radius_10_km||0);
+    [outer, inner].forEach(km=>{
+      if(!Number.isFinite(km)||km<=0) return;
+      [0,90,180,270].forEach(b=>{ const ll=dest(Number(p.lat),Number(p.lon),b,km); out.push({lat:ll[0],lon:ll[1]}); });
+    });
+  }
+  function drawCircleKm(ctx, proj, lat, lon, km){
+    if(!Number.isFinite(km)||km<=0) return;
+    ctx.beginPath();
+    for(let a=0;a<=360;a+=5){
+      const ll=dest(Number(lat),Number(lon),a,km), q=proj(ll[0],ll[1]);
+      if(a===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y);
+    }
+    ctx.closePath();
+  }
+  function drawWindRingPair(ctx, p, proj){
+    if(!p) return;
+    const outer=Number(p.storm_radius_km||0), inner=Number(p.storm_radius_10_km||0);
+    const st=levelInfo(p.level), base=st.color||'#ef4444';
+    if(Number.isFinite(outer)&&outer>0){
+      ctx.save();
+      drawCircleKm(ctx,proj,p.lat,p.lon,outer);
+      ctx.fillStyle=rgba(base,.14);
+      ctx.fill();
+      ctx.strokeStyle=rgba(base,.92);
+      ctx.lineWidth=2.2;
+      ctx.stroke();
+      ctx.restore();
+    }
+    if(Number.isFinite(inner)&&inner>0&&(!Number.isFinite(outer)||inner<=outer)){
+      ctx.save();
+      drawCircleKm(ctx,proj,p.lat,p.lon,inner);
+      ctx.fillStyle=rgba(base,.24);
+      ctx.fill();
+      ctx.strokeStyle='rgba(161,98,7,.95)';
+      ctx.lineWidth=2.0;
+      ctx.stroke();
+      ctx.restore();
+    }
+    const q=proj(p.lat,p.lon);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(q.x,q.y,7.2,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+    ctx.beginPath(); ctx.arc(q.x,q.y,5.1,0,Math.PI*2); ctx.fillStyle=base; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='#fff'; ctx.stroke();
+    ctx.restore();
+  }
+  function draw24hConnection(ctx, nowPt, futurePt, proj){
+    if(!nowPt||!futurePt) return;
+    const a=proj(nowPt.lat,nowPt.lon), b=proj(futurePt.lat,futurePt.lon);
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle='#a16207'; ctx.lineWidth=3.2; ctx.setLineDash([12,8]); ctx.lineCap='round'; ctx.stroke();
+    ctx.restore();
+  }
+
   async function exportTyphoonPngV15(btnId='printBtn', suffix='單一颱風警報圖'){
     const btn=document.getElementById(btnId), old=btn?.textContent||''; const pts=sortPts(G('points',[])); if(!pts.length){ alert('颱風資料尚未載入完成。'); return; }
     try{
@@ -16374,20 +16580,24 @@ ${a.instruction}` : ''
       syncTitles();
       const width=1600,height=1000,dpr=2, cv=document.createElement('canvas'); cv.width=width*dpr; cv.height=height*dpr; const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
       const meta=G('weatherMeta',{title:'颱風情報',source:'—'}), latest=latestObs(pts)||pts[0], fc=pts.filter(p=>p.kind==='fcst'), warn=warningEntries(), stormStyle=levelInfo(latest.level), mainTitle=desiredTitle();
-      const coneFn=G('buildForecastConePolygonSmooth',null); const cone=typeof coneFn==='function'?coneFn(pts):null; const recentObs=pts.filter(p=>p.kind==='obs').slice(-2); const focusFit=(recentObs.length?recentObs:[latest]).concat(fc).concat((cone||[]).map(p=>({lat:p[0],lon:p[1]})));
+      const future24=pickForecast24hCanvas(pts);
+      const mapFocus=[{lat:Number(latest.lat),lon:Number(latest.lon)}];
+      pushRingFitPts(mapFocus, latest);
+      if(future24){ mapFocus.push({lat:Number(future24.lat),lon:Number(future24.lon)}); pushRingFitPts(mapFocus, future24); }
       const bg=ctx.createLinearGradient(0,0,0,height); bg.addColorStop(0,'#fbfdff'); bg.addColorStop(1,'#edf7fa'); ctx.fillStyle=bg; ctx.fillRect(0,0,width,height); const glow=ctx.createRadialGradient(1370,-70,20,1370,-70,520); glow.addColorStop(0,'rgba(124,58,237,.14)'); glow.addColorStop(1,'rgba(124,58,237,0)'); ctx.fillStyle=glow; ctx.fillRect(0,0,width,height);
-      ctx.beginPath(); ctx.arc(44,42,5,0,Math.PI*2); ctx.fillStyle='#4f8cff'; ctx.fill(); text(ctx,'TYPHOON TRACKER',58,47,{size:14,weight:900,color:'#0f4c5c'}); text(ctx,mainTitle,34,94,{size:44,weight:900,color:'#102d40'}); text(ctx,'颱風路徑、預報不確定範圍、警報清單與未來移動趨勢',36,126,{size:16,weight:800,color:'#617785'}); text(ctx,`資料來源：${meta.source||'—'}`,1566,47,{size:13,weight:900,color:'#617785',align:'right'}); ctx.strokeStyle='rgba(25,42,58,.10)'; ctx.beginPath(); ctx.moveTo(34,152); ctx.lineTo(1566,152); ctx.stroke();
+      ctx.beginPath(); ctx.arc(44,42,5,0,Math.PI*2); ctx.fillStyle='#ef4444'; ctx.fill(); text(ctx,'颱風防災特別提醒',58,47,{size:14,weight:900,color:'#b91c1c'}); text(ctx,mainTitle,34,94,{size:44,weight:900,color:'#102d40'}); text(ctx,'目前位置與 24 小時後預報位置，顯示七級／十級暴風圈與警報區',36,126,{size:16,weight:800,color:'#617785'}); text(ctx,`資料來源：${meta.source||'—'}`,1566,47,{size:13,weight:900,color:'#617785',align:'right'}); ctx.strokeStyle='rgba(25,42,58,.10)'; ctx.beginPath(); ctx.moveTo(34,152); ctx.lineTo(1566,152); ctx.stroke();
       const leftX=34,leftW=1006,rightX=1060,rightW=506; panel(ctx,leftX,164,leftW,150,26,'rgba(255,255,255,.88)','rgba(25,42,58,.11)'); panel(ctx,leftX+20,184,270,40,20,'#fff',rgba(stormStyle.color,.36)); ctx.beginPath(); ctx.arc(leftX+40,204,5.5,0,Math.PI*2); ctx.fillStyle=stormStyle.color; ctx.fill(); text(ctx,stormStyle.label,leftX+55,209,{size:15,weight:900}); text(ctx,`時間：${fmtTime(latest.time,'full')}`,leftX+leftW-24,208,{size:14,weight:900,color:'#617785',align:'right'});
       const cards=[['目前座標',`${Number(latest.lat).toFixed(2)}, ${Number(latest.lon).toFixed(2)}`],['中心附近最大風速',fmtWind(latest.wind)],['中心氣壓',latest.pressure?`${latest.pressure} hPa`:'—']]; const gap=12, sw=Math.floor((leftW-40-gap*2)/3); cards.forEach((c,i)=>{ const x=leftX+20+i*(sw+gap); panel(ctx,x,238,sw,58,17,'#fff','rgba(25,42,58,.10)'); text(ctx,c[1],x+18,263,{size:i===0?23:24,weight:900,maxWidth:sw-36}); text(ctx,c[0],x+18,286,{size:12,weight:900,color:'#718692'}); });
-      const panelY=330,panelH=620; panel(ctx,leftX,panelY,leftW,panelH,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'颱風警報圖',leftX+20,panelY+36,{size:16,weight:900}); text(ctx,'藍色區域為 70% 預報誤差範圍',leftX+leftW-20,panelY+36,{size:12,weight:900,color:'#617785',align:'right'});
+      const panelY=330,panelH=620; panel(ctx,leftX,panelY,leftW,panelH,26,'rgba(255,255,255,.90)','rgba(25,42,58,.10)'); text(ctx,'颱風警報圖',leftX+20,panelY+36,{size:16,weight:900}); text(ctx,'僅顯示目前位置與 24 小時後位置；不顯示 forecast cone',leftX+leftW-20,panelY+36,{size:12,weight:900,color:'#617785',align:'right'});
       const warningTop=164; const warningH=drawWarningPanel(ctx,rightX,warningTop,rightW,warn); const forecastY=warningTop+warningH+12; const forecastH=950-forecastY; drawForecastCardsComfort(ctx,rightX,forecastY,rightW,forecastH,fc);
-      const mapX=leftX+16,mapY=panelY+58,mapW=leftW-32,mapH=panelH-136, view=fitView(focusFit.length?focusFit:pts,mapW,mapH,82,11.5);
-      ctx.save(); rr(ctx,mapX,mapY,mapW,mapH,20); ctx.clip(); await drawStaticMap(ctx,view,mapX,mapY,mapW,mapH); drawCanvasGrid(ctx,view,mapX,mapY,mapW,mapH); const proj=projector(view,mapX,mapY,mapW,mapH); drawWarningOverlay(ctx,proj); drawCone(ctx,pts,proj); drawRoute(ctx,pts,proj); const bounds={x:mapX,y:mapY,w:mapW,h:mapH}, used=[], blocked=routeBoxes(pts,proj), latestQ=proj(latest.lat,latest.lon), name=stripCwa(latest.typhoonName||'颱風'); ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const nameW=pillWidth(ctx,name,60,34,220), nameH=30; const nameBox=pickLabel([{x:latestQ.x+18,y:latestQ.y-42},{x:latestQ.x-nameW-18,y:latestQ.y-42},{x:latestQ.x+18,y:latestQ.y+16},{x:latestQ.x-nameW-18,y:latestQ.y+16},{x:latestQ.x-nameW/2,y:latestQ.y-58}],bounds,nameW,nameH,used,[]); pill(ctx,nameBox,name,stormStyle.color,latestQ); used.push(nameBox); forecastLabels(pts,4).forEach(p=>{ const q=proj(p.lat,p.lon), st=levelInfo(p.level), v=fmtTime(p.time,'short'); ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const w=pillWidth(ctx,v,72,34,150), h=30; const b=pickLabel([{x:q.x+22,y:q.y-48},{x:q.x-w-22,y:q.y-48},{x:q.x+22,y:q.y+18},{x:q.x-w-22,y:q.y+18},{x:q.x-w/2,y:q.y-60}],bounds,w,h,used,blocked); pill(ctx,b,v,st.color,q); used.push(b); }); ctx.restore();
-      const ly=mapY+mapH+8; panel(ctx,mapX,ly,mapW,52,16,'rgba(255,255,255,.94)','rgba(25,42,58,.13)'); text(ctx,'圖例',mapX+16,ly+31,{size:13,weight:900,color:'#0f4c5c'}); let xx=mapX+74, yy=ly+27; ctx.lineCap='round'; ctx.lineWidth=4; ctx.strokeStyle='#6b7280'; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+34,yy); ctx.stroke(); text(ctx,'歷史',xx+44,yy+5,{size:12,weight:900,color:'#617785'}); xx+=96; ctx.strokeStyle='#22c55e'; ctx.setLineDash([8,7]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+34,yy); ctx.stroke(); ctx.setLineDash([]); text(ctx,'預報',xx+44,yy+5,{size:12,weight:900,color:'#617785'}); xx+=102; panel(ctx,xx,yy-10,30,18,9,'rgba(96,165,250,.22)','rgba(96,165,250,.48)'); text(ctx,'70% 預測誤差範圍',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=174; [['LOW','低壓'],['TD','熱低'],['TS','輕颱'],['TY','中颱'],['STY','強颱']].forEach(([k,l])=>{ const s=levelInfo(k); ctx.beginPath(); ctx.arc(xx,yy,5,0,Math.PI*2); ctx.fillStyle=s.color; ctx.fill(); text(ctx,l,xx+12,yy+5,{size:12,weight:900}); xx+=66; }); text(ctx,`資料來源：${meta.source||'—'}`,width-36,988,{size:13,weight:900,color:'#617785',align:'right'});
+      const mapX=leftX+16,mapY=panelY+58,mapW=leftW-32,mapH=panelH-136, view=fitView(mapFocus.length?mapFocus:pts,mapW,mapH,92,11.2);
+      ctx.save(); rr(ctx,mapX,mapY,mapW,mapH,20); ctx.clip(); await drawStaticMap(ctx,view,mapX,mapY,mapW,mapH); drawCanvasGrid(ctx,view,mapX,mapY,mapW,mapH); const proj=projector(view,mapX,mapY,mapW,mapH); if(typeof window.__drawCwaMarineWarningCanvas==='function') window.__drawCwaMarineWarningCanvas(ctx,proj); drawWarningOverlay(ctx,proj); if(future24) draw24hConnection(ctx,latest,future24,proj); if(future24) drawWindRingPair(ctx,future24,proj); drawWindRingPair(ctx,latest,proj); const bounds={x:mapX,y:mapY,w:mapW,h:mapH}, used=[]; const latestQ=proj(latest.lat,latest.lon), name=stripCwa(latest.typhoonName||'颱風'); ctx.font='900 13px "Noto Sans TC","Segoe UI",Arial,sans-serif'; const nameText=future24?`${name}（現在）`:name; const nameW=pillWidth(ctx,nameText,76,34,240), nameH=30; const nameBox=pickLabel([{x:latestQ.x+18,y:latestQ.y-42},{x:latestQ.x-nameW-18,y:latestQ.y-42},{x:latestQ.x+18,y:latestQ.y+16},{x:latestQ.x-nameW-18,y:latestQ.y+16},{x:latestQ.x-nameW/2,y:latestQ.y-58}],bounds,nameW,nameH,used,[]); pill(ctx,nameBox,nameText,stormStyle.color,latestQ); used.push(nameBox); if(future24){ const q=proj(future24.lat,future24.lon), st=levelInfo(future24.level), v=fmtTime(future24.time,'short'); const w=pillWidth(ctx,v,82,34,170), h=30; const b=pickLabel([{x:q.x+22,y:q.y-48},{x:q.x-w-22,y:q.y-48},{x:q.x+22,y:q.y+18},{x:q.x-w-22,y:q.y+18},{x:q.x-w/2,y:q.y-60}],bounds,w,h,used,[]); pill(ctx,b,v,st.color,q); used.push(b); } ctx.restore();
+      const ly=mapY+mapH+8; panel(ctx,mapX,ly,mapW,52,16,'rgba(255,255,255,.94)','rgba(25,42,58,.13)'); text(ctx,'圖例',mapX+16,ly+31,{size:13,weight:900,color:'#0f4c5c'}); let xx=mapX+74, yy=ly+27; ctx.lineCap='round'; ctx.lineWidth=4; ctx.strokeStyle='#a16207'; ctx.setLineDash([10,8]); ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx+34,yy); ctx.stroke(); ctx.setLineDash([]); text(ctx,'24h 警報路徑',xx+44,yy+5,{size:12,weight:900,color:'#617785'}); xx+=150; panel(ctx,xx,yy-10,30,18,9,'rgba(220,38,38,.12)','rgba(220,38,38,.62)'); ctx.save(); ctx.beginPath(); ctx.rect(xx,yy-10,30,18); ctx.clip(); for(let lx=xx-20; lx<xx+50; lx+=8){ ctx.beginPath(); ctx.moveTo(lx,yy+9); ctx.lineTo(lx+18,yy-9); ctx.strokeStyle='rgba(220,38,38,.46)'; ctx.lineWidth=1.2; ctx.stroke(); } ctx.restore(); text(ctx,'海上颱風警報區',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=178; panel(ctx,xx,yy-10,30,18,9,'rgba(212,0,0,.18)','rgba(212,0,0,.56)'); text(ctx,'陸上颱風警報區',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=178; panel(ctx,xx,yy-10,30,18,9,'rgba(245,158,11,.14)','rgba(239,68,68,.92)'); text(ctx,'七級風圈',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); xx+=120; panel(ctx,xx,yy-10,30,18,9,'rgba(245,158,11,.24)','rgba(161,98,7,.95)'); text(ctx,'十級風圈',xx+40,yy+5,{size:12,weight:900,color:'#617785'}); text(ctx,`資料來源：${meta.source||'—'}`,width-36,988,{size:13,weight:900,color:'#617785',align:'right'});
       downloadDataUrl(`${name || '颱風'}_${fmtTime(latest.time || Date.now(),'stamp')}.png`, cv.toDataURL('image/png'));
     }catch(e){ console.error(e); alert('PNG 產生失敗，請重新整理後再試。'); }
     finally{ if(btn){ btn.disabled=false; btn.textContent=old||'下載 PNG'; } }
   }
+
 
   function apply(){ injectStyles(); try{ window.renderForecastList = renderForecastListComfort; }catch(e){} try{ renderForecastList = renderForecastListComfort; }catch(e){} syncTitles(); renderForecastListComfort(); hookSelectionChange(); window.exportTyphoonPng = exportTyphoonPngV15; }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply, {once:true}); else apply();
@@ -17560,6 +17770,7 @@ ${a.instruction}` : ''
         <span class="trackLegendItem"><i class="trackLegendLine fcst"></i>預報路徑</span>';
     if(includeCone) html += '<span class="trackLegendItem"><i class="trackLegendBox"></i>70% 預報誤差範圍</span>';
     html += '<span class="trackLegendItem"><i class="trackLegendBox" style="background:rgba(212,0,0,.18);border-color:rgba(212,0,0,.56)"></i>陸上颱風警報區</span>';
+    html += '<span class="trackLegendItem cwaMarineLegend" style="display:none"><i class="trackLegendBox" style="background:rgba(26,119,178,.22);border-color:rgba(26,119,178,.55)"></i>海上警戒海域（參考分區）</span>';
     if(includeLevels){
       html += '<span class="trackLegendItem"><span class="trackMiniLegend">\
         <span class="trackLegendItem"><i class="trackLegendDot" style="background:#94a3b8"></i>低壓</span>\
@@ -17622,6 +17833,11 @@ ${a.instruction}` : ''
       svg.setAttribute('width', width); svg.setAttribute('height', height);
       svg.innerHTML='';
       addGrid(svg, view, width, height);
+      if(typeof window.__appendCwaMarineWarningSvg === 'function') {
+        const activeMarine=window.__appendCwaMarineWarningSvg(svg, projector(view,width,height));
+        const item=frame.querySelector('.cwaMarineLegend');
+        if(item) item.style.display=activeMarine ? 'inline-flex' : 'none';
+      }
       addLandWarningOverlay(svg, view, width, height);
       addCone(svg, cone, view, width, height);
       addRoute(svg, pts, view, width, height);
@@ -17661,6 +17877,11 @@ ${a.instruction}` : ''
       svg.setAttribute('width', width); svg.setAttribute('height', height);
       svg.innerHTML='';
       addGrid(svg, view, width, height);
+      if(typeof window.__appendCwaMarineWarningSvg === 'function') {
+        const activeMarine=window.__appendCwaMarineWarningSvg(svg, projector(view,width,height));
+        const item=frame.querySelector('.cwaMarineLegend');
+        if(item) item.style.display=activeMarine ? 'inline-flex' : 'none';
+      }
       addLandWarningOverlay(svg, view, width, height);
       groups.forEach((g,idx)=>{
         const pts=sortPts(g.points || []); if(!pts.length) return;
@@ -20176,6 +20397,10 @@ function drawStormInfoPanel(ctx,item,items,labels){
 function draws(ctx,bg,groups,view,t,frameIndex){
  ctx.clearRect(0,0,WIDTH,HEIGHT);renderBase(ctx,bg,frameIndex);
  // Use same GeoJSON for MP4 and WebM, projected afresh for moving camera.
+ if(typeof window.__drawCwaMarineWarningCanvas==='function'){
+  ctx.save();ctx.beginPath();ctx.rect(0,MAP_TOP,WIDTH,MAP_HEIGHT);ctx.clip();
+  window.__drawCwaMarineWarningCanvas(ctx,(lat,lon)=>xyFor(view,lat,lon));ctx.restore();
+ }
  drawVideoGeoBorders(ctx,view);
  drawVideoLandWarningOverlay(ctx,view);
  const active=[];
@@ -20548,6 +20773,214 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
   links?.addEventListener('click',e=>{if(e.target.closest('a'))closeMenu();});
   window.matchMedia('(min-width:741px)').addEventListener('change',closeMenu);
+})();
+</script>
+
+<!-- Official CWA CAP marine warning polygons; uses CWA area[].polygon with red hatched sea-warning overlay -->
+<style>
+#cwaMarinePreviewBtn,#cwaMarineMapLegend{display:none!important}
+</style>
+<script>
+(function(){
+  'use strict';
+  const NS='http://www.w3.org/2000/svg';
+  let activeMap=null,overlayPane=null,svg=null,basePath=null,hatchPath=null,outlinePath=null,frame=0;
+  let geoFeatures=[];
+  function decodePolygon(text){
+    if(typeof text!=='string')return null;
+    const pts=[];
+    for(const token of text.trim().split(/\s+/)){
+      const v=token.split(',');
+      if(v.length!==2)continue;
+      const lat=Number(v[0]),lon=Number(v[1]);
+      if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)continue;
+      pts.push([lon,lat]);
+    }
+    if(pts.length<3)return null;
+    const first=pts[0],last=pts[pts.length-1];
+    if(first[0]!==last[0]||first[1]!==last[1])pts.push([...first]);
+    return pts.length>=4?pts:null;
+  }
+  function currentAlerts(){
+    const a=window.__twAllCapAlerts;
+    return Array.isArray(a)?a:(Array.isArray(window.__twCapAlerts)?window.__twCapAlerts:[]);
+  }
+  function isTyphoonAlert(alert){
+    if(!alert) return false;
+    const hay=String(alert.headline||'')+' '+String(alert.event||'')+' '+String(alert.datasetName||'');
+    if(!/颱風|熱帶性低氣壓|熱帶低氣壓/.test(hay)) return false;
+    if(/解除|取消/.test(String(alert.headline||''))||/cancel/i.test(String(alert.msgType||''))) return false;
+    const expires=Date.parse(alert.expires||'');
+    if(Number.isFinite(expires)&&expires<Date.now()) return false;
+    return true;
+  }
+  function collectOfficialGeo(){
+    const seen=new Set(),list=[];
+    for(const alert of currentAlerts()){
+      if(!isTyphoonAlert(alert)) continue;
+      const entries=Array.isArray(alert.capMarineAreas)?alert.capMarineAreas:[];
+      for(const item of entries){
+        const ring=decodePolygon(item.polygon);
+        if(!ring) continue;
+        const key=item.areaDesc+'|'+item.polygon;
+        if(seen.has(key)) continue;
+        seen.add(key);
+        list.push({type:'Feature',properties:{areaDesc:item.areaDesc,source:'CWA W-C0034-001 official area[].polygon',official:true},geometry:{type:'Polygon',coordinates:[ring]}});
+      }
+    }
+    return list;
+  }
+  function allRings(){ return geoFeatures.map(f=>f.geometry.coordinates[0]).filter(r=>Array.isArray(r)&&r.length>=4); }
+  function ensurePattern(root){
+    let defs=root.querySelector('defs');
+    if(!defs){ defs=document.createElementNS(NS,'defs'); root.insertBefore(defs,root.firstChild); }
+    if(defs.querySelector('#cwaSeaWarnPattern')) return;
+    const pattern=document.createElementNS(NS,'pattern');
+    pattern.setAttribute('id','cwaSeaWarnPattern');
+    pattern.setAttribute('patternUnits','userSpaceOnUse');
+    pattern.setAttribute('width','12');
+    pattern.setAttribute('height','12');
+    pattern.setAttribute('patternTransform','rotate(45)');
+    const bg=document.createElementNS(NS,'rect');
+    bg.setAttribute('width','12'); bg.setAttribute('height','12'); bg.setAttribute('fill','rgba(220,38,38,0.10)');
+    const line=document.createElementNS(NS,'line');
+    line.setAttribute('x1','0'); line.setAttribute('y1','0'); line.setAttribute('x2','0'); line.setAttribute('y2','12');
+    line.setAttribute('stroke','rgba(220,38,38,0.45)'); line.setAttribute('stroke-width','4');
+    pattern.appendChild(bg); pattern.appendChild(line); defs.appendChild(pattern);
+  }
+  function createSvg(map){
+    if(activeMap===map&&svg)return;
+    if(activeMap)activeMap.off('move zoom zoomend moveend resize viewreset',schedule);
+    if(svg)svg.remove();
+    activeMap=map;
+    overlayPane=map.getPane('cwaOfficialSeaPane')||map.createPane('cwaOfficialSeaPane');
+    overlayPane.style.zIndex='335';
+    overlayPane.style.pointerEvents='none';
+    svg=document.createElementNS(NS,'svg');
+    svg.style.cssText='position:absolute;overflow:hidden;pointer-events:none';
+    svg.setAttribute('role','img');
+    svg.setAttribute('aria-label','中央氣象署官方海上颱風警報區');
+    ensurePattern(svg);
+    basePath=document.createElementNS(NS,'path');
+    basePath.setAttribute('fill','rgba(220,38,38,0.10)');
+    basePath.setAttribute('stroke','none');
+    hatchPath=document.createElementNS(NS,'path');
+    hatchPath.setAttribute('fill','url(#cwaSeaWarnPattern)');
+    hatchPath.setAttribute('stroke','none');
+    outlinePath=document.createElementNS(NS,'path');
+    outlinePath.setAttribute('fill','none');
+    outlinePath.setAttribute('stroke','rgba(220,38,38,0.72)');
+    outlinePath.setAttribute('stroke-width','2.1');
+    outlinePath.setAttribute('stroke-dasharray','9 6');
+    svg.appendChild(basePath); svg.appendChild(hatchPath); svg.appendChild(outlinePath);
+    overlayPane.appendChild(svg);
+    map.on('move zoom zoomend moveend resize viewreset',schedule);
+  }
+  function pathData(map){
+    const commands=[];
+    for(const ring of allRings()){
+      ring.forEach((point,i)=>{
+        const q=map.latLngToContainerPoint([point[1],point[0]]);
+        commands.push(`${i?'L':'M'}${q.x.toFixed(2)} ${q.y.toFixed(2)}`);
+      });
+      commands.push('Z');
+    }
+    return commands.join(' ');
+  }
+  function render(){
+    frame=0;
+    if(!activeMap||!svg)return;
+    const size=activeMap.getSize();
+    if(!size.x||!size.y)return;
+    const offset=activeMap.containerPointToLayerPoint([0,0]);
+    svg.style.left=offset.x+'px'; svg.style.top=offset.y+'px';
+    svg.setAttribute('width',Math.ceil(size.x)); svg.setAttribute('height',Math.ceil(size.y));
+    svg.setAttribute('viewBox',`0 0 ${size.x} ${size.y}`);
+    const d=pathData(activeMap);
+    basePath.setAttribute('d',d); hatchPath.setAttribute('d',d); outlinePath.setAttribute('d',d);
+  }
+  function schedule(){ if(!frame) frame=requestAnimationFrame(render); }
+  function drawCanvasPattern(ctx, pathBuilder){
+    ctx.save();
+    pathBuilder();
+    ctx.fillStyle='rgba(220,38,38,.10)';
+    ctx.fill();
+    ctx.clip();
+    const box=ctx.canvas;
+    const w=box.width, h=box.height;
+    for(let x=-h; x<w+h; x+=18){
+      ctx.beginPath();
+      ctx.moveTo(x, h);
+      ctx.lineTo(x+h, 0);
+      ctx.strokeStyle='rgba(220,38,38,.42)';
+      ctx.lineWidth=2;
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.save();
+    pathBuilder();
+    ctx.strokeStyle='rgba(220,38,38,.72)';
+    ctx.lineWidth=1.8;
+    ctx.setLineDash([8,6]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+  function buildCanvasPath(ctx, proj){
+    let started=false;
+    return function(){
+      ctx.beginPath();
+      allRings().forEach(ring=>{
+        ring.forEach((p,i)=>{
+          const q=proj(p[1],p[0]);
+          if(i===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y);
+        });
+        ctx.closePath();
+        started=true;
+      });
+      return started;
+    };
+  }
+  window.__drawCwaMarineWarningCanvas=function(ctx, proj){
+    geoFeatures=collectOfficialGeo();
+    if(!geoFeatures.length||typeof proj!=='function') return false;
+    const pathBuilder=buildCanvasPath(ctx, proj);
+    drawCanvasPattern(ctx, pathBuilder);
+    return true;
+  };
+  window.__appendCwaMarineWarningSvg=function(svgRoot, proj){
+    geoFeatures=collectOfficialGeo();
+    if(!geoFeatures.length||!svgRoot||typeof proj!=='function') return false;
+    ensurePattern(svgRoot);
+    const d=[];
+    for(const ring of allRings()){
+      ring.forEach((p,i)=>{ const q=proj(p[1],p[0]); d.push(`${i?'L':'M'}${q.x.toFixed(2)} ${q.y.toFixed(2)}`); });
+      d.push('Z');
+    }
+    const path=d.join(' ');
+    const g=document.createElementNS(NS,'g');
+    const base=document.createElementNS(NS,'path');
+    base.setAttribute('d',path); base.setAttribute('fill','rgba(220,38,38,0.10)'); base.setAttribute('stroke','none');
+    const hatch=document.createElementNS(NS,'path');
+    hatch.setAttribute('d',path); hatch.setAttribute('fill','url(#cwaSeaWarnPattern)'); hatch.setAttribute('stroke','none');
+    const outline=document.createElementNS(NS,'path');
+    outline.setAttribute('d',path); outline.setAttribute('fill','none'); outline.setAttribute('stroke','rgba(220,38,38,0.72)'); outline.setAttribute('stroke-width','1.5'); outline.setAttribute('stroke-dasharray','8 6');
+    g.appendChild(base); g.appendChild(hatch); g.appendChild(outline); svgRoot.appendChild(g);
+    return true;
+  };
+  window.__refreshCwaMarineWarnings=function(map){
+    if(!map || typeof L==='undefined')return;
+    createSvg(map);
+    geoFeatures=collectOfficialGeo();
+    schedule();
+  };
+  window.__getCwaMarineWarningGeoJson=()=>({type:'FeatureCollection',features:collectOfficialGeo(),properties:{source:'CWA W-C0034-001 official area[].polygon'}});
+  function init(){
+    let map=null;
+    try{ map=Function('return typeof map!=="undefined"?map:null')(); }catch(_){ }
+    if(map&&typeof map.getSize==='function') window.__refreshCwaMarineWarnings(map);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
 </body>
