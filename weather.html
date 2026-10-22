@@ -21143,7 +21143,9 @@ function drawSea(seas,proj){ if(!seas.length)return; ctx.save(); ctx.beginPath()
 function drawObservedPath(history,proj){ if(!Array.isArray(history)||history.length<2) return; ctx.save(); ctx.beginPath(); history.forEach((pt,i)=>{ const p=proj(Number(pt.lat),Number(pt.lon)); if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }); ctx.strokeStyle='rgba(18,95,150,.98)'; ctx.lineWidth=4.2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); history.forEach((pt,i)=>{ const p=proj(Number(pt.lat),Number(pt.lon)); const r=i===history.length-1?5.4:4.1; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fillStyle='#125f96'; ctx.fill(); ctx.lineWidth=1.8; ctx.strokeStyle='rgba(255,255,255,.92)'; ctx.stroke(); }); ctx.restore(); }
 function drawForecastSegment(now,future,proj){ if(!future) return; const a=proj(Number(now.lat),Number(now.lon)), b=proj(Number(future.lat),Number(future.lon)); ctx.save(); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.setLineDash([14,9]); ctx.strokeStyle='#9a6c1b'; ctx.lineWidth=4; ctx.lineCap='round'; ctx.stroke(); ctx.restore(); }
 function windCircle(point,km,proj,color,inner){ if(!(km>0&&km<1500)) return; ctx.save(); ctx.beginPath(); for(let a=0;a<=360;a+=4){ const q=dest(Number(point.lat),Number(point.lon),a,km), p=proj(q[0],q[1]); if(!a)ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y) } ctx.closePath(); ctx.fillStyle=inner?rgba(color,.26):rgba(color,.13); ctx.fill(); ctx.strokeStyle=inner?'#9a6c1b':color; ctx.lineWidth=inner?2.4:3; ctx.setLineDash([]); ctx.stroke(); ctx.restore(); }
-function centerDot(point,proj,color){ const p=proj(Number(point.lat),Number(point.lon)); ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=3.5; ctx.stroke(); const str=shortPretty(point.time); ctx.font='900 17px "Noto Sans TC",sans-serif'; const w=Math.min(240,ctx.measureText(str).width+30), x=Math.max(16,Math.min(WIDTH-w-16,p.x+20)), y=Math.max(MAPY+20,Math.min(MAPY+MAPH-40,p.y-56)); ctx.fillStyle='rgba(255,255,255,.98)'; ctx.strokeStyle=rgba(color,.9); ctx.lineWidth=1.2; ctx.beginPath(); ctx.roundRect(x,y,w,36,14); ctx.fill(); ctx.stroke(); fillText(ctx,str,x+15,y+25,16,'#132c3d',900) }
+function maxWindRadiusPx(point,proj){ const km=Math.max(Number(point?.storm_radius_km)||0, Number(point?.storm_radius_10_km)||0, 0); if(!(km>0)) return 0; const c=proj(Number(point.lat),Number(point.lon)); const e=dest(Number(point.lat),Number(point.lon),90,km); const pe=proj(e[0],e[1]); return Math.hypot(pe.x-c.x, pe.y-c.y); }
+function boxOverlap(a,b,pad=8){ return !(a.x+a.w+pad<b.x || b.x+b.w+pad<a.x || a.y+a.h+pad<b.y || b.y+b.h+pad<a.y); }
+function centerDot(point,proj,color,usedBoxes=[]){ const p=proj(Number(point.lat),Number(point.lon)); ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=3.5; ctx.stroke(); const str=shortPretty(point.time); ctx.font='900 17px "Noto Sans TC",sans-serif'; const w=Math.min(240,ctx.measureText(str).width+30), h=36; const r=maxWindRadiusPx(point,proj); const gap=Math.max(16,Math.min(44,r*0.18)); const candidates=[ {x:p.x + r + gap, y:p.y - h/2}, {x:p.x + 18, y:p.y - r - h - gap}, {x:p.x - w - 18, y:p.y - r - h - gap}, {x:p.x - w - r - gap, y:p.y - h/2}, {x:p.x + 18, y:p.y + r + gap}, {x:p.x - w - 18, y:p.y + r + gap} ]; let chosen=null; for(const c of candidates){ const box={x:Math.max(14,Math.min(WIDTH-w-14,c.x)), y:Math.max(MAPY+14,Math.min(MAPY+MAPH-h-14,c.y)), w, h}; const coversCenter=(p.x>=box.x-6 && p.x<=box.x+box.w+6 && p.y>=box.y-6 && p.y<=box.y+box.h+6); if(coversCenter) continue; if(usedBoxes.some(b=>boxOverlap(box,b,10))) continue; chosen=box; break; } if(!chosen) chosen={x:Math.max(16,Math.min(WIDTH-w-16,p.x+r+gap)), y:Math.max(MAPY+20,Math.min(MAPY+MAPH-40,p.y-h-r-gap)), w, h}; usedBoxes.push(chosen); ctx.fillStyle='rgba(255,255,255,.98)'; ctx.strokeStyle=rgba(color,.9); ctx.lineWidth=1.2; ctx.beginPath(); ctx.roundRect(chosen.x,chosen.y,w,h,14); ctx.fill(); ctx.stroke(); fillText(ctx,str,chosen.x+15,chosen.y+25,16,'#132c3d',900) }
 function legendRoundedBox(x,y,w,h,fill,stroke){ ctx.save(); rr(x,y,w,h,7); ctx.fillStyle=fill; ctx.fill(); ctx.strokeStyle=stroke; ctx.lineWidth=1.5; ctx.stroke(); ctx.restore(); }
 function drawKey(){
  const y=MAPY+MAPH+35;
@@ -21175,17 +21177,18 @@ async function paint(storm,sea,land){
   fillText(ctx,`${plainName(storm.name)} · 未來 24 小時`,32,95,39,'#122c3b',900);
   fillText(ctx,`最新實況 ${pretty(storm.now.time)}   ·   預報位置 ${storm.fut?pretty(storm.fut.time):'尚無預報'}   ·   過往觀測路徑`,32,130,17,'#687c8b',750);
   const pills=[
-    [`風速 ${Number.isFinite(Number(storm.now.wind))?storm.now.wind+' m/s':'—'}`],
-    [`氣壓 ${storm.now.pressure?storm.now.pressure+' hPa':'—'}`],
-    [`七級 ${storm.now.storm_radius_km||'—'} km`],
-    [`十級 ${storm.now.storm_radius_10_km||'—'} km`]
+    {k:'風速',v:Number.isFinite(Number(storm.now.wind))?storm.now.wind+' m/s':'—'},
+    {k:'氣壓',v:storm.now.pressure?storm.now.pressure+' hPa':'—'},
+    {k:'七級',v:(storm.now.storm_radius_km||'—')+' km'},
+    {k:'十級',v:(storm.now.storm_radius_10_km||'—')+' km'}
   ];
-  let px=WIDTH-785;
-  for(const [label] of pills){
-    ctx.font='850 16px "Noto Sans TC",sans-serif';
-    const w=Math.max(130,Math.ceil(ctx.measureText(label).width)+34);
-    panel(px,45,w,42,13,'#f8fbfc','rgba(27,64,82,.11)');
-    fillText(ctx,label,px+16,72,16,'#294658',850);px+=w+9;
+  let px=WIDTH-595;
+  for(const item of pills){
+    const w=136, h=46;
+    panel(px,40,w,h,15,'rgba(250,252,253,.98)','rgba(29,72,92,.10)');
+    fillText(ctx,item.k,px+15,59,12,'#7b8f9c',850);
+    fillText(ctx,item.v,px+15,77,18,'#244556',900);
+    px+=w+10;
   }
   const view=createView(storm,sea,land),proj=projector(view);
   ctx.save();ctx.beginPath();ctx.rect(0,MAPY,WIDTH,MAPH);ctx.clip();
@@ -21199,13 +21202,14 @@ async function paint(storm,sea,land){
     windCircle(pt,r7,proj,color,false);
     if(r10>0&&r10<=(r7||Infinity))windCircle(pt,r10,proj,color,true);
   }
-  if(storm.fut)centerDot(storm.fut,proj,levelColor(storm.fut.level));
-  centerDot(storm.now,proj,levelColor(storm.now.level));
+  const labelBoxes=[];
+  if(storm.fut)centerDot(storm.fut,proj,levelColor(storm.fut.level),labelBoxes);
+  centerDot(storm.now,proj,levelColor(storm.now.level),labelBoxes);
   ctx.restore();
   // Compact, aligned native weather-site legend below the map.
   ctx.fillStyle='#fff';ctx.fillRect(0,MAPY+MAPH,WIDTH,HEIGHT-MAPY-MAPH);
   drawKey();
-  fillText(ctx,'資料：中央氣象署 · 官方 CAP 警戒區',32,HEIGHT-15,13,'#778b96',700);
+  fillText(ctx,'資料：中央氣象署',32,HEIGHT-15,13,'#778b96',700);
 }
 
 async function render(){ if(rendering){pending=true;return;} const storm=pickPoints(), sea=featureList(); if(!storm||!hasWarnings()){card?.classList.remove('is-visible');return;} const sig=signature(storm,sea); if(sig===lastSignature&&Date.now()-lastRenderAt<20000)return; rendering=true; try{ card.classList.add('is-visible'); await paint(storm,sea,pickLandFeatures()); lastSignature=sig; lastRenderAt=Date.now(); }catch(e){ console.warn('[24h typhoon warning map]',e); try{ ctx.restore(); ctx.clearRect(0,0,WIDTH,HEIGHT); ctx.fillStyle='#f8fbfc'; ctx.fillRect(0,0,WIDTH,HEIGHT); fillText(ctx,'颱風警報圖暫時無法繪製',48,94,33,'#142d3e',900); fillText(ctx,'請重新整理頁面或檢查瀏覽器主控台。',48,134,17,'#718692',750); }catch(_){} lastSignature=''; } finally{ rendering=false; if(pending){ pending=false; setTimeout(render,80); } } }
