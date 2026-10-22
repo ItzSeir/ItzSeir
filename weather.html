@@ -18176,6 +18176,9 @@ ${a.instruction}` : ''
     if(legendText.includes('70%')){
       legendItems.push({type:'cone', label:'70% 預報誤差範圍'});
     }
+    if(legendText.includes('陸上颱風警報區')){
+      legendItems.push({type:'land-warning', label:'陸上颱風警報區'});
+    }
     if(legendText.includes('低壓')){
       legendItems.push(
         {type:'dot', color:'#94a3b8', label:'低壓'},
@@ -18196,7 +18199,7 @@ ${a.instruction}` : ''
       const itemW = item => {
         const labelW = Math.max(24, item.label.length * 12);
         if(item.type === 'line') return 26 + 10 + labelW;
-        if(item.type === 'cone') return 20 + 10 + labelW;
+        if(item.type === 'cone' || item.type === 'land-warning') return 20 + 10 + labelW;
         return 10 + 10 + labelW;
       };
 
@@ -18328,7 +18331,7 @@ ${a.instruction}` : ''
         const itemWidth = (item) => {
           const labelW = ctx.measureText(item.label).width;
           if(item.type === 'line') return 24 + 10 + labelW;
-          if(item.type === 'cone') return 20 + 10 + labelW;
+          if(item.type === 'cone' || item.type === 'land-warning') return 20 + 10 + labelW;
           return 10 + 8 + labelW;
         };
 
@@ -18354,9 +18357,10 @@ ${a.instruction}` : ''
             ctx.restore();
             text(item.label, x+34, y, {size:11,weight:900,color:'#4d6673'});
             x += w + gap;
-          }else if(item.type === 'cone'){
-            ctx.fillStyle='rgba(96,165,250,.20)';
-            ctx.strokeStyle='rgba(67,139,225,.85)';
+          }else if(item.type === 'cone' || item.type === 'land-warning'){
+            const isLand = item.type === 'land-warning';
+            ctx.fillStyle=isLand ? 'rgba(212,0,0,.18)' : 'rgba(96,165,250,.20)';
+            ctx.strokeStyle=isLand ? 'rgba(212,0,0,.72)' : 'rgba(67,139,225,.85)';
             ctx.lineWidth=1;
             ctx.beginPath();
             ctx.roundRect(x, y-13, 20, 12, 4);
