@@ -5854,20 +5854,12 @@ Implement by adjusting polygon style functions:
       2) 如果暫時沒有，就保持空字串，網站會只讀取 ./weather.json。
       3) weather.json 可以用舊格式 { title, source, points: [] }，也可以用新格式 { source, typhoons: [] }。
     */
-    // Request the unfiltered aggregate. `sort=CwaTdNo` does NOT select a
-    // storm and can vary between dataset versions; never depend on it to get
-    // a complete active-cyclone roster.
-    const CWA_TY_API_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=CWA-BC6BF68E-0B38-43B1-A5F5-811E1C06742B";
+    const CWA_TY_API_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=CWA-BC6BF68E-0B38-43B1-A5F5-811E1C06742B&sort=CwaTdNo";
     const CWA_TY_API_URLS = [
       `${CWA_TY_API_URL}&format=XML`,
       `${CWA_TY_API_URL}&format=JSON`,
       CWA_TY_API_URL
     ];
-    // Temporary, date-bounded supplemental query for the missing TD34 shown
-    // in the user's reference chart. Only use returned official track fixes;
-    // no synthetic center, forecast, or display entry is ever constructed.
-    const CWA_TD34_RECOVERY_END = Date.UTC(2026,10,5,0,0,0);
-    const CWA_TD34_RECOVERY_START = Date.UTC(2026,9,20,0,0,0);
 
     const levelStyle = {
       LOW: { color: "#6b7280", label: "低壓/殘餘 LOW" },
@@ -6021,8 +6013,6 @@ Implement by adjusting polygon style functions:
         wind: firstValue(p, ["wind", "maxWind", "maxWindSpeed", "MaxWindSpeed", "最大風速"]) === null ? null : Number(firstValue(p, ["wind", "maxWind", "maxWindSpeed", "MaxWindSpeed", "最大風速"])),
         pressure: firstValue(p, ["pressure", "airPressure", "centralPressure", "Pressure", "中心氣壓"]) === null ? null : Number(firstValue(p, ["pressure", "airPressure", "centralPressure", "Pressure", "中心氣壓"])),
         note: String(firstValue(p, ["note", "remark", "description", "MovingPrediction", "StateTransfer", "備註"]) ?? ""),
-        forecastIssueTime: String(firstValue(p, ["forecastIssueTime", "initialTime", "InitialTime", "issueTime", "發布時間"]) ?? ""),
-        forecastHour: Number(firstValue(p, ["forecastHour", "ForecastHour", "leadHours", "預報時效"]) || 0),
         fcst_radius_km: firstValue(p, ["fcst_radius_km", "forecastRadius", "forecast_error_km", "errorRadiusKm", "Radius70PercentProbability", "radius70PercentProbability", "radius", "誤差半徑", "預測誤差"]) === null ? 0 : Number(firstValue(p, ["fcst_radius_km", "forecastRadius", "forecast_error_km", "errorRadiusKm", "Radius70PercentProbability", "radius70PercentProbability", "radius", "誤差半徑", "預測誤差"])),
         storm_radius_km: firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"]) === null ? 0 : Number(firstValue(p, ["storm_radius_km", "stormRadius", "Circle15ms", "暴風半徑"])),
         storm_radius_10_km: firstValue(p, ["storm_radius_10_km", "stormRadius10", "Circle25ms", "十級暴風半徑"]) === null ? 0 : Number(firstValue(p, ["storm_radius_10_km", "stormRadius10", "Circle25ms", "十級暴風半徑"]))
@@ -6107,13 +6097,9 @@ Implement by adjusting polygon style functions:
       return node?.localName || String(node?.nodeName || "").split(":").pop();
     }
 
-    // Accept the REST XML and downloaded XML variations: TropicalCyclone,
-    // tropicalCyclone, tropical_cyclone, and namespaced equivalents.
-    const cwaFieldKey = value => String(value||'').replace(/[^a-z0-9]/gi,'').toLowerCase();
     function childElementsByName(node, name){
       if(!node) return [];
-      const key=cwaFieldKey(name);
-      return Array.from(node.children || []).filter(el => cwaFieldKey(localNameOf(el)) === key);
+      return Array.from(node.children || []).filter(el => localNameOf(el) === name);
     }
 
     function childText(node, name){
@@ -6123,8 +6109,7 @@ Implement by adjusting polygon style functions:
 
     function allElementsByName(node, name){
       if(!node) return [];
-      const key=cwaFieldKey(name);
-      return Array.from(node.getElementsByTagName("*")).filter(el => cwaFieldKey(localNameOf(el)) === key);
+      return Array.from(node.getElementsByTagName("*")).filter(el => localNameOf(el) === name);
     }
 
 
@@ -6145,9 +6130,8 @@ Implement by adjusting polygon style functions:
     }
 
     function makeCwaChineseTyphoonName(storm, tdNo, fallbackIndex){
-      // W-C0034-005 uses cwa_typhoon_name, not CwaTyphoonName.
       const zh = childTextPreferZh(storm, [
-        "cwa_typhoon_name", "CwaTyphoonName", "CwaTyphoonNameZh", "CwaTyphoonNameChinese", "TyphoonNameZh", "TyphoonNameChinese", "ChineseName", "NameZh", "NameChinese", "ChineseTyphoonName", "TyphoonName", "Name"
+        "CwaTyphoonName", "CwaTyphoonNameZh", "CwaTyphoonNameChinese", "TyphoonNameZh", "TyphoonNameChinese", "ChineseName", "NameZh", "NameChinese", "ChineseTyphoonName", "TyphoonName", "Name"
       ]);
       if(zh && hasChineseText(zh)) return zh;
       const no = String(tdNo || fallbackIndex || "").padStart(2, "0");
@@ -6170,31 +6154,13 @@ Implement by adjusting polygon style functions:
       return "TD";
     }
 
-    function cwaXmlText(node,names){
-      for(const name of names){ const s=childText(node,name); if(s)return s; }
-      return '';
-    }
-    function decodeCwaCoordinate(raw){
-      // Published W-C0034-005 coordinate is longitude,latitude (NOT CAP polygon).
-      const input=raw&&typeof raw==='object'?(raw['#text']??raw.text??raw.value??''):raw;
-      const text=String(input||'').trim().replace(/[，；;]+/g,',');
-      const nums=(text.match(/-?\d+(?:\.\d+)?/g)||[]).map(Number);
-      // JSON serializers sometimes preserve a coordinate as [longitude, latitude].
-      const pair=Array.isArray(raw)?raw.map(Number):nums;
-      if(pair.length>=2 && pair.slice(0,2).every(Number.isFinite)){
-        const lon=pair[0],lat=pair[1];
-        return Math.abs(lon)<=180&&Math.abs(lat)<=90 ? {lon,lat} : {lat:NaN,lon:NaN};
-      }
-      return {lat:NaN,lon:NaN};
-    }
     function parseCwaCircleRadiusKm(fixEl, circleName){
-      const circle = childElementsByName(fixEl,circleName)[0];
-      if(!circle)return 0;
-      const radius=cwaXmlText(circle,['Radius','radius','radius_km']) || String(circle.textContent||'').trim();
-      const match=radius.match(/-?\d+(?:\.\d+)?/);
-      const n=match?Number(match[0]):0;
-      return Number.isFinite(n)&&n>0?n:0;
+      const circle = childElementsByName(fixEl, circleName)[0];
+      if(!circle) return 0;
+      const radius = Number(childText(circle, "Radius"));
+      return isFinite(radius) ? radius : 0;
     }
+
     function fallbackForecastErrorRadiusKm(forecastHour){
       const h = Number(forecastHour || 0);
       if(!Number.isFinite(h) || h <= 0) return 0;
@@ -6207,76 +6173,74 @@ Implement by adjusting polygon style functions:
       if(h <= 96) return 350;
       return 540;
     }
-    function parseCwaXmlFix(fixEl, kind, id, name, sectionIssue=''){
-      const pair=decodeCwaCoordinate(cwaXmlText(fixEl,['coordinate','Coordinate']));
-      const separateLat=cwaXmlText(fixEl,['coordinate_latitude','CoordinateLatitude','latitude','lat']);
-      const separateLon=cwaXmlText(fixEl,['coordinate_longitude','CoordinateLongitude','longitude','lon']);
-      const lat=separateLat?Number(separateLat):pair.lat;
-      const lon=separateLon?Number(separateLon):pair.lon;
-      const wind=Number(cwaXmlText(fixEl,['max_wind_speed','MaxWindSpeed','wind']));
-      const pressure=Number(cwaXmlText(fixEl,['pressure','Pressure']));
-      const gust=cwaXmlText(fixEl,['max_gust_speed','MaxGustSpeed']);
-      const movingSpeed=cwaXmlText(fixEl,['moving_speed','MovingSpeed']);
-      const movingDirection=cwaXmlText(fixEl,['moving_direction','MovingDirection']);
-      const prediction=cwaXmlText(fixEl,['moving_prediction','MovingPrediction']);
-      const transfer=cwaXmlText(fixEl,['state_transfer','StateTransfer']);
-      const forecastHour=cwaXmlText(fixEl,['forecast_hour','ForecastHour','forecast_hours']);
-      const initialTime=cwaXmlText(fixEl,['initial_time','InitialTime','issue_time'])||sectionIssue;
-      const fixTime=cwaXmlText(fixEl,['fix_time','FixTime','date_time','DateTime','valid_time','ValidTime']);
-      // Published forecast fix_time is the target validity time. Use it before
-      // computing InitialTime+ForecastHour, otherwise the whole forecast vanishes.
-      const validTime=fixTime || (kind==='fcst'?addHoursToCwaTime(initialTime,Number(forecastHour||0)):initialTime);
-      const stormRadius=parseCwaCircleRadiusKm(fixEl,'circle_of_15ms')||parseCwaCircleRadiusKm(fixEl,'Circle15ms');
-      const stormRadius10=parseCwaCircleRadiusKm(fixEl,'circle_of_25ms')||parseCwaCircleRadiusKm(fixEl,'Circle25ms');
-      const rawFcstRadius=Number(cwaXmlText(fixEl,[
-        'radius_of_70_percent_probability','radius_70_percent_probability',
-        'radius_70percent_probability','radius70PercentProbability','Radius70PercentProbability',
-        'forecast_error_radius','forecast_error_km'
-      ]));
-      const fcstRadius=Number.isFinite(rawFcstRadius)&&rawFcstRadius>0 ? rawFcstRadius : fallbackForecastErrorRadiusKm(forecastHour);
-      const noteParts=[];
-      if(kind==='fcst' && forecastHour)noteParts.push(`${forecastHour}小時預報`);
-      if(prediction)noteParts.push(prediction);
-      if(transfer)noteParts.push(transfer);
-      if(movingDirection||movingSpeed)noteParts.push(`移向 ${movingDirection||'—'}，速度 ${movingSpeed||'—'} km/h`);
-      if(gust)noteParts.push(`最大陣風 ${gust} m/s`);
+
+    function parseCwaXmlFix(fixEl, kind, id, name){
+      const lat = Number(childText(fixEl, "CoordinateLatitude"));
+      const lon = Number(childText(fixEl, "CoordinateLongitude"));
+      const wind = Number(childText(fixEl, "MaxWindSpeed"));
+      const pressure = Number(childText(fixEl, "Pressure"));
+      const gust = childText(fixEl, "MaxGustSpeed");
+      const movingSpeed = childText(fixEl, "MovingSpeed");
+      const movingDirection = childText(fixEl, "MovingDirection");
+      const prediction = childText(fixEl, "MovingPrediction");
+      const transfer = childText(fixEl, "StateTransfer");
+      const forecastHour = childText(fixEl, "ForecastHour");
+      const initialTime = childText(fixEl, "InitialTime");
+      const dateTime = childText(fixEl, "DateTime");
+      const validTime = kind === "fcst" ? addHoursToCwaTime(initialTime, Number(forecastHour || 0)) : dateTime;
+      const stormRadius = parseCwaCircleRadiusKm(fixEl, "Circle15ms");
+      const stormRadius10 = parseCwaCircleRadiusKm(fixEl, "Circle25ms");
+      const rawFcstRadius = Number(childText(fixEl, "Radius70PercentProbability"));
+      const fcstRadius = Number.isFinite(rawFcstRadius) && rawFcstRadius > 0 ? rawFcstRadius : fallbackForecastErrorRadiusKm(forecastHour);
+      const noteParts = [];
+      if(kind === "fcst" && forecastHour) noteParts.push(`${forecastHour}小時預報`);
+      if(prediction) noteParts.push(prediction);
+      if(transfer) noteParts.push(transfer);
+      if(movingDirection || movingSpeed) noteParts.push(`移向 ${movingDirection || "—"}，速度 ${movingSpeed || "—"} km/h`);
+      if(gust) noteParts.push(`最大陣風 ${gust} m/s`);
+
       return {
-        typhoonId:id,typhoonName:name,lat,lon,time:validTime,kind,
-        level:levelFromWindMs(wind),wind:Number.isFinite(wind)?wind:null,
-        pressure:Number.isFinite(pressure)?pressure:null,note:noteParts.join('｜'),
-        fcst_radius_km:Number.isFinite(fcstRadius)?fcstRadius:0,
-        forecastIssueTime:kind==='fcst'?initialTime:'',
-        forecastHour:kind==='fcst'?Number(forecastHour||0):0,
-        storm_radius_km:stormRadius,storm_radius_10_km:stormRadius10
+        typhoonId:id,
+        typhoonName:name,
+        lat,
+        lon,
+        time:validTime,
+        kind,
+        level:levelFromWindMs(wind),
+        wind:isFinite(wind) ? wind : null,
+        pressure:isFinite(pressure) ? pressure : null,
+        note:noteParts.join("｜"),
+        fcst_radius_km:isFinite(fcstRadius) ? fcstRadius : 0,
+        storm_radius_km:stormRadius,
+        storm_radius_10_km:stormRadius10
       };
     }
+
     function parseCwaTyphoonXml(xml){
-      const storms=allElementsByName(xml,'TropicalCyclone');
-      if(!storms.length)return [];
-      return storms.map((storm,i)=>{
-        const year=cwaXmlText(storm,['year','Year'])||String(new Date().getFullYear());
-        const tdNo=cwaXmlText(storm,['cwa_td_no','CwaTdNo','cwaTdNo','cwa_td_number','CwaTdNumber','td_no','tdNo']);
-        const tyNo=cwaXmlText(storm,['cwa_ty_no','CwaTyNo','TyphoonNo']);
-        const nameZh=makeCwaChineseTyphoonName(storm,tdNo||tyNo,i+1);
-        const english=cwaXmlText(storm,['typhoon_name','TyphoonName','international_name']);
-        const normalizedNo=/^\d+$/.test(tdNo)?String(Number(tdNo)):String(tdNo||'').trim();
-        const fallbackId=(english||nameZh||String(i+1)).replace(/[^\w\u3400-\u9fff-]/g,'').toLowerCase();
-        const id=`cwa-${year}-${normalizedNo ? 'td-'+normalizedNo : 'name-'+fallbackId}`;
-        const name=`CWA｜${nameZh}`;
-        const dataset=childElementsByName(storm,'dataset')[0]||storm;
-        const analysis=childElementsByName(dataset,'analysis_data')[0]||childElementsByName(storm,'analysis_data')[0];
-        const forecast=childElementsByName(dataset,'forecast_data')[0]||childElementsByName(storm,'forecast_data')[0];
-        const obsFixes=analysis?allElementsByName(analysis,'fix'):[];
-        const fcstFixes=forecast?allElementsByName(forecast,'fix'):[];
-        const sectionIssue=forecast?cwaXmlText(forecast,['initial_time','InitialTime','issue_time']):'';
-        const obsPoints=obsFixes.map(f=>parseCwaXmlFix(f,'obs',id,name));
-        const fcstPoints=fcstFixes.map(f=>parseCwaXmlFix(f,'fcst',id,name,sectionIssue));
-        const points=[...obsPoints,...fcstPoints].filter(p=>
-          Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&Math.abs(p.lat)<=90&&Math.abs(p.lon)<=180
-          && Number.isFinite(parseLocalDateTime(p.time)?.getTime()));
-        return {id,name,source:'中央氣象署 W-C0034-005',points,
-          __englishName:english,__tdNo:normalizedNo,__tyNo:tyNo,__year:year};
-      }).filter(t=>t.points.length);
+      const storms = allElementsByName(xml, "TropicalCyclone");
+      if(!storms.length) return [];
+      return storms.map((storm, i) => {
+        const year = childText(storm, "Year") || "";
+        const tdNo = childText(storm, "CwaTdNo") || childText(storm, "TyphoonNo") || String(i + 1);
+        const nameZh = makeCwaChineseTyphoonName(storm, tdNo, i + 1);
+        const id = `cwa-${year || "ty"}-${tdNo}`;
+        const name = `CWA｜${nameZh}`;
+
+        const analysis = childElementsByName(storm, "AnalysisData")[0];
+        const forecast = childElementsByName(storm, "ForecastData")[0];
+        const obsFixes = analysis ? childElementsByName(analysis, "Fix") : [];
+        const fcstFixes = forecast ? childElementsByName(forecast, "Fix") : [];
+        const obsPoints = obsFixes.map(fix => parseCwaXmlFix(fix, "obs", id, name));
+        const fcstPoints = fcstFixes.map(fix => parseCwaXmlFix(fix, "fcst", id, name));
+        const points = [...obsPoints, ...fcstPoints].filter(p => isFinite(p.lat) && isFinite(p.lon));
+
+        return {
+          id,
+          name,
+          source:"CWA",
+          points
+        };
+      }).filter(t => t.points.length);
     }
 
     function asArray(v){
@@ -6284,20 +6248,10 @@ Implement by adjusting polygon style functions:
       return Array.isArray(v) ? v : [v];
     }
 
-    function cwaJsonValue(obj, names){
-      if(!obj || typeof obj!=='object')return null;
-      const keys=Array.isArray(names)?names:[names];
-      const direct=firstValue(obj,keys);
-      if(direct!==null)return direct;
-      for(const [k,v] of Object.entries(obj)){
-        if(v!==null && v!==undefined && v!=='' && keys.some(w=>cwaFieldKey(w)===cwaFieldKey(k)))return v;
-      }
-      return null;
-    }
     function getJsonText(obj, keys){
-      const v=cwaJsonValue(obj,keys);
-      if(v===null || v===undefined)return '';
-      if(typeof v==='object')return String(v['#text']??v.text??v.value??'').trim();
+      const v = firstValue(obj, keys);
+      if(v === null || v === undefined) return "";
+      if(typeof v === "object" && "#text" in v) return String(v["#text"] || "").trim();
       return String(v).trim();
     }
 
@@ -6312,172 +6266,127 @@ Implement by adjusting polygon style functions:
       return String(pick || "").trim();
     }
 
-    function cwaRadiusFromJsonFix(fix,key){
-      const choices=key==='Circle15ms'?['circle_of_15ms','Circle15ms','circle_15ms']
-        :['circle_of_25ms','Circle25ms','circle_25ms'];
-      const circle=cwaJsonValue(fix,choices);
-      if(!circle)return 0;
-      const c=Array.isArray(circle)?circle[0]:circle;
-      const raw=typeof c==='object'?cwaJsonValue(c,['radius','Radius','radius_km'])??c['#text']:c;
-      const match=String(raw??'').match(/-?\d+(?:\.\d+)?/);
-      const n=match?Number(match[0]):0;
-      return Number.isFinite(n)&&n>0?n:0;
+    function cwaRadiusFromJsonFix(fix, key){
+      const circle = fix ? fix[key] : null;
+      if(!circle) return 0;
+      const c = Array.isArray(circle) ? circle[0] : circle;
+      const r = Number(c?.Radius ?? c?.radius ?? c?.['#text'] ?? 0);
+      return isFinite(r) ? r : 0;
     }
-    function getJsonChineseName(obj,keys){
-      const candidates=[];
-      keys.forEach(k=>{const v=cwaJsonValue(obj,k);if(v!=null)candidates.push(...(Array.isArray(v)?v:[v]));});
+
+
+
+    function getJsonChineseName(obj, keys){
+      const candidates = [];
+      keys.forEach(k => {
+        const v = obj ? obj[k] : null;
+        if(v === null || v === undefined) return;
+        if(Array.isArray(v)) candidates.push(...v);
+        else candidates.push(v);
+      });
       for(const v of candidates){
-        const s=typeof v==='object'&&v ? String(v['#text']??v.text??v.value??v.name??'').trim() : String(v??'').trim();
-        if(hasChineseText(s))return s;
+        if(typeof v === "string" || typeof v === "number"){
+          const s = String(v).trim();
+          if(hasChineseText(s)) return s;
+          continue;
+        }
+        if(v && typeof v === "object"){
+          const lang = String(v.lang || v.Language || v["@lang"] || v.language || "").toLowerCase();
+          const s = String(v["#text"] ?? v.text ?? v.value ?? v.name ?? "").trim();
+          if((lang.includes("zh") || lang.includes("hant") || hasChineseText(s)) && s) return s;
+        }
       }
-      return '';
+      return "";
     }
-    function makeCwaChineseTyphoonNameJson(storm,tdNo,fallbackIndex){
-      const zh=getJsonChineseName(storm,[
-        'cwa_typhoon_name','CwaTyphoonName','CwaTyphoonNameZh','TyphoonNameZh','ChineseName','NameZh','typhoonName','Name'
+
+    function makeCwaChineseTyphoonNameJson(storm, tdNo, fallbackIndex){
+      const zh = getJsonChineseName(storm, [
+        "CwaTyphoonName", "cwaTyphoonName", "CwaTyphoonNameZh", "cwaTyphoonNameZh", "TyphoonNameZh", "typhoonNameZh", "TyphoonNameChinese", "typhoonNameChinese", "ChineseName", "chineseName", "NameZh", "nameZh", "NameChinese", "nameChinese", "TyphoonName", "typhoonName", "Name", "name"
       ]);
-      if(zh)return zh;
-      const no=String(tdNo||fallbackIndex||'').padStart(2,'0');
-      return `熱帶低氣壓 ${no}`;
+      if(zh) return zh;
+      const no = String(tdNo || fallbackIndex || "").padStart(2, "0");
+      return no ? `熱帶低氣壓 ${no}` : `熱帶低氣壓 ${fallbackIndex || ""}`.trim();
     }
-    function parseCwaJsonFix(fix,kind,id,name,sectionIssue=''){
-      const pair=decodeCwaCoordinate(getJsonText(fix,['coordinate','Coordinate']));
-      const latRaw=getJsonText(fix,['coordinate_latitude','CoordinateLatitude','lat','Latitude']);
-      const lonRaw=getJsonText(fix,['coordinate_longitude','CoordinateLongitude','lon','lng','Longitude']);
-      const lat=latRaw?Number(latRaw):pair.lat;
-      const lon=lonRaw?Number(lonRaw):pair.lon;
-      const wind=Number(getJsonText(fix,['max_wind_speed','MaxWindSpeed','wind']));
-      const pressure=Number(getJsonText(fix,['pressure','Pressure']));
-      const gust=getJsonText(fix,['max_gust_speed','MaxGustSpeed']);
-      const movingSpeed=getJsonText(fix,['moving_speed','MovingSpeed']);
-      const movingDirection=getJsonText(fix,['moving_direction','MovingDirection']);
-      const prediction=getJsonText(fix,['moving_prediction','MovingPrediction']);
-      const transfer=getJsonText(fix,['state_transfer','StateTransfer']);
-      const forecastHour=getJsonText(fix,['forecast_hour','ForecastHour','forecast_hours']);
-      const initialTime=getJsonText(fix,['initial_time','InitialTime','issue_time'])||sectionIssue;
-      const fixTime=getJsonText(fix,['fix_time','FixTime','date_time','DateTime','valid_time','ValidTime']);
-      const validTime=fixTime||(kind==='fcst'?addHoursToCwaTime(initialTime,Number(forecastHour||0)):initialTime);
-      const stormRadius=cwaRadiusFromJsonFix(fix,'Circle15ms');
-      const stormRadius10=cwaRadiusFromJsonFix(fix,'Circle25ms');
-      const rawFcstRadius=Number(getJsonText(fix,[
-        'radius_of_70_percent_probability','radius_70_percent_probability',
-        'radius70PercentProbability','Radius70PercentProbability','forecast_error_km','errorRadiusKm'
-      ]));
-      const fcstRadius=Number.isFinite(rawFcstRadius)&&rawFcstRadius>0?rawFcstRadius:fallbackForecastErrorRadiusKm(forecastHour);
-      const noteParts=[];
-      if(kind==='fcst'&&forecastHour)noteParts.push(`${forecastHour}小時預報`);
-      if(prediction)noteParts.push(prediction);
-      if(transfer)noteParts.push(transfer);
-      if(movingDirection||movingSpeed)noteParts.push(`移向 ${movingDirection||'—'}，速度 ${movingSpeed||'—'} km/h`);
-      if(gust)noteParts.push(`最大陣風 ${gust} m/s`);
+
+    function parseCwaJsonFix(fix, kind, id, name){
+      const lat = Number(getJsonText(fix, ["CoordinateLatitude", "coordinateLatitude", "lat", "Latitude"]));
+      const lon = Number(getJsonText(fix, ["CoordinateLongitude", "coordinateLongitude", "lon", "lng", "Longitude"]));
+      const wind = Number(getJsonText(fix, ["MaxWindSpeed", "maxWindSpeed", "wind"]));
+      const pressure = Number(getJsonText(fix, ["Pressure", "pressure"]));
+      const gust = getJsonText(fix, ["MaxGustSpeed", "maxGustSpeed"]);
+      const movingSpeed = getJsonText(fix, ["MovingSpeed", "movingSpeed"]);
+      const movingDirection = getJsonText(fix, ["MovingDirection", "movingDirection"]);
+      const prediction = getJsonLangText(fix, "MovingPrediction") || getJsonText(fix, ["MovingPrediction"]);
+      const transfer = getJsonLangText(fix, "StateTransfer") || getJsonText(fix, ["StateTransfer"]);
+      const forecastHour = getJsonText(fix, ["ForecastHour", "forecastHour"]);
+      const initialTime = getJsonText(fix, ["InitialTime", "initialTime"]);
+      const dateTime = getJsonText(fix, ["DateTime", "dateTime"]);
+      const validTime = kind === "fcst" ? addHoursToCwaTime(initialTime, Number(forecastHour || 0)) : dateTime;
+      const stormRadius = cwaRadiusFromJsonFix(fix, "Circle15ms");
+      const stormRadius10 = cwaRadiusFromJsonFix(fix, "Circle25ms");
+      const rawFcstRadius = Number(getJsonText(fix, ["Radius70PercentProbability", "radius70PercentProbability", "forecast_error_km", "errorRadiusKm"]));
+      const fcstRadius = Number.isFinite(rawFcstRadius) && rawFcstRadius > 0 ? rawFcstRadius : fallbackForecastErrorRadiusKm(forecastHour);
+      const noteParts = [];
+      if(kind === "fcst" && forecastHour) noteParts.push(`${forecastHour}小時預報`);
+      if(prediction) noteParts.push(prediction);
+      if(transfer) noteParts.push(transfer);
+      if(movingDirection || movingSpeed) noteParts.push(`移向 ${movingDirection || "—"}，速度 ${movingSpeed || "—"} km/h`);
+      if(gust) noteParts.push(`最大陣風 ${gust} m/s`);
       return {
-        typhoonId:id,typhoonName:name,lat,lon,time:validTime,kind,
-        level:levelFromWindMs(wind),wind:Number.isFinite(wind)?wind:null,
-        pressure:Number.isFinite(pressure)?pressure:null,note:noteParts.join('｜'),
-        fcst_radius_km:Number.isFinite(fcstRadius)?fcstRadius:0,
-        forecastIssueTime:kind==='fcst'?initialTime:'',
-        forecastHour:kind==='fcst'?Number(forecastHour||0):0,
-        storm_radius_km:stormRadius,storm_radius_10_km:stormRadius10
+        typhoonId:id,
+        typhoonName:name,
+        lat,
+        lon,
+        time:validTime,
+        kind,
+        level:levelFromWindMs(wind),
+        wind:isFinite(wind) ? wind : null,
+        pressure:isFinite(pressure) ? pressure : null,
+        note:noteParts.join("｜"),
+        fcst_radius_km:isFinite(fcstRadius) ? fcstRadius : 0,
+        storm_radius_km:stormRadius,
+        storm_radius_10_km:stormRadius10
       };
     }
 
-    // The published W-C0034-005 JSON has appeared in both lower-camel
-    // (records.tropicalCyclones.tropicalCyclone) and upper-camel versions.
-    // Identify the cyclone ARRAY first, then preserve each storm independently;
-    // never flatten the entire aggregate into one 'cwa-1' storm.
     function findCwaJsonStorms(data){
-      const found=[], visited=new WeakSet(), accepted=new WeakSet();
-      const root=data?.records||data?.Records||data;
-      // Enumerate the published tropicalCyclone ARRAY before falling back to
-      // recursive discovery. Unnamed TDs may not carry CwaTyNo / TyphoonName;
-      // never discard them just because the object lacks a typhoon name.
-      const collection=cwaJsonValue(root,['TropicalCyclones','tropicalCyclones','tropical_cyclones']);
-      const direct=collection?cwaJsonValue(collection,['TropicalCyclone','tropicalCyclone','tropical_cyclone']):null;
-      function push(v,fromOfficialList=false){
-        if(!v || typeof v!=='object' || Array.isArray(v) || accepted.has(v))return false;
-        const hasData=!!cwaJsonValue(v,['AnalysisData','ForecastData','analysis_data','forecast_data','Dataset','dataset']);
-        const hasId=!!cwaJsonValue(v,['CwaTdNo','cwa_td_no','TdNo','CwaTyNo','TyphoonName','CwaTyphoonName','Year','year']);
-        if(!hasData || (!hasId && !fromOfficialList))return false;
-        accepted.add(v);found.push(v);return true;
-      }
-      asArray(direct).forEach(x=>push(x,true));
-      function visit(node,depth){
-        if(depth>18 || !node || typeof node!=='object' || visited.has(node))return;
-        visited.add(node);
-        if(Array.isArray(node)){node.forEach(child=>visit(child,depth+1));return;}
-        if(push(node))return;
-        for(const [key,val] of Object.entries(node)){
-          if(!val || typeof val!=='object')continue;
-          if(cwaFieldKey(key)==='tropicalcyclone')asArray(val).forEach(v=>push(v,true));
-          visit(val,depth+1);
+      const found = [];
+      const seen = new WeakSet();
+      const walk = (v) => {
+        if(!v || typeof v !== "object") return;
+        if(seen.has(v)) return;
+        seen.add(v);
+        if(v.Year !== undefined && (v.CwaTdNo !== undefined || v.TyphoonNo !== undefined) && (v.AnalysisData || v.ForecastData)){
+          found.push(v);
+          return;
         }
-      }
-      visit(root,0);
+        if(v.TropicalCyclone){
+          asArray(v.TropicalCyclone).forEach(walk);
+        }
+        Object.values(v).forEach(walk);
+      };
+      walk(data);
       return found;
     }
-    function cwaJsonFixList(node){
-      const result=[], seen=new WeakSet();
-      function visit(value,depth){
-        if(depth>14 || !value || typeof value!=='object' || seen.has(value))return;
-        seen.add(value);
-        if(Array.isArray(value)){value.forEach(v=>visit(v,depth+1));return;}
-        const la=cwaJsonValue(value,['CoordinateLatitude','coordinate_latitude','lat','Latitude']);
-        const lo=cwaJsonValue(value,['CoordinateLongitude','coordinate_longitude','lon','Longitude']);
-        const pair=cwaJsonValue(value,['coordinate','Coordinate']);
-        if((la!==null&&lo!==null) || (pair!==null&&String(typeof pair==='object'?(pair['#text']??pair.text??pair.value??''):pair).includes(','))){result.push(value);return;}
-        // Only descend inside the already-selected analysis/forecast branch;
-        // wrappers differ across JSON serialization versions.
-        for(const child of Object.values(value)) if(child && typeof child==='object')visit(child,depth+1);
-      }
-      visit(node,0);
-      return result;
-    }
+
     function parseCwaTyphoonJson(data){
-      const storms=findCwaJsonStorms(data);
-      if(!storms.length)return [];
-      return storms.map((storm,i)=>{
-        const year=getJsonText(storm,['Year','year'])||String(new Date().getFullYear());
-        // Use the TD number, not the alert bulletin number. Otherwise two
-        // different active storms can accidentally share one id.
-        const tdNo=getJsonText(storm,['CwaTdNo','CwaTdNumber','TdNo','TropicalDepressionNo','cwa_td_no','td_no','cwaTdNo']);
-        const tyNo=getJsonText(storm,['CwaTyNo','TyphoonNo','cwa_ty_no']);
-        const enName=getJsonText(storm,['TyphoonName','Name','InternationalName']);
-        const zhName=makeCwaChineseTyphoonNameJson(storm,tdNo||tyNo,i+1);
-        const normalizedNo=/^\d+$/.test(tdNo)?String(Number(tdNo)):tdNo;
-        const safeName=(enName||zhName||`unknown${i+1}`).replace(/[^\w\u3400-\u9fff-]/g,'').toLowerCase();
-        const id=`cwa-${year}-${normalizedNo ? 'td-'+normalizedNo : 'name-'+safeName}`;
-        const name=`CWA｜${zhName}`;
-        // Official records.tropicalCyclones.tropicalCyclone[] stores BOTH
-        // analysis_data and forecast_data under dataset. Parse every cyclone
-        // independently; do not reuse the warning storm's forecast for others.
-        const dataset=cwaJsonValue(storm,['dataset','dataSet'])||storm;
-        const datasetNodes=asArray(dataset).filter(v=>v&&typeof v==='object');
-        const findBranch=(names)=>{
-          for(const d of [...datasetNodes,storm]){
-            const direct=cwaJsonValue(d,names);
-            if(direct!=null)return direct;
-            // Some REST serializers put analysis/forecast in an inner dataset.
-            const inner=cwaJsonValue(d,['dataset','dataSet']);
-            if(inner && inner!==d)for(const child of asArray(inner)){
-              const branch=cwaJsonValue(child,names);
-              if(branch!=null)return branch;
-            }
-          }
-          return {};
-        };
-        const analysis=findBranch(['AnalysisData','analysis_data']);
-        const forecast=findBranch(['ForecastData','forecast_data']);
-        const obsFixes=cwaJsonFixList(analysis);
-        const fcstFixes=cwaJsonFixList(forecast);
-        const sectionIssue=getJsonText(forecast,['initial_time','InitialTime','issue_time']);
-        const obsPoints=obsFixes.map(f=>parseCwaJsonFix(f,'obs',id,name));
-        const fcstPoints=fcstFixes.map(f=>parseCwaJsonFix(f,'fcst',id,name,sectionIssue));
-        const points=[...obsPoints,...fcstPoints].filter(p=>
-          Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&Math.abs(p.lat)<=90&&Math.abs(p.lon)<=180
-          && Number.isFinite(parseLocalDateTime(p.time)?.getTime()));
-        return {id,name,source:'CWA W-C0034-005 熱帶氣旋路徑',points,
-          __englishName:enName,__tdNo:normalizedNo,__tyNo:tyNo,__year:year};
-      }).filter(t=>t.points.length);
+      const storms = findCwaJsonStorms(data);
+      if(!storms.length) return [];
+      return storms.map((storm, i) => {
+        const year = getJsonText(storm, ["Year", "year"]);
+        const tdNo = getJsonText(storm, ["CwaTdNo", "TyphoonNo", "cwaTdNo", "typhoonNo"]) || String(i + 1);
+        const nameZh = makeCwaChineseTyphoonNameJson(storm, tdNo, i + 1);
+        const id = `cwa-${year || "ty"}-${tdNo}`;
+        const name = `CWA｜${nameZh}`;
+        const analysis = storm.AnalysisData || storm.analysisData || {};
+        const forecast = storm.ForecastData || storm.forecastData || {};
+        const obsFixes = asArray(analysis.Fix || analysis.fix);
+        const fcstFixes = asArray(forecast.Fix || forecast.fix);
+        const obsPoints = obsFixes.map(fix => parseCwaJsonFix(fix, "obs", id, name));
+        const fcstPoints = fcstFixes.map(fix => parseCwaJsonFix(fix, "fcst", id, name));
+        const points = [...obsPoints, ...fcstPoints].filter(p => isFinite(p.lat) && isFinite(p.lon));
+        return { id, name, source:"CWA W-C0034-005 熱帶氣旋路徑", points };
+      }).filter(t => t.points.length);
     }
 
     function normalizeCwaTyphoonData(data){
@@ -6506,9 +6415,15 @@ Implement by adjusting polygon style functions:
       flattenDeepArray(likelyLists).forEach(x => candidates.push(x));
 
       if(!candidates.length){
-        // An unrecognized multi-storm response must never become a fake
-        // aggregate cyclone. Report it instead of erasing the real roster.
-        console.warn('[CWA] Unrecognized W-C0034-005 structure; preserving previous storm roster');
+        const points = collectPointLikeObjects(data);
+        if(points.length){
+          return [{
+            id:"cwa-1",
+            name:"CWA｜颱風資料",
+            source:"CWA 中央氣象署",
+            points:points.map(p => normalizePoint(p, "cwa-1", "CWA｜颱風資料")).filter(p => isFinite(p.lat) && isFinite(p.lon))
+          }].filter(t => t.points.length);
+        }
         return [];
       }
 
@@ -6592,529 +6507,44 @@ Implement by adjusting polygon style functions:
       updateDownloadPngButtonText();
     }
 
-    // W-C0034-005 is an aggregate of active cyclones. Its XML/JSON mirrors can
-    // temporarily differ during high-frequency typhoon-warning updates.
-    // Recover each cyclone separately instead of replacing the whole list.
-    const CWA_STORM_CACHE_KEY = 'seir-weather-cwa-cyclones-v6'; // v5: align all cyclones by official cwa_td_no and lon/lat fixes
-    // A warning storm can refresh frequently while a distant non-warning storm
-    // is absent from an otherwise successful aggregate response. Its latest
-    // valid issue is still usable: keep each storm independently for a bounded
-    // period, but never extend a forecast beyond its published valid times.
-    const CWA_FORECAST_CACHE_MAX_AGE = 36 * 3600000;
-    const CWA_MISSING_STORM_MAX_AGE = 30 * 3600000;
-    const CWA_LAST_OBSERVATION_MAX_AGE = 36 * 3600000;
-    const CWA_CACHE_LIMIT = 16;
-    const cwaForecastCache = new Map();
-    const cwaStormCache = new Map();
-    const stamp = p => parseLocalDateTime(p?.time)?.getTime() ?? NaN;
-    const forecastStamp = p => parseLocalDateTime(p?.forecastIssueTime)?.getTime() ?? NaN;
-    const latestObsStamp = t => Math.max(0, ...(t?.points||[]).filter(p=>p.kind==='obs').map(p=>stamp(p)).filter(Number.isFinite));
-    const isFutureForecast = (p, obsTime=0) => {
-      const t=stamp(p);
-      return p?.kind==='fcst' && Number.isFinite(t) && t>obsTime+60000 && t>Date.now()-15*60000;
-    };
-    // The three data providers can represent the same valid time differently:
-    // 2026-10-26 14:00, 2026-10-26T14:00:00+08:00, etc. Normalize times
-    // before de-duplicating so one physical fix never appears twice.
-    const uniquePoints = arr => {
-      const seen=new Map();
-      for(const p of (arr||[])){
-        if(!p || !Number.isFinite(Number(p.lat)) || !Number.isFinite(Number(p.lon))) continue;
-        const t=stamp(p);
-        const k=`${p.kind}|${Number.isFinite(t)?Math.round(t/60000):String(p.time||'')}`;
-        const prev=seen.get(k);
-        const score=q=>(Number(q.fcst_radius_km||0)>0?4:0)
-          +(Number(q.storm_radius_km||0)>0?2:0)
-          +(Number(q.pressure||0)>0?1:0);
-        if(!prev || score(p)>score(prev)) seen.set(k,p);
+    async function fetchFirstAvailable(urls){
+      for(const url of urls){
+        try{
+          const data = await fetchJsonSafe(url);
+          const normalized = normalizeCwaTyphoonData(data);
+          if(normalized.length) return { data, normalized, url };
+          console.warn("CWA 颱風資料沒有解析到 TropicalCyclone：", url);
+        }catch(err){
+          console.warn("CWA 颱風資料載入失敗：", url, err);
+        }
       }
-      return sortTyphoonPoints([...seen.values()]);
-    };
+      return { data:null, normalized:[], url:"" };
+    }
 
-    // A cyclone can have different ids across XML/JSON and a local weather.json
-    // copy. Never merge just because two storms have a similar name/number:
-    // check their actual fixes in time AND space. A match based on name also
-    // requires a recent geographical match, protecting separate active storms.
-    const cycloneNameKey = value => String(value||'').normalize('NFKC')
-      .replace(/^CWA[｜|:：\s-]*/i,'')
-      .replace(/(?:中央氣象署|氣象署)/g,'')
-      .replace(/(?:颱風|台風|typhoon)/ig,'')
-      .replace(/[\s\-‐‑–—_\[\]()（）「」『』]+/g,'')
-      .toLowerCase().trim();
-    const genericCycloneName = key => !key || /^(?:熱帶低氣壓|熱帶性低氣壓|低壓|資料|storm|td|temp|unknown|\d+)(?:\d+)?$/i.test(key);
-    const haversineKm=(a,b)=>{
-      const lat1=Number(a?.lat),lat2=Number(b?.lat),lon1=Number(a?.lon),lon2=Number(b?.lon);
-      if(![lat1,lat2,lon1,lon2].every(Number.isFinite))return Infinity;
-      const r=Math.PI/180,dl=(lon2-lon1)*r,dp=(lat2-lat1)*r;
-      const h=Math.sin(dp/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dl/2)**2;
-      return 12742*Math.asin(Math.min(1,Math.sqrt(h)));
-    };
-    function samePhysicalCyclone(a,b){
-      if(!a||!b)return false;
-      if(a.id && b.id && a.id===b.id)return true;
-      const nameA=cycloneNameKey(a.name),nameB=cycloneNameKey(b.name);
-      const meaningfulA=!!nameA && !genericCycloneName(nameA);
-      const meaningfulB=!!nameB && !genericCycloneName(nameB);
-      // Only compare official TD identifiers; `CwaTyNo` is a DIFFERENT
-      // numbering system. Earlier versions incorrectly used it as TD number.
-      const verifiedTdA=/^\d+$/.test(String(a.__tdNo||'')) ? String(Number(a.__tdNo)) : '';
-      const verifiedTdB=/^\d+$/.test(String(b.__tdNo||'')) ? String(Number(b.__tdNo)) : '';
-      if(verifiedTdA && verifiedTdB){
-        // CWA TD numbers are unique per season. A mismatched TD number is
-        // stronger evidence of two separate cyclones than any nearby fixes.
-        if(a.__year && b.__year && String(a.__year)!==String(b.__year))return false;
-        return verifiedTdA===verifiedTdB;
-      }
-      const englishA=cycloneNameKey(a.__englishName), englishB=cycloneNameKey(b.__englishName);
-      const englishMatch=!!englishA && englishA===englishB && !genericCycloneName(englishA);
-      const translatedMatch=(englishA&&englishA===nameB)||(englishB&&englishB===nameA);
-      const nameMatch=(meaningfulA && meaningfulB && nameA===nameB) || englishMatch || translatedMatch;
-      // Chinese and English aliases may be different: require hard matching
-      // track evidence below before merging them, never proximity alone.
-      const namesConflict=meaningfulA && meaningfulB && nameA!==nameB && !nameMatch;
-      const pa=(a.points||[]).filter(p=>Number.isFinite(stamp(p)));
-      const pb=(b.points||[]).filter(p=>Number.isFinite(stamp(p)));
-      if(!pa.length||!pb.length)return false;
-      const observationsA=pa.filter(p=>p.kind==='obs').sort((x,y)=>stamp(y)-stamp(x)).slice(0,16);
-      const observationsB=pb.filter(p=>p.kind==='obs').sort((x,y)=>stamp(y)-stamp(x)).slice(0,16);
-      let preciseMatches=0, nearMatches=0, exactFixMatch=false;
-      for(const x of observationsA){
-        for(const y of observationsB){
-          const dt=Math.abs(stamp(x)-stamp(y))/3600000;
-          if(dt>9)continue;
-          const distance=haversineKm(x,y);
-          if(dt<=.3 && distance<=35)preciseMatches++;
-          if(dt<=.15 && distance<=12)exactFixMatch=true;
-          if(dt<=9 && distance<=Math.min(260,65+dt*32))nearMatches++;
-        }
-      }
-      // For named cyclones, a matching analysis within 9 h is sufficient.
-      if(nameMatch && nearMatches>=1)return true;
-      if(nameMatch){
-        // Non-overlapping releases may be 3-12h apart. The same non-generic
-        // cyclone name in an overlapping active period is one cyclone, not two.
-        const lastA=Math.max(...pa.map(stamp)),lastB=Math.max(...pb.map(stamp));
-        if(Number.isFinite(lastA)&&Number.isFinite(lastB)
-          && Math.abs(lastA-lastB)<=48*3600000) return true;
-        // One source may contain only forecasts while another contains
-        // analyses. Match a fix at the same valid time, regardless of kind.
-        const recentA=pa.slice().sort((x,y)=>stamp(y)-stamp(x)).slice(0,16);
-        const recentB=pb.slice().sort((x,y)=>stamp(y)-stamp(x)).slice(0,16);
-        for(const x of recentA)for(const y of recentB){
-          if(Math.abs(stamp(x)-stamp(y))<=15*60000 && haversineKm(x,y)<=35)return true;
-        }
-      }
-      if(namesConflict){
-        // A differently named duplicate can be accepted only on overlapping
-        // *track fixes*. This catches warning-vs-ordinary aliases even when
-        // one feed has sparse observations, without grouping a distant TD.
-        const signatures=new Set();
-        const xa=pa.slice().sort((x,y)=>stamp(y)-stamp(x)).slice(0,72);
-        const xb=pb.slice().sort((x,y)=>stamp(y)-stamp(x)).slice(0,72);
-        for(const x of xa)for(const y of xb){
-          if(Math.abs(stamp(x)-stamp(y))<=10*60000 && haversineKm(x,y)<=9)
-            signatures.add(Math.round(stamp(x)/600000));
-        }
-        return signatures.size>=3;
-      }
-      if(exactFixMatch)return true;
-      // If the Chinese/English names differ, require at least two matching
-      // observed fixes, or an exact fix plus a matching forecast fix.
-      if(preciseMatches>=2)return true;
-      if(preciseMatches){
-        const fa=pa.filter(p=>p.kind==='fcst'),fb=pb.filter(p=>p.kind==='fcst');
-        for(const x of fa)for(const y of fb){
-          if(Math.abs(stamp(x)-stamp(y))<=15*60000 && haversineKm(x,y)<=50)return true;
-        }
-      }
-      if(nameMatch && (!observationsA.length||!observationsB.length)){
-        for(const x of pa.filter(p=>p.kind==='fcst'))for(const y of pb.filter(p=>p.kind==='fcst')){
-          if(Math.abs(stamp(x)-stamp(y))<=15*60000 && haversineKm(x,y)<=40)return true;
-        }
-      }
-      return false;
-    }
-    function groupSameCyclones(candidates){
-      const storms=(candidates||[]).filter(s=>s?.id && Array.isArray(s.points)&&s.points.length);
-      const parent=storms.map((_,i)=>i);
-      const find=i=>parent[i]===i?i:(parent[i]=find(parent[i]));
-      for(let i=0;i<storms.length;i++)for(let j=i+1;j<storms.length;j++){
-        if(samePhysicalCyclone(storms[i],storms[j]))parent[find(j)]=find(i);
-      }
-      const groups=new Map();
-      storms.forEach((st,i)=>{const root=find(i);if(!groups.has(root))groups.set(root,[]);groups.get(root).push(st);});
-      return [...groups.values()];
-    }
-    const sourcePriority=storm=>String(storm?.id||'').startsWith('cwa-')?2:1;
-    function chooseCanonicalCyclone(versions){
-      return versions.slice().sort((a,b)=>
-        sourcePriority(b)-sourcePriority(a)
-        || (/^cwa-\d{4}-/.test(b.id)?1:0)-(/^cwa-\d{4}-/.test(a.id)?1:0)
-        || latestObsStamp(b)-latestObsStamp(a))[0];
-    }
-    // Forecast cycle selection is strictly per cyclone and per issue time.
-    // A new short official forecast must never lose to an older longer one.
-    // Keep same-cycle XML/JSON duplicates together and do NOT splice points
-    // from different issue cycles into a single forecast path.
-    function getIssueStamp(value){
-      if(Number.isFinite(value) && Number(value)>1e11) return Number(value);
-      const direct=parseLocalDateTime(value);
-      return direct&&Number.isFinite(direct.getTime())?direct.getTime():NaN;
-    }
-    function forecastCycleIssue(p,storm){
-      const explicit=forecastStamp(p);
-      if(Number.isFinite(explicit)&&explicit>0)return {time:explicit,explicit:true};
-      const inferred=stamp(p)-Number(p?.forecastHour||0)*3600000;
-      if(Number(p?.forecastHour)>0 && Number.isFinite(inferred))return {time:inferred,explicit:true};
-      const stormIssue=getIssueStamp(storm?.__forecastIssueTime);
-      if(Number.isFinite(stormIssue)&&stormIssue>0)return {time:stormIssue,explicit:false};
-      const observed=latestObsStamp(storm);
-      return {time:observed||0,explicit:false};
-    }
-    // A candidate is a single issued SERIES, even if a feed carries multiple cycles.
-    function forecastCandidates(storm,referenceObsTime=0){
-      const cycles=new Map();
-      const points=(storm?.points||[]).filter(p=>isFutureForecast(p,referenceObsTime));
-      for(const p of points){
-        const info=forecastCycleIssue(p,storm);
-        // If issue times are given, group fixes belonging to that issue;
-        // rounding to minutes handles XML/JSON seconds and formatting noise.
-        const key=String(Math.round(info.time/60000));
-        if(!cycles.has(key))cycles.set(key,{v:storm,issue:info.time,explicit:info.explicit,fc:[]});
-        const group=cycles.get(key);
-        group.explicit=group.explicit||info.explicit;
-        group.fc.push(p);
-      }
-      return [...cycles.values()].map(c=>{
-        c.fc=uniquePoints(c.fc).sort((a,b)=>stamp(a)-stamp(b));
-        c.maxValid=Math.max(0,...c.fc.map(stamp).filter(Number.isFinite));
-        return c;
-      }).filter(c=>c.fc.length);
-    }
-    const forecastSourceRank = storm=>String(storm?.id||'').startsWith('cwa-')?2:1;
-    function compareForecastSeries(a,b){
-      // Strict precedence: newest valid issue, then completeness of same issue.
-      return (b.issue-a.issue)
-        || (Number(b.explicit)-Number(a.explicit))
-        || (b.fc.length-a.fc.length)
-        || (b.maxValid-a.maxValid)
-        || (forecastSourceRank(b.v)-forecastSourceRank(a.v));
-    }
-    function chooseForecastSeries(options,warningPriority=false){
-      const sorted=options.filter(x=>x?.fc?.length).sort((a,b)=>{
-        // Only for a confirmed warning storm: an issued official forecast
-        // outranks weather.json's ordinary forecast for THAT same cyclone.
-        if(warningPriority){
-          const c=forecastSourceRank(b.v)-forecastSourceRank(a.v);
-          if(c)return c;
-        }
-        return compareForecastSeries(a,b);
-      });
-      return sorted[0]||null;
-    }
-    function mergePhysicalCyclones(candidates){
-      return groupSameCyclones(candidates).map(versions=>{
-        const canonical=chooseCanonicalCyclone(versions);
-        const obs=uniquePoints(versions.flatMap(v=>v.points.filter(p=>p.kind==='obs')));
-        const obsTime=Math.max(0,...obs.map(stamp).filter(Number.isFinite));
-        const options=versions.flatMap(v=>forecastCandidates(v,obsTime));
-        const winner=chooseForecastSeries(options,officialStormWarningStatus(canonical));
-        const displayName=versions.slice().sort((a,b)=>
-          (genericCycloneName(cycloneNameKey(a.name))?1:0)-(genericCycloneName(cycloneNameKey(b.name))?1:0)
-          || sourcePriority(b)-sourcePriority(a))[0];
-        if(versions.length>1 && typeof console!=='undefined')
-          console.debug('[CWA] merged cyclone feeds',versions.map(v=>v.id),'as',canonical.id,
-            'selected issue',winner?.issue||'none');
-        const officialIdentity=versions.find(v=>/^\d+$/.test(String(v.__tdNo||'')));
-        return {...canonical,id:officialIdentity?.id||canonical.id,
-          __tdNo:officialIdentity?.__tdNo||canonical.__tdNo||'',
-          __year:officialIdentity?.__year||canonical.__year,
-          name:displayName.name,
-          source:winner?.v.source||canonical.source,
-          points:uniquePoints([...obs,...(winner?.fc||[])]),
-          __hasFreshForecast:!!winner && !winner.v.__forecastRecovered,
-          __forecastIssueTime:winner?.issue||0,
-          __forecastRecovered:!!winner?.v.__forecastRecovered};
-      });
-    }
-    const cacheOk = (entry, maxAge) => entry && Number.isFinite(Number(entry.savedAt))
-      && entry.savedAt <= Date.now()+3600000 && Date.now()-entry.savedAt<maxAge;
-    function hydrateCwaCache(){
-      try{
-        const raw=JSON.parse(localStorage.getItem(CWA_STORM_CACHE_KEY)||'{}');
-        for(const [id,item] of Object.entries(raw.forecasts||{})){
-          if(cacheOk(item,CWA_FORECAST_CACHE_MAX_AGE) && Array.isArray(item.points) && item.points.length) cwaForecastCache.set(id,item);
-        }
-        for(const [id,item] of Object.entries(raw.storms||{})){
-          if(cacheOk(item,CWA_MISSING_STORM_MAX_AGE) && Array.isArray(item.points) && item.points.length) cwaStormCache.set(id,item);
-        }
-      }catch(e){console.warn('[CWA] cyclone cache unavailable',e);}
-    }
-    function persistCwaCache(){
-      try{
-        const trim=map=>Object.fromEntries([...map.entries()]
-          .filter(([,entry])=>cacheOk(entry,map===cwaForecastCache?CWA_FORECAST_CACHE_MAX_AGE:CWA_MISSING_STORM_MAX_AGE))
-          .sort((a,b)=>b[1].savedAt-a[1].savedAt).slice(0,CWA_CACHE_LIMIT));
-        localStorage.setItem(CWA_STORM_CACHE_KEY,JSON.stringify({forecasts:trim(cwaForecastCache),storms:trim(cwaStormCache)}));
-      }catch(e){console.warn('[CWA] cyclone cache storage skipped',e);}
-    }
-    hydrateCwaCache();
-    function candidateIssue(storm){
-      const fc=(storm?.points||[]).filter(p=>p.kind==='fcst');
-      const issue=Math.max(0,...fc.map(forecastStamp).filter(Number.isFinite));
-      if(issue>0)return issue;
-      // Some feeds omit InitialTime; the latest observed fix is a lower-bound proxy.
-      return latestObsStamp(storm);
-    }
-    function mergeCwaCandidates(candidates){
-      return mergePhysicalCyclones(candidates);
-    }
-    let lastRerosterProbe=0;
-    let lastMirrorDiagnostics=[];
-    async function fetchCwaAllFormats(urls){
-      // Read XML and JSON to preserve different cyclone issue cycles, but avoid
-      // requesting a third identical endpoint unless both explicit formats fail.
-      const read=async url=>{
-        const data=await fetchJsonSafe(url);
-        const normalized=normalizeCwaTyphoonData(data);
-        const rawJson=data?.records?.tropicalCyclones?.tropicalCyclone
-          ??data?.records?.TropicalCyclones?.TropicalCyclone??null;
-        const rawCount=rawJson ? asArray(rawJson).length :
-          (data?.nodeType===9 ? allElementsByName(data,'TropicalCyclone').length : null);
-        const format=url.includes('format=XML')?'XML':url.includes('format=JSON')?'JSON':'unfiltered';
-        const sourceRows=data?.nodeType===9
-          ? allElementsByName(data,'TropicalCyclone').map(x=>({
-              td:cwaXmlText(x,['cwa_td_no','CwaTdNo']),
-              name:cwaXmlText(x,['cwa_typhoon_name','CwaTyphoonName','typhoon_name','TyphoonName']),
-              fixes:allElementsByName(x,'fix').length}))
-          : findCwaJsonStorms(data).map(x=>({
-              td:getJsonText(x,['cwa_td_no','CwaTdNo','td_no']),
-              name:getJsonText(x,['cwa_typhoon_name','CwaTyphoonName','typhoon_name','TyphoonName']),
-              fixes:(cwaJsonValue(x,['dataset','Dataset'])?1:0)}));
-        const note={format,rawCount,parsedCount:normalized.length,
-          sourceRows,
-          storms:normalized.map(t=>({td:t.__tdNo||'',name:t.name,obs:t.points.filter(p=>p.kind==='obs').length,
-            forecast:t.points.filter(p=>p.kind==='fcst').length}))};
-        console.info('[CWA] source roster',note);
-        if(!normalized.length) throw new Error('No readable TropicalCyclone records');
-        return {url,normalized,note};
-      };
-      const primary=(urls||[]).slice(0,2);
-      const results=await Promise.allSettled(primary.map(read));
-      const good=results.filter(x=>x.status==='fulfilled').map(x=>x.value);
-      results.filter(x=>x.status==='rejected').forEach(x=>console.warn('[CWA] path feed mirror failed',x.reason));
-      const rawCount=good.reduce((n,item)=>Math.max(n,item.normalized.length),0);
-      const knownCount=Math.max((allTyphoons||[]).length,cwaStormCache.size);
-      const hasTD34=good.some(item=>item.normalized.some(t=>String(Number(t.__tdNo))==='34'));
-      const probeMissingTD=Date.now()>=CWA_TD34_RECOVERY_START &&
-        Date.now()<CWA_TD34_RECOVERY_END && !hasTD34;
-      // If the XML/JSON mirrors unexpectedly omit a previously seen cyclone,
-      // try the unspecialized endpoint once (at most every 10 min). This
-      // doesn't make extra requests during every high-frequency warning update.
-      if((!good.length || knownCount>rawCount || probeMissingTD)
-        && Date.now()-lastRerosterProbe>600000 && (urls||[]).length>2){
-        lastRerosterProbe=Date.now();
-        try{good.push(await read(urls[2]));}catch(e){console.warn('[CWA] unfiltered roster fallback failed',e);}
-      }
-      // XML and JSON might have *different* sets of active storms during an
-      // ongoing warning bulletin. Do not collapse a partial mirror here:
-      // retaining each candidate lets the per-storm merger find a cyclone
-      // present in only one of the formats.
-      lastMirrorDiagnostics=good.map(item=>item.note);
-      return { normalized:good.flatMap(x=>x.normalized), sources:good.length };
-    }
-    function recoverCwaByStorms(current, hadValidResponse){
-      const now=Date.now(), seen=new Set(), result=[];
-      for(const fresh of current){
-        const id=fresh.id, obsTime=latestObsStamp(fresh);
-        seen.add(id);
-        const freshObs=fresh.points.filter(p=>p.kind==='obs');
-        const freshSeries=chooseForecastSeries(forecastCandidates(fresh,obsTime));
-        const cachedEntries=[...cwaForecastCache.entries()].filter(([key,entry])=>
-          cacheOk(entry,CWA_FORECAST_CACHE_MAX_AGE) &&
-          (key===id || samePhysicalCyclone(fresh,{id:key,name:entry.name||fresh.name,
-            points:[...(entry.obs||[]),...(entry.points||[])]})));
-        const cacheOptions=cachedEntries.flatMap(([key,entry])=>{
-          const cachedStorm={id:key,name:entry.name||fresh.name,source:'中央氣象署（預報快取）',
-            points:[...(entry.obs||[]),...(entry.points||[])],
-            __forecastIssueTime:entry.issue||0,__forecastRecovered:true};
-          return forecastCandidates(cachedStorm,obsTime).map(candidate=>({...candidate,cacheKey:key,cacheEntry:entry}));
-        });
-        const chosen=chooseForecastSeries([...(freshSeries?[freshSeries]:[]),...cacheOptions]);
-        let recovered=!!chosen?.cacheEntry;
-        let forecasts=chosen?.fc||[];
-        // Do not replace a newer cycle in storage with an older mirror response.
-        // Cache only original service forecasts, never an already-recovered path.
-        if(chosen && !recovered){
-          cwaForecastCache.set(id,{savedAt:now,name:fresh.name,obs:freshObs.slice(-8),
-            points:forecasts,issue:chosen.issue});
-          for(const [alias] of cachedEntries)if(alias!==id)cwaForecastCache.delete(alias);
-        }else if(chosen?.cacheEntry && chosen.cacheKey!==id){
-          cwaForecastCache.delete(chosen.cacheKey);
-          cwaForecastCache.set(id,{...chosen.cacheEntry,name:fresh.name,obs:freshObs.slice(-8)});
-        }
-        const issue=chosen?.issue||0;
-        const st={...fresh,points:uniquePoints([...freshObs,...forecasts]),
-          source:recovered?'中央氣象署（沿用最近有效預報）':fresh.source,
-          __forecastRecovered:recovered,
-          __forecastIssueTime:issue,
-          __hasFreshForecast:!!chosen&&!recovered};
-        if(recovered){
-          st.points=st.points.map(p=>p.kind==='fcst'?{...p,forecastRecovered:true,
-            note:`沿用 ${p.forecastIssueTime||'先前時次'} 發布的預報｜${p.note||''}`}:p);
-        }
-        result.push(st);
-        if(hadValidResponse){
-          // Save *each* seen cyclone independently, including ordinary storms
-          // with zero forecast fixes at this refresh. Store its last-known
-          // issued forecast alongside analyses so an unrelated warning update
-          // cannot replace it with an empty forecast.
-          const prior=cwaStormCache.get(id);
-          const priorIssue=Number(prior?.issue||0);
-          const nextPoints=(prior && priorIssue>issue)
-            ? uniquePoints([...freshObs,...(prior.points||[]).filter(p=>p.kind==='fcst' && isFutureForecast(p,obsTime))])
-            : st.points;
-          cwaStormCache.set(id,{savedAt:now,name:st.name,source:st.source,
-            points:nextPoints,issue:Math.max(priorIssue,issue),forecastRecovered:recovered});
-        }
-      }
-      // A successful API request is not proof that *every* active cyclone was
-      // included. Preserve each temporarily omitted cyclone on its own clock.
-      // This also protects a fresh visitor who loaded the non-warning storm
-      // before the high-frequency warning bulletins began.
-      for(const [id,previous] of cwaStormCache){
-        if(seen.has(id)||!cacheOk(previous,CWA_MISSING_STORM_MAX_AGE))continue;
-        if(result.some(st=>samePhysicalCyclone(st,{id,name:previous.name,points:previous.points}))){
-          // Alias was reconciled by the primary merger. The canonical record
-          // is kept; only delete the redundant old alias from the storm cache.
-          cwaStormCache.delete(id); cwaForecastCache.delete(id); continue;
-        }
-        const obs=(previous.points||[]).filter(p=>p.kind==='obs');
-        const latest=Math.max(0,...obs.map(stamp).filter(Number.isFinite));
-        if(latest<=0||now-latest>CWA_LAST_OBSERVATION_MAX_AGE)continue;
-        const cachedFc=cwaForecastCache.get(id);
-        const forecastPool=[
-          ...(previous.points||[]).filter(p=>p.kind==='fcst'),
-          ...(cacheOk(cachedFc,CWA_FORECAST_CACHE_MAX_AGE)?cachedFc.points:[])
-        ];
-        // A forecast that has fully elapsed must not be re-labelled as fresh.
-        const source={id,name:previous.name,points:[...obs,...forecastPool],
-          __forecastIssueTime:Math.max(Number(previous.issue||0),Number(cachedFc?.issue||0))};
-        const choice=chooseForecastSeries(forecastCandidates(source,latest));
-        const recoveryFc=(choice?.fc||[]).map(p=>({...p,forecastRecovered:true,
-          note:`沿用 ${p.forecastIssueTime||'先前時次'} 發布的預報｜${p.note||''}`}));
-        const sourceText=recoveryFc.length
-          ? '中央氣象署（暫時沿用最近有效預報）'
-          : '中央氣象署（暫無新預報，保留最近觀測）';
-        result.push({id,name:previous.name,source:sourceText,
-          points:uniquePoints([...obs,...recoveryFc]),
-          __forecastRecovered:true,__forecastIssueTime:choice?.issue||0,
-          __hasFreshForecast:false,__temporarilyMissing:true});
-      }
-      for(const [id,cache] of cwaForecastCache)if(!cacheOk(cache,CWA_FORECAST_CACHE_MAX_AGE))cwaForecastCache.delete(id);
-      for(const [id,cache] of cwaStormCache)if(!cacheOk(cache,CWA_MISSING_STORM_MAX_AGE))cwaStormCache.delete(id);
-      persistCwaCache();
-      return mergePhysicalCyclones(result);
-    }
-    let latestWeatherRequest=0;
-    function officialStormWarningStatus(storm){
-      const alerts=Array.isArray(window.__twAllCapAlerts)?window.__twAllCapAlerts:
-        (Array.isArray(window.__twCapAlerts)?window.__twCapAlerts:[]);
-      const name=cycloneNameKey(storm?.name);
-      if(!name || genericCycloneName(name))return false;
-      return alerts.some(a=>{
-        const expires=Date.parse(a.expires||'');
-        if(Number.isFinite(expires) && expires<Date.now())return false;
-        const h=String(a.headline||''), desc=String(a.description||'');
-        if(!/颱風警報/.test(h) || /解除|取消/.test(h))return false;
-        return cycloneNameKey(h+' '+desc).includes(name);
-      });
-    }
     async function loadWeatherData(){
-      const request=++latestWeatherRequest;
-      // Start both independent providers simultaneously. A missing weather.json
-      // cannot cancel CWA retrieval, and a partial CWA response cannot erase another storm.
-      const [manualData,cwaResult]=await Promise.all([
-        fetchJsonSafe('./weather.json').catch(err=>{ console.warn('weather.json 載入失敗：',err);return null; }),
-        CWA_TY_API_URLS?.length ? fetchCwaAllFormats(CWA_TY_API_URLS) : Promise.resolve({normalized:[],sources:0})
-      ]);
-      const rawAggregateNames=(cwaResult.normalized||[]).map(t=>({id:t.id,name:t.name,tdNo:t.__tdNo||'',
-        obs:t.points.filter(p=>p.kind==='obs').length,fcst:t.points.filter(p=>p.kind==='fcst').length}));
-      let td34RecoveryStatus='not-requested';
-      if(Date.now()>=CWA_TD34_RECOVERY_START && Date.now()<CWA_TD34_RECOVERY_END &&
-         !(cwaResult.normalized||[]).some(t=>String(Number(t.__tdNo))==='34')){
-        const tdAttempts=[`${CWA_TY_API_URL}&CwaTdNo=34&format=JSON`,
-          `${CWA_TY_API_URL}&CwaTdNo=34&format=XML`];
-        const attemptStatuses=[];
-        for(const tdUrl of tdAttempts){
-          try{
-            const tdData=await fetchJsonSafe(tdUrl);
-            const raw=normalizeCwaTyphoonData(tdData);
-            const tdRecords=raw.filter(t=>String(Number(t.__tdNo))==='34'
-              && t.points.some(p=>p.kind==='obs' && Number.isFinite(stamp(p))));
-            attemptStatuses.push({format:tdUrl.includes('JSON')?'JSON':'XML',
-              returned:raw.length,found:tdRecords.length});
-            if(tdRecords.length){cwaResult.normalized.push(...tdRecords);break;}
-          }catch(err){attemptStatuses.push({error:String(err?.message||err).slice(0,120)});}
-        }
-        td34RecoveryStatus=attemptStatuses.some(x=>x.found)?'found':
-          attemptStatuses.every(x=>x.error)?'request-failed':'not-returned';
-        console.info('[CWA] TD34 official supplementary lookup',attemptStatuses);
-      }
-      // Never let a slower, older refresh overwrite a newer completed request.
-      if(request!==latestWeatherRequest)return;
-      const manualTyphoons=normalizeManualWeatherJson(manualData||{});
-      // Retain the previous successful set in memory across partial updates.
-      // It is never the authority over a newer official issue, and it is
-      // only used within the bounded per-storm cache freshness window.
-      const oldCwa=(allTyphoons||[]).filter(t=>String(t?.id||'').startsWith('cwa-'));
-      const nowBeforeRefresh=Date.now();
-      for(const st of oldCwa){
-        if(!st?.points?.length || cwaStormCache.has(st.id))continue;
-        const obs=st.points.filter(p=>p.kind==='obs');
-        const last=Math.max(0,...obs.map(stamp).filter(Number.isFinite));
-        if(last<=0 || nowBeforeRefresh-last>CWA_LAST_OBSERVATION_MAX_AGE)continue;
-        cwaStormCache.set(st.id,{savedAt:nowBeforeRefresh,name:st.name,
-          source:st.source,points:uniquePoints(st.points),
-          issue:Number(st.__forecastIssueTime)||candidateIssue(st)});
-      }
-      // Preserve the set of every active cyclone seen from XML OR JSON; never
-      // derive this set from the completely separate CAP warning feed.
-      const cwaTyphoons=recoverCwaByStorms(
-        mergePhysicalCyclones(cwaResult.normalized||[]),cwaResult.sources>0);
-      // Manual weather.json and the official feed can describe the same
-      // cyclone with different ids. Consolidate before the map, legend,
-      // selectors, forecast cones, gallery or video renderer sees the data.
-      // Roster union: normal forecasts always provide the base list. The
-      // warning only changes priority *within the same physical cyclone*.
-      // Never replace the complete roster with a warning-only response.
-      allTyphoons=mergePhysicalCyclones([...cwaTyphoons,...manualTyphoons])
-        .map(t=>({...t,__warningActive:officialStormWarningStatus(t)}))
-        .sort((a,b)=>Number(!!b.__warningActive)-Number(!!a.__warningActive)
-          || latestObsStamp(b)-latestObsStamp(a));
-      const rosterDebug=allTyphoons.map(t=>({
-        id:t.id,name:t.name,forecastPoints:t.points.filter(p=>p.kind==='fcst').length,
-        recovered:!!t.__forecastRecovered,temporarilyMissing:!!t.__temporarilyMissing,
-        warning:!!t.__warningActive,issue:t.__forecastIssueTime||0
-      }));
-      // Diagnostic only: useful when CWA returns a partial roster. No API
-      // authorization token or raw response body is exposed here.
-      window.__cwaCycloneDebug={sourceMirrors:cwaResult.sources,
-        mirrorDetails:lastMirrorDiagnostics,
-        rawAggregate:rawAggregateNames,td34RecoveryStatus,
-        fetchedNames:(cwaResult.normalized||[]).map(t=>t.name),roster:rosterDebug};
-      // In DevTools run: console.table(window.__cwaCycloneDebug.roster)
-      // and inspect rawAggregate. This distinguishes a partial API response
-      // from a parser or map-layer issue without exposing the API token.
-      console.info('[CWA] active cyclone roster',rosterDebug);
+      const manualData = await fetchJsonSafe("./weather.json").catch(err => {
+        console.warn("weather.json 載入失敗：", err);
+        return null;
+      });
+
+      const manualTyphoons = normalizeManualWeatherJson(manualData || {});
+      const cwaResult = CWA_TY_API_URLS?.length ? await fetchFirstAvailable(CWA_TY_API_URLS) : { normalized:[] };
+      const cwaTyphoons = cwaResult.normalized || [];
+
+      // CWA 與 weather.json 分開解析，但同時存在於下拉選單與地圖。
+      // weather.json 空陣列不會影響 CWA 顯示；CWA 空資料也不會影響自訂資料。
+      allTyphoons = [...cwaTyphoons, ...manualTyphoons];
 
       if(!allTyphoons.length){
-        points=[];weatherMeta.title='颱風警報標示';weatherMeta.source='沒有可用資料';
-        $('pageTitle').textContent=weatherMeta.title;
-        $('sourceText').innerHTML=`<b>來源：${escapeHtml(weatherMeta.source)}</b><br>`;
+        points = [];
+        weatherMeta.title = "颱風警報標示";
+        weatherMeta.source = "沒有可用資料";
+        $("pageTitle").textContent = weatherMeta.title;
+        $("sourceText").innerHTML = `<b>來源：${escapeHtml(weatherMeta.source)}</b><br>`;
         rebuildTyphoonSelect();
         return;
       }
+
       rebuildTyphoonSelect();
       applySelectedTyphoon();
     }
@@ -21970,8 +21400,6 @@ function pickPoints(){
     const nearest=futureSeries.slice().sort((a,b)=>Math.abs(ts(a.time)-target)-Math.abs(ts(b.time)-target));
     const fut=nearest.length&&Math.abs(ts(nearest[0].time)-target)<=9*3600000?nearest[0]:null;
     const futureCut=fut?ts(fut.time):0;
-    // Keep the forecast centerline shape up to the chosen +24h point, but do
-    // not render intermediate labels / wind rings on the poster.
     const forecastPath=fut ? futureSeries.filter(p=>ts(p.time)<=futureCut+60000) : [];
     // Use the entire observed track provided by CWA; never cap to the last 18 fixes.
     const history=obs.slice();
@@ -22047,37 +21475,36 @@ async function drawMap(view){
   return drawn>0;
 }
 function geoPath(feature,proj){ const g=feature.geometry; if(!g)return; const polys=g.type==='Polygon'?[g.coordinates]:(g.type==='MultiPolygon'?g.coordinates:[]); for(const poly of polys) for(const ring of poly){ ring.forEach((xy,i)=>{const p=proj(xy[1],xy[0]); if(i===0)ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y)}); ctx.closePath(); } }
-function fillLand(land,proj){ ctx.save(); for(const f of land){ ctx.beginPath(); geoPath(f,proj); ctx.fillStyle='rgba(222,36,46,.22)'; ctx.fill('evenodd'); ctx.strokeStyle='rgba(205,31,45,.88)'; ctx.lineWidth=1.2; ctx.stroke(); } ctx.restore(); }
+function fillLand(land,proj){ ctx.save(); for(const f of land){ ctx.beginPath(); geoPath(f,proj); ctx.fillStyle='rgba(220,40,55,.34)'; ctx.fill('evenodd'); ctx.strokeStyle='rgba(198,24,39,.96)'; ctx.lineWidth=1.8; ctx.stroke(); } ctx.restore(); }
 function drawSea(seas,proj){ if(!seas.length)return; ctx.save(); ctx.beginPath(); for(const f of seas) geoPath(f,proj); ctx.fillStyle='rgba(220,38,38,.11)'; ctx.fill(); ctx.clip(); ctx.strokeStyle='rgba(200,31,43,.46)'; ctx.lineWidth=2.2; for(let x=-MAPH;x<WIDTH+MAPH;x+=18){ ctx.beginPath(); ctx.moveTo(x,MAPY+MAPH); ctx.lineTo(x+MAPH,MAPY); ctx.stroke(); } ctx.restore(); const edges=new Map(), key=p=>`${Number(p[0]).toFixed(6)},${Number(p[1]).toFixed(6)}`; for(const f of seas){ const poly=f.geometry?.coordinates?.[0]; if(!Array.isArray(poly))continue; for(let i=0;i<poly.length;i++) for(const ring of [poly[i]]){ for(let j=0;j<ring.length-1;j++){ const a=key(ring[j]),b=key(ring[j+1]),k=a<b?a+'|'+b:b+'|'+a; const e=edges.get(k); if(e)e.n++; else edges.set(k,{n:1,a:ring[j],b:ring[j+1]}); } } } ctx.save(); ctx.beginPath(); for(const e of edges.values()) if(e.n===1){ const a=proj(e.a[1],e.a[0]),b=proj(e.b[1],e.b[0]); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y) } ctx.setLineDash([9,6]); ctx.strokeStyle='rgba(196,29,42,.82)'; ctx.lineWidth=2.2; ctx.stroke(); ctx.restore(); }
 function drawObservedPath(history,proj){ if(!Array.isArray(history)||history.length<2) return; ctx.save(); ctx.beginPath(); history.forEach((pt,i)=>{ const p=proj(Number(pt.lat),Number(pt.lon)); if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }); ctx.strokeStyle='rgba(18,95,150,.98)'; ctx.lineWidth=4.2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); history.forEach((pt,i)=>{ const p=proj(Number(pt.lat),Number(pt.lon)); const r=i===history.length-1?5.4:4.1; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fillStyle='#125f96'; ctx.fill(); ctx.lineWidth=1.8; ctx.strokeStyle='rgba(255,255,255,.92)'; ctx.stroke(); }); ctx.restore(); }
 function drawForecastSegment(now,future,proj,pathPoints=[]){
-  if(!future) return;
-  const seq=[now,...(Array.isArray(pathPoints)?pathPoints:[])].filter(Boolean)
-    .sort((a,b)=>ts(a.time)-ts(b.time));
-  const cutoff=ts(future.time)+60000;
-  const filtered=[];
-  const seen=new Set();
-  for(const pt of seq){
-    const t=ts(pt.time);
-    if(!Number.isFinite(t) || t<ts(now.time)-60000 || t>cutoff) continue;
-    const key=`${Math.round(t/60000)}|${Number(pt.lat).toFixed(3)}|${Number(pt.lon).toFixed(3)}`;
-    if(seen.has(key)) continue;
-    seen.add(key);
-    filtered.push(pt);
-  }
-  if(!filtered.length) filtered.push(now,future);
-  if(ts(filtered[filtered.length-1].time)!==ts(future.time)) filtered.push(future);
-  if(filtered.length<2) return;
-  ctx.save();
-  ctx.beginPath();
-  filtered.forEach((pt,i)=>{ const p=proj(Number(pt.lat),Number(pt.lon)); if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
-  ctx.setLineDash([14,9]);
-  ctx.strokeStyle='#9a6c1b';
-  ctx.lineWidth=4;
-  ctx.lineCap='round';
-  ctx.lineJoin='round';
-  ctx.stroke();
-  ctx.restore();
+ if(!future) return;
+ const seq=[now,...(Array.isArray(pathPoints)?pathPoints:[])].filter(Boolean).sort((a,b)=>ts(a.time)-ts(b.time));
+ const cutoff=ts(future.time)+60000;
+ const filtered=[];
+ const seen=new Set();
+ for(const pt of seq){
+   const t=ts(pt.time);
+   if(!Number.isFinite(t) || t<ts(now.time)-60000 || t>cutoff) continue;
+   const key=`${Math.round(t/60000)}|${Number(pt.lat).toFixed(3)}|${Number(pt.lon).toFixed(3)}`;
+   if(seen.has(key)) continue;
+   seen.add(key);
+   filtered.push(pt);
+ }
+ if(!filtered.length) filtered.push(now,future);
+ if(ts(filtered[filtered.length-1].time)!==ts(future.time)) filtered.push(future);
+ if(filtered.length<2) return;
+ ctx.save();
+ ctx.beginPath();
+ filtered.forEach((pt,i)=>{ const p=proj(Number(pt.lat),Number(pt.lon)); if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+ ctx.setLineDash([14,9]);
+ ctx.strokeStyle='#9a6c1b';
+ ctx.lineWidth=4;
+ ctx.lineCap='round';
+ ctx.lineJoin='round';
+ ctx.stroke();
+ ctx.restore();
 }
 function windCircle(point,km,proj,color,inner){ if(!(km>0&&km<1500)) return; ctx.save(); ctx.beginPath(); for(let a=0;a<=360;a+=4){ const q=dest(Number(point.lat),Number(point.lon),a,km), p=proj(q[0],q[1]); if(!a)ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y) } ctx.closePath(); ctx.fillStyle=inner?rgba(color,.26):rgba(color,.13); ctx.fill(); ctx.strokeStyle=inner?'#9a6c1b':color; ctx.lineWidth=inner?2.4:3; ctx.setLineDash([]); ctx.stroke(); ctx.restore(); }
 function maxWindRadiusPx(point,proj){ const km=Math.max(Number(point?.storm_radius_km)||0, Number(point?.storm_radius_10_km)||0, 0); if(!(km>0)) return 0; const c=proj(Number(point.lat),Number(point.lon)); const e=dest(Number(point.lat),Number(point.lon),90,km); const pe=proj(e[0],e[1]); return Math.hypot(pe.x-c.x, pe.y-c.y); }
