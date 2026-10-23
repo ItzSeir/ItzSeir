@@ -5644,19 +5644,19 @@ Implement by adjusting polygon style functions:
           </label>
         </div>
       </section>
+      <section class="shareGroup" id="shareTargetSection">
+        <div class="shareGroupTitle"><strong>要輸出哪個颱風？</strong><span>圖片 / 影片 共用</span></div>
+        <div class="shareGrid">
+          <div class="shareField">
+            <label for="shareStormTarget">分享對象</label>
+            <select id="shareStormTarget"></select>
+          </div>
+        </div>
+        <div class="shareHint">可選擇單一颱風，也可直接選擇「全部颱風」，讓圖片與影片使用一致的分享邏輯。</div>
+      </section>
       <section class="shareGroup" id="shareImageSection">
         <div class="shareGroupTitle"><strong>圖片設定</strong><span>PNG</span></div>
-        <div class="shareChoiceRow" id="shareImageChoices">
-          <label class="shareOption is-active">
-            <input checked type="radio" name="sharePngTarget" value="current">
-            <div><div>依目前選擇輸出</div><small>單一颱風或目前地圖內容</small></div>
-          </label>
-          <label class="shareOption">
-            <input type="radio" name="sharePngTarget" value="all">
-            <div><div>全部颱風 PNG</div><small>一次輸出全部圖卡</small></div>
-          </label>
-        </div>
-        <div class="shareHint">若目前選單是「全部颱風」，依目前選擇輸出會沿用現有邏輯。</div>
+        <div class="shareHint">選擇單一颱風時輸出單張 PNG；選擇「全部颱風」時會一次輸出全部颱風 PNG。</div>
       </section>
       <section class="shareGroup" hidden id="shareVideoSection">
         <div class="shareGroupTitle"><strong>影片設定</strong><span>MP4 / WebM</span></div>
@@ -22011,6 +22011,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   const confirmBtn=$s('shareExportConfirmBtn');
   const imageSection=$s('shareImageSection');
   const videoSection=$s('shareVideoSection');
+  const targetSelect=$s('shareStormTarget');
   const radioSets=[...modal.querySelectorAll('.shareOption input[type="radio"]')];
   function refreshActiveStates(){
     modal.querySelectorAll('.shareOption').forEach(el=>{
@@ -22027,11 +22028,40 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     confirmBtn.textContent=isVideo ? '開始生成影片' : '開始產生 PNG';
     refreshActiveStates();
   }
+  function syncStormTargetOptions(){
+    const sourceSelect=$s('typhoonSelect');
+    if(!targetSelect || !sourceSelect) return;
+    const wanted=targetSelect.value || sourceSelect.value || 'all';
+    targetSelect.innerHTML='';
+    [...sourceSelect.options].forEach(opt=>{
+      const clone=document.createElement('option');
+      clone.value=opt.value;
+      clone.textContent=opt.textContent;
+      targetSelect.appendChild(clone);
+    });
+    targetSelect.value=[...targetSelect.options].some(opt=>opt.value===wanted)
+      ? wanted
+      : (sourceSelect.value || targetSelect.options[0]?.value || 'all');
+  }
   function syncFromHiddenControls(){
     const q=$s('typhoonVideoQuality'), f=$s('typhoonVideoFormat'), m=$s('typhoonVideoMotion');
     if(q && $s('shareVideoQuality')) $s('shareVideoQuality').value=q.value || '1440p';
     if(f && $s('shareVideoFormat')) $s('shareVideoFormat').value=f.value || 'mp4';
     if(m && $s('shareVideoMotion')) $s('shareVideoMotion').value=m.value || 'hourly';
+    syncStormTargetOptions();
+    const sourceSelect=$s('typhoonSelect');
+    if(targetSelect && sourceSelect && [...targetSelect.options].some(opt=>opt.value===sourceSelect.value)){
+      targetSelect.value=sourceSelect.value;
+    }
+  }
+  function applyShareTargetSelection(){
+    const sourceSelect=$s('typhoonSelect');
+    const targetValue=targetSelect?.value || sourceSelect?.value || 'all';
+    if(sourceSelect && sourceSelect.value!==targetValue){
+      sourceSelect.value=targetValue;
+      sourceSelect.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    return targetValue;
   }
   function openModal(){
     syncFromHiddenControls();
@@ -22054,20 +22084,20 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   radioSets.forEach(input=> input.addEventListener('change', syncSections));
   confirmBtn?.addEventListener('click', ()=>{
     const type=selectedType();
+    const targetValue=applyShareTargetSelection();
     if(type==='video'){
       if($s('typhoonVideoQuality')) $s('typhoonVideoQuality').value=$s('shareVideoQuality')?.value || '1440p';
       if($s('typhoonVideoFormat')) $s('typhoonVideoFormat').value=$s('shareVideoFormat')?.value || 'mp4';
       if($s('typhoonVideoMotion')) $s('typhoonVideoMotion').value=$s('shareVideoMotion')?.value || 'hourly';
       closeModal();
-      setTimeout(()=>{ $s('exportTyphoonGifBtn')?.click(); }, 80);
+      setTimeout(()=>{ $s('exportTyphoonGifBtn')?.click(); }, 140);
       return;
     }
-    const pngTarget=modal.querySelector('input[name="sharePngTarget"]:checked')?.value || 'current';
     closeModal();
     setTimeout(()=>{
-      if(pngTarget==='all') $s('printAllBtn')?.click();
+      if(targetValue==='all') $s('printAllBtn')?.click();
       else $s('printBtn')?.click();
-    }, 80);
+    }, 140);
   });
   syncSections();
 })();
