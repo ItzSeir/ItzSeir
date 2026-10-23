@@ -18722,21 +18722,43 @@ ${a.instruction}` : ''
   // gallery SVG that is subsequently converted to the downloadable PNG.
   const coneCache=new Map();
   function buildSharedForecastCone(srcPoints){
-    let source=srcPoints;
-    if(!Array.isArray(source)){
-      try{ source=points; }catch(e){ source=window.points||[]; }
-    }
-    const list=(source||[]).filter(p=>p && p.lat!=null && p.lon!=null
+    let source = Array.isArray(srcPoints) ? srcPoints : (Array.isArray(srcPoints?.points) ? srcPoints.points : null);
+    // Do not silently fall back to a global point array here.
+    // When multiple storms are on the interactive map, that fallback can make
+    // one storm re-use another storm's cone and produce a skewed / displaced cone.
+    if(!Array.isArray(source) || !source.length) return null;
+
+    const parseT = p => {
+      const t = Date.parse(String(p?.time||'').replace(' ','T'));
+      return Number.isFinite(t) ? t : NaN;
+    };
+    const identOf = p => String(
+      p?.typhoonId || p?.stormId || p?.typhoonNo || p?.number || p?.stormNo ||
+      p?.name || p?.typhoonName || p?.cwaName || ''
+    ).trim();
+
+    let list=(source||[]).filter(p=>p && p.lat!=null && p.lon!=null
       && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)))
       .map((p,i)=>({...p,lat:Number(p.lat),lon:Number(p.lon),__order:i}))
       .sort((a,b)=>{
-        const ta=Date.parse(String(a.time||'').replace(' ','T'));
-        const tb=Date.parse(String(b.time||'').replace(' ','T'));
+        const ta=parseT(a), tb=parseT(b);
         return Number.isFinite(ta)&&Number.isFinite(tb)&&ta!==tb ? ta-tb : a.__order-b.__order;
       });
+
+    const latestObs = list.filter(p=>p.kind==='obs').slice(-1)[0] || list[0] || null;
+    const focusIdent = identOf(latestObs);
+    if(focusIdent){
+      const filtered = list.filter(p=>{
+        const id = identOf(p);
+        return !id || id === focusIdent;
+      });
+      if(filtered.length >= 2) list = filtered;
+    }
+
     const obs=list.filter(p=>p.kind==='obs').slice(-1)[0]||list[0];
     const route=obs ? [obs,...list.filter(p=>p.kind==='fcst')] : [];
-    const key=JSON.stringify(route.map(p=>[p.kind,p.time,p.lat,p.lon,p.fcst_radius_km]));
+    if(route.length < 2) return null;
+    const key=JSON.stringify(route.map(p=>[identOf(p),p.kind,p.time,p.lat,p.lon,p.fcst_radius_km]));
     if(coneCache.has(key)) return coneCache.get(key);
 
     function unwrapPoly(poly){
