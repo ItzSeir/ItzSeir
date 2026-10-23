@@ -5915,8 +5915,14 @@ Implement by adjusting polygon style functions:
       let m = raw.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\s+(\d{1,2}):(\d{2})$/);
       if(m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), 0, 0);
 
-      // CWA XML often uses ISO time such as 2026-07-01T14:00:00+08:00.
-      m = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?$/);
+      // Preserve the offset when CWA supplies one. Ignoring +08:00 / Z can
+      // shift issue times and make a fresh 21:00 bulletin look stale.
+      if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw) && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)){
+        const normalized=raw.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+        const offsetDate=new Date(normalized);
+        if(!Number.isNaN(offsetDate.getTime())) return offsetDate;
+      }
+      m = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?$/);
       if(m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), 0, 0);
 
       const d = new Date(raw);
@@ -6206,6 +6212,7 @@ Implement by adjusting polygon style functions:
         lon,
         time:validTime,
         kind,
+        forecastIssueTime:kind==='fcst'?initialTime:undefined,
         level:levelFromWindMs(wind),
         wind:isFinite(wind) ? wind : null,
         pressure:isFinite(pressure) ? pressure : null,
@@ -6339,6 +6346,7 @@ Implement by adjusting polygon style functions:
         lon,
         time:validTime,
         kind,
+        forecastIssueTime:kind==='fcst'?initialTime:undefined,
         level:levelFromWindMs(wind),
         wind:isFinite(wind) ? wind : null,
         pressure:isFinite(pressure) ? pressure : null,
@@ -6507,18 +6515,289 @@ Implement by adjusting polygon style functions:
       updateDownloadPngButtonText();
     }
 
+    // W-C0034-005 XML and JSON mirrors may not publish simultaneously.
+    // Compare the latest *observation* in both responses instead of using
+    // whichever format answered first. Never infer freshness from fetch time.
+    const dataObservationStamp=storms=>Math.max(0,...(storms||[]).flatMap(t=>(t.points||[]))
+      .filter(p=>p.kind==='obs')
+      .map(p=>parseLocalDateTime(p.time)?.getTime()||0));
+    const dataIssueStamp=storms=>Math.max(0,...(storms||[]).flatMap(t=>(t.points||[]))
+      .filter(p=>p.kind==='fcst')
+      .map(p=>parseLocalDateTime(p.forecastIssueTime)?.getTime()||0));
+    const dataPayloadFingerprint=storms=>JSON.stringify((storms||[]).map(t=>[
+      t.id,t.name,(t.points||[]).map(p=>[p.kind,p.time,p.lat,p.lon,p.wind,p.pressure,p.storm_radius_km,p.fcst_radius_km])
+    ]));
+    let lastAcceptedCwa={ normalized:[], observation:0, issue:0, fingerprint:'' };
     async function fetchFirstAvailable(urls){
-      for(const url of urls){
-        try{
-          const data = await fetchJsonSafe(url);
-          const normalized = normalizeCwaTyphoonData(data);
-          if(normalized.length) return { data, normalized, url };
-          console.warn("CWA 颱風資料沒有解析到 TropicalCyclone：", url);
-        }catch(err){
-          console.warn("CWA 颱風資料載入失敗：", url, err);
+      async function tryRead(url){
+        const data=await fetchJsonSafe(url);
+        const normalized=normalizeCwaTyphoonData(data);
+        if(!normalized.length) throw new Error('No valid cyclone fixes');
+        return { data,normalized,url,observation:dataObservationStamp(normalized),
+          issue:dataIssueStamp(normalized),
+          pointCount:normalized.reduce((n,t)=>n+(t.points?.length||0),0) };
+      }
+      const mirrorUrls=(urls||[]).slice(0,2);
+      const results=await Promise.allSettled(mirrorUrls.map(tryRead));
+      const successful=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
+      results.filter(r=>r.status==='rejected').forEach(r=>console.warn('[CWA] mirror unavailable:',r.reason));
+      if(!successful.length && (urls||[]).length>2){
+        try{successful.push(await tryRead(urls[2]));}catch(err){console.warn('[CWA] fallback unavailable:',err);}
+      }
+      successful.sort((a,b)=>b.observation-a.observation || b.issue-a.issue || b.pointCount-a.pointCount);
+      const best=successful[0];
+      if(!best) return {data:null,normalized:[],url:'',observation:0};
+      console.info('[CWA] route feed snapshots',successful.map(v=>({format:v.url.includes('format=JSON')?'JSON':'XML',
+        latestObservation:v.observation?new Date(v.observation).toISOString():'unknown',forecastIssue:v.issue?new Date(v.issue).toISOString():'unknown',cyclones:v.normalized.length,points:v.pointCount})));
+      return best;
+    }
+
+    /*
+      W-C0034-001 supplies warning-time analysis and short-range prediction.
+      W-C0034-005 remains the complete roster and longer-range track source.
+      This overlay never creates an additional cyclone or merges other cyclones.
+    */
+    let lastUsableCapUpdates=[];
+    let lastCapFetchAt=0;
+    const capNodeName=x=>String(x?.localName||x?.nodeName||'').split(':').pop().toLowerCase();
+    const capChildren=(x,name)=>Array.from(x?.children||[]).filter(y=>capNodeName(y)===String(name).toLowerCase());
+    const capChild=(x,name)=>capChildren(x,name)[0]||null;
+    const capText=(x,name)=>String(capChild(x,name)?.textContent||'').trim();
+    const capEpoch=value=>parseLocalDateTime(value)?.getTime()||0;
+    const capUsefulNumber=value=>{
+      if(value===undefined||value===null||String(value).trim()===''||String(value).trim()==='-')return null;
+      const n=Number(value); return Number.isFinite(n) && n>=0 ? n:null;
+    };
+    function capPosition(value){
+      if(value && typeof value==='object'){
+        const lat=Number(value.lat??value.latitude??value.Latitude),lon=Number(value.lon??value.lng??value.longitude??value.Longitude);
+        return Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180?{lat,lon}:null;
+      }
+      const m=String(value||'').trim().match(/^\s*([+-]?\d+(?:\.\d+)?)\s*[,， ]\s*([+-]?\d+(?:\.\d+)?)/);
+      if(!m)return null;
+      const lat=Number(m[1]),lon=Number(m[2]);
+      return Math.abs(lat)<=90&&Math.abs(lon)<=180?{lat,lon}:null;
+    }
+    function capNameKey(value){
+      return String(value||'').normalize('NFKC').replace(/^CWA[｜|：:\s-]*/i,'')
+        .replace(/(?:颱風|台風|typhoon)/ig,'').replace(/[()（）\s\-_/]+/g,'').toLowerCase();
+    }
+    function capPointFromXml(node,kind){
+      const pos=capPosition(capText(node,'position'));
+      const time=capText(node,'time');
+      if(!pos||!capEpoch(time))return null;
+      const wind=capUsefulNumber(capText(node,'max_winds'));
+      const pressure=capUsefulNumber(capText(node,'pressure'));
+      const r7=capUsefulNumber(capText(node,'radius_of_15mps'));
+      const r10=capUsefulNumber(capText(node,'radius_of_25mps'));
+      return {...pos,time,kind,wind,pressure,storm_radius_km:r7??0,storm_radius_10_km:r10??0,
+        level:wind===null?'TD':levelFromWindMs(wind),fcst_radius_km:0};
+    }
+    function capXmlUpdates(payload){
+      const doc=typeof payload==='string'?new DOMParser().parseFromString(payload,'application/xml'):payload;
+      if(!doc||doc.querySelector?.('parsererror'))return [];
+      const out=[];
+      const alerts=capNodeName(doc.documentElement)==='alert'?[doc.documentElement]:allElementsByName(doc,'alert');
+      for(const alert of alerts){
+        const sent=capText(alert,'sent'), msgType=capText(alert,'msgType');
+        if(/cancel/i.test(msgType))continue;
+        const infoNodes=capChildren(alert,'info');
+        for(const info of infoNodes){
+          const headline=capText(info,'headline'), expires=capText(info,'expires');
+          if(/解除|取消/.test(headline)|| (capEpoch(expires)&&capEpoch(expires)<Date.now()))continue;
+          const desc=capChild(info,'description');
+          if(!desc)continue;
+          const tyInfo=allElementsByName(desc,'typhoon-info')[0];
+          if(!tyInfo)continue;
+          const sections=allElementsByName(tyInfo,'section');
+          const numbered=sections.find(node=>String(node.getAttribute('title')||'').includes('颱風編號'));
+          const number=String(numbered?.textContent||'').trim();
+          let nameZh='',nameEn='';
+          const blocks=allElementsByName(tyInfo,'analysis');
+          const forecasts=allElementsByName(tyInfo,'prediction');
+          const meta=allElementsByName(tyInfo,'cwa_typhoon_name')[0];
+          const international=allElementsByName(tyInfo,'typhoon_name')[0];
+          nameZh=String(meta?.textContent||'').trim();
+          nameEn=String(international?.textContent||'').trim();
+          const analyses=blocks.map(n=>capPointFromXml(n,'obs')).filter(Boolean).sort((a,b)=>capEpoch(b.time)-capEpoch(a.time));
+          const predictions=forecasts.map(n=>capPointFromXml(n,'fcst')).filter(Boolean).sort((a,b)=>capEpoch(a.time)-capEpoch(b.time));
+          if(!analyses.length)continue;
+          const obs=analyses[0];
+          out.push({nameZh,nameEn,number,obs,predictions:predictions.filter(q=>capEpoch(q.time)>capEpoch(obs.time)),
+            issuedAt:Math.max(capEpoch(sent),capEpoch(obs.time)),sent,headline,source:'W-C0034-001'});
         }
       }
-      return { data:null, normalized:[], url:"" };
+      return out;
+    }
+    function capJsonText(obj,keys){
+      if(!obj||typeof obj!=='object')return '';
+      for(const k of keys){
+        const val=obj[k];
+        if(typeof val==='string'||typeof val==='number')return String(val).trim();
+        if(val&&typeof val==='object'&&!Array.isArray(val)){
+          const v=val['#text']??val.text??val.value;
+          if(typeof v==='string'||typeof v==='number')return String(v).trim();
+        }
+      }
+      return '';
+    }
+    function capPointFromJson(node,kind){
+      if(!node||typeof node!=='object')return null;
+      const pos=capPosition(node.position??node.Position??node.coordinate??node.Coordinate);
+      const time=capJsonText(node,['time','Time','validTime']);
+      if(!pos||!capEpoch(time))return null;
+      const wind=capUsefulNumber(capJsonText(node,['max_winds','maxWinds','MaxWinds']));
+      const pressure=capUsefulNumber(capJsonText(node,['pressure','Pressure']));
+      return {...pos,time,kind,wind,pressure,level:wind===null?'TD':levelFromWindMs(wind),
+        storm_radius_km:capUsefulNumber(capJsonText(node,['radius_of_15mps','radiusOf15mps']))??0,
+        storm_radius_10_km:capUsefulNumber(capJsonText(node,['radius_of_25mps','radiusOf25mps']))??0,
+        fcst_radius_km:0};
+    }
+    function capJsonUpdates(payload){
+      const updates=[];const visited=new WeakSet();
+      function walk(node,meta={},depth=0){
+        if(depth>20||node==null)return;
+        if(typeof node==='string'){
+          if(/<\s*(?:alert|typhoon-info|section)\b/i.test(node)){
+            try{updates.push(...capXmlUpdates(node));}catch(_){}
+            if(/typhoon-info/i.test(node)&&!/<\s*alert\b/i.test(node)){
+              try{updates.push(...capXmlUpdates('<alert><info><description>'+node+'</description></info></alert>'));}catch(_){}
+            }
+          }
+          return;
+        }
+        if(typeof node!=='object')return;
+        if(visited.has(node))return;visited.add(node);
+        if(Array.isArray(node)){node.forEach(x=>walk(x,meta,depth+1));return;}
+        const active={...meta,
+          sent:capJsonText(node,['sent','Sent'])||meta.sent,
+          headline:capJsonText(node,['headline','Headline'])||meta.headline,
+          expires:capJsonText(node,['expires','Expires'])||meta.expires,
+          msgType:capJsonText(node,['msgType','MsgType'])||meta.msgType};
+        const desc=node['typhoon-info']||node.typhoonInfo||node.typhoon_info||node;
+        // The CWA JSON may contain a section object with actual analysis /
+        // prediction, rather than a raw embedded CAP XML description.
+        const observations=desc.analysis??desc.Analysis;
+        const forecasts=desc.prediction??desc.Prediction;
+        if(observations && typeof observations==='object'){
+          const analyses=(Array.isArray(observations)?observations:[observations]).map(x=>capPointFromJson(x,'obs')).filter(Boolean).sort((a,b)=>capEpoch(b.time)-capEpoch(a.time));
+          const fcs=(Array.isArray(forecasts)?forecasts:forecasts?[forecasts]:[]).map(x=>capPointFromJson(x,'fcst')).filter(Boolean);
+          if(analyses.length&&!/cancel/i.test(active.msgType||'')&&!/解除|取消/.test(active.headline||'') &&
+            (!capEpoch(active.expires)||capEpoch(active.expires)>=Date.now())){
+            const obs=analyses[0];
+            updates.push({nameZh:capJsonText(desc,['cwa_typhoon_name','cwaTyphoonName']),
+              nameEn:capJsonText(desc,['typhoon_name','typhoonName']),
+              number:capJsonText(desc,['typhoon_number','typhoonNo']),
+              obs,predictions:fcs.filter(q=>capEpoch(q.time)>capEpoch(obs.time)),
+              issuedAt:Math.max(capEpoch(active.sent),capEpoch(obs.time)),sent:active.sent||'',
+              headline:active.headline||'',source:'W-C0034-001'});
+          }
+        }
+        for(const [k,v] of Object.entries(node)) if(v&&typeof v==='object'||typeof v==='string'&&/<\s*(?:alert|typhoon-info|section)\b/i.test(v)){
+          if(k==='analysis'||k==='prediction')continue;
+          walk(v,active,depth+1);
+        }
+      }
+      walk(payload);
+      return updates;
+    }
+    async function fetchNewestWarningTrack(){
+      const source=new URL('https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-001');
+      source.searchParams.set('Authorization',new URL(CWA_TY_API_URL).searchParams.get('Authorization'));
+      source.searchParams.set('format','JSON');
+      source.searchParams.set('expires','true');
+      source.searchParams.set('_',String(Date.now()));
+      let updates=[];
+      try{
+        const response=await fetch(source.toString(),{cache:'no-store',
+          signal:(typeof AbortSignal!=='undefined'&&typeof AbortSignal.timeout==='function')?AbortSignal.timeout(9000):undefined});
+        if(!response.ok)throw new Error('REST '+response.status);
+        const payload=await response.json();
+        updates=capJsonUpdates(payload);
+      }catch(e){console.warn('[CWA] warning-time forecast JSON unavailable',e?.message||e);}
+      if(!updates.length){
+        // This public CAP file carries structured typhoon-info even when
+        // the REST JSON representation flattens the description.
+        try{
+          const response=await fetch('https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Warning/W-C0034-001.cap?ts='+Date.now(),{cache:'no-store',
+            signal:(typeof AbortSignal!=='undefined'&&typeof AbortSignal.timeout==='function')?AbortSignal.timeout(7000):undefined});
+          if(!response.ok)throw new Error('CAP '+response.status);
+          updates=capXmlUpdates(await response.text());
+        }catch(e){console.warn('[CWA] warning-time forecast CAP unavailable',e?.message||e);}
+      }
+      // One active storm / bulletin may be duplicated in several info blocks.
+      const unique=new Map();
+      for(const item of updates){
+        const key=capNameKey(item.nameZh)||capNameKey(item.nameEn)||String(item.number||'');
+        const prev=unique.get(key);
+        if(!prev||item.issuedAt>prev.issuedAt||(item.issuedAt===prev.issuedAt&&item.predictions.length>prev.predictions.length))unique.set(key,item);
+      }
+      updates=[...unique.values()];
+      // If the API is temporarily unavailable, keep only short-lived CAP data
+      // that has not passed the next usual warning cycle.
+      if(updates.length){lastUsableCapUpdates=updates;lastCapFetchAt=Date.now();}
+      else if(Date.now()-lastCapFetchAt<3*3600000)updates=lastUsableCapUpdates;
+      return updates;
+    }
+    function matchWarningStorm(warning,storms){
+      const wzh=capNameKey(warning.nameZh),wen=capNameKey(warning.nameEn);
+      if(wzh&&wzh!=='颱風'&&!/^熱帶(?:性)?低氣壓\d*$/.test(wzh)){
+        const names=storms.filter(s=>capNameKey(s.name)===wzh);
+        if(names.length===1)return names[0];
+      }
+      if(wen){
+        const names=storms.filter(s=>capNameKey(s.name)===wen);
+        if(names.length===1)return names[0];
+      }
+      // Never match just the storm number: official typhoon and TD counters
+      // are different. Only use a close *same-time* analysis as a fallback.
+      const obs=warning.obs, t=capEpoch(obs.time);
+      const candidates=storms.filter(st=>{
+        const recent=(st.points||[]).filter(p=>p.kind==='obs'&&capEpoch(p.time)&&Math.abs(capEpoch(p.time)-t)<=9*3600000);
+        return recent.some(p=>Math.abs(p.lat-obs.lat)<=1.6&&Math.abs(p.lon-obs.lon)<=1.8);
+      });
+      return candidates.length===1?candidates[0]:null;
+    }
+    function applyCapUpdatesToStorms(storms,updates){
+      const result=(storms||[]).map(st=>({...st,points:[...(st.points||[])]}));
+      const applied=[];
+      for(const update of updates||[]){
+        const storm=matchWarningStorm(update,result);
+        if(!storm)continue; // important: do not create duplicate warning storms
+        const obsList=storm.points.filter(p=>p.kind==='obs');
+        const latestObs=Math.max(0,...obsList.map(p=>capEpoch(p.time)));
+        const capObsTime=capEpoch(update.obs.time);
+        const lastRouteIssue=Math.max(latestObs,...storm.points.filter(p=>p.kind==='fcst')
+          .map(p=>capEpoch(p.forecastIssueTime)).filter(Number.isFinite));
+        // CAP can issue a revised short-term prediction without changing the
+        // analysis fix hour. Prefer that newer bulletin, but never downgrade a
+        // genuinely more recent 005 analysis or forecast issue.
+        if(!capObsTime || capObsTime<latestObs-30000 ||
+           (Math.abs(capObsTime-latestObs)<=30000 && update.issuedAt<=lastRouteIssue+30000))continue;
+        const newName=storm.name;
+        const obs={...update.obs,typhoonId:storm.id,typhoonName:newName,
+          note:'颱風警報最新中心分析',__cwaFeed:'W-C0034-001'};
+        const capForecasts=update.predictions.map(p=>({...p,kind:'fcst',typhoonId:storm.id,typhoonName:newName,
+          forecastIssueTime:update.sent||update.obs.time, note:'颱風警報短期預測',
+          __cwaFeed:'W-C0034-001'}));
+        const capLast=Math.max(capObsTime,...capForecasts.map(p=>capEpoch(p.time)));
+        // Preserve the broader W-C0034-005 future forecast only when its
+        // issue is still recent. It is identified as an older source and never
+        // used as a substitute for the CAP prediction at overlapping times.
+        const longRange=storm.points.filter(p=>p.kind==='fcst'&&capEpoch(p.time)>capLast+30000
+          && capEpoch(p.time)>capObsTime &&
+          capObsTime-(capEpoch(p.forecastIssueTime)||latestObs)<=6*3600000)
+          .map(p=>({...p,note:(p.note||'')+'｜一般預報延伸段（較早時次）',__cwaFeed:'W-C0034-005'}));
+        const past=obsList.filter(p=>capEpoch(p.time)<capObsTime-30000);
+        storm.points=sortTyphoonPoints([...past,obs,...capForecasts,...longRange]);
+        storm.source='中央氣象署 W-C0034-001（警報最新中心／短期預測）＋ W-C0034-005';
+        storm.__capWarningTime=capObsTime;
+        applied.push({storm:storm.name,baseLatestObs:latestObs,capLatestObs:capObsTime,
+          capForecastPoints:capForecasts.length,olderLongRangePoints:longRange.length});
+      }
+      window.__cwaWarningForecastMerge={checkedAt:Date.now(),updates:updates?.length||0,applied,
+        stormCount:result.length};
+      return result;
     }
 
     async function loadWeatherData(){
@@ -6528,12 +6807,34 @@ Implement by adjusting polygon style functions:
       });
 
       const manualTyphoons = normalizeManualWeatherJson(manualData || {});
-      const cwaResult = CWA_TY_API_URLS?.length ? await fetchFirstAvailable(CWA_TY_API_URLS) : { normalized:[] };
-      const cwaTyphoons = cwaResult.normalized || [];
+      const [cwaResult,capWarningUpdates] = await Promise.all([
+        CWA_TY_API_URLS?.length ? fetchFirstAvailable(CWA_TY_API_URLS) : Promise.resolve({normalized:[]}),
+        fetchNewestWarningTrack().catch(e=>{console.warn('[CWA] warning CAP forecast skipped',e);return [];})
+      ]);
+      let cwaTyphoons = cwaResult.normalized || [];
+      const observedAt=dataObservationStamp(cwaTyphoons);
+      const issuedAt=dataIssueStamp(cwaTyphoons);
+      // An intermittent older mirror cannot roll back a newer route that this
+      // tab already successfully rendered. No artificial forecast points.
+      if(cwaTyphoons.length && ((observedAt>0 && lastAcceptedCwa.observation>observedAt) ||
+          (observedAt===lastAcceptedCwa.observation && issuedAt>0 && lastAcceptedCwa.issue>issuedAt))){
+        console.warn('[CWA] response older than displayed observation; retaining newer snapshot',
+          {incoming:new Date(observedAt).toISOString(),current:new Date(lastAcceptedCwa.observation).toISOString()});
+        cwaTyphoons=lastAcceptedCwa.normalized;
+      }else if(cwaTyphoons.length){
+        lastAcceptedCwa={normalized:cwaTyphoons,observation:observedAt,issue:issuedAt,
+          fingerprint:dataPayloadFingerprint(cwaTyphoons)};
+      }else if(lastAcceptedCwa.normalized.length){
+        console.warn('[CWA] temporary empty response: retaining previously displayed route');
+        cwaTyphoons=lastAcceptedCwa.normalized;
+      }
 
+      // Only overlay warning-time fixes *after* the ordinary snapshot rollback
+      // guard. Keep the untouched general forecast snapshot for future polls.
+      const mixedCwaTyphoons=applyCapUpdatesToStorms(cwaTyphoons,capWarningUpdates);
       // CWA 與 weather.json 分開解析，但同時存在於下拉選單與地圖。
       // weather.json 空陣列不會影響 CWA 顯示；CWA 空資料也不會影響自訂資料。
-      allTyphoons = [...cwaTyphoons, ...manualTyphoons];
+      allTyphoons = [...mixedCwaTyphoons, ...manualTyphoons];
 
       if(!allTyphoons.length){
         points = [];
@@ -6547,6 +6848,15 @@ Implement by adjusting polygon style functions:
 
       rebuildTyphoonSelect();
       applySelectedTyphoon();
+      const obsTime=dataObservationStamp(mixedCwaTyphoons);
+      const sourceNode=$('sourceText');
+      if(sourceNode && obsTime>0){
+        const dt=new Date(obsTime);
+        sourceNode.title='路徑資料最新觀測：'+dt.toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false})+'（臺灣時間）；不代表網頁更新時間';
+      }
+      window.__typhoonRouteFreshness={observedAt:obsTime,issuedAt:dataIssueStamp(mixedCwaTyphoons),checkedAt:Date.now(),
+        source:cwaResult.url||'',stormCount:mixedCwaTyphoons.length,
+        signature:dataPayloadFingerprint(allTyphoons)};
     }
 
     function popupHtml(p){
@@ -7868,32 +8178,39 @@ Implement by adjusting polygon style functions:
       }
     }
 
-    async function refreshTyphoonData(){
-      const btns = Array.from(document.querySelectorAll("[data-refresh-typhoon]"));
-      const oldTexts = btns.map(btn => btn.textContent);
-
+    let typhoonRefreshInProgress=false;
+    async function refreshTyphoonData(options={}){
+      if(typhoonRefreshInProgress)return;
+      typhoonRefreshInProgress=true;
+      const silent=options?.silent===true;
+      const btns=Array.from(document.querySelectorAll('[data-refresh-typhoon]'));
+      const oldTexts=btns.map(btn=>btn.textContent);
       try{
-        btns.forEach(btn => {
-          btn.disabled = true;
-          btn.textContent = "刷新中…";
-        });
-
+        if(!silent)btns.forEach(btn=>{btn.disabled=true;btn.textContent='刷新中…';});
+        const beforeSignature=window.__typhoonRouteFreshness?.signature||'';
         await loadWeatherData();
-
-        if(!points || !points.length){
-          console.warn("目前沒有可繪製的颱風點，已略過地圖更新。");
+        const afterSignature=window.__typhoonRouteFreshness?.signature||'';
+        // Automatic checks should not repeatedly rebuild expensive PNGs or
+        // interrupt map interaction when the underlying fixes did not change.
+        if(silent && afterSignature===beforeSignature)return;
+        if(!points?.length){
+          console.warn('[CWA] no route points; map unchanged');
           renderForecastList();
           return;
         }
-
-        renderTyphoonLayers({ fit:false });
+        renderTyphoonLayers({fit:false});
+        // Gallery/PDF-style PNG snapshots are generated separately. Signal
+        // only AFTER the async API refresh and map render have completed.
+        window.dispatchEvent(new CustomEvent('typhoon:routes-updated',{
+          detail:window.__typhoonRouteFreshness||{}
+        }));
       }catch(err){
-        console.error(err);
-        alert("颱風資料刷新失敗，請確認 CWA API URL 或 weather.json 格式是否正確。");
+        console.error('[CWA] route refresh failed',err);
+        if(!silent)alert('颱風資料刷新失敗，請確認資料來源或網路連線。');
       }finally{
-        btns.forEach((btn, i) => {
-          btn.disabled = false;
-          btn.textContent = oldTexts[i] || "刷新";
+        typhoonRefreshInProgress=false;
+        if(!silent)btns.forEach((btn,i)=>{
+          btn.disabled=false;btn.textContent=oldTexts[i]||'刷新';
         });
       }
     }
@@ -9646,6 +9963,22 @@ Implement by adjusting polygon style functions:
       }
       refreshTyphoonWarningOverlay();
       renderTyphoonLayers({ fit:true });
+      // CAP alerts can publish between route forecast cycles. Check the
+      // W-C0034-005 route feed periodically without moving the user's map.
+      const AUTO_ROUTE_CHECK_MS=3*60*1000;
+      let lastRouteCheck=Date.now();
+      const checkRoutes=()=>{
+        if(document.hidden || typhoonRefreshInProgress)return;
+        lastRouteCheck=Date.now();
+        refreshTyphoonData({silent:true});
+      };
+      window.setInterval(checkRoutes,AUTO_ROUTE_CHECK_MS);
+      document.addEventListener('visibilitychange',()=>{
+        if(!document.hidden && Date.now()-lastRouteCheck>AUTO_ROUTE_CHECK_MS)checkRoutes();
+      });
+      window.addEventListener('focus',()=>{
+        if(Date.now()-lastRouteCheck>AUTO_ROUTE_CHECK_MS)checkRoutes();
+      });
       setTimeout(() => { try{ addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 600);
       setTimeout(() => { try{ addTyphoonCountyBoundaryOverlay(); }catch(e){} }, 1500);
       updateDownloadPngButtonText();
@@ -18085,12 +18418,14 @@ ${a.instruction}` : ''
   W.renderGallery=renderGallery;
   let timer=null;
   function scheduleRender(delay=260){ clearTimeout(timer); timer=setTimeout(renderGallery, delay); }
+  // Recreate downloaded PNG frames only after a successful full data refresh,
+  // not while the network request is still in progress.
+  window.addEventListener('typhoon:routes-updated',()=>scheduleRender(250));
   function hook(){
     ensureGallery();
     scheduleRender(350);
     document.getElementById('typhoonSelect')?.addEventListener('change',()=>scheduleRender(320));
     document.getElementById('toggleCone')?.addEventListener('change',()=>scheduleRender(320));
-    document.querySelectorAll('[data-refresh-typhoon]').forEach(b=>b.addEventListener('click',()=>scheduleRender(900)));
     const fcst=document.getElementById('fcstList'); if(fcst) new MutationObserver(()=>scheduleRender(360)).observe(fcst,{childList:true,subtree:true,characterData:true});
     window.addEventListener('resize',()=>{
       // Do not rebuild the gallery after it has already become downloadable PNGs.
@@ -21528,7 +21863,7 @@ function drawKey(){
  }
 }
 
-function signature(storm,sea){ return JSON.stringify([storm?.name,storm?.now?.time,storm?.fut?.time,storm?.history?.length,storm?.now?.storm_radius_km,storm?.now?.storm_radius_10_km,storm?.fut?.storm_radius_km,storm?.fut?.storm_radius_10_km,sea.map(f=>f.properties?.areaDesc).sort(),getAlerts().map(a=>a.headline).sort()]) }
+function signature(storm,sea){ return JSON.stringify([storm?.name,storm?.now?.time,storm?.fut?.time,storm?.history?.length,(storm?.forecastPath||[]).map(p=>[p.time,p.lat,p.lon]),storm?.now?.lat,storm?.now?.lon,storm?.fut?.lat,storm?.fut?.lon,storm?.now?.storm_radius_km,storm?.now?.storm_radius_10_km,storm?.fut?.storm_radius_km,storm?.fut?.storm_radius_10_km,sea.map(f=>f.properties?.areaDesc).sort(),getAlerts().map(a=>a.headline).sort()]) }
 async function paint(storm,sea,land){
   ctx.clearRect(0,0,WIDTH,HEIGHT);
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
@@ -21635,6 +21970,7 @@ async function render(){
     lastSignature='';
   }finally{rendering=false;if(pending){pending=false;setTimeout(render,80);}}
 }
+window.addEventListener('typhoon:routes-updated',()=>{lastSignature='';render();});
 function install(){ const hero=document.querySelector('main.page .weatherHero'); if(!hero||card)return; card=document.createElement('section'); card.id='cwa24WarningPoster'; card.setAttribute('aria-label','24 小時海陸颱風警報圖'); card.innerHTML='<div class="cwa24Top"><div><h2>颱風警報 · 24 小時路徑</h2><p>目前中心、24 小時預報位置與海陸警戒區</p></div><div class="controls"><button id="cwa24Save" type="button">儲存警報 PNG</button></div></div><canvas id="cwa24Canvas" width="1600" height="1060"></canvas><div class="cwa24Foot">僅顯示生效中的颱風警報。若未提供接近 +24 小時的預報點，則只顯示目前中心；沒有半徑資料時不推算風圈。</div>';
 hero.parentElement.insertBefore(card,hero); canvas=card.querySelector('canvas'); ctx=canvas.getContext('2d'); card.querySelector('#cwa24Save').addEventListener('click',()=>{ try{ const a=document.createElement('a'); a.download='24小時颱風警報圖.png'; a.href=canvas.toDataURL('image/png'); a.click(); }catch(e){ alert('PNG 無法儲存，可能是地圖來源限制跨來源畫布。'); } }); setTimeout(render,1400); setInterval(render,12000); }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
