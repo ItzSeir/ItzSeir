@@ -8424,12 +8424,12 @@ Implement by adjusting polygon style functions:
         const labelW = 112;
         const labelH = 30;
         const positions = [
-          { x:p.x + 64, y:p.y - 60 },
-          { x:p.x + 72, y:p.y + 52 },
-          { x:p.x - labelW - 64, y:p.y - 60 },
-          { x:p.x - labelW - 72, y:p.y + 52 },
-          { x:p.x + 92, y:p.y - 12 },
-          { x:p.x - labelW - 92, y:p.y - 12 }
+          { x:p.x + 13, y:p.y - labelH/2 },
+          { x:p.x - labelW - 13, y:p.y - labelH/2 },
+          { x:p.x + 15, y:p.y - labelH - 8 },
+          { x:p.x - labelW - 15, y:p.y + 8 },
+          { x:p.x + 28, y:p.y + 10 },
+          { x:p.x - labelW - 28, y:p.y - labelH - 9 }
         ];
 
         let chosen = positions[0];
@@ -8456,14 +8456,11 @@ Implement by adjusting polygon style functions:
         const anchorY = ly;
         const dx = anchorX - p.x;
         const dy = anchorY - p.y;
-        const midX = p.x + dx * 0.5;
-        const midY = p.y + dy * 0.5;
-        const bend = Math.max(10, Math.min(24, Math.abs(dx) * 0.12 + Math.abs(dy) * 0.08));
-        const controlY = midY + (dy >= 0 ? bend : -bend);
-        const leaderPath = `M ${p.x.toFixed(1)} ${p.y.toFixed(1)} Q ${midX.toFixed(1)} ${controlY.toFixed(1)} ${anchorX.toFixed(1)} ${anchorY.toFixed(1)}`;
+        const leaderLine = Math.hypot(dx,dy) > 8
+          ? `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${anchorX.toFixed(1)}" y2="${anchorY.toFixed(1)}" stroke="#78909c" stroke-width="1.2" stroke-linecap="round" opacity="0.46"/>` : '';
 
         return `
-          <path d="${leaderPath}" fill="none" stroke="#78909c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+          ${leaderLine}
           <rect x="${lx.toFixed(1)}" y="${chosen.y.toFixed(1)}" width="${labelW}" height="${labelH}" rx="15" fill="rgba(255,255,255,.94)" stroke="#d7e3ea" stroke-width="1"/>
           <circle cx="${(lx+15).toFixed(1)}" cy="${ly.toFixed(1)}" r="3.8" fill="${st.color}" opacity="0.95"/>
           <text x="${(lx+26).toFixed(1)}" y="${(ly+4.5).toFixed(1)}" font-size="12" font-weight="900" fill="#102d40">${label}</text>
@@ -9267,8 +9264,18 @@ Implement by adjusting polygon style functions:
             }
 
             usedLabelBoxes.push(best);
-            const anchorX = best.align === "right" ? best.x + best.w : best.x;
-            const anchorY = best.y + best.h / 2;
+            const edgePad = 12;
+            const anchorX = best.align === "right" ? best.x + best.w - edgePad : best.x + edgePad;
+            let anchorY;
+            if(pt.y <= best.y){
+              anchorY = best.y + 7;
+            }else if(pt.y >= best.y + best.h){
+              anchorY = best.y + best.h - 7;
+            }else{
+              anchorY = Math.max(best.y + 7, Math.min(best.y + best.h - 7, pt.y));
+              const midY = best.y + best.h / 2;
+              if(Math.abs(anchorY - midY) < 4) anchorY += (pt.y <= midY ? -6 : 6);
+            }
 
             ctx.save();
             ctx.beginPath();
@@ -9276,6 +9283,8 @@ Implement by adjusting polygon style functions:
             ctx.lineTo(anchorX, anchorY);
             ctx.strokeStyle = "rgba(25,42,58,.22)";
             ctx.lineWidth = 1.2;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
             ctx.stroke();
             ctx.restore();
 
@@ -9552,28 +9561,37 @@ Implement by adjusting polygon style functions:
         const h = 28;
         const bx = x;
         const by = y - h/2;
+
         if(Number.isFinite(fromX) && Number.isFinite(fromY)){
-          const anchorX = fromX < bx ? bx + 8 : (fromX > bx + w ? bx + w - 8 : bx + w * 0.5);
-          const anchorY = by + h / 2;
+          const sidePad = 10;
+          const anchorX = fromX < bx ? bx + sidePad : (fromX > bx + w ? bx + w - sidePad : (fromX < bx + w * 0.5 ? bx + sidePad : bx + w - sidePad));
+          let anchorY;
+          if(fromY <= by){
+            anchorY = by + 6;
+          }else if(fromY >= by + h){
+            anchorY = by + h - 6;
+          }else{
+            anchorY = Math.max(by + 6, Math.min(by + h - 6, fromY));
+            const midY = by + h * 0.5;
+            if(Math.abs(anchorY - midY) < 4) anchorY += (fromY <= midY ? -6 : 6);
+          }
           const dx = anchorX - fromX;
           const dy = anchorY - fromY;
-          const mx = fromX + dx * 0.5;
-          const my = fromY + dy * 0.5;
-          const bend = Math.max(10, Math.min(26, Math.abs(dx) * 0.12 + Math.abs(dy) * 0.08));
-          const curveDir = dy >= 0 ? 1 : -1;
-          const cx = mx;
-          const cy = my + bend * curveDir;
-          ctx.beginPath();
-          ctx.moveTo(fromX, fromY);
-          ctx.quadraticCurveTo(cx, cy, anchorX, anchorY);
-          ctx.strokeStyle = "rgba(15,76,92,.34)";
-          ctx.lineWidth = 1.2;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.setLineDash([4,4]);
-          ctx.stroke();
-          ctx.setLineDash([]);
+          const dist = Math.hypot(dx, dy);
+          if(dist > 14){
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(anchorX, anchorY);
+            ctx.strokeStyle = "rgba(15,76,92,.34)";
+            ctx.lineWidth = 1.3;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.setLineDash([4,4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
         }
+
         roundRectLocal(ctx, bx, by, w, h, 11);
         ctx.fillStyle = "rgba(255,255,255,.94)";
         ctx.fill();
@@ -9723,8 +9741,42 @@ Implement by adjusting polygon style functions:
         function boxFits(b){
           return b.x >= mapX + 6 && b.y >= mapY + 6 && b.x + b.w <= mapX + mapW - 6 && b.y + b.h <= mapY + mapH - 6;
         }
+        const coneLabelMasks=[];
+        function rectHitsConeMask(box,poly){
+          if(!poly || poly.length<3) return false;
+          const inside=p=>{
+            let hit=false;
+            for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+              const a=poly[i],b=poly[j];
+              if((a.y>p.y)!==(b.y>p.y) && p.x<(b.x-a.x)*(p.y-a.y)/((b.y-a.y)||1e-9)+a.x) hit=!hit;
+            }
+            return hit;
+          };
+          const corners=[
+            {x:box.x,y:box.y},{x:box.x+box.w,y:box.y},
+            {x:box.x,y:box.y+box.h},{x:box.x+box.w,y:box.y+box.h},
+            {x:box.x+box.w/2,y:box.y+box.h/2}
+          ];
+          if(corners.some(inside)) return true;
+          if(poly.some(p=>p.x>=box.x&&p.x<=box.x+box.w&&p.y>=box.y&&p.y<=box.y+box.h)) return true;
+          const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+          const intersects=(a,b,c,d)=>{
+            const o1=cross(a,b,c),o2=cross(a,b,d),o3=cross(c,d,a),o4=cross(c,d,b);
+            return ((o1>0&&o2<0)||(o1<0&&o2>0))&&((o3>0&&o4<0)||(o3<0&&o4>0));
+          };
+          for(let j=0;j<poly.length-1;j++){
+            const a=poly[j],b=poly[j+1];
+            for(let i=0;i<4;i++){
+              if(intersects(a,b,corners[i],corners[(i+1)%4])) return true;
+            }
+          }
+          return false;
+        }
+        function overlapsConeMask(box){
+          return coneLabelMasks.some(poly=>rectHitsConeMask(box,poly));
+        }
         function boxBad(b){
-          return !boxFits(b) || occupiedLabelBoxes.some(o => boxOverlap(b,o)) || routeProtectBoxes.some(o => boxOverlap(b,o));
+          return !boxFits(b) || overlapsConeMask(b) || occupiedLabelBoxes.some(o => boxOverlap(b,o)) || routeProtectBoxes.some(o => boxOverlap(b,o));
         }
         function chooseBox(candidates, w, h){
           let fallback = null;
@@ -9740,33 +9792,42 @@ Implement by adjusting polygon style functions:
             const x = clampLocal(c.x, mapX + 10, mapX + mapW - w - 10);
             const y = clampLocal(c.y, mapY + 10, mapY + mapH - h - 10);
             const b = {x,y,w,h};
-            if(boxFits(b) && !occupiedLabelBoxes.some(o => boxOverlap(b,o))) return b;
+            if(boxFits(b) && !overlapsConeMask(b) && !occupiedLabelBoxes.some(o => boxOverlap(b,o))) return b;
           }
-          return fallback || {x:mapX+12,y:mapY+12,w,h};
+          // Skipping an optional badge is better than covering a storm's
+          // official 70% forecast-error polygon.
+          return null;
         }
         function drawNameLeaderLabel(text, x, y, anchorX, anchorY, color){
           const w = Math.max(98, Math.min(230, String(text).length * 13 + 34));
           const h = 28;
-          const targetX = x + (anchorX < x ? 10 : (anchorX > x + w ? w - 10 : w * 0.5));
-          const targetY = y + h/2;
+          const sidePad = 10;
+          const targetX = anchorX < x ? x + sidePad : (anchorX > x + w ? x + w - sidePad : (anchorX < x + w * 0.5 ? x + sidePad : x + w - sidePad));
+          let targetY;
+          if(anchorY <= y){
+            targetY = y + 6;
+          }else if(anchorY >= y + h){
+            targetY = y + h - 6;
+          }else{
+            targetY = Math.max(y + 6, Math.min(y + h - 6, anchorY));
+            const midY = y + h * 0.5;
+            if(Math.abs(targetY - midY) < 4) targetY += (anchorY <= midY ? -6 : 6);
+          }
           const dx = targetX - anchorX;
           const dy = targetY - anchorY;
-          const mx = anchorX + dx * 0.5;
-          const my = anchorY + dy * 0.5;
-          const bend = Math.max(8, Math.min(20, Math.abs(dx) * 0.08 + Math.abs(dy) * 0.08));
-          const cx = mx;
-          const cy = my + (dy >= 0 ? bend : -bend);
-          ctx.save();
-          ctx.strokeStyle = "rgba(47,84,104,.40)";
-          ctx.lineWidth = 1.15;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.setLineDash([]);
-          ctx.beginPath();
-          ctx.moveTo(anchorX, anchorY);
-          ctx.quadraticCurveTo(cx, cy, targetX, targetY);
-          ctx.stroke();
-          ctx.restore();
+          const dist = Math.hypot(dx, dy);
+          if(dist > 14){
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(anchorX, anchorY);
+            ctx.lineTo(targetX, targetY);
+            ctx.strokeStyle = "rgba(47,84,104,.40)";
+            ctx.lineWidth = 1.15;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.stroke();
+            ctx.restore();
+          }
           drawLabelLocal(ctx, x, y, text, color);
           addBox(occupiedLabelBoxes, x, y, w, h, 5);
         }
@@ -9800,6 +9861,7 @@ Implement by adjusting polygon style functions:
             const minY = Math.min(...ps.map(p=>p.y));
             const maxY = Math.max(...ps.map(p=>p.y));
             conePixelBoxes.set(key, {minX,maxX,minY,maxY,cx:(minX+maxX)/2,cy:(minY+maxY)/2});
+            coneLabelMasks.push(ps);
           }
         });
 
@@ -9819,7 +9881,17 @@ Implement by adjusting polygon style functions:
               {x:q.x + flip*36, y:q.y - 66},
               {x:q.x - w/2, y:q.y + 50}
             ];
+            // Expand to side locations when a close position would mask
+            // the cone or track. Keep the connector visible and softly bent.
+            for(const radius of [72,104,142,186,228]){
+              for(const direction of [-1,1]){
+                candidates.push({x:q.x + direction*radius - (direction<0?w:0), y:q.y-h/2});
+                candidates.push({x:q.x + direction*radius - (direction<0?w:0), y:q.y-h-42});
+                candidates.push({x:q.x + direction*radius - (direction<0?w:0), y:q.y+48});
+              }
+            }
             const b = chooseBox(candidates, w, h);
+            if(!b) return;
             drawMiniTimeLabelLocal(ctx, b.x, b.y + 15, label, q.x, q.y);
             addBox(occupiedLabelBoxes, b.x, b.y, w, h, 4);
           });
@@ -9862,7 +9934,14 @@ Implement by adjusting polygon style functions:
           }else{
             candidates = nearCandidates;
           }
+          for(const radius of [56,84,120,170,215]){
+            candidates.push({x:q.x+radius,y:q.y-h/2});
+            candidates.push({x:q.x-w-radius,y:q.y-h/2});
+            candidates.push({x:q.x-w/2,y:q.y-h-radius});
+            candidates.push({x:q.x-w/2,y:q.y+radius});
+          }
           const b = chooseBox(candidates, w, h);
+          if(!b) return;
           drawNameLeaderLabel(name, b.x, b.y, q.x, q.y, st.color);
           labelNo++;
         });
@@ -15529,7 +15608,7 @@ ${a.instruction}` : ''
   }
   function pill(ctx, boxRect, textValue, color, anchor){
     ctx.save();
-    ctx.beginPath(); ctx.moveTo(anchor.x, anchor.y); ctx.lineTo(boxRect.x + Math.min(14, boxRect.w/2), boxRect.y + boxRect.h/2); ctx.strokeStyle='rgba(25,42,58,.28)'; ctx.lineWidth=1.1; ctx.stroke();
+    /* No label leader needed */
     panel(ctx, boxRect.x, boxRect.y, boxRect.w, boxRect.h, boxRect.h/2, 'rgba(255,255,255,.96)', 'rgba(25,42,58,.13)');
     ctx.beginPath(); ctx.arc(boxRect.x+13, boxRect.y+boxRect.h/2, 4, 0, Math.PI*2); ctx.fillStyle=color; ctx.fill();
     text(ctx, textValue, boxRect.x+24, boxRect.y+boxRect.h/2+1, {size:13, weight:900, baseline:'middle'});
@@ -15948,7 +16027,7 @@ ${a.instruction}` : ''
   function overlap(a,b){ return !(a.x+a.w<b.x || b.x+b.w<a.x || a.y+a.h<b.y || b.y+b.h<a.y); }
   function routeBoxes(pts,proj){ const arr=sortPts(pts), out=[]; arr.forEach(p=>{ const q=proj(p.lat,p.lon); out.push({x:q.x-14,y:q.y-14,w:28,h:28}); }); for(let i=0;i<arr.length-1;i++){ const a=proj(arr[i].lat,arr[i].lon), b=proj(arr[i+1].lat,arr[i+1].lon); out.push({x:Math.min(a.x,b.x)-8,y:Math.min(a.y,b.y)-8,w:Math.abs(a.x-b.x)+16,h:Math.abs(a.y-b.y)+16}); } return out; }
   function pickLabel(cands,bounds,w,h,used,blocked){ let best=null,bestScore=Infinity; cands.forEach(c=>{ const b={x:clamp(c.x,bounds.x+8,bounds.x+bounds.w-w-8), y:clamp(c.y,bounds.y+8,bounds.y+bounds.h-h-8), w,h}; const usedHits=used.reduce((n,o)=>n+(overlap(b,o)?1:0),0), blockedHits=blocked.reduce((n,o)=>n+(overlap(b,o)?1:0),0), move=Math.hypot(b.x-c.x,b.y-c.y); const score=usedHits*10000+blockedHits*1200+move*10; if(score<bestScore){bestScore=score; best=b;} }); return best||{x:bounds.x+10,y:bounds.y+10,w,h}; }
-  function pill(ctx,rect,val,color,anchor){ ctx.save(); ctx.beginPath(); ctx.moveTo(anchor.x,anchor.y); ctx.lineTo(rect.x+Math.min(14,rect.w/2),rect.y+rect.h/2); ctx.strokeStyle='rgba(25,42,58,.28)'; ctx.lineWidth=1.1; ctx.stroke(); panel(ctx,rect.x,rect.y,rect.w,rect.h,rect.h/2,'rgba(255,255,255,.96)','rgba(25,42,58,.13)'); ctx.beginPath(); ctx.arc(rect.x+13,rect.y+rect.h/2,4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); text(ctx,val,rect.x+24,rect.y+rect.h/2+1,{size:13,weight:900,baseline:'middle'}); ctx.restore(); }
+  function pill(ctx,rect,val,color,anchor){ ctx.save(); /* Badge near data point */ panel(ctx,rect.x,rect.y,rect.w,rect.h,rect.h/2,'rgba(255,255,255,.96)','rgba(25,42,58,.13)'); ctx.beginPath(); ctx.arc(rect.x+13,rect.y+rect.h/2,4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); text(ctx,val,rect.x+24,rect.y+rect.h/2+1,{size:13,weight:900,baseline:'middle'}); ctx.restore(); }
   function forecastLabels(pts,maxCount=4){ const arr=sortPts(pts), obs=latestObs(arr), fc=arr.filter(p=>p.kind==='fcst'); if(fc.length<=maxCount) return fc; const picks=[], base=tval(obs?.time); for(let day=1; day<=maxCount; day++){ const target=base+day*24*3600*1000; let best=null, bd=Infinity; fc.forEach(p=>{ const d=Math.abs(tval(p.time)-target); if(d<bd){bd=d; best=p;} }); if(best && !picks.includes(best)) picks.push(best); } return picks.slice(0,maxCount); }
   function downloadDataUrl(filename,dataUrl){ const a=document.createElement('a'); a.href=dataUrl; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); }
 
@@ -16186,7 +16265,7 @@ ${a.instruction}` : ''
   function overlap(a,b){ return !(a.x+a.w<b.x || b.x+b.w<a.x || a.y+a.h<b.y || b.y+b.h<a.y); }
   function routeBoxes(pts,proj){ const arr=sortPts(pts), out=[]; arr.forEach(p=>{ const q=proj(p.lat,p.lon); out.push({x:q.x-14,y:q.y-14,w:28,h:28}); }); for(let i=0;i<arr.length-1;i++){ const a=proj(arr[i].lat,arr[i].lon), b=proj(arr[i+1].lat,arr[i+1].lon); out.push({x:Math.min(a.x,b.x)-8,y:Math.min(a.y,b.y)-8,w:Math.abs(a.x-b.x)+16,h:Math.abs(a.y-b.y)+16}); } return out; }
   function pickLabel(cands,bounds,w,h,used,blocked){ let best=null,bestScore=Infinity; cands.forEach(c=>{ const b={x:clamp(c.x,bounds.x+8,bounds.x+bounds.w-w-8), y:clamp(c.y,bounds.y+8,bounds.y+bounds.h-h-8), w,h}; const usedHits=used.reduce((n,o)=>n+(overlap(b,o)?1:0),0), blockedHits=blocked.reduce((n,o)=>n+(overlap(b,o)?1:0),0), move=Math.hypot(b.x-c.x,b.y-c.y); const score=usedHits*10000+blockedHits*1200+move*10; if(score<bestScore){bestScore=score; best=b;} }); return best||{x:bounds.x+10,y:bounds.y+10,w,h}; }
-  function pill(ctx,rect,val,color,anchor){ ctx.save(); ctx.beginPath(); ctx.moveTo(anchor.x,anchor.y); ctx.lineTo(rect.x+Math.min(14,rect.w/2),rect.y+rect.h/2); ctx.strokeStyle='rgba(25,42,58,.28)'; ctx.lineWidth=1.1; ctx.stroke(); panel(ctx,rect.x,rect.y,rect.w,rect.h,rect.h/2,'rgba(255,255,255,.96)','rgba(25,42,58,.13)'); ctx.beginPath(); ctx.arc(rect.x+13,rect.y+rect.h/2,4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); text(ctx,val,rect.x+24,rect.y+rect.h/2+1,{size:13,weight:900,baseline:'middle'}); ctx.restore(); }
+  function pill(ctx,rect,val,color,anchor){ ctx.save(); /* Badge near data point */ panel(ctx,rect.x,rect.y,rect.w,rect.h,rect.h/2,'rgba(255,255,255,.96)','rgba(25,42,58,.13)'); ctx.beginPath(); ctx.arc(rect.x+13,rect.y+rect.h/2,4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); text(ctx,val,rect.x+24,rect.y+rect.h/2+1,{size:13,weight:900,baseline:'middle'}); ctx.restore(); }
   function forecastLabels(pts,maxCount=4){ const arr=sortPts(pts), obs=latestObs(arr), fc=arr.filter(p=>p.kind==='fcst'); if(fc.length<=maxCount) return fc; const picks=[], base=tval(obs?.time); for(let day=1; day<=maxCount; day++){ const target=base+day*24*3600*1000; let best=null, bd=Infinity; fc.forEach(p=>{ const d=Math.abs(tval(p.time)-target); if(d<bd){bd=d; best=p;} }); if(best && !picks.includes(best)) picks.push(best); } return picks.slice(0,maxCount); }
   function downloadDataUrl(filename,dataUrl){ const a=document.createElement('a'); a.href=dataUrl; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); }
 
@@ -16972,7 +17051,7 @@ ${a.instruction}` : ''
   function overlap(a,b){ return !(a.x+a.w<b.x || b.x+b.w<a.x || a.y+a.h<b.y || b.y+b.h<a.y); }
   function routeBoxes(pts,proj){ const arr=sortPts(pts), out=[]; arr.forEach(p=>{ const q=proj(p.lat,p.lon); out.push({x:q.x-14,y:q.y-14,w:28,h:28}); }); for(let i=0;i<arr.length-1;i++){ const a=proj(arr[i].lat,arr[i].lon), b=proj(arr[i+1].lat,arr[i+1].lon); out.push({x:Math.min(a.x,b.x)-8,y:Math.min(a.y,b.y)-8,w:Math.abs(a.x-b.x)+16,h:Math.abs(a.y-b.y)+16}); } return out; }
   function pickLabel(cands,bounds,w,h,used,blocked){ let best=null,bestScore=Infinity; cands.forEach(c=>{ const b={x:clamp(c.x,bounds.x+8,bounds.x+bounds.w-w-8), y:clamp(c.y,bounds.y+8,bounds.y+bounds.h-h-8), w,h}; const usedHits=used.reduce((n,o)=>n+(overlap(b,o)?1:0),0), blockedHits=blocked.reduce((n,o)=>n+(overlap(b,o)?1:0),0), move=Math.hypot(b.x-c.x,b.y-c.y); const score=usedHits*10000+blockedHits*1200+move*10; if(score<bestScore){bestScore=score; best=b;} }); return best||{x:bounds.x+10,y:bounds.y+10,w,h}; }
-  function pill(ctx,rect,val,color,anchor){ ctx.save(); ctx.beginPath(); ctx.moveTo(anchor.x,anchor.y); ctx.lineTo(rect.x+Math.min(14,rect.w/2),rect.y+rect.h/2); ctx.strokeStyle='rgba(25,42,58,.28)'; ctx.lineWidth=1.1; ctx.stroke(); panel(ctx,rect.x,rect.y,rect.w,rect.h,rect.h/2,'rgba(255,255,255,.96)','rgba(25,42,58,.13)'); ctx.beginPath(); ctx.arc(rect.x+13,rect.y+rect.h/2,4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); text(ctx,val,rect.x+24,rect.y+rect.h/2+1,{size:13,weight:900,baseline:'middle'}); ctx.restore(); }
+  function pill(ctx,rect,val,color,anchor){ ctx.save(); /* Badge near data point */ panel(ctx,rect.x,rect.y,rect.w,rect.h,rect.h/2,'rgba(255,255,255,.96)','rgba(25,42,58,.13)'); ctx.beginPath(); ctx.arc(rect.x+13,rect.y+rect.h/2,4,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); text(ctx,val,rect.x+24,rect.y+rect.h/2+1,{size:13,weight:900,baseline:'middle'}); ctx.restore(); }
   function forecastLabels(pts,maxCount=4){ const arr=sortPts(pts), obs=latestObs(arr), fc=arr.filter(p=>p.kind==='fcst'); if(fc.length<=maxCount) return fc; const picks=[], base=tval(obs?.time); for(let day=1; day<=maxCount; day++){ const target=base+day*24*3600*1000; let best=null, bd=Infinity; fc.forEach(p=>{ const d=Math.abs(tval(p.time)-target); if(d<bd){bd=d; best=p;} }); if(best && !picks.includes(best)) picks.push(best); } return picks.slice(0,maxCount); }
   function downloadDataUrl(filename,dataUrl){ const a=document.createElement('a'); a.href=dataUrl; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); }
   function drawWarningPanel(ctx,x,y,w,entries){ const rows=Math.max(1,entries.length), rowH=66, gap=8, h=42+rows*rowH+(rows-1)*gap+14; panel(ctx,x,y,w,h,24); text(ctx,'颱風警報列表',x+18,y+27,{size:16,weight:900}); text(ctx,`${entries.length} 項`,x+w-18,y+27,{size:13,weight:900,color:'#617785',align:'right'}); if(!entries.length){ text(ctx,'目前沒有海上 / 陸上颱風警報',x+18,y+63,{size:13,weight:800,color:'#718692'}); return h; } entries.forEach((it,idx)=>{ const cy=y+44+idx*(rowH+gap); panel(ctx,x+14,cy,w-28,rowH,16,'#fff','rgba(25,42,58,.10)'); text(ctx,it.title,x+18,cy+22,{size:14,weight:900}); text(ctx,it.areaText,x+18,cy+43,{size:11.2,weight:800,color:'#718692',maxWidth:w-168}); panel(ctx,x+w-128,cy+17,94,24,12,rgba(it.color,.12),rgba(it.color,.34)); ctx.beginPath(); ctx.arc(x+w-114,cy+29,4,0,Math.PI*2); ctx.fillStyle=it.color; ctx.fill(); text(ctx,it.title.replace('颱風警報','警報'),x+w-102,cy+33,{size:10.8,weight:900}); }); return h; }
@@ -17155,10 +17234,19 @@ ${a.instruction}` : ''
     inset:12px 34px 36px 52px;
   }
   #trackOverviewHost .trackPlot.trackGeoBounded .trackSvgLayer{overflow:hidden}
-  #trackOverviewHost .trackPlot.trackGeoBounded .trackOverviewAxes{
+  #trackOverviewHost .trackPlot.trackGeoBounded .trackOverviewAxes,
+  .trackPlot.trackAxesOutside .trackOverviewAxes{
     position:absolute;inset:0;width:100%;height:100%;z-index:4;
     overflow:hidden;pointer-events:none;
   }
+  .trackPlot.trackAxesOutside{background:#ffffff}
+  .trackPlot.trackAxesOutside .trackTileFallback,
+  .trackPlot.trackAxesOutside .trackTileLayer,
+  .trackPlot.trackAxesOutside .trackSvgLayer,
+  .trackPlot.trackAxesOutside .trackFallbackLabel{
+    inset:10px 18px 34px 44px;
+  }
+  .trackPlot.trackAxesOutside .trackSvgLayer{overflow:hidden}
   .trackTileLayer,.trackSvgLayer,.trackFallbackLabel{position:absolute;inset:0}
   .trackTileLayer{overflow:hidden;z-index:1}
   .trackTileLayer img{position:absolute;width:256px;height:256px;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none}
@@ -17800,6 +17888,7 @@ ${a.instruction}` : ''
   // Match the Mercator box aspect ratio instead of stretching the map.
   const NWP_BOUNDS={west:90,east:180,south:0,north:50};
   const NWP_AXIS={left:52,right:34,top:12,bottom:36};
+  const CARD_AXIS={left:44,right:18,top:10,bottom:34};
   function makeNwpExactView(width,height){
     const b=NWP_BOUNDS;
     const dx=mx(b.east)-mx(b.west),dy=my(b.south)-my(b.north);
@@ -17834,7 +17923,8 @@ ${a.instruction}` : ''
     axisSvg.appendChild(outerLabels);
   }
 
-  function addGrid(svg, view, width, height){
+  function addGrid(svg, view, width, height, opt={}){
+    const {axisSvg=null, plotWidth=width, plotHeight=height, margins={left:0,right:0,top:0,bottom:0}} = opt || {};
     const tl=invProject(view,width,height,0,0), br=invProject(view,width,height,width,height);
     const lonStep=niceStep(Math.abs(br.lon-tl.lon)), latStep=niceStep(Math.abs(tl.lat-br.lat));
     const proj=projector(view,width,height);
@@ -17843,14 +17933,31 @@ ${a.instruction}` : ''
     for(let lon=Math.ceil(tl.lon/lonStep)*lonStep; lon<=br.lon; lon+=lonStep){
       const q=proj((tl.lat+br.lat)/2, lon);
       g.appendChild(svgEl('line',{x1:q.x,y1:0,x2:q.x,y2:height}));
-      const t=svgEl('text',{x:q.x,y:height-8,'text-anchor':'middle'}); t.textContent=`${Math.abs(Math.round(lon))}°`; labels.appendChild(t);
+      const t=svgEl('text', axisSvg
+        ? {x:margins.left + q.x, y:margins.top + height + 22, 'text-anchor':'middle'}
+        : {x:q.x,y:height-8,'text-anchor':'middle'});
+      t.textContent=`${Math.abs(Math.round(lon))}°${lon>=0?'E':'W'}`;
+      labels.appendChild(t);
     }
     for(let lat=Math.ceil(br.lat/latStep)*latStep; lat<=tl.lat; lat+=latStep){
       const q=proj(lat, (tl.lon+br.lon)/2);
       g.appendChild(svgEl('line',{x1:0,y1:q.y,x2:width,y2:q.y}));
-      const t=svgEl('text',{x:8,y:q.y-4,'text-anchor':'start'}); t.textContent=`${Math.abs(Math.round(lat))}°`; labels.appendChild(t);
+      const t=svgEl('text', axisSvg
+        ? {x:margins.left - 8, y:margins.top + q.y + 4, 'text-anchor':'end'}
+        : {x:8,y:q.y-4,'text-anchor':'start'});
+      t.textContent=`${Math.abs(Math.round(lat))}°${lat>=0?'N':'S'}`;
+      labels.appendChild(t);
     }
-    svg.appendChild(g); svg.appendChild(labels);
+    svg.appendChild(g);
+    if(axisSvg){
+      axisSvg.setAttribute('viewBox',`0 0 ${plotWidth} ${plotHeight}`);
+      axisSvg.setAttribute('width',plotWidth);
+      axisSvg.setAttribute('height',plotHeight);
+      axisSvg.innerHTML='';
+      axisSvg.appendChild(labels);
+    }else{
+      svg.appendChild(labels);
+    }
   }
   let galleryWarningGeoLoadPromise = null;
   function galleryTyphoonAlertText(alert){
@@ -18022,7 +18129,8 @@ ${a.instruction}` : ''
       used.forEach(u=>{ if(overlaps(box,u,6)) score+=120000; });
       routePointBoxes.forEach(r=>{ if(overlaps(box,r,5)) score+=18000; });
       routeSegments.forEach(s=>{ if(segmentHitsRect(s.a,s.b,box,8)) score+=15000; });
-      conePolys.forEach(poly=>{ if(rectHitsPoly(box,poly)) score+=12000; });
+      // Storm name badges also stay clear of the forecast cone.
+      conePolys.forEach(poly=>{ if(rectHitsPoly(box,poly)) score+=300000; });
       return score;
     }
 
@@ -18052,7 +18160,7 @@ ${a.instruction}` : ''
       });
       candidates.sort((a,b)=>a.score-b.score);
       const best=candidates[0];
-      if(!best) return null;
+      if(!best || best.score>=18000) return null;
       used.push(best.box);
       return best.box;
     }
@@ -18068,7 +18176,7 @@ ${a.instruction}` : ''
       const box=pickBox(q,w,h);
       if(!box) return;
       const center=rectCenter(box);
-      svg.appendChild(svgEl('line',{x1:q.x,y1:q.y,x2:center.x,y2:center.y,stroke:'rgba(23,48,64,.25)','stroke-width':'1'}));
+      addForecastDateLeader(svg,q,box,'rgba(78,110,132,.38)');
       svg.appendChild(svgEl('rect',{x:box.x,y:box.y,width:w,height:h,rx:14,fill:'rgba(255,255,255,.95)',stroke:basinColors[idx%basinColors.length],'stroke-width':'1.4'}));
       const t=svgEl('text',{x:box.x+w/2,y:box.y+18,fill:'#173040','text-anchor':'middle','font-size':'12','font-weight':'900','font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'});
       t.textContent=label; svg.appendChild(t);
@@ -18101,250 +18209,237 @@ ${a.instruction}` : ''
     return picks;
   }
 
-  function addOverviewForecastTimeLabels(svg, groups, view, width, height){
-    const proj=projector(view,width,height);
-    const used=[...(svg.__overviewNameBoxes || [])];
-    const routeSegments=[];
-    const routePointBoxes=[];
-    const conePolys=[];
-
-    function dateTimeLabel(t){
-      const d=new Date(t || '');
-      if(!Number.isFinite(d.getTime())) return '—';
-      return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:00`;
+  // Straight, intentionally DIAGONAL leaders. Choose a pill edge/corner
+  // that preserves both horizontal and vertical separation. Never use a
+  // centered top/bottom anchor that makes a vertical hanging wire.
+  function nearestDiagonalLabelAnchor(point, box){
+    const insetX=Math.min(12,box.w*.16), insetY=Math.min(6,box.h*.27);
+    const cand=[
+      {x:box.x+insetX,y:box.y},
+      {x:box.x+box.w-insetX,y:box.y},
+      {x:box.x+insetX,y:box.y+box.h},
+      {x:box.x+box.w-insetX,y:box.y+box.h},
+      {x:box.x,y:box.y+insetY},
+      {x:box.x,y:box.y+box.h-insetY},
+      {x:box.x+box.w,y:box.y+insetY},
+      {x:box.x+box.w,y:box.y+box.h-insetY}
+    ];
+    let best=null;
+    for(const a of cand){
+      const dx=Math.abs(a.x-point.x),dy=Math.abs(a.y-point.y);
+      const dist=Math.hypot(dx,dy);
+      if(dist<7)continue;
+      // Prioritise a genuine diagonal with neither axis nearly zero.
+      const slope=dy/Math.max(1,dx);
+      const invalid=dx<17 || dy<9 || slope<.17 || slope>2.4;
+      const score=dist + (invalid?1600:0) + (slope>1.8?dist*.16:0);
+      if(!best||score<best.score)best={...a,score,valid:!invalid};
     }
-    function overlaps(a,b,pad=3){
-      return !(a.x+a.w+pad<b.x || b.x+b.w+pad<a.x || a.y+a.h+pad<b.y || b.y+b.h+pad<a.y);
-    }
-    function pointInRect(p,r,pad=0){
-      return p.x>=r.x-pad && p.x<=r.x+r.w+pad && p.y>=r.y-pad && p.y<=r.y+r.h+pad;
-    }
-    function orient(a,b,c){ return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x); }
-    function segCross(a,b,c,d){
-      const o1=orient(a,b,c), o2=orient(a,b,d), o3=orient(c,d,a), o4=orient(c,d,b);
-      return ((o1>0&&o2<0)||(o1<0&&o2>0)) && ((o3>0&&o4<0)||(o3<0&&o4>0));
-    }
-    function segmentHitsRect(a,b,r,pad=5){
-      const ex={x:r.x-pad,y:r.y-pad,w:r.w+pad*2,h:r.h+pad*2};
-      if(pointInRect(a,ex) || pointInRect(b,ex)) return true;
-      const p1={x:ex.x,y:ex.y}, p2={x:ex.x+ex.w,y:ex.y};
-      const p3={x:ex.x+ex.w,y:ex.y+ex.h}, p4={x:ex.x,y:ex.y+ex.h};
-      return segCross(a,b,p1,p2) || segCross(a,b,p2,p3) || segCross(a,b,p3,p4) || segCross(a,b,p4,p1);
-    }
-    function pointInPoly(p,poly){
-      let inside=false;
-      for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-        const a=poly[i], b=poly[j];
-        const hit=((a.y>p.y)!==(b.y>p.y)) && (p.x < (b.x-a.x)*(p.y-a.y)/((b.y-a.y)||1e-9)+a.x);
-        if(hit) inside=!inside;
-      }
-      return inside;
-    }
-    function rectHitsPoly(r,poly){
-      if(!poly || poly.length<3) return false;
-      const corners=[{x:r.x,y:r.y},{x:r.x+r.w,y:r.y},{x:r.x+r.w,y:r.y+r.h},{x:r.x,y:r.y+r.h},{x:r.x+r.w/2,y:r.y+r.h/2}];
-      if(corners.some(p=>pointInPoly(p,poly))) return true;
-      if(poly.some(p=>pointInRect(p,r,3))) return true;
-      for(let i=0;i<poly.length;i++){
-        const a=poly[i], b=poly[(i+1)%poly.length];
-        if(segmentHitsRect(a,b,r,2)) return true;
-      }
-      return false;
-    }
-    function rectCenter(r){ return {x:r.x+r.w/2,y:r.y+r.h/2}; }
-
-    groups.forEach(g=>{
-      const pts=sortPts(g.points || []);
-      for(let i=0;i<pts.length-1;i++) routeSegments.push({a:proj(pts[i].lat,pts[i].lon), b:proj(pts[i+1].lat,pts[i+1].lon)});
-      pts.forEach(p=>{ const q=proj(p.lat,p.lon); routePointBoxes.push({x:q.x-9,y:q.y-9,w:18,h:18}); });
-      const cone=buildCleanForecastCone(pts);
-      if(cone && cone.length>=3) conePolys.push(cone.map(([lat,lon])=>proj(lat,lon)));
-    });
-
-    function candidatePenalty(box){
-      let score=0;
-      used.forEach(u=>{ if(overlaps(box,u,4)) score+=100000; });
-      routePointBoxes.forEach(r=>{ if(overlaps(box,r,5)) score+=16000; });
-      routeSegments.forEach(s=>{ if(segmentHitsRect(s.a,s.b,box,7)) score+=14000; });
-      conePolys.forEach(poly=>{ if(rectHitsPoly(box,poly)) score+=12000; });
-      return score;
-    }
-
-    function pickBox(q,w,h){
-      const candidates=[];
-      const rings=[30,44,60,78,98,120,144,170];
-      const directions=[
-        [1,-1],[-1,-1],[1,1],[-1,1],[0,-1],[0,1],[1,0],[-1,0],
-        [1,-0.45],[-1,-0.45],[1,0.45],[-1,0.45],[0.45,-1],[-0.45,-1],[0.45,1],[-0.45,1]
-      ];
-      rings.forEach(r=>{
-        directions.forEach(([dx,dy])=>{
-          let x=q.x + dx*r, y=q.y + dy*r;
-          if(dx<0) x-=w;
-          else if(Math.abs(dx)<0.01) x-=w/2;
-          else if(dx<1) x-=w*.25;
-          if(dy<0) y-=h;
-          else if(Math.abs(dy)<0.01) y-=h/2;
-          else if(dy<1) y-=h*.25;
-          const b={x:clamp(x,5,width-w-5), y:clamp(y,5,height-h-5), w,h};
-          const c=rectCenter(b), dist=Math.hypot(c.x-q.x,c.y-q.y);
-          candidates.push({box:b,score:candidatePenalty(b)+dist*0.18});
-        });
-      });
-      candidates.sort((a,b)=>a.score-b.score);
-      const best=candidates[0];
-      if(!best) return null;
-      if(best.score>=20000) return null;
-      used.push(best.box);
-      return best.box;
-    }
-
-    groups.forEach((g,idx)=>{
-      overviewForecastLabels24h(g.points).forEach(p=>{
-        const q=proj(p.lat,p.lon);
-        const label=dateTimeLabel(p.time);
-        const w=Math.max(76, label.length*6.7 + 14), h=20;
-        const box=pickBox(q,w,h);
-        if(!box) return;
-        const bx=box.x+box.w/2, by=box.y+box.h/2;
-        svg.appendChild(svgEl('line',{x1:q.x,y1:q.y,x2:bx,y2:by,stroke:'rgba(23,48,64,.25)','stroke-width':'0.85'}));
-        svg.appendChild(svgEl('rect',{x:box.x,y:box.y,width:box.w,height:box.h,rx:10,fill:'rgba(255,255,255,.96)',stroke:basinColors[idx%basinColors.length],'stroke-width':'0.9'}));
-        const t=svgEl('text',{x:box.x+box.w/2,y:box.y+13.3,fill:'#173040','text-anchor':'middle','font-size':'9.4','font-weight':'900','font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'});
-        t.textContent=label;
-        svg.appendChild(t);
-      });
-    });
+    return best;
+  }
+  function addForecastDateLeader(svg, point, box, stroke='rgba(78,110,132,.55)'){
+    const end=nearestDiagonalLabelAnchor(point,box);
+    if(!end)return;
+    svg.appendChild(svgEl('line',{
+      x1:point.x.toFixed(2),y1:point.y.toFixed(2),
+      x2:end.x.toFixed(2),y2:end.y.toFixed(2),
+      stroke,'stroke-width':'1.25','stroke-linecap':'round'
+    }));
   }
 
-  function addSingleForecastTimeLabels(svg, pts, view, width, height, strokeColor='#4f6db8'){
-    const proj=projector(view,width,height);
-    const picks=overviewForecastLabels24h(pts);
-    if(!picks.length) return;
+  /*
+    Forecast-date pills: assign positions around the *nearest visible cone edge*.
+    Do not force every label into a fixed top row or use a long hanging leader.
+    Both overview and per-storm figures use this one collision-aware layout.
+    The forecast cone polygon, its sizes and the original track data are untouched.
+  */
+  function placeForecastTimePills(svg, labelGroups, view, width, height, nameObstacles=[]){
+    const project=projector(view,width,height);
+    const cones=[];
+    const fixBoxes=[];
+    const tracks=[];
+    const placed=[...nameObstacles];
+    const leaders=[];
 
-    const used=[];
-    const routeSegments=[];
-    const routePointBoxes=[];
-    const conePolys=[];
-
-    function labelText(t){
-      const d=new Date(t || '');
-      if(!Number.isFinite(d.getTime())) return '—';
-      return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:00`;
+    function rectOverlap(a,b,pad=0){
+      return a.x<=b.x+b.w+pad && a.x+a.w+pad>=b.x && a.y<=b.y+b.h+pad && a.y+a.h+pad>=b.y;
     }
-
-    function overlaps(a,b,pad=3){
-      return !(a.x+a.w+pad<b.x || b.x+b.w+pad<a.x || a.y+a.h+pad<b.y || b.y+b.h+pad<a.y);
-    }
-    function pointInRect(p,r,pad=0){
-      return p.x>=r.x-pad && p.x<=r.x+r.w+pad && p.y>=r.y-pad && p.y<=r.y+r.h+pad;
-    }
-    function orient(a,b,c){ return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x); }
-    function segCross(a,b,c,d){
-      const o1=orient(a,b,c), o2=orient(a,b,d), o3=orient(c,d,a), o4=orient(c,d,b);
-      return ((o1>0&&o2<0)||(o1<0&&o2>0)) && ((o3>0&&o4<0)||(o3<0&&o4>0));
-    }
-    function segmentHitsRect(a,b,r,pad=5){
-      const ex={x:r.x-pad,y:r.y-pad,w:r.w+pad*2,h:r.h+pad*2};
-      if(pointInRect(a,ex) || pointInRect(b,ex)) return true;
-      const p1={x:ex.x,y:ex.y}, p2={x:ex.x+ex.w,y:ex.y};
-      const p3={x:ex.x+ex.w,y:ex.y+ex.h}, p4={x:ex.x,y:ex.y+ex.h};
-      return segCross(a,b,p1,p2) || segCross(a,b,p2,p3) || segCross(a,b,p3,p4) || segCross(a,b,p4,p1);
-    }
-    function pointInPoly(p,poly){
-      let inside=false;
+    function inside(pt,poly){
+      let c=false;
       for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-        const a=poly[i], b=poly[j];
-        const hit=((a.y>p.y)!==(b.y>p.y)) &&
-          (p.x < (b.x-a.x)*(p.y-a.y)/((b.y-a.y)||1e-9)+a.x);
-        if(hit) inside=!inside;
+        const a=poly[i],b=poly[j];
+        if((a.y>pt.y)!==(b.y>pt.y) && pt.x<(b.x-a.x)*(pt.y-a.y)/((b.y-a.y)||1e-9)+a.x) c=!c;
       }
-      return inside;
+      return c;
     }
-    function rectHitsPoly(r,poly){
+    function cross(a,b,c){ return (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x); }
+    function crosses(a,b,c,d){
+      const x=cross(a,b,c),y=cross(a,b,d),z=cross(c,d,a),v=cross(c,d,b);
+      return ((x>0&&y<0)||(x<0&&y>0))&&((z>0&&v<0)||(z<0&&v>0));
+    }
+    function rectInCone(r,poly){
       if(!poly || poly.length<3) return false;
       const corners=[
-        {x:r.x,y:r.y},{x:r.x+r.w,y:r.y},{x:r.x+r.w,y:r.y+r.h},
-        {x:r.x,y:r.y+r.h},{x:r.x+r.w/2,y:r.y+r.h/2}
+        {x:r.x,y:r.y},{x:r.x+r.w,y:r.y},
+        {x:r.x+r.w,y:r.y+r.h},{x:r.x,y:r.y+r.h},
+        {x:r.x+r.w/2,y:r.y+r.h/2}
       ];
-      if(corners.some(p=>pointInPoly(p,poly))) return true;
-      if(poly.some(p=>pointInRect(p,r,3))) return true;
+      if(corners.some(p=>inside(p,poly)))return true;
+      if(poly.some(p=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h))return true;
+      const edges=[[corners[0],corners[1]],[corners[1],corners[2]],
+                   [corners[2],corners[3]],[corners[3],corners[0]]];
       for(let i=0;i<poly.length;i++){
-        const a=poly[i], b=poly[(i+1)%poly.length];
-        if(segmentHitsRect(a,b,r,2)) return true;
+        const a=poly[i],b=poly[(i+1)%poly.length];
+        if(edges.some(e=>crosses(a,b,e[0],e[1])))return true;
       }
       return false;
     }
-
-    const sorted=sortPts(pts || []);
-    for(let i=0;i<sorted.length-1;i++){
-      routeSegments.push({ a:proj(sorted[i].lat,sorted[i].lon), b:proj(sorted[i+1].lat,sorted[i+1].lon) });
-    }
-    sorted.forEach(p=>{
-      const q=proj(p.lat,p.lon);
-      routePointBoxes.push({x:q.x-10,y:q.y-10,w:20,h:20});
-    });
-    const cone=buildCleanForecastCone(sorted);
-    if(cone && cone.length>=3) conePolys.push(cone.map(([lat,lon])=>proj(lat,lon)));
-
-    function candidatePenalty(box){
-      let score=0;
-      used.forEach(u=>{ if(overlaps(box,u,6)) score+=120000; });
-      routePointBoxes.forEach(r=>{ if(overlaps(box,r,6)) score+=20000; });
-      routeSegments.forEach(s=>{ if(segmentHitsRect(s.a,s.b,box,8)) score+=18000; });
-      conePolys.forEach(poly=>{ if(rectHitsPoly(box,poly)) score+=14000; });
-      return score;
+    function nearestRectEdge(q,box){
+      return nearestDiagonalLabelAnchor(q,box);
     }
 
-    function pickBox(q,w,h){
-      const candidates=[];
-      const rings=[34,50,68,88,110,134];
-      const directions=[[1,-1],[-1,-1],[1,1],[-1,1],[0,-1],[0,1],[1,0],[-1,0]];
-      rings.forEach(r=>{
-        directions.forEach(([dx,dy])=>{
-          let x=q.x + dx*r;
-          let y=q.y + dy*r;
-          if(dx<0) x-=w;
-          else if(dx===0) x-=w/2;
-          if(dy<0) y-=h;
-          else if(dy===0) y-=h/2;
-          const b={x:clamp(x,6,width-w-6), y:clamp(y,6,height-h-6), w,h};
-          const dist=Math.hypot((b.x+b.w/2)-q.x,(b.y+b.h/2)-q.y);
-          candidates.push({box:b,score:candidatePenalty(b)+dist*0.22});
-        });
+    function rayEdgeLength(q,u,poly){
+      if(!poly?.length || !inside(q,poly))return 0;
+      let nearest=Infinity;
+      for(let i=0;i<poly.length;i++){
+        const a=poly[i],b=poly[(i+1)%poly.length];
+        const vx=b.x-a.x,vy=b.y-a.y;
+        const denom=u.x*vy-u.y*vx;
+        if(Math.abs(denom)<1e-9)continue;
+        const wx=a.x-q.x,wy=a.y-q.y;
+        const t=(wx*vy-wy*vx)/denom;
+        const s=(wx*u.y-wy*u.x)/denom;
+        if(t>=-1e-6 && s>=-1e-6 && s<=1+1e-6)nearest=Math.min(nearest,Math.max(0,t));
+      }
+      return Number.isFinite(nearest)?nearest:0;
+    }
+    function rayOptions(q,ownCone){
+      const result=[];
+      for(let i=0;i<32;i++){
+        const angle=i*Math.PI/16;
+        result.push({x:Math.cos(angle),y:Math.sin(angle)});
+      }
+      if(ownCone?.length){
+        const nearest=ownCone.map((p,i)=>{
+          const nxt=ownCone[(i+1)%ownCone.length];
+          const ux=nxt.x-p.x, uy=nxt.y-p.y;
+          const t=clamp(((q.x-p.x)*ux+(q.y-p.y)*uy)/(ux*ux+uy*uy||1),0,1);
+          const x=p.x+t*ux,y=p.y+t*uy;
+          return {x,y,dist:Math.hypot(x-q.x,y-q.y)};
+        }).sort((a,b)=>a.dist-b.dist).slice(0,6);
+        for(const near of nearest){
+          const dx=near.x-q.x,dy=near.y-q.y,len=Math.hypot(dx,dy);
+          if(len>1) result.unshift({x:dx/len,y:dy/len});
+        }
+      }
+      return result;
+    }
+    const entries=[];
+    labelGroups.forEach((group,gi)=>{
+      const pts=sortPts(group.points||[]);
+      const cone=buildCleanForecastCone(pts);
+      const ownCone=cone?.length>=3 ? cone.map(p=>project(p[0],p[1])) : null;
+      if(ownCone)cones.push(ownCone);
+      pts.forEach(p=>{
+        const q=project(p.lat,p.lon);
+        fixBoxes.push({x:q.x-9,y:q.y-9,w:18,h:18});
       });
-      candidates.sort((a,b)=>a.score-b.score);
-      const best=candidates[0];
-      if(!best) return null;
-      if(best.score>=18000) return null;
-      used.push(best.box);
-      return best.box;
-    }
+      for(let i=1;i<pts.length;i++){
+        const a=project(pts[i-1].lat,pts[i-1].lon),b=project(pts[i].lat,pts[i].lon);
+        tracks.push({a,b});
+      }
+      const selections=overviewForecastLabels24h(pts);
+      selections.forEach((p,index)=>{
+        const d=new Date(p.time||'');
+        if(!Number.isFinite(d.getTime()))return;
+        const time=`${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:00`;
+        entries.push({p,q:project(p.lat,p.lon),time,color:group.color||'#4f6db8',ownCone,gi,index,total:selections.length,
+          w:Math.max(78,time.length*6.8+14),h:group.single?22:20});
+      });
+    });
 
-    picks.forEach(p=>{
-      const q=proj(p.lat,p.lon);
-      const label=labelText(p.time);
-      const w=Math.max(74, label.length*6.8 + 16), h=22;
-      const box=pickBox(q,w,h);
-      if(!box) return;
-
-      const bx=box.x+box.w/2, by=box.y+box.h/2;
-      svg.appendChild(svgEl('line',{
-        x1:q.x,y1:q.y,x2:bx,y2:by,
-        stroke:'rgba(23,48,64,.28)','stroke-width':'1'
-      }));
+    // Place both temporal endpoints first, then fill inward. This preserves
+    // geographical/time order instead of assigning all pills to one edge.
+    entries.sort((a,b)=>{
+      const endpointA=Math.min(a.index,a.total-1-a.index);
+      const endpointB=Math.min(b.index,b.total-1-b.index);
+      return endpointA-endpointB || a.gi-b.gi || a.index-b.index;
+    });
+    for(const entry of entries){
+      const {q,w,h,ownCone}=entry;
+      let best=null;
+      const directions=rayOptions(q,ownCone);
+      for(let j=0;j<directions.length;j++){
+        const u=directions[j];
+        const exitDistance=rayEdgeLength(q,u,ownCone);
+        const extent=Math.abs(u.x)*w/2 + Math.abs(u.y)*h/2;
+        const preferred=exitDistance+extent+20;
+        for(let extra=0;extra<=91;extra+=13){
+          const t=Math.max(extent+10,preferred+extra);
+          if(t>220)break;
+          const raw={x:q.x+u.x*t-w/2,y:q.y+u.y*t-h/2};
+          if(raw.x<8||raw.y<8||raw.x+w>width-8||raw.y+h>height-8)continue;
+          const box={...raw,w,h};
+          if(cones.some(poly=>rectInCone(box,poly)))continue;
+          if(placed.some(o=>rectOverlap(box,o,15)))continue;
+          if(fixBoxes.some(o=>rectOverlap(box,o,7)))continue;
+          const end=nearestRectEdge(q,box);
+          const dist=Math.hypot(end.x-q.x,end.y-q.y);
+          if(dist>185 || !end || !end.valid)continue;
+          let penalty=dist*2.7+extra*.8;
+          // Leave a comfortable visual gap between date pills, not just
+          // enough clearance to stop the rectangles touching.
+          for(const other of placed){
+            const gapX=Math.max(0,Math.max(other.x-box.x-box.w,box.x-other.x-other.w));
+            const gapY=Math.max(0,Math.max(other.y-box.y-box.h,box.y-other.y-other.h));
+            const separation=Math.hypot(gapX,gapY);
+            if(separation<30)penalty+=(30-separation)*15;
+          }
+          // Avoid covering track lines, or cutting through another label's
+          // straight connector. Penalise instead of prohibiting to preserve dates.
+          const c0={x:box.x,y:box.y},c1={x:box.x+w,y:box.y},c2={x:box.x+w,y:box.y+h},c3={x:box.x,y:box.y+h};
+          const edges=[[c0,c1],[c1,c2],[c2,c3],[c3,c0]];
+          for(const s of tracks){
+            if(edges.some(e=>crosses(s.a,s.b,e[0],e[1])))penalty+=6000;
+          }
+          for(const s of leaders){
+            if(crosses(q,end,s.a,s.b))penalty+=10000;
+          }
+          // Slightly prefer alternating sides for consecutive dates when
+          // a storm follows an almost-horizontal route.
+          if(entry.index%2===0 && u.y<-.3)penalty-=3;
+          if(entry.index%2===1 && u.y>.3)penalty-=3;
+          if(!best||penalty<best.penalty)best={box,end,penalty};
+        }
+      }
+      if(!best)continue;
+      placed.push(best.box);
+      leaders.push({a:q,b:best.end});
+      addForecastDateLeader(svg,q,best.box,'rgba(78,110,132,.46)');
       svg.appendChild(svgEl('rect',{
-        x:box.x,y:box.y,width:box.w,height:box.h,rx:11,
-        fill:'rgba(255,255,255,.96)',
-        stroke:strokeColor,'stroke-width':'1.2'
+        x:best.box.x,y:best.box.y,width:w,height:h,rx:h/2,
+        fill:'rgba(255,255,255,.97)',stroke:entry.color,
+        'stroke-width':entry.h===22?'1.2':'0.95'
       }));
-      const t=svgEl('text',{
-        x:box.x+box.w/2,y:box.y+14.2,
-        fill:'#173040','text-anchor':'middle','font-size':'10.5','font-weight':'900',
+      const label=svgEl('text',{
+        x:best.box.x+w/2,y:best.box.y+h/2+(entry.h===22?3.7:3.4),
+        fill:'#173040','text-anchor':'middle',
+        'font-size':entry.h===22?'10.5':'9.4','font-weight':'900',
         'font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'
       });
-      t.textContent=label;
-      svg.appendChild(t);
-    });
+      label.textContent=entry.time;
+      svg.appendChild(label);
+    }
+  }
+
+  function addOverviewForecastTimeLabels(svg,groups,view,width,height){
+    placeForecastTimePills(svg, groups.map((g,i)=>({
+      points:g.points,color:basinColors[i%basinColors.length],single:false
+    })),view,width,height,svg.__overviewNameBoxes||[]);
+  }
+
+  function addSingleForecastTimeLabels(svg,pts,view,width,height,strokeColor='#4f6db8'){
+    placeForecastTimePills(svg,[{points:pts,color:strokeColor,single:true}],view,width,height);
   }
 
 
@@ -18408,16 +18503,21 @@ ${a.instruction}` : ''
       true
     );
     const plot=frame.querySelector('.trackPlot');
+    plot.classList.add('trackAxesOutside');
     const svg=frame.querySelector('.trackSvgLayer');
     const tileLayer=frame.querySelector('.trackTileLayer');
+    const axisSvg=svgEl('svg',{'class':'trackOverviewAxes','aria-label':'地圖外側經緯度刻度'});
+    plot.appendChild(axisSvg);
     requestAnimationFrame(()=>{
-      const width=Math.max(320, plot.clientWidth), height=Math.max(320, plot.clientHeight);
+      const plotWidth=Math.max(320, plot.clientWidth);
+      const plotHeight=Math.max(320, plot.clientHeight);
+      const width=Math.max(320, tileLayer.clientWidth), height=Math.max(320, tileLayer.clientHeight);
       const view=fitView(fitPts,width,height,72,9.3);
       populateTiles(tileLayer, view, width, height);
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.setAttribute('width', width); svg.setAttribute('height', height);
       svg.innerHTML='';
-      addGrid(svg, view, width, height);
+      addGrid(svg, view, width, height, {axisSvg, plotWidth, plotHeight, margins:CARD_AXIS});
       if(typeof window.__appendCwaMarineWarningSvg === 'function') {
         const activeMarine=window.__appendCwaMarineWarningSvg(svg, projector(view,width,height));
         const item=frame.querySelector('.cwaMarineLegend');
@@ -18488,6 +18588,11 @@ ${a.instruction}` : ''
   }
 
   let renderToken=0;
+  // Loading only one of the two warning GeoJSONs used to re-trigger a render
+  // forever. That destroyed the gallery frames before the PNG encoder could
+  // finish, making the images appear to disappear. The GeoJSON check is now
+  // performed once per page lifecycle; normal storm updates still redraw it.
+  let warningGeoChecked=false;
   function renderGallery(){
     ensureGallery();
     const host=document.getElementById('trackGalleryShell');
@@ -18495,19 +18600,28 @@ ${a.instruction}` : ''
     const grid=document.getElementById('trackCardGrid');
     if(!host || !overviewHost || !grid) return;
     const token=++renderToken;
-    const needWarningGeo = !(getGlobal('typhoonWarningCountyData', null) && getGlobal('typhoonWarningTownData', null));
-    if(needWarningGeo){
-      ensureGalleryWarningGeo().then(ok=>{ if(ok) scheduleRender(120); }).catch(()=>{});
+    if(!warningGeoChecked){
+      warningGeoChecked=true;
+      const needWarningGeo=!(getGlobal('typhoonWarningCountyData',null) && getGlobal('typhoonWarningTownData',null));
+      if(needWarningGeo){
+        ensureGalleryWarningGeo()
+          .then(ok=>{ if(ok) scheduleRender(250); })
+          .catch(err=>console.warn('[Gallery warning GeoJSON]',err));
+      }
     }
     const groups=getTyphoonGroups();
-    overviewHost.innerHTML=''; grid.innerHTML='';
     if(!groups.length){
-      grid.innerHTML='<div class="trackMapFrame"><div class="trackMapMeta"><div><h4>目前沒有可生成的颱風資料</h4><p>目前沒有颱風資料</p></div></div></div>';
+      overviewHost.replaceChildren();
+      grid.innerHTML='<div class="trackMapFrame"><div class="trackMapMeta"><div><h4>目前沒有可生成的颱風資料</h4><p>資料載入後會自動顯示圖片，也可按頁面上的「刷新」。</p></div></div></div>';
       return;
     }
-    overviewHost.appendChild(renderOverviewFigure(groups));
-    groups.forEach(g=>{ const fig=renderSingleFigure(g); if(fig) grid.appendChild(fig); });
-    setTimeout(()=>{ if(token!==renderToken) return; }, 100);
+    // Assemble new figures before replacing the old ones, so the gallery
+    // never goes blank midway through a scheduled refresh.
+    const overview=renderOverviewFigure(groups);
+    const cards=groups.map(g=>renderSingleFigure(g)).filter(Boolean);
+    if(token!==renderToken)return;
+    overviewHost.replaceChildren(overview);
+    grid.replaceChildren(...cards);
   }
 
   W.renderGallery=renderGallery;
@@ -19033,10 +19147,22 @@ ${a.instruction}` : ''
       const svgReady=!!(svg && svg.children && svg.children.length>=2);
       const tileReady=tileImgs.length>0 && tileImgs.every(img=>img.complete && img.naturalWidth>0);
       const sized=!!(plot && plot.clientWidth>100 && plot.clientHeight>100);
-      if(svgReady && tileReady && sized) return true;
+      if(svgReady && sized){
+        if(tileReady)return true;
+        // Image requests that have already failed cannot recover by waiting
+        // for the full timeout: show the forecast illustration promptly.
+        if(tileImgs.length>0 && tileImgs.every(img=>img.complete))return true;
+        // If no tile request was created, continue with the vector chart.
+        if(tileImgs.length===0 && Date.now()-start>1300)return true;
+      }
       await wait(180);
     }
-    return false;
+    // If Mapbox tiles are unavailable, still create a real image of the
+    // already rendered forecast cone, track, dates, warning overlays and grid.
+    // Don't leave an empty gallery merely because the basemap request failed.
+    const plot=frame?.querySelector('.trackPlot');
+    const svg=frame?.querySelector('.trackSvgLayer');
+    return !!(frame?.isConnected && plot?.clientWidth>100 && plot?.clientHeight>100 && svg?.children?.length>=2);
   }
 
   async function makeRealImage(frame){
@@ -19074,8 +19200,10 @@ ${a.instruction}` : ''
     const legendText=(legend?.textContent||'').replace(/\s+/g,' ').trim();
 
     const isGeoOverview=frame.dataset.geoBounds==='90,180,0,50';
-    const domMapLayer=isGeoOverview ? frame.querySelector('.trackTileLayer') : null;
-    const overviewAxis=isGeoOverview ? frame.querySelector('.trackOverviewAxes') : null;
+    const isSingleAxes=plot.classList.contains('trackAxesOutside');
+    const hasOuterAxes=isGeoOverview || isSingleAxes;
+    const domMapLayer=hasOuterAxes ? frame.querySelector('.trackTileLayer') : null;
+    const overviewAxis=hasOuterAxes ? frame.querySelector('.trackOverviewAxes') : null;
     const plotInsetX = 22;
     const plotInsetTop = 10;
     const plotInsetBottom = 10;
@@ -19136,11 +19264,14 @@ ${a.instruction}` : ''
     const loadedTiles=tileImgs.filter(img=>img.complete && img.naturalWidth>0);
     const svgHasContent=svg.children && svg.children.length>=2;
 
-    // Never freeze a partially loaded basemap into the downloadable PNG.
-    if(!frame.isConnected || !loadedTiles.length || loadedTiles.length!==tileImgs.length || !svgHasContent){
+    // Render the map annotations even when Mapbox tile requests fail.
+    // The fallback retains the full storm graphic over a pale sea background.
+    // It is preferable to the previous permanent empty-image state.
+    if(!frame.isConnected || !svgHasContent){
       delete frame.dataset.converting;
       return;
     }
+    const missingBasemap=tileImgs.length===0 || loadedTiles.length!==tileImgs.length;
 
     const scale=2;
     const canvas=document.createElement('canvas');
@@ -19186,16 +19317,16 @@ ${a.instruction}` : ''
         rightLines.forEach((line,i)=>text(line,width-18,30+i*28,{size:i===0?14:13,weight:900,color:'#33424c',align:'right'}));
       }
 
-      // plot area with left/right whitespace. For the fixed-bounds overview,
-      // the coordinates live in white margins OUTSIDE the actual basemap.
+      // Plot, single-storm and overview both use real outside-axis margins,
+      // which are now preserved in the rasterised downloadable PNG.
       const outerPlotY=metaH + plotInsetTop;
       const outerPlotX=plotInsetX;
       const plotScaleX = plotW / Math.max(1,width);
       const plotScaleY = plotH / Math.max(1,rawPlotH);
-      const mapDomX=isGeoOverview ? 52 : 0;
-      const mapDomY=isGeoOverview ? 12 : 0;
-      const mapDomW=isGeoOverview ? domMapLayer.clientWidth : width;
-      const mapDomH=isGeoOverview ? domMapLayer.clientHeight : rawPlotH;
+      const mapDomX=isGeoOverview ? 52 : (isSingleAxes ? 44 : 0);
+      const mapDomY=isGeoOverview ? 12 : (isSingleAxes ? 10 : 0);
+      const mapDomW=hasOuterAxes && domMapLayer ? domMapLayer.clientWidth : width;
+      const mapDomH=hasOuterAxes && domMapLayer ? domMapLayer.clientHeight : rawPlotH;
       const plotX=outerPlotX+mapDomX*plotScaleX;
       const plotY=outerPlotY+mapDomY*plotScaleY;
       const mapDrawW=mapDomW*plotScaleX;
@@ -19225,10 +19356,21 @@ ${a.instruction}` : ''
 
       // draw overlay svg on plot
       const overlay=await svgToImage(svg,mapDomW,mapDomH);
-      if(overlay){
-        ctx.drawImage(overlay,plotX,plotY,mapDrawW,mapDrawH);
+      if(!overlay){
+        // Keep the original, visible vector chart instead of replacing it by
+        // an image without the track and forecast cone.
+        throw new Error('SVG forecast overlay not ready');
       }
+      ctx.drawImage(overlay,plotX,plotY,mapDrawW,mapDrawH);
       ctx.restore();
+      if(missingBasemap){
+        ctx.save();
+        ctx.font='700 11px "Noto Sans TC",sans-serif';
+        ctx.textAlign='right';
+        ctx.fillStyle='rgba(59,83,98,.8)';
+        ctx.fillText('底圖未載入 · 路徑及預報資料已顯示',plotX+mapDrawW-10,plotY+mapDrawH-12);
+        ctx.restore();
+      }
 
       ctx.strokeStyle='rgba(31,53,72,.14)';
       ctx.lineWidth=1;
@@ -19236,7 +19378,7 @@ ${a.instruction}` : ''
 
       // Render geographic tick labels in the OUTER white frame, on the PNG
       // itself (not in the map tiles and not only in browser DOM).
-      if(isGeoOverview && overviewAxis){
+      if(hasOuterAxes && overviewAxis){
         [...overviewAxis.querySelectorAll('text')].forEach(t=>{
           const x=outerPlotX+Number(t.getAttribute('x'))*plotScaleX;
           const y=outerPlotY+Number(t.getAttribute('y'))*plotScaleY;
