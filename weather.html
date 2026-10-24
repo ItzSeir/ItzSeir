@@ -5293,6 +5293,18 @@ html{scroll-padding-top:110px}
 </style>
 
 <style>
+/* Share storm picker: real storm names for both PNG and video outputs. */
+.shareStormList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.shareStormItem{position:relative;display:flex;align-items:center;gap:12px;min-width:0;min-height:52px;padding:10px 14px;border:1px solid rgba(23,54,72,.13);background:#fff;border-radius:15px;cursor:pointer;color:#244556;font-size:14px;font-weight:900;transition:background .15s,border-color .15s,box-shadow .15s}
+.shareStormItem input{position:absolute;opacity:0;width:1px;height:1px}
+.shareStormItem:has(input:focus-visible){outline:2px solid #229c92;outline-offset:3px}
+.shareStormMark{height:19px;width:19px;border-radius:50%;border:1.8px solid #9bafb9;background:#fff;flex-shrink:0;display:grid;place-items:center}
+.shareStormName{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.shareStormItem.is-active{background:rgba(34,156,146,.07);border-color:#229c92;box-shadow:0 5px 14px rgba(19,86,107,.08)}
+.shareStormItem.is-active .shareStormMark{border-color:#198c83}
+.shareStormItem.is-active .shareStormMark:after{content:'';width:9px;height:9px;background:#198c83;border-radius:50%}
+@media(max-width:520px){.shareStormList{grid-template-columns:1fr}}
+
 .shareBtn{background:linear-gradient(135deg,#13566b,#229c92)!important;color:#fff!important;border:1px solid rgba(15,76,92,.22)!important;box-shadow:0 6px 18px rgba(19,86,107,.16)}
 .shareBtn:hover{box-shadow:0 10px 24px rgba(19,86,107,.24)}
 .shareLegacyControls{display:none!important}
@@ -5640,19 +5652,14 @@ Implement by adjusting polygon style functions:
           </label>
           <label class="shareOption">
             <input type="radio" name="shareExportType" value="video">
-            <div><div>高清影片</div><small>輸出 MP4 / WebM 動畫</small></div>
+            <div><div>GIF／影片</div><small>輸出 MP4 / WebM 動畫</small></div>
           </label>
         </div>
       </section>
       <section class="shareGroup" id="shareTargetSection">
         <div class="shareGroupTitle"><strong>要輸出哪個颱風？</strong><span>圖片 / 影片 共用</span></div>
-        <div class="shareGrid">
-          <div class="shareField">
-            <label for="shareStormTarget">分享對象</label>
-            <select id="shareStormTarget"></select>
-          </div>
-        </div>
-        <div class="shareHint">可選擇單一颱風，也可直接選擇「全部颱風」，讓圖片與影片使用一致的分享邏輯。</div>
+        <div class="shareStormList" id="shareStormChoices" role="radiogroup" aria-label="選擇颱風"></div>
+        <div class="shareHint">圖片與 GIF／影片都可以選擇一個指定颱風，或輸出全部颱風。</div>
       </section>
       <section class="shareGroup" id="shareImageSection">
         <div class="shareGroupTitle"><strong>圖片設定</strong><span>PNG</span></div>
@@ -8445,8 +8452,18 @@ Implement by adjusting polygon style functions:
         const ly = chosen.y + labelH / 2;
         const isCurrent = item.kind === "current";
 
+        const anchorX = lx + 10;
+        const anchorY = ly;
+        const dx = anchorX - p.x;
+        const dy = anchorY - p.y;
+        const midX = p.x + dx * 0.5;
+        const midY = p.y + dy * 0.5;
+        const bend = Math.max(10, Math.min(24, Math.abs(dx) * 0.12 + Math.abs(dy) * 0.08));
+        const controlY = midY + (dy >= 0 ? bend : -bend);
+        const leaderPath = `M ${p.x.toFixed(1)} ${p.y.toFixed(1)} Q ${midX.toFixed(1)} ${controlY.toFixed(1)} ${anchorX.toFixed(1)} ${anchorY.toFixed(1)}`;
+
         return `
-          <line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${(lx+10).toFixed(1)}" y2="${ly.toFixed(1)}" stroke="#78909c" stroke-width="1.5" opacity="0.45"/>
+          <path d="${leaderPath}" fill="none" stroke="#78909c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
           <rect x="${lx.toFixed(1)}" y="${chosen.y.toFixed(1)}" width="${labelW}" height="${labelH}" rx="15" fill="rgba(255,255,255,.94)" stroke="#d7e3ea" stroke-width="1"/>
           <circle cx="${(lx+15).toFixed(1)}" cy="${ly.toFixed(1)}" r="3.8" fill="${st.color}" opacity="0.95"/>
           <text x="${(lx+26).toFixed(1)}" y="${(ly+4.5).toFixed(1)}" font-size="12" font-weight="900" fill="#102d40">${label}</text>
@@ -9536,13 +9553,23 @@ Implement by adjusting polygon style functions:
         const bx = x;
         const by = y - h/2;
         if(Number.isFinite(fromX) && Number.isFinite(fromY)){
-          const anchorX = Math.max(bx, Math.min(bx + w, fromX < bx ? bx : bx + w));
+          const anchorX = fromX < bx ? bx + 8 : (fromX > bx + w ? bx + w - 8 : bx + w * 0.5);
           const anchorY = by + h / 2;
+          const dx = anchorX - fromX;
+          const dy = anchorY - fromY;
+          const mx = fromX + dx * 0.5;
+          const my = fromY + dy * 0.5;
+          const bend = Math.max(10, Math.min(26, Math.abs(dx) * 0.12 + Math.abs(dy) * 0.08));
+          const curveDir = dy >= 0 ? 1 : -1;
+          const cx = mx;
+          const cy = my + bend * curveDir;
           ctx.beginPath();
           ctx.moveTo(fromX, fromY);
-          ctx.lineTo(anchorX, anchorY);
+          ctx.quadraticCurveTo(cx, cy, anchorX, anchorY);
           ctx.strokeStyle = "rgba(15,76,92,.34)";
           ctx.lineWidth = 1.2;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
           ctx.setLineDash([4,4]);
           ctx.stroke();
           ctx.setLineDash([]);
@@ -9720,13 +9747,24 @@ Implement by adjusting polygon style functions:
         function drawNameLeaderLabel(text, x, y, anchorX, anchorY, color){
           const w = Math.max(98, Math.min(230, String(text).length * 13 + 34));
           const h = 28;
+          const targetX = x + (anchorX < x ? 10 : (anchorX > x + w ? w - 10 : w * 0.5));
+          const targetY = y + h/2;
+          const dx = targetX - anchorX;
+          const dy = targetY - anchorY;
+          const mx = anchorX + dx * 0.5;
+          const my = anchorY + dy * 0.5;
+          const bend = Math.max(8, Math.min(20, Math.abs(dx) * 0.08 + Math.abs(dy) * 0.08));
+          const cx = mx;
+          const cy = my + (dy >= 0 ? bend : -bend);
           ctx.save();
           ctx.strokeStyle = "rgba(47,84,104,.40)";
           ctx.lineWidth = 1.15;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
           ctx.setLineDash([]);
           ctx.beginPath();
           ctx.moveTo(anchorX, anchorY);
-          ctx.lineTo(x + (anchorX < x ? 10 : w - 10), y + h/2);
+          ctx.quadraticCurveTo(cx, cy, targetX, targetY);
           ctx.stroke();
           ctx.restore();
           drawLabelLocal(ctx, x, y, text, color);
@@ -17108,6 +17146,19 @@ ${a.instruction}` : ''
     overflow:hidden;
   }
   .trackPlot.overview{height:540px}
+  /* Overview only: accurate 90–180E / 0–50N chart with external axes. */
+  #trackOverviewHost .trackPlot.overview.trackGeoBounded{background:#ffffff}
+  #trackOverviewHost .trackPlot.trackGeoBounded .trackTileFallback,
+  #trackOverviewHost .trackPlot.trackGeoBounded .trackTileLayer,
+  #trackOverviewHost .trackPlot.trackGeoBounded .trackSvgLayer,
+  #trackOverviewHost .trackPlot.trackGeoBounded .trackFallbackLabel{
+    inset:12px 34px 36px 52px;
+  }
+  #trackOverviewHost .trackPlot.trackGeoBounded .trackSvgLayer{overflow:hidden}
+  #trackOverviewHost .trackPlot.trackGeoBounded .trackOverviewAxes{
+    position:absolute;inset:0;width:100%;height:100%;z-index:4;
+    overflow:hidden;pointer-events:none;
+  }
   .trackTileLayer,.trackSvgLayer,.trackFallbackLabel{position:absolute;inset:0}
   .trackTileLayer{overflow:hidden;z-index:1}
   .trackTileLayer img{position:absolute;width:256px;height:256px;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none}
@@ -17745,6 +17796,44 @@ ${a.instruction}` : ''
   }
 
   function niceStep(span){ if(span<=4) return 1; if(span<=8) return 2; if(span<=18) return 5; if(span<=40) return 10; return 20; }
+  // Fixed geographic coverage for the full western North Pacific overview.
+  // Match the Mercator box aspect ratio instead of stretching the map.
+  const NWP_BOUNDS={west:90,east:180,south:0,north:50};
+  const NWP_AXIS={left:52,right:34,top:12,bottom:36};
+  function makeNwpExactView(width,height){
+    const b=NWP_BOUNDS;
+    const dx=mx(b.east)-mx(b.west),dy=my(b.south)-my(b.north);
+    return {
+      lon:(b.west+b.east)/2,
+      lat:imy((my(b.north)+my(b.south))/2),
+      zoom:Math.log2(Math.min(width/(256*dx),height/(256*dy)))
+    };
+  }
+  function renderNwpExternalAxes(svg, axisSvg, view, width, height, plotWidth, plotHeight){
+    const b=NWP_BOUNDS, a=NWP_AXIS;
+    const project=projector(view,width,height);
+    const grid=svgEl('g',{'stroke':'rgba(30,55,75,.22)','stroke-width':'1','stroke-dasharray':'4 7'});
+    const outerLabels=svgEl('g',{'fill':'#29414f','font-size':'12','font-weight':'850','font-family':'Noto Sans TC, Segoe UI, Arial, sans-serif'});
+    for(let lon=b.west;lon<=b.east;lon+=10){
+      const x=project((b.north+b.south)/2,lon).x;
+      grid.appendChild(svgEl('line',{x1:x,y1:0,x2:x,y2:height}));
+      const t=svgEl('text',{x:a.left+x,y:a.top+height+22,'text-anchor':'middle'});
+      t.textContent=`${lon}°E`;outerLabels.appendChild(t);
+    }
+    for(let lat=b.south;lat<=b.north;lat+=10){
+      const y=project(lat,(b.west+b.east)/2).y;
+      grid.appendChild(svgEl('line',{x1:0,y1:y,x2:width,y2:y}));
+      const t=svgEl('text',{x:a.left-9,y:a.top+y+4,'text-anchor':'end'});
+      t.textContent=`${lat}°N`;outerLabels.appendChild(t);
+    }
+    svg.appendChild(grid);
+    axisSvg.setAttribute('viewBox',`0 0 ${plotWidth} ${plotHeight}`);
+    axisSvg.setAttribute('width',plotWidth);
+    axisSvg.setAttribute('height',plotHeight);
+    axisSvg.innerHTML='';
+    axisSvg.appendChild(outerLabels);
+  }
+
   function addGrid(svg, view, width, height){
     const tl=invProject(view,width,height,0,0), br=invProject(view,width,height,width,height);
     const lonStep=niceStep(Math.abs(br.lon-tl.lon)), latStep=niceStep(Math.abs(tl.lat-br.lat));
@@ -18354,39 +18443,45 @@ ${a.instruction}` : ''
       true
     );
     const plot=frame.querySelector('.trackPlot');
+    plot.classList.add('trackGeoBounded');
     const svg=frame.querySelector('.trackSvgLayer');
     const tileLayer=frame.querySelector('.trackTileLayer');
+    const axisSvg=svgEl('svg',{'class':'trackOverviewAxes','aria-label':'地圖外側經緯度刻度'});
+    plot.appendChild(axisSvg);
     requestAnimationFrame(()=>{
-      const width=Math.max(320, plot.clientWidth), height=Math.max(320, plot.clientHeight);
-      const fitPts=[];
-      groups.forEach(g=>{
-        const pts=sortPts(g.points || []); if(!pts.length) return;
-        fitPts.push(...pts);
-        const cone=buildCleanForecastCone(pts);
-        if(cone && cone.length){
-          cone.forEach(p=>fitPts.push({lat:Number(p[0]), lon:Number(p[1])}));
-        }
-      });
-      const view=fitView(fitPts.length ? fitPts : allPts, width, height, 82, 8.9);
-      populateTiles(tileLayer, view, width, height);
-      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-      svg.setAttribute('width', width); svg.setAttribute('height', height);
+      const plotWidth=Math.max(320,plot.clientWidth);
+      const mapWidth=plotWidth-NWP_AXIS.left-NWP_AXIS.right;
+      const spanX=mx(NWP_BOUNDS.east)-mx(NWP_BOUNDS.west);
+      const spanY=my(NWP_BOUNDS.south)-my(NWP_BOUNDS.north);
+      const targetHeight=mapWidth*(spanY/spanX);
+      // The overview is taller than before so the fixed geographic box
+      // remains undistorted and each edge corresponds to the requested bound.
+      plot.style.setProperty('height',`${targetHeight+NWP_AXIS.top+NWP_AXIS.bottom}px`,'important');
+      const plotHeight=plot.clientHeight;
+      const width=tileLayer.clientWidth;
+      const height=tileLayer.clientHeight;
+      const view=makeNwpExactView(width,height);
+      frame.dataset.geoBounds='90,180,0,50';
+      populateTiles(tileLayer,view,width,height);
+      svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
+      svg.setAttribute('width',width);
+      svg.setAttribute('height',height);
       svg.innerHTML='';
-      addGrid(svg, view, width, height);
+      renderNwpExternalAxes(svg,axisSvg,view,width,height,plotWidth,plotHeight);
       if(typeof window.__appendCwaMarineWarningSvg === 'function') {
-        const activeMarine=window.__appendCwaMarineWarningSvg(svg, projector(view,width,height));
+        window.__appendCwaMarineWarningSvg(svg,projector(view,width,height));
         const item=frame.querySelector('.cwaMarineLegend');
         if(item) item.style.display='inline-flex';
       }
-      addLandWarningOverlay(svg, view, width, height);
+      addLandWarningOverlay(svg,view,width,height);
       groups.forEach((g,idx)=>{
         const pts=sortPts(g.points || []); if(!pts.length) return;
         const cone=buildCleanForecastCone(pts);
-        addCone(svg, cone, view, width, height);
-        addRoute(svg, pts, view, width, height, basinColors[idx % basinColors.length]);
+        addCone(svg,cone,view,width,height);
+        addRoute(svg,pts,view,width,height,basinColors[idx % basinColors.length]);
       });
-      addOverviewLabels(svg, groups, view, width, height);
-      addOverviewForecastTimeLabels(svg, groups, view, width, height);
+      addOverviewLabels(svg,groups,view,width,height);
+      addOverviewForecastTimeLabels(svg,groups,view,width,height);
       svg.appendChild(svgEl('rect',{x:0,y:0,width,height,fill:'none',stroke:'rgba(20,30,40,.68)','stroke-width':'1.4'}));
     });
     return frame;
@@ -18978,6 +19073,9 @@ ${a.instruction}` : ''
     const metaH=meta ? 94 : 0;
     const legendText=(legend?.textContent||'').replace(/\s+/g,' ').trim();
 
+    const isGeoOverview=frame.dataset.geoBounds==='90,180,0,50';
+    const domMapLayer=isGeoOverview ? frame.querySelector('.trackTileLayer') : null;
+    const overviewAxis=isGeoOverview ? frame.querySelector('.trackOverviewAxes') : null;
     const plotInsetX = 22;
     const plotInsetTop = 10;
     const plotInsetBottom = 10;
@@ -19088,21 +19186,30 @@ ${a.instruction}` : ''
         rightLines.forEach((line,i)=>text(line,width-18,30+i*28,{size:i===0?14:13,weight:900,color:'#33424c',align:'right'}));
       }
 
-      // plot area with left/right whitespace
-      const plotY=metaH + plotInsetTop;
-      const plotX=plotInsetX;
-      const plotScaleX = plotW / Math.max(1, width);
-      const plotScaleY = plotH / Math.max(1, rawPlotH);
+      // plot area with left/right whitespace. For the fixed-bounds overview,
+      // the coordinates live in white margins OUTSIDE the actual basemap.
+      const outerPlotY=metaH + plotInsetTop;
+      const outerPlotX=plotInsetX;
+      const plotScaleX = plotW / Math.max(1,width);
+      const plotScaleY = plotH / Math.max(1,rawPlotH);
+      const mapDomX=isGeoOverview ? 52 : 0;
+      const mapDomY=isGeoOverview ? 12 : 0;
+      const mapDomW=isGeoOverview ? domMapLayer.clientWidth : width;
+      const mapDomH=isGeoOverview ? domMapLayer.clientHeight : rawPlotH;
+      const plotX=outerPlotX+mapDomX*plotScaleX;
+      const plotY=outerPlotY+mapDomY*plotScaleY;
+      const mapDrawW=mapDomW*plotScaleX;
+      const mapDrawH=mapDomH*plotScaleY;
 
       const grad=ctx.createLinearGradient(0,plotY,0,plotY+plotH);
       grad.addColorStop(0,'#dceef4');
       grad.addColorStop(1,'#edf7fb');
       ctx.fillStyle=grad;
-      ctx.fillRect(plotX,plotY,plotW,plotH);
+      ctx.fillRect(plotX,plotY,mapDrawW,mapDrawH);
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(plotX,plotY,plotW,plotH);
+      ctx.rect(plotX,plotY,mapDrawW,mapDrawH);
       ctx.clip();
 
       // draw tiles
@@ -19117,15 +19224,28 @@ ${a.instruction}` : ''
       }
 
       // draw overlay svg on plot
-      const overlay=await svgToImage(svg,width,rawPlotH);
+      const overlay=await svgToImage(svg,mapDomW,mapDomH);
       if(overlay){
-        ctx.drawImage(overlay,plotX,plotY,plotW,plotH);
+        ctx.drawImage(overlay,plotX,plotY,mapDrawW,mapDrawH);
       }
       ctx.restore();
 
       ctx.strokeStyle='rgba(31,53,72,.14)';
       ctx.lineWidth=1;
-      ctx.strokeRect(plotX+.5, plotY+.5, plotW-1, plotH-1);
+      ctx.strokeRect(plotX+.5,plotY+.5,mapDrawW-1,mapDrawH-1);
+
+      // Render geographic tick labels in the OUTER white frame, on the PNG
+      // itself (not in the map tiles and not only in browser DOM).
+      if(isGeoOverview && overviewAxis){
+        [...overviewAxis.querySelectorAll('text')].forEach(t=>{
+          const x=outerPlotX+Number(t.getAttribute('x'))*plotScaleX;
+          const y=outerPlotY+Number(t.getAttribute('y'))*plotScaleY;
+          text(t.textContent||'',x,y,{
+            size:12,weight:900,color:'#29414f',
+            align:t.getAttribute('text-anchor')==='end'?'right':t.getAttribute('text-anchor')==='middle'?'center':'left'
+          });
+        });
+      }
 
       // legend/footer area with wrapping
       if(legendH>0){
@@ -20726,7 +20846,17 @@ function animStrengthAt(firstLevel,lastLevel,fraction){
 }
 function normalizedLon(lon,reference){return reference+((((lon-reference)+540)%360+360)%360-180)}
 function storms(){
- let src=[];try{src=Array.isArray(points)?points:[]}catch(_){ }
+ let src=[];
+ const target=window.__shareVideoExportTarget;
+ try{
+   if(typeof target==='string'){
+     const roster=Array.isArray(allTyphoons)?allTyphoons:[];
+     const chosen=target==='all'?roster:roster.filter(t=>String(t.id)===target);
+     src=chosen.flatMap(t=>(t.points||[]).map(p=>({...p,typhoonId:String(t.id),typhoonName:t.name})));
+   }else{
+     src=Array.isArray(points)?points:[];
+   }
+ }catch(_){src=[]}
  const byId=new Map();
  for(const p of src){if(!Number.isFinite(+p.lat)||!Number.isFinite(+p.lon))continue;const key=String(p.typhoonId||p.typhoonName||'typhoon');if(!byId.has(key))byId.set(key,[]);byId.get(key).push({...p,_t:asTime(p)});}
  return [...byId.entries()].map(([key,raw])=>{
@@ -21390,6 +21520,7 @@ async function exportVideo(){
  finally{
   if(encoder)try{encoder.close()}catch(_){ }
   tileCache.clear();generating=false;button.disabled=false;button.textContent='生成高清影片';
+  delete window.__shareVideoExportTarget;
  }
 }
 
@@ -22001,105 +22132,139 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 <script>
 (function(){
-  function $s(id){ return document.getElementById(id); }
-  const modal=$s('shareExportModal');
-  const openBtn=$s('openShareModalBtn');
+  'use strict';
+  const $s=id=>document.getElementById(id);
+  const modal=$s('shareExportModal'), openBtn=$s('openShareModalBtn');
   if(!modal || !openBtn) return;
-  const panel=modal.querySelector('.shareModalPanel');
-  const closeBtn=$s('shareExportCloseBtn');
-  const cancelBtn=$s('shareExportCancelBtn');
-  const confirmBtn=$s('shareExportConfirmBtn');
-  const imageSection=$s('shareImageSection');
-  const videoSection=$s('shareVideoSection');
-  const targetSelect=$s('shareStormTarget');
-  const radioSets=[...modal.querySelectorAll('.shareOption input[type="radio"]')];
-  function refreshActiveStates(){
-    modal.querySelectorAll('.shareOption').forEach(el=>{
-      const input=el.querySelector('input[type="radio"]');
-      el.classList.toggle('is-active', !!input?.checked);
-    });
+  const closeBtn=$s('shareExportCloseBtn'), cancelBtn=$s('shareExportCancelBtn');
+  const confirmBtn=$s('shareExportConfirmBtn'), choices=$s('shareStormChoices');
+  const imageSection=$s('shareImageSection'), videoSection=$s('shareVideoSection');
+  let selectedStormId='all';
+  const getStorms=()=>{
+    try{return Array.isArray(allTyphoons) ? allTyphoons.filter(t=>t && Array.isArray(t.points) && t.points.length) : []}
+    catch(_){return []}
+  };
+  function displayName(raw){
+    return String(raw || '未命名熱帶氣旋')
+      .replace(/^\s*CWA\s*[｜|]\s*/i,'')
+      .replace(/\s*（\d+點）\s*$/,'').trim();
   }
-  function selectedType(){ return modal.querySelector('input[name="shareExportType"]:checked')?.value || 'image'; }
-  function syncSections(){
-    const type=selectedType();
-    const isVideo=type==='video';
-    imageSection.hidden=isVideo;
-    videoSection.hidden=!isVideo;
-    confirmBtn.textContent=isVideo ? '開始生成影片' : '開始產生 PNG';
-    refreshActiveStates();
-  }
-  function syncStormTargetOptions(){
-    const sourceSelect=$s('typhoonSelect');
-    if(!targetSelect || !sourceSelect) return;
-    const wanted=targetSelect.value || sourceSelect.value || 'all';
-    targetSelect.innerHTML='';
-    [...sourceSelect.options].forEach(opt=>{
-      const clone=document.createElement('option');
-      clone.value=opt.value;
-      clone.textContent=opt.textContent;
-      targetSelect.appendChild(clone);
-    });
-    targetSelect.value=[...targetSelect.options].some(opt=>opt.value===wanted)
-      ? wanted
-      : (sourceSelect.value || targetSelect.options[0]?.value || 'all');
-  }
-  function syncFromHiddenControls(){
-    const q=$s('typhoonVideoQuality'), f=$s('typhoonVideoFormat'), m=$s('typhoonVideoMotion');
-    if(q && $s('shareVideoQuality')) $s('shareVideoQuality').value=q.value || '1440p';
-    if(f && $s('shareVideoFormat')) $s('shareVideoFormat').value=f.value || 'mp4';
-    if(m && $s('shareVideoMotion')) $s('shareVideoMotion').value=m.value || 'hourly';
-    syncStormTargetOptions();
-    const sourceSelect=$s('typhoonSelect');
-    if(targetSelect && sourceSelect && [...targetSelect.options].some(opt=>opt.value===sourceSelect.value)){
-      targetSelect.value=sourceSelect.value;
+  function populateStorms(){
+    const storms=getStorms();
+    // Use the actual data roster, not generic single/all labels and not the
+    // interactive map's currently selected subset.
+    const entries=[{id:'all',name:'全部颱風'},...storms.map(t=>({id:String(t.id),name:displayName(t.name)}))];
+    const ids=new Set(entries.map(e=>e.id));
+    if(!ids.has(selectedStormId)){
+      const current=$s('typhoonSelect')?.value;
+      selectedStormId=current&&ids.has(current)?current:'all';
+    }
+    choices.replaceChildren();
+    for(const entry of entries){
+      const label=document.createElement('label');
+      label.className='shareStormItem';
+      label.title=entry.name;
+      const input=document.createElement('input');
+      input.type='radio';input.name='shareStormChoice';input.value=entry.id;
+      input.checked=entry.id===selectedStormId;
+      const mark=document.createElement('span');mark.className='shareStormMark';mark.setAttribute('aria-hidden','true');
+      const name=document.createElement('span');name.className='shareStormName';name.textContent=entry.name;
+      label.append(input,mark,name);
+      label.classList.toggle('is-active',input.checked);
+      input.addEventListener('change',()=>{
+        selectedStormId=entry.id;
+        choices.querySelectorAll('.shareStormItem').forEach(row=>{
+          row.classList.toggle('is-active',row.querySelector('input')?.checked===true);
+        });
+      });
+      choices.appendChild(label);
     }
   }
-  function applyShareTargetSelection(){
-    const sourceSelect=$s('typhoonSelect');
-    const targetValue=targetSelect?.value || sourceSelect?.value || 'all';
-    if(sourceSelect && sourceSelect.value!==targetValue){
-      sourceSelect.value=targetValue;
-      sourceSelect.dispatchEvent(new Event('change',{bubbles:true}));
-    }
-    return targetValue;
+  const selectedType=()=>modal.querySelector('input[name="shareExportType"]:checked')?.value||'image';
+  function refreshSections(){
+    const isVideo=selectedType()==='video';
+    imageSection.hidden=isVideo;videoSection.hidden=!isVideo;
+    confirmBtn.textContent=isVideo?'開始生成影片':'下載 PNG';
+    modal.querySelectorAll('.shareOption').forEach(label=>{
+      label.classList.toggle('is-active',label.querySelector('input')?.checked===true);
+    });
   }
-  function openModal(){
-    syncFromHiddenControls();
-    modal.hidden=false;
-    modal.setAttribute('aria-hidden','false');
+  function open(){
+    if($s('typhoonVideoQuality')) $s('shareVideoQuality').value=$s('typhoonVideoQuality').value;
+    if($s('typhoonVideoFormat')) $s('shareVideoFormat').value=$s('typhoonVideoFormat').value;
+    if($s('typhoonVideoMotion')) $s('shareVideoMotion').value=$s('typhoonVideoMotion').value;
+    // On each opening, show the currently selected map storm as the default,
+    // but changing this picker must not change the live interactive map.
+    selectedStormId=$s('typhoonSelect')?.value||'all';
+    populateStorms();
+    modal.hidden=false;modal.setAttribute('aria-hidden','false');
     document.body.classList.add('bodyShareModalOpen');
-    requestAnimationFrame(()=>{ modal.classList.add('is-open'); syncSections(); });
+    requestAnimationFrame(()=>{modal.classList.add('is-open');refreshSections()});
   }
-  function closeModal(){
+  function close(){
     modal.classList.remove('is-open');
     modal.setAttribute('aria-hidden','true');
     document.body.classList.remove('bodyShareModalOpen');
-    setTimeout(()=>{ modal.hidden=true; },180);
+    setTimeout(()=>{if(!modal.classList.contains('is-open'))modal.hidden=true},180);
   }
-  openBtn.addEventListener('click', openModal);
-  closeBtn?.addEventListener('click', closeModal);
-  cancelBtn?.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && !modal.hidden) closeModal(); });
-  radioSets.forEach(input=> input.addEventListener('change', syncSections));
-  confirmBtn?.addEventListener('click', ()=>{
+  function imageDownload(url,filename){
+    const a=document.createElement('a');
+    a.href=url;a.download=filename;
+    document.body.appendChild(a);a.click();a.remove();
+  }
+  async function exportPngForStorm(id){
+    if(id==='all'){
+      if(typeof window.exportAllTyphoonsV10==='function') return window.exportAllTyphoonsV10();
+      $s('printAllBtn')?.click();return;
+    }
+    const list=getStorms();
+    const index=list.findIndex(t=>String(t.id)===id);
+    if(index<0) throw new Error('這個颱風已經不在最新資料清單中。');
+    let frames=[...document.querySelectorAll('#trackCardGrid > .trackMapFrame')];
+    if(frames.length!==list.length && typeof window.renderGallery==='function'){
+      window.renderGallery();
+      await new Promise(resolve=>setTimeout(resolve,900));
+      frames=[...document.querySelectorAll('#trackCardGrid > .trackMapFrame')];
+    }
+    const frame=frames[index];
+    if(!frame)throw new Error('指定颱風的路徑圖片尚未生成，請重新整理後再試。');
+    if(frame.dataset.realImage!=='1' && typeof window.makeRealImage==='function'){
+      await window.makeRealImage(frame);
+    }
+    const image=frame.querySelector('img.trackDownloadImage');
+    if(!image?.src || frame.dataset.realImage!=='1'){
+      throw new Error('指定颱風 PNG 尚未完成生成，請稍後再試。');
+    }
+    const name=displayName(list[index].name).replace(/[\/:*?"<>|]/g,'_');
+    imageDownload(image.src,`${name}_颱風路徑.png`);
+  }
+  openBtn.addEventListener('click',open);
+  closeBtn?.addEventListener('click',close);
+  cancelBtn?.addEventListener('click',close);
+  modal.addEventListener('click',e=>{if(e.target===modal)close()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)close()});
+  modal.querySelectorAll('input[name="shareExportType"]').forEach(x=>x.addEventListener('change',refreshSections));
+  confirmBtn?.addEventListener('click',async()=>{
+    const id=choices.querySelector('input[name="shareStormChoice"]:checked')?.value||'all';
     const type=selectedType();
-    const targetValue=applyShareTargetSelection();
     if(type==='video'){
-      if($s('typhoonVideoQuality')) $s('typhoonVideoQuality').value=$s('shareVideoQuality')?.value || '1440p';
-      if($s('typhoonVideoFormat')) $s('typhoonVideoFormat').value=$s('shareVideoFormat')?.value || 'mp4';
-      if($s('typhoonVideoMotion')) $s('typhoonVideoMotion').value=$s('shareVideoMotion')?.value || 'hourly';
-      closeModal();
-      setTimeout(()=>{ $s('exportTyphoonGifBtn')?.click(); }, 140);
+      const storms=getStorms();
+      if(id!=='all' && !storms.some(t=>String(t.id)===id)){
+        alert('此颱風已不在最新資料中，請重新開啟分享選單。');return;
+      }
+      if($s('typhoonVideoQuality'))$s('typhoonVideoQuality').value=$s('shareVideoQuality').value;
+      if($s('typhoonVideoFormat'))$s('typhoonVideoFormat').value=$s('shareVideoFormat').value;
+      if($s('typhoonVideoMotion'))$s('typhoonVideoMotion').value=$s('shareVideoMotion').value;
+      window.__shareVideoExportTarget=id;
+      close();
+      setTimeout(()=>$s('exportTyphoonGifBtn')?.click(),100);
       return;
     }
-    closeModal();
-    setTimeout(()=>{
-      if(targetValue==='all') $s('printAllBtn')?.click();
-      else $s('printBtn')?.click();
-    }, 140);
+    close();
+    try{await exportPngForStorm(id)}
+    catch(err){console.error('[Share PNG]',err);alert(err?.message||'圖片輸出失敗');}
   });
-  syncSections();
+  refreshSections();
 })();
 </script>
 <!-- Interactive typhoon-map warning visibility, without changing any exported artwork. -->
