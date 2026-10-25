@@ -14225,7 +14225,24 @@ ${a.instruction}` : ''
       'daerah kecil lojing':['daerah kecil lojing','kecil lojing','lojing'],
       'wilayah persekutuan kuala lumpur':['w p kuala lumpur','kuala lumpur'],
       'wilayah persekutuan labuan':['w p labuan','labuan'],
-      'wilayah persekutuan putrajaya':['w p putrajaya','putrajaya']
+      'wilayah persekutuan putrajaya':['w p putrajaya','putrajaya'],
+      // MET names for Sabah's older combined polygons. Names are aliases, not new surveyed polygons.
+      'beluran labuk sugut paitan combined legacy boundary':['beluran','labuk sugut','labuk and sugut','labuk dan sugut','paitan'],
+      'keningau':['keningau','sook'],
+      'nabawan':['nabawan','pensiangan']
+    };
+    const SABAH_DIVISION_ALIASES = {
+      'interior':'interior','pedalaman':'interior','pedalaman atas':'interior','pedalaman bawah':'interior',
+      'west coast':'west coast','pantai barat':'west coast','pantai barat utara':'west coast','pantai barat selatan':'west coast',
+      'kudat':'kudat','sandakan':'sandakan','tawau':'tawau'
+    };
+    // Names of the five Malaysian Meteorological Department divisions, NOT state or district names.
+    const SABAH_DIVISION_DISTRICTS = {
+      'interior':['Keningau','Tambunan','Nabawan','Tenom','Beaufort','Sipitang','Kuala Penyu'],
+      'west coast':['Kota Kinabalu','Kota Belud','Ranau','Tuaran','Penampang','Papar','Putatan'],
+      'kudat':['Kudat','Kota Marudu','Pitas'],
+      'sandakan':['Sandakan','Beluran','Kinabatangan','Tongod','Telupid'],
+      'tawau':['Tawau','Lahad Datu','Semporna','Kunak','Kalabakan']
     };
     const levelStyle = {
       blue:{fill:'#38bdf8',stroke:'#0369a1',label:'豪雨警報'},
@@ -14256,7 +14273,7 @@ ${a.instruction}` : ''
     }
     function districtAliases(f){
       const key=geoDistrict(f), p=f?.properties || {};
-      return [...new Set([key, p.name_original, ...(p.aliases || []), ...(DISTRICT_ALIASES[key] || [])].map(norm).filter(Boolean))];
+      return [...new Set([key, p.name, p.name_original, ...(p.aliases || []), ...(DISTRICT_ALIASES[key] || [])].map(norm).filter(Boolean))];
     }
     function displayDistrict(f){return f?.properties?.name_full || f?.properties?.name || '';}
     function html(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -14310,40 +14327,105 @@ ${a.instruction}` : ''
       }
       return chunks;
     }
+    // Split commas / lists only when outside parentheses: e.g. "Sandakan (Paitan, Telupid), Tawau (Kalabakan)".
+    function splitTopLevel(s){
+      let depth=0,buf='',items=[];
+      for(const ch of String(s||'')){
+        if(ch==='(')depth++;
+        if(ch===')')depth=Math.max(0,depth-1);
+        if((ch===',' || ch===';') && depth===0){if(buf.trim())items.push(buf.trim());buf='';}
+        else buf+=ch;
+      }
+      if(buf.trim())items.push(buf.trim());
+      return items;
+    }
+    // Within a bracket, names are comma-separated or linked by "and"/"dan"; do not
+    // split "Labuk & Sugut", because it is ONE MET Malaysia warning district.
+    function splitDistrictNames(txt){
+      return String(txt||'').replace(/\s+(?:and|dan)\s+/gi,', ')
+        .split(',').map(s=>s.trim()).filter(Boolean);
+    }
     function parseCoverage(w, districtFeatures){
       const fullStates=new Set(), districts=new Set(), unresolved=[];
-      areaClauses(w).forEach(clause => {
-        clause.split(/[•\u2022]/).forEach(raw => {
+      const inState=new Map();
+      districtFeatures.forEach(f=>{
+        const sk=geoState(f); if(!inState.has(sk))inState.set(sk,[]);
+        inState.get(sk).push(f);
+      });
+      function markDistrict(sk, input){
+        const wanted=norm(input);
+        if(!wanted)return 0;
+        let hits=0;
+        (inState.get(sk)||[]).forEach(f=>{
+          if(districtAliases(f).includes(wanted)){
+            districts.add(`${sk}|${geoDistrict(f)}`);hits++;
+          }
+        });
+        return hits;
+      }
+      function markDivision(sk, input){
+        if(sk!=='sabah')return 0;
+        const div=SABAH_DIVISION_ALIASES[norm(input)];
+        if(!div)return 0;
+        let hits=0;
+        (inState.get(sk)||[]).forEach(f=>{
+          const p=f.properties||{};
+          if(norm(p.met_division||p.administrative_division)===div ||
+             SABAH_DIVISION_DISTRICTS[div]?.some(n=>norm(n)===norm(p.name_original||p.name))){
+            districts.add(`${sk}|${geoDistrict(f)}`);hits++;
+          }
+        });
+        return hits;
+      }
+      function markRegion(sk, input){
+        let n=markDivision(sk,input);
+        if(!n)n=markDistrict(sk,input);
+        if(!n)unresolved.push(`${STATE_NAMES[sk]||sk}: ${input}`);
+      }
+      areaClauses(w).forEach(clause=>{
+        clause.split(/[•\u2022]/).forEach(raw=>{
           const area=raw.trim().replace(/[.;]+$/,'');
-          // A single bullet can also say 'Perlis & Kedah' (two whole states).
+          if(!area)return;
+          // More than one whole state may share a bullet ("Perlis & Kedah").
           if(!/[():]/.test(area) && /\s+(?:&|and|dan)\s+/i.test(area)){
-            area.split(/\s+(?:&|and|dan)\s+/i).forEach(part=>{
-              const name=norm(part), state=STATE_ALIASES[name];
-              if(state)fullStates.add(state);
+            const parts=area.split(/\s+(?:&|and|dan)\s+/i);
+            if(parts.every(p=>STATE_ALIASES[norm(p)])){
+              parts.forEach(p=>fullStates.add(STATE_ALIASES[norm(p)])); return;
+            }
+          }
+          const normal=norm(area);
+          const alias=SORTED_STATES.find(a=>normal===a || normal.startsWith(a+' '));
+          if(!alias)return;
+          const sk=STATE_ALIASES[alias];
+          const rest=area.slice(area.toLowerCase().indexOf(alias)+alias.length).trim();
+          if(!rest || !/[(:]/.test(rest)){
+            fullStates.add(sk);return;
+          }
+          // State (district list) – district only, not its entire parent state.
+          if(rest.startsWith('(')){
+            const inside=rest.slice(1,rest.lastIndexOf(')')>=0?rest.lastIndexOf(')'):undefined);
+            splitDistrictNames(inside).forEach(name=>markRegion(sk,name));
+            return;
+          }
+          // State: Divisions (named districts), entire unqualified divisions, etc.
+          if(rest.startsWith(':')){
+            const sections=splitTopLevel(rest.slice(1));
+            sections.forEach(segment=>{
+              let group=segment.trim();
+              // e.g. "West Coast and Kudat" as distinct full divisions.
+              const m=group.match(/^([^()]+?)\s*\((.*)\)\s*$/);
+              if(m){
+                const parent=m[1].trim();
+                // The section's district names are always explicit; do not match parent itself.
+                splitDistrictNames(m[2]).forEach(name=>markDistrict(sk,name) || unresolved.push(`${STATE_NAMES[sk]||sk}: ${parent} (${name})`));
+              }else{
+                const separate=group.split(/\s+(?:and|dan)\s+/i);
+                separate.forEach(token=>markRegion(sk,token.trim()));
+              }
             });
             return;
           }
-          const normal=norm(area);
-          const alias=SORTED_STATES.find(a => normal===a || normal.startsWith(a+' '));
-          if(!alias)return;
-          const sk=STATE_ALIASES[alias];
-          const partial=/\(/.test(area) || /:/.test(area);
-          if(!partial){fullStates.add(sk);return;}
-          // Never match across states: district names are checked only in this state's segment.
-          const own=districtFeatures.filter(f=>geoState(f)===sk);
-          // Sabah/Sarawak bulletins group districts under divisions:
-          // 'Bintulu (Tatau and Sebauh)' means Tatau/Sebauh, NOT Bintulu district.
-          // But 'Betong (Betong)' legitimately includes the district Betong.
-          const namesOnly = area.includes(':')
-            ? area.slice(area.indexOf(':')+1).replace(/(?:^|,)\s*[^:,()]+?\s*\(([^()]*)\)/g, (_,inside)=>', '+inside)
-            : area;
-          let hits=0;
-          own.forEach(f => {
-            if(districtAliases(f).some(a=>wholeTerm(namesOnly,a))){
-              districts.add(`${sk}|${geoDistrict(f)}`); hits++;
-            }
-          });
-          if(!hits)unresolved.push(`${STATE_NAMES[sk] || sk}: ${area}`);
+          unresolved.push(`${STATE_NAMES[sk]||sk}: ${rest}`);
         });
       });
       return {fullStates,districts,unresolved};
@@ -14353,9 +14435,13 @@ ${a.instruction}` : ''
       const fs=myDistrictGeoJSON?.features || [];
       const allStateKeys=new Set((myStateGeoJSON?.features || []).map(geoState));
       allData.forEach(w=>{
-        const info=label(w); if(!info.map)return;
+        const info=label(w);if(!info.map)return;
         const cov=parseCoverage(w,fs);
-        cov.fullStates.forEach(sk=>{if(allStateKeys.has(sk))record(stateWarnings,sk,w,info.level);});
+        cov.fullStates.forEach(sk=>{
+          if(allStateKeys.has(sk))record(stateWarnings,sk,w,info.level);
+          // Critical fix: full-state warning is ALSO a warning for every one of its districts.
+          fs.filter(f=>geoState(f)===sk).forEach(f=>record(districtWarnings,`${sk}|${geoDistrict(f)}`,w,info.level));
+        });
         cov.districts.forEach(key=>record(districtWarnings,key,w,info.level));
         unresolved.push(...cov.unresolved);
       });
@@ -14424,7 +14510,8 @@ ${a.instruction}` : ''
           onEachFeature:(f,layer)=>{
             const rec=districtWarnings.get(`${geoState(f)}|${geoDistrict(f)}`),sty=levelStyle[rec?.level||'none'];
             const title=f?.properties?.display_name || `${displayDistrict(f)} · ${displayState(f)}`;
-            layer.bindTooltip(`<b>${html(title)}</b><br>${html(sty.label)}${rec?`｜${rec.warnings.length} 項`:''}`,{sticky:true,direction:'top',className:'twCountyLabel'});
+            const note=f?.properties?.boundary_note;
+            layer.bindTooltip(`<b>${html(title)}</b><br>${html(sty.label)}${rec?`｜${rec.warnings.length} 項`:''}${rec&&note?`<br><small>舊版縣界：新設縣區可能尚未獨立劃分</small>`:''}`,{sticky:true,direction:'top',className:'twCountyLabel'});
             layer.on({mouseover:()=>layer.setStyle({weight:rec?2.4:.8,opacity:1,fillOpacity:rec?.62:.025}),mouseout:()=>myDistrictLayer?.resetStyle(layer)});
           }
         }).addTo(myMap);bounds.addLayer(myDistrictLayer);
@@ -14432,7 +14519,7 @@ ${a.instruction}` : ''
       requestAnimationFrame(()=>{myMap.invalidateSize();try{myMap.fitBounds(bounds.getBounds(),{padding:[18,18]});}catch(e){}});
       const matched=stateWarnings.size+districtWarnings.size;
       if(q('myMapHint'))q('myMapHint').textContent=matched
-        ? `已標示 ${stateWarnings.size} 個完整州屬與 ${districtWarnings.size} 個指定地區。${unresolved.length?'另有部分區域名稱未能對應到 GeoJSON。':''}`
+        ? `已標示 ${stateWarnings.size} 個完整州屬，合計 ${districtWarnings.size} 個受影響縣區（含整州繼承）。${unresolved.length?' 部分地區未能精確對應。':''}${[...districtWarnings.keys()].some(k=>k.startsWith('sabah|'))?' 沙巴新設縣區仍使用舊版合併邊界。':''}`
         : '已載入地圖；目前沒有可對應的陸地警報。';
     }
     function renderCards(){
