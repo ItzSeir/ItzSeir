@@ -22601,7 +22601,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   function fmtDisplayTime(v){
     if(!v) return '—';
     const d = new Date(v);
-    if(Number.isNaN(d.getTime())) return String(v).replace('T',' ').replace(/:00(?=)/,'');
+    if(Number.isNaN(d.getTime())) return String(v).replace('T',' ').replace(/:00(?=\b)/,'');
     return new Intl.DateTimeFormat('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kuala_Lumpur'}).format(d);
   }
   function stage(ctx,region,titleText,countText,legend,meta){
@@ -22617,8 +22617,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     pill(ctx,82,124,128,countText,'#eef7fb','#d7e9f0','#25556a');
     txt(ctx,'發布時間',1210,74,15,'#738995',700);
     txt(ctx,fmtDisplayTime(meta?.issued),1210,101,21,'#15384d',900,300);
-    txt(ctx,'生效時間',1210,130,15,'#738995',700);
-    txt(ctx,fmtDisplayTime(meta?.validFrom),1210,157,21,'#15384d',900,300);
+    txt(ctx,'生效時間',1210,121,15,'#738995',700);
+    txt(ctx,fmtDisplayTime(meta?.validFrom),1210,148,21,'#15384d',900,300);
     txt(ctx,'受影響地區',60,212,24,PAL.ink,900);
     let lx=67;
     legend.forEach(([name,color])=>{ rr(ctx,lx,228,18,18,5,color,'#7f969f');txt(ctx,name,lx+28,243,15,'#526a78',760); lx+=Math.max(148,ctx.measureText(name).width+74); });
@@ -22684,7 +22684,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     cards(ctx,warningCards,'目前分類沒有警報資訊');
     if(!sw.size&&!dw.size)txt(ctx,'目前分類無可標示的陸地警報區域',72,950,17,'#54737b',750);
     else txt(ctx,`完整州屬 ${sw.size} 個 · 受影響縣區 ${dw.size} 個`,72,950,17,'#54737b',750);
-    if(type.includes('海象')||type.includes('颱風'))txt(ctx,'非陸地警報不以州縣多邊形上色',1129,934,15,'#718692',700);
+
   }
   function twColor(alert){
     if(!alert)return null;
