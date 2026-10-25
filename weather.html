@@ -35,7 +35,7 @@
   --radius2:18px;
   --max:1240px;
 }
- 
+
 *{ box-sizing:border-box; }
 
 html{ scroll-behavior:smooth; }
@@ -5422,6 +5422,7 @@ Implement by adjusting polygon style functions:
               </label>
 <span class="chip" id="twStatus">—</span>
 <button class="btn" id="twRefresh" type="button">立即更新</button>
+<button class="btn warningExportPngBtn" id="twWarningPngBtn" type="button" title="以目前台灣警報分區與警特報資料輸出 PNG">生成圖片 PNG</button>
 </div>
 </div>
 <div class="twOfficialGrid">
@@ -5527,14 +5528,15 @@ Implement by adjusting polygon style functions:
 </div>
 <div class="warningControls">
 <select class="warningSelect" id="myTypeFilter">
-<option value="all">全部警報</option>
-<option value="wind">強風</option>
-<option value="rain">豪雨</option>
-<option value="sea">海象</option>
-<option value="other">其他</option>
+<option value="thunderstorm">豪雨警報</option>
+<option value="continuous">長命雨警報</option>
+
+<option value="sea">海象警報</option>
+<option value="typhoon">颱風警報</option>
 </select>
 <span class="chip" id="myStatus">—</span>
 <button class="btn" id="myRefresh" type="button">重新整理</button>
+<button class="btn warningExportPngBtn" id="myWarningPngBtn" type="button" title="以目前馬來西亞警報類型輸出 PNG">生成圖片 PNG</button>
 </div>
 </div>
 <div class="myWarningGrid">
@@ -14434,7 +14436,8 @@ ${a.instruction}` : ''
       const stateWarnings=new Map(),districtWarnings=new Map(),unresolved=[];
       const fs=myDistrictGeoJSON?.features || [];
       const allStateKeys=new Set((myStateGeoJSON?.features || []).map(geoState));
-      allData.forEach(w=>{
+      const selectedType=q('myTypeFilter')?.value || 'thunderstorm';
+      allData.filter(w=>kind(w)===selectedType).forEach(w=>{
         const info=label(w);if(!info.map)return;
         const cov=parseCoverage(w,fs);
         cov.fullStates.forEach(sk=>{
@@ -14449,8 +14452,8 @@ ${a.instruction}` : ''
     }
     function setupControls(){
       const sel=q('myTypeFilter');
-      if(sel){const previous=sel.value||'all';sel.innerHTML=`<option value="all">全部警報</option><option value="thunderstorm">豪雨警報</option><option value="continuous">長命雨警報</option><option value="sea">海象警報</option><option value="typhoon">颱風警報</option>`;
-        sel.value=['all','thunderstorm','continuous','sea','typhoon'].includes(previous)?previous:'all';}
+      if(sel){const previous=sel.value||'thunderstorm';sel.innerHTML=`<option value="thunderstorm">豪雨警報</option><option value="continuous">長命雨警報</option><option value="sea">海象警報</option><option value="typhoon">颱風警報</option>`;
+        sel.value=['thunderstorm','continuous','sea','typhoon'].includes(previous)?previous:'thunderstorm';}
       const legend=document.querySelector('#warnPanelMy .myMapLegend');
       if(legend)legend.innerHTML=`<span><i style="background:#38bdf8;border-color:#0369a1"></i> 豪雨警報</span><span><i style="background:#fff35a;border-color:#c9a500"></i> 黃色</span><span><i style="background:#ffa733;border-color:#cf6400"></i> 橙色</span><span><i style="background:#e53935;border-color:#960000"></i> 紅色</span>`;
     }
@@ -14523,8 +14526,8 @@ ${a.instruction}` : ''
         : '已載入地圖；目前沒有可對應的陸地警報。';
     }
     function renderCards(){
-      const type=q('myTypeFilter')?.value||'all', box=q('myList');if(!box)return;
-      box.innerHTML='';const filtered=allData.filter(w=>type==='all'||kind(w)===type);
+      const type=q('myTypeFilter')?.value||'thunderstorm', box=q('myList');if(!box)return;
+      box.innerHTML='';const filtered=allData.filter(w=>kind(w)===type);
       if(q('myStatus'))q('myStatus').textContent=`${filtered.length} 項警報`;
       if(!filtered.length)box.innerHTML='<div class="warningEmpty">目前沒有符合條件的警報</div>';
       filtered.forEach(w=>{
@@ -22493,6 +22496,229 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
   else init();
 })();
+</script>
+
+<style id="weather-warnings-image-export-style">
+#twWarningPngBtn,#myWarningPngBtn{background:linear-gradient(135deg,#0f4c5c,#2a9d8f);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(15,76,92,.15)}
+#twWarningPngBtn:hover,#myWarningPngBtn:hover{box-shadow:0 9px 22px rgba(15,76,92,.23)}
+#twWarningPngBtn:disabled,#myWarningPngBtn:disabled{cursor:progress;opacity:.65}
+@media(max-width:780px){#twWarningPngBtn,#myWarningPngBtn{flex:1 1 100%;min-width:0}}
+</style>
+
+<script id="weather-warning-image-export-script">
+/* Weather Warning Center: GeoJSON-backed PNG image export, no cross-origin tiles. */
+(()=>{
+  'use strict';
+  const $=id=>document.getElementById(id);
+  const CACHE=new Map();
+  const W=1600,H=1060;
+  const PAL={sea:'#e9f6fa',land:'#f0f5e9',coast:'#547079',ink:'#142f42',muted:'#647986',line:'#dce7eb',teal:'#0f4c5c',card:'#ffffff'};
+  async function getGeo(path){
+    if(!CACHE.has(path)){
+      const request=fetch(path,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error(`${path} (${r.status})`);return r.json();})
+        .then(x=>{if(x?.type!=='FeatureCollection'||!Array.isArray(x.features)||!x.features.length)throw Error(`${path} 資料格式不正確`);return x;});
+      CACHE.set(path,request);
+    }
+    try{return await CACHE.get(path)}catch(err){CACHE.delete(path);throw err}
+  }
+  function rr(ctx,x,y,w,h,r,fill,stroke){
+    ctx.beginPath();ctx.roundRect(x,y,w,h,r);
+    if(fill){ctx.fillStyle=fill;ctx.fill()}
+    if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke()}
+  }
+  function txt(ctx,s,x,y,size=19,color=PAL.ink,weight=600,maxWidth){
+    ctx.font=`${weight} ${size}px "Noto Sans TC", "Microsoft JhengHei", "Segoe UI", sans-serif`;
+    ctx.fillStyle=color;ctx.textBaseline='alphabetic';
+    if(maxWidth)ctx.fillText(String(s??''),x,y,maxWidth);else ctx.fillText(String(s??''),x,y);
+  }
+  function ellipsis(ctx,s,maxWidth){
+    s=String(s??'').replace(/\s+/g,' ').trim();if(ctx.measureText(s).width<=maxWidth)return s;
+    while(s.length>1 && ctx.measureText(s+'…').width>maxWidth)s=s.slice(0,-1);
+    return s+'…';
+  }
+  function wrap(ctx,s,maxWidth,maxLines){
+    s=String(s||'').replace(/\s+/g,' ').trim();if(!s)return [];
+    const chars=[...s],lines=[];let line='';
+    for(const ch of chars){
+      if(ctx.measureText(line+ch).width>maxWidth && line){lines.push(line);line=ch;if(lines.length===maxLines){lines[maxLines-1]=ellipsis(ctx,lines[maxLines-1]+ch,maxWidth);return lines}}
+      else line+=ch;
+    }
+    if(line)lines.push(line);
+    return lines;
+  }
+  function geometryParts(feature){
+    const g=feature?.geometry;if(!g)return [];
+    if(g.type==='Polygon')return [g.coordinates];
+    if(g.type==='MultiPolygon')return g.coordinates;
+    return [];
+  }
+  function drawable(ctx,feature,proj,color,stroke,width=1){
+    const polys=geometryParts(feature);if(!polys.length)return;
+    ctx.beginPath();let drawn=false;
+    for(const poly of polys)for(const ring of poly){
+      if(!ring?.length)continue;
+      let began=false;
+      for(const co of ring){
+        const lon=Number(co?.[0]),lat=Number(co?.[1]);
+        if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;
+        const [x,y]=proj(lon,lat);
+        if(!began){ctx.moveTo(x,y);began=true;drawn=true}else ctx.lineTo(x,y);
+      }
+      if(began)ctx.closePath();
+    }
+    if(!drawn)return;
+    if(color){ctx.fillStyle=color;ctx.fill('evenodd')}
+    if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.lineJoin='round';ctx.stroke()}
+  }
+  function view(ctx,r,bounds){
+    const [loMin,laMin,loMax,laMax]=bounds;
+    const middle=(laMin+laMax)/2*Math.PI/180,fac=Math.cos(middle);
+    const w=(loMax-loMin)*fac,h=laMax-laMin;
+    const scale=Math.min((r.w-36)/w,(r.h-38)/h);
+    const dx=r.x+(r.w-w*scale)/2,dy=r.y+(r.h-h*scale)/2;
+    return(lon,lat)=>[dx+(lon-loMin)*fac*scale,dy+(laMax-lat)*scale];
+  }
+  function clipPanel(ctx,x,y,w,h,label){
+    rr(ctx,x,y,w,h,15,PAL.sea,'#dae7e9');
+    ctx.save();ctx.beginPath();ctx.roundRect(x+1,y+1,w-2,h-2,14);ctx.clip();
+    // very faint grid, not external tiles
+    ctx.strokeStyle='rgba(72,133,156,.085)';ctx.lineWidth=1;
+    for(let xx=x;xx<x+w;xx+=58){ctx.beginPath();ctx.moveTo(xx,y);ctx.lineTo(xx,y+h);ctx.stroke()}
+    for(let yy=y;yy<y+h;yy+=58){ctx.beginPath();ctx.moveTo(x,yy);ctx.lineTo(x+w,yy);ctx.stroke()}
+    return ()=>{ctx.restore();rr(ctx,x+14,y+12,Math.min(w-28,ctx.measureText(label).width+105),33,11,'rgba(255,255,255,.94)');txt(ctx,label,x+26,y+35,15,'#315568',800)};
+  }
+  function stage(ctx,region,kind,n,subtitle,legend){
+    const grd=ctx.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#f6fbfb');grd.addColorStop(1,'#edf4f8');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+    rr(ctx,36,30,1528,140,24,'#ffffff','#e0eaee');
+    rr(ctx,61,55,8,70,4,'#199989');
+    txt(ctx,`天氣警報 · ${region}`,87,93,41,PAL.ink,900);
+    txt(ctx,subtitle,88,131,18,'#647986',650,1100);
+    const time=new Intl.DateTimeFormat('zh-TW',{timeZone:region==='台灣'?'Asia/Taipei':'Asia/Kuala_Lumpur',dateStyle:'medium',timeStyle:'short',hour12:false}).format(new Date());
+    ctx.textAlign='right';txt(ctx,`圖片生成：${time}`,1530,83,17,'#667d89',650);txt(ctx,`${n} 筆警報`,1530,119,22,'#0f4c5c',900);ctx.textAlign='left';
+    rr(ctx,36,186,1050,784,24,'#fff','#dfebee');
+    rr(ctx,1102,186,462,784,24,'#fff','#dfebee');
+    txt(ctx,'受影響地區',62,227,24,PAL.ink,900);
+    let lx=68;
+    legend.forEach(([name,color])=>{
+      rr(ctx,lx,245,15,15,4,color,'#7f969f');txt(ctx,name,lx+23,259,15,'#526a78',750);
+      lx+=Math.max(115,ctx.measureText(name).width+58);
+    });
+    txt(ctx,'警報摘要',1125,228,25,PAL.ink,900);
+    ctx.strokeStyle='#e2eaed';ctx.beginPath();ctx.moveTo(1125,251);ctx.lineTo(1539,251);ctx.stroke();
+    rr(ctx,36,983,1528,46,13,'#e6eff2');
+    txt(ctx,'資料來源：'+(region==='台灣'?'中央氣象署 CWA / CAP':'MET Malaysia / data.gov.my')+'   ·   依警報資料與 GeoJSON 重繪，非官方製圖',58,1012,16,'#516a76',650);
+  }
+  function cards(ctx,items,emptyMsg){
+    const total=Math.min(6,items.length);let y=280;
+    if(!total){rr(ctx,1121,y,423,115,15,'#f3f8f9');txt(ctx,emptyMsg,1142,y+54,17,'#6c8390',750,380);return}
+    const h=items.length>5?99:items.length>3?119:Math.min(181,627/total);
+    for(let i=0;i<total;i++){
+      const d=items[i],c=d.color||'#199989';rr(ctx,1121,y,422,h-11,16,'#f7fafb','#e3ecef');
+      rr(ctx,1138,y+15,5,h-42,3,c);
+      ctx.font='900 18px "Noto Sans TC",sans-serif';const title=ellipsis(ctx,d.title||'警報',369);
+      txt(ctx,title,1155,y+38,18,'#19384b',900);
+      ctx.font='600 14px "Noto Sans TC",sans-serif';
+      wrap(ctx,d.sub||'',365,h>=130?3:2).forEach((line,j)=>txt(ctx,line,1155,y+68+j*21,14,'#66808f',650));
+      y+=h;
+    }
+    if(items.length>total)txt(ctx,`另有 ${items.length-total} 筆警報未列出`,1133,943,15,'#5c7584',700);
+  }
+  function norm(v){return String(v??'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ')}
+  function mColor(level){return ({none:'#f0f5e9',blue:'#38bdf8',yellow:'#fff35a',orange:'#ffa733',red:'#e53935'})[level||'none']||'#f0f5e9'}
+  async function malaysia(ctx){
+    const logic=window.__malaysiaWarningLogic;if(!logic?.collectAreas)throw Error('馬來西亞警報尚未初始化，請重新整理頁面。');
+    const [state,dist]=await Promise.all([getGeo('data/malaysia.state.geojson'),getGeo('data/malaysia.district.geojson')]);
+    const choice=$('myTypeFilter'),type=choice?.selectedOptions?.[0]?.textContent||'豪雨警報';
+    const area=logic.collectAreas(),sw=area.stateWarnings,dw=area.districtWarnings;
+    const warningCards=[...document.querySelectorAll('#myList .warningCard')].map(card=>({
+      title:card.querySelector('.warningHeadline')?.textContent||type,
+      sub:(card.querySelector('.warningDesc')?.textContent||'').trim(),
+      color:card.querySelector('.warningTag')?.style.color||'#199989'
+    }));
+    stage(ctx,'馬來西亞',type,warningCards.length,`目前分類：${type}｜全州警報會同步標示轄下縣區`,[['豪雨','#38bdf8'],['黃色','#fff35a'],['橙色','#ffa733'],['紅色','#e53935']]);
+    const plots=[
+      {x:54,y:283,w:440,h:665,bounds:[99.0,.6,104.9,7.4],name:'馬來半島'},
+      {x:507,y:283,w:560,h:665,bounds:[108.9,.75,119.7,8.0],name:'砂拉越 · 沙巴'}
+    ];
+    for(const v of plots){
+      const finish=clipPanel(ctx,v.x,v.y,v.w,v.h,v.name),project=view(ctx,v,v.bounds);
+      state.features.forEach(f=>drawable(ctx,f,project,'#edf5e5',null));
+      dist.features.forEach(f=>{
+        const key=`${logic.geoState(f)}|${logic.geoDistrict(f)}`;
+        const level=(dw.get(key)||sw.get(logic.geoState(f)))?.level||'none';
+        drawable(ctx,f,project,mColor(level),level==='none'?'#8ba5a2':'#3f8291',level==='none'?.55:1.05);
+      });
+      state.features.forEach(f=>drawable(ctx,f,project,null,'#344b57',1.8));
+      finish();
+    }
+    cards(ctx,warningCards,'目前分類沒有警報資訊');
+    if(!sw.size&&!dw.size)txt(ctx,'目前分類無可標示的陸地警報區域',72,939,17,'#54737b',750);
+    else txt(ctx,`完整州屬 ${sw.size} 個 · 受影響縣區 ${dw.size} 個`,72,939,17,'#54737b',750);
+    if(type.includes('海象')||type.includes('颱風'))txt(ctx,'非陸地警報不以州縣多邊形上色',1129,934,15,'#718692',700);
+  }
+  function twColor(alert){
+    if(!alert)return null;
+    try{if(typeof window.twAreaAlertColor==='function')return window.twAreaAlertColor(alert)}catch(e){}
+    return alert.color||'#ff7f00';
+  }
+  function twBest(feature,mode){
+    try{return typeof window.twAreaBestAlertForFeature==='function' ? window.twAreaBestAlertForFeature(feature,mode):null}catch(e){return null}
+  }
+  async function taiwan(ctx){
+    const county=await getGeo('data/tw-countys.geojson');
+    let towns=null;try{towns=await getGeo('data/tw-towns.geojson')}catch(e){console.warn('Town boundaries not available for PNG',e)}
+    const alerts=Array.isArray(window.__twCapAlerts)?window.__twCapAlerts:[];
+    const items=alerts.map(a=>({title:a.headline||a.event||a.datasetName||a.kind||'氣象警報',sub:(a.areaNames||[]).join('、')||a.area||a.description||'',color:twColor(a)}));
+    stage(ctx,'台灣','目前 CWA CAP 警報縣市與鄉鎮分區',items.length,'依目前畫面警報資料繪製，未受警報地區維持淡色', [['紅色','#e60012'],['橙色','#ff7f00'],['黃色','#fff100'],['綠色','#00e833']]);
+    const views=[
+      {x:57,y:284,w:742,h:665,bounds:[119.7,21.65,122.35,25.4],name:'台灣本島 · 澎湖'},
+      {x:814,y:285,w:247,h:244,bounds:[117.95,24.13,118.7,24.65],name:'金門'},
+      {x:814,y:544,w:247,h:405,bounds:[119.65,25.8,120.65,26.65],name:'馬祖'}
+    ];
+    for(const v of views){
+      const finish=clipPanel(ctx,v.x,v.y,v.w,v.h,v.name),project=view(ctx,v,v.bounds);
+      county.features.forEach(f=>{
+        const picked=twBest(f,'county');drawable(ctx,f,project,picked?twColor(picked):'#f0f5e9',picked?'#406476':'#506c78',picked?1.3:.85);
+      });
+      if(towns)towns.features.forEach(f=>{
+        const picked=twBest(f,'town');if(picked)drawable(ctx,f,project,twColor(picked),'#4f6471',.45);
+      });
+      county.features.forEach(f=>drawable(ctx,f,project,null,'#2e4a59',1.4));
+      finish();
+    }
+    cards(ctx,items,'目前沒有符合條件的 CAP 警報');
+    txt(ctx,`縣市邊界 ${county.features.length} 區 · ${towns?'已載入鄉鎮資料':'鄉鎮資料未載入'}`,72,938,17,'#56717d',720);
+  }
+  async function saveCanvas(canvas,name){
+    const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('瀏覽器無法產生 PNG')),'image/png'));
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }
+  async function doExport(region,button){
+    if(button.disabled)return;
+    const original=button.textContent;button.disabled=true;button.textContent='正在生成圖片…';
+    try{
+      if(typeof window.L==='undefined')throw Error('地圖套件尚未載入，請重新整理後再試');
+      const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
+      const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw Error('瀏覽器不支援 Canvas');
+      if(document.fonts?.ready)await Promise.race([document.fonts.ready,Promise.resolve()]);
+      if(region==='tw')await taiwan(ctx);else await malaysia(ctx);
+      const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date()).replace(/\D/g,'-');
+      const suffix=region==='tw'?'台灣警報':'馬來西亞'+($('myTypeFilter')?.selectedOptions?.[0]?.textContent||'警報');
+      await saveCanvas(canvas,`${suffix}_${date}.png`);
+    }catch(err){console.error('[Weather warning PNG export]',err);alert(`圖片生成失敗：${err?.message||err}\n請確認 GeoJSON、警報資料與網頁伺服器正常載入。`)}
+    finally{button.disabled=false;button.textContent=original}
+  }
+  function install(){
+    for(const [id,region] of [['twWarningPngBtn','tw'],['myWarningPngBtn','my']]){
+      const btn=$(id);if(btn&&!btn.dataset.exportReady){btn.dataset.exportReady='1';btn.addEventListener('click',()=>doExport(region,btn))}
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+  // Non-destructive testing hook; does not run a download without a real button click.
+  window.__weatherWarningPngExport={renderMalaysia:malaysia,renderTaiwan:taiwan};
+})();
+
 </script>
 </body>
 </html>
