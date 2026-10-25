@@ -22598,13 +22598,45 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     return ()=>{ctx.restore();rr(ctx,x+15,y+14,Math.min(w-30,ctx.measureText(label).width+84),34,11,'rgba(255,255,255,.96)','#dce9ee');txt(ctx,label,x+28,y+37,15,'#2f5868',850)};
   }
   function pill(ctx,x,y,w,text,fill,stroke,color){ rr(ctx,x,y,w,28,999,fill,stroke); txt(ctx,text,x+16,y+19,14,color,850,Math.max(20,w-30)); }
-  function fmtDisplayTime(v){
-    if(!v) return '—';
-    const d = new Date(v);
-    if(Number.isNaN(d.getTime())) return String(v).replace('T',' ').replace(/:00(?=\b)/,'');
-    return new Intl.DateTimeFormat('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kuala_Lumpur'}).format(d);
+  // MET Malaysia ISO times without a UTC offset are local bulletin wall-clock times.
+  // Keep that wall-clock time unchanged; never let the viewer's device timezone shift it.
+  function fmtDisplayTime(value, region='my'){
+    if(value===undefined || value===null || value==='')return '—';
+    const s=String(value).trim();
+    const m=s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+\-]\d{2}:?\d{2})?$/i);
+    if(m && !m[6])return `${m[1]}/${m[2]}/${m[3]} ${m[4]}:${m[5]}`;
+    const d=new Date(s);
+    if(!Number.isNaN(d.getTime())){
+      const fields=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{
+        timeZone:region==='tw'?'Asia/Taipei':'Asia/Kuala_Lumpur',
+        year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+      }).formatToParts(d).map(p=>[p.type,p.value]));
+      return `${fields.year}/${fields.month}/${fields.day} ${fields.hour}:${fields.minute}`;
+    }
+    return s.replace('T',' ').slice(0,16);
   }
-  function stage(ctx,region,titleText,countText,legend,meta){
+  function shortDateRange(start,end,region='my'){
+    const a=fmtDisplayTime(start,region),b=fmtDisplayTime(end,region);
+    if(a==='—' && b==='—')return '—';
+    // Keep both dates when the warning crosses midnight, as with continuous rain alerts.
+    return `${a} → ${b}`;
+  }
+  function bulletinTimes(w, region='my'){
+    if(region==='my')return {
+      issued: w?.warning_issue?.issued || w?.warning_issue__issued || w?.issued || '',
+      validFrom: w?.valid_from || '',
+      validTo: w?.valid_to || ''
+    };
+    return {
+      issued:w?.sent || w?.issued || w?.issueTime || '',
+      validFrom:w?.effective || w?.onset || '',
+      validTo:w?.expires || w?.expiry || w?.valid_to || ''
+    };
+  }
+  function pill(ctx,x,y,w,text,fill,stroke,color){
+    rr(ctx,x,y,w,28,999,fill,stroke);txt(ctx,text,x+16,y+19,14,color,850,Math.max(20,w-30));
+  }
+  function stage(ctx,region,titleText,countText,legend,items){
     const grd=ctx.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#f9fcfd');grd.addColorStop(.52,'#eef6f7');grd.addColorStop(1,'#edf3f8');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
     ctx.fillStyle='rgba(34,197,94,.05)';ctx.beginPath();ctx.arc(1410,120,170,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='rgba(14,165,233,.05)';ctx.beginPath();ctx.arc(128,72,120,0,Math.PI*2);ctx.fill();
@@ -22612,36 +22644,71 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     rr(ctx,34,172,1110,804,28,'#fff','#dde9ee');
     rr(ctx,1160,172,406,804,28,'#fff','#dde9ee');
     rr(ctx,56,46,9,88,5,'#199989');
-    txt(ctx,`天氣警報圖卡 · ${region}`,82,82,40,PAL.ink,900);
+    txt(ctx,`天氣警報 · ${region}`,82,82,40,PAL.ink,900);
     txt(ctx,titleText,83,116,17,'#647986',650,900);
     pill(ctx,82,124,128,countText,'#eef7fb','#d7e9f0','#25556a');
-    txt(ctx,'發布時間',1210,74,15,'#738995',700);
-    txt(ctx,fmtDisplayTime(meta?.issued),1210,101,21,'#15384d',900,300);
-    txt(ctx,'生效時間',1210,121,15,'#738995',700);
-    txt(ctx,fmtDisplayTime(meta?.validFrom),1210,148,21,'#15384d',900,300);
+    // Do not merge dates from different warning bulletins into a single ambiguous interval.
+    txt(ctx,'發布時間',1190,60,16,'#647986',800);
+    if(items?.length){
+      items.slice(0,2).forEach((item,i)=>{
+        const y=94+i*43;
+        ctx.font='800 14px "Noto Sans TC",sans-serif';
+        txt(ctx,ellipsis(ctx,item.title||'警報',120),1190,y,14,'#31576b',850);
+        txt(ctx,fmtDisplayTime(item.issued,region==='台灣'?'tw':'my'),1320,y,17,'#173a50',850,218);
+      });
+    }else txt(ctx,'—',1190,108,20,'#647986',700);
     txt(ctx,'受影響地區',60,212,24,PAL.ink,900);
     let lx=67;
-    legend.forEach(([name,color])=>{ rr(ctx,lx,228,18,18,5,color,'#7f969f');txt(ctx,name,lx+28,243,15,'#526a78',760); lx+=Math.max(148,ctx.measureText(name).width+74); });
+    legend.forEach(([name,color])=>{
+      rr(ctx,lx,228,18,18,5,color,'#7f969f');txt(ctx,name,lx+28,243,15,'#526a78',760);
+      lx+=Math.max(148,ctx.measureText(name).width+74);
+    });
     txt(ctx,'警報摘要',1184,212,25,PAL.ink,900);
     ctx.strokeStyle='#e2eaed';ctx.beginPath();ctx.moveTo(1184,236);ctx.lineTo(1542,236);ctx.stroke();
     rr(ctx,34,986,1532,40,14,'#eaf1f4');
     txt(ctx,'來源：氣象局',58,1012,15,'#516a76',650);
   }
-  function cards(ctx,items,emptyMsg){
+  function cards(ctx,items,emptyMsg,region='my'){
     const total=Math.min(6,items.length);let y=256;
     if(!total){rr(ctx,1180,y,366,128,18,'#f5fafb','#e3ecef');txt(ctx,emptyMsg,1202,y+62,17,'#6c8390',760,322);return}
-    const h=total<=2?258:total===3?172:total<=5?126:102;
+    // Two warnings: give each bulletin a readable, independent time block.
+    const h=total<=2?290:total===3?212:total===4?160:total===5?135:114;
     for(let i=0;i<total;i++){
-      const d=items[i],c=d.color||'#199989';rr(ctx,1180,y,366,h-12,18,'#f9fbfc','#e1eaee');
-      rr(ctx,1196,y+14,54,30,999,c,'transparent');txt(ctx,String(i+1).padStart(2,'0'),1212,y+35,14,'#ffffff',900);
-      rr(ctx,1198,y+58,6,Math.max(34,h-84),4,c);
-      ctx.font='900 18px "Noto Sans TC",sans-serif'; const title=ellipsis(ctx,d.title||'警報',250); txt(ctx,title,1262,y+36,18,'#19384b',900);
-      ctx.font='600 13px "Noto Sans TC",sans-serif';
-      const lines = total<=2 ? 6 : total===3 ? 4 : (h>=126 ? 3 : 2);
-      wrap(ctx,d.sub||'',290,lines).forEach((line,j)=>txt(ctx,line,1218,y+82+j*20,13,'#66808f',650));
+      const d=items[i],c=d.color||'#199989';
+      rr(ctx,1180,y,366,h-12,18,'#f9fbfc','#e1eaee');
+      rr(ctx,1196,y+14,48,28,999,c,'transparent');txt(ctx,String(i+1).padStart(2,'0'),1209,y+34,14,'#ffffff',900);
+      ctx.font='900 18px "Noto Sans TC",sans-serif';
+      txt(ctx,ellipsis(ctx,d.title||'警報',270),1255,y+36,18,'#19384b',900);
+      ctx.strokeStyle='#e2ebef';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(1200,y+52);ctx.lineTo(1526,y+52);ctx.stroke();
+      const issued=fmtDisplayTime(d.issued,region),from=fmtDisplayTime(d.validFrom,region),to=fmtDisplayTime(d.validTo,region);
+      if(h>=190){
+        txt(ctx,'發布時間',1200,y+83,14,'#6c8390',750);
+        txt(ctx,issued,1200,y+109,20,'#173a50',900);
+        txt(ctx,'生效時間',1200,y+146,14,'#6c8390',750);
+        txt(ctx,from,1200,y+175,19,'#173a50',850);
+        txt(ctx,'至',1200,y+197,13,'#78909c',750);
+        txt(ctx,to,1229,y+202,19,'#173a50',850);
+        if(d.sub && h>=270){
+          ctx.font='600 12px "Noto Sans TC",sans-serif';
+          txt(ctx,ellipsis(ctx,d.sub,316),1200,y+243,12,'#7a919d',600);
+        }
+      }else{
+        txt(ctx,'發布',1200,y+76,13,'#6c8390',750);
+        txt(ctx,issued,1250,y+76,15,'#173a50',800,275);
+        txt(ctx,'生效',1200,y+100,13,'#6c8390',750);
+        if(h>=135){
+          txt(ctx,from,1250,y+100,14,'#173a50',780,275);
+          txt(ctx,to,1250,y+121,14,'#173a50',780,275);
+        }else{
+          const sameDay=from.slice(0,10)===to.slice(0,10);
+          const condensed=sameDay?`${from} → ${to.slice(11)}`:`${from} → ${to}`;
+          ctx.font='760 14px "Noto Sans TC",sans-serif';
+          txt(ctx,ellipsis(ctx,condensed,275),1250,y+100,14,'#173a50',780,275);
+        }
+      }
       y+=h;
     }
-    if(items.length>total)txt(ctx,`另有 ${items.length-total} 項警報未列出`,1188,947,15,'#5c7584',700);
+    if(items.length>total)txt(ctx,`另有 ${items.length-total} 項警報未列出`,1188,953,15,'#5c7584',700);
   }
   function norm(v){return String(v??'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ')}
   function mColor(level){return ({none:'#f0f5e9',blue:'#38bdf8',yellow:'#fff35a',orange:'#ffa733',red:'#e53935'})[level||'none']||'#f0f5e9'}
@@ -22651,21 +22718,25 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     const typeValue=$('myTypeFilter')?.value||'rain_all';
     const typeLabel=$('myTypeFilter')?.selectedOptions?.[0]?.textContent||'馬來西亞天氣警報';
     const area=logic.collectAreas(),sw=area.stateWarnings,dw=area.districtWarnings;
-    const sourceWarnings=(Array.isArray(window.myWarnings)?window.myWarnings:[]);
+    const sourceWarnings=Array.isArray(window.myWarnings)?window.myWarnings:[];
     const filteredWarnings=sourceWarnings.filter(w=>{
-      const k=(logic.kind?logic.kind(w):'');
+      const k=logic.kind?logic.kind(w):'';
       return typeValue==='rain_all' ? (k==='thunderstorm'||k==='continuous') : k===typeValue;
     });
-    const warningCards=[...document.querySelectorAll('#myList .warningCard')].map(card=>({
-      title:card.querySelector('.warningHeadline')?.textContent||typeLabel,
-      sub:(card.querySelector('.warningDesc')?.textContent||'').trim(),
-      color:card.querySelector('.warningTag')?.style.color||'#199989'
-    }));
-    const meta={
-      issued: filteredWarnings[0]?.warning_issue?.issued || filteredWarnings[0]?.warning_issue__issued || filteredWarnings[0]?.issued || '',
-      validFrom: filteredWarnings[0]?.valid_from || filteredWarnings[0]?.effective || ''
-    };
-    stage(ctx,'馬來西亞',typeLabel,`${warningCards.length} 項警報`,[['豪雨警報','#38bdf8'],['黃色警報','#fff35a'],['橙色警報','#ffa733'],['紅色警報','#e53935']],meta);
+    const warningCards=filteredWarnings.map(w=>{
+      const k=logic.kind(w),lvl=logic.level?logic.level(w):'yellow';
+      const levelColor=({blue:'#0369a1',yellow:'#b49400',orange:'#d97706',red:'#dc2626'})[lvl]||'#0f4c5c';
+      const time=bulletinTimes(w,'my');
+      return {
+        title:({thunderstorm:'豪雨警報',continuous:'長命雨警報',sea:'海象警報',typhoon:'颱風警報'})[k]||'氣象警報',
+        color:levelColor,
+        sub:String(w.text_en||w.text_bm||'').trim(),
+        ...time
+      };
+    });
+    stage(ctx,'馬來西亞',typeLabel,`${warningCards.length} 項警報`,[
+      ['豪雨警報','#38bdf8'],['黃色警報','#fff35a'],['橙色警報','#ffa733'],['紅色警報','#e53935']
+    ],warningCards);
     const plots=[
       {x:54,y:262,w:520,h:680,bounds:[99.15,0.95,104.75,7.15],name:'馬來半島'},
       {x:592,y:262,w:530,h:680,bounds:[109.2,0.95,118.95,7.35],name:'砂拉越 · 沙巴'}
@@ -22681,9 +22752,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       state.features.forEach(f=>drawable(ctx,f,project,null,'#344b57',1.8));
       finish();
     }
-    cards(ctx,warningCards,'目前分類沒有警報資訊');
-    if(!sw.size&&!dw.size)txt(ctx,'目前分類無可標示的陸地警報區域',72,950,17,'#54737b',750);
-    else txt(ctx,`完整州屬 ${sw.size} 個 · 受影響縣區 ${dw.size} 個`,72,950,17,'#54737b',750);
+    cards(ctx,warningCards,'目前分類沒有警報資訊','my');
 
   }
   function twColor(alert){
@@ -22698,9 +22767,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     const county=await getGeo('data/tw-countys.geojson');
     let towns=null;try{towns=await getGeo('data/tw-towns.geojson')}catch(e){console.warn('Town boundaries not available for PNG',e)}
     const alerts=Array.isArray(window.__twCapAlerts)?window.__twCapAlerts:[];
-    const items=alerts.map(a=>({title:a.headline||a.event||a.datasetName||a.kind||'氣象警報',sub:(a.areaNames||[]).join('、')||a.area||a.description||'',color:twColor(a)}));
-    const twMeta={issued:alerts[0]?.sent || alerts[0]?.onset || '', validFrom:alerts[0]?.effective || alerts[0]?.onset || ''};
-    stage(ctx,'台灣','台灣天氣警報',`${items.length} 項警報`, [['紅色警報','#e60012'],['橙色警報','#ff7f00'],['黃色警報','#fff100'],['綠色警報','#00e833']],twMeta);
+    const items=alerts.map(a=>({
+      title:a.headline||a.event||a.datasetName||a.kind||'氣象警報',
+      sub:(a.areaNames||[]).join('、')||a.area||a.description||'',color:twColor(a),
+      ...bulletinTimes(a,'tw')
+    }));
+    stage(ctx,'台灣','台灣天氣警報',`${items.length} 項警報`,[
+      ['紅色警報','#e60012'],['橙色警報','#ff7f00'],['黃色警報','#fff100'],['綠色警報','#00e833']
+    ],items);
     const views=[
       {x:56,y:262,w:782,h:680,bounds:[119.72,21.72,122.30,25.35],name:'台灣本島 · 澎湖'},
       {x:854,y:262,w:268,h:262,bounds:[117.98,24.15,118.68,24.63],name:'金門'},
@@ -22717,8 +22791,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       county.features.forEach(f=>drawable(ctx,f,project,null,'#2e4a59',1.4));
       finish();
     }
-    cards(ctx,items,'目前沒有符合條件的 CAP 警報');
-    txt(ctx,`縣市邊界 ${county.features.length} 區 · ${towns?'已載入鄉鎮資料':'鄉鎮資料未載入'}`,72,950,17,'#56717d',720);
+    cards(ctx,items,'目前沒有符合條件的 CAP 警報','tw');
   }
   async function saveCanvas(canvas,name){
     const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('瀏覽器無法產生 PNG')),'image/png'));
