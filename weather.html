@@ -14399,7 +14399,8 @@ ${a.instruction}` : ''
           const alias=SORTED_STATES.find(a=>normal===a || normal.startsWith(a+' '));
           if(!alias)return;
           const sk=STATE_ALIASES[alias];
-          const rest=area.slice(area.toLowerCase().indexOf(alias)+alias.length).trim();
+          const boundaryIndex=area.search(/[(:]/);
+          const rest=boundaryIndex>=0 ? area.slice(boundaryIndex).trim() : '';
           if(!rest || !/[(:]/.test(rest)){
             fullStates.add(sk);return;
           }
@@ -14464,37 +14465,18 @@ ${a.instruction}` : ''
       const legend=document.querySelector('#warnPanelMy .myMapLegend');
       if(legend)legend.innerHTML=`<span><i style="background:#38bdf8;border-color:#0369a1"></i> 豪雨</span><span><i style="background:#fff35a;border-color:#c9a500"></i> 長命雨 / 黃色</span><span><i style="background:#ffa733;border-color:#cf6400"></i> 橙色</span><span><i style="background:#e53935;border-color:#960000"></i> 紅色</span>`;
     }
-    function refreshSabahBoundary(){
-      const upgrader=window.__sabahBoundaryUpgrade;
-      if(!myDistrictGeoJSON || !upgrader || upgrader.ready)return;
-      upgrader.status='checking';
-      // Load and display the local file first; refresh against official polygons asynchronously.
-      upgrader.ready=upgrader.fetchAndUpgrade(myDistrictGeoJSON).then(updated=>{
-        myDistrictGeoJSON=updated;
-        upgrader.status='updated';
-        window.__malaysiaBoundaryData={state:myStateGeoJSON,district:updated,source:updated.metadata.sabah_boundary_source};
-        renderMap();
-        return updated;
-      }).catch(err=>{
-        upgrader.status='fallback';upgrader.error=String(err.message||err);
-        console.warn('[Sabah boundary] Official 30-district data could not be confirmed; legacy geometry retained:',err);
-        renderMap();
-        return null;
-      });
-    }
+    // Always read the two local, versioned GeoJSON files. No remote Sabah geometry service.
     async function loadGeo(){
-      if(myStateGeoJSON && myDistrictGeoJSON){refreshSabahBoundary();return;}
+      if(myStateGeoJSON && myDistrictGeoJSON)return;
       if(myGeoLoading)return myGeoLoading;
-      const entries=[
-        myStateGeoJSON?Promise.resolve(myStateGeoJSON):fetch(STATE_GEOJSON_URL,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('state GeoJSON '+r.status);return r.json();}),
-        myDistrictGeoJSON?Promise.resolve(myDistrictGeoJSON):fetch(DISTRICT_GEOJSON_URL,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('district GeoJSON '+r.status);return r.json();})
-      ];
-      myGeoLoading=Promise.allSettled(entries).then(([s,d])=>{
+      myGeoLoading=Promise.allSettled([
+        fetch(STATE_GEOJSON_URL,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('state GeoJSON '+r.status);return r.json();}),
+        fetch(DISTRICT_GEOJSON_URL,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('district GeoJSON '+r.status);return r.json();})
+      ]).then(([s,d])=>{
         if(s.status==='fulfilled')myStateGeoJSON=s.value;else console.warn('Malaysia state GeoJSON unavailable',s.reason);
         if(d.status==='fulfilled')myDistrictGeoJSON=d.value;else console.warn('Malaysia district GeoJSON unavailable',d.reason);
         window.__malaysiaBoundaryData={state:myStateGeoJSON,district:myDistrictGeoJSON,source:'local'};
-        refreshSabahBoundary();
-      }).finally(()=>{myGeoLoading=null;});
+      }).finally(()=>{myGeoLoading=null});
       return myGeoLoading;
     }
     function ensureMap(){
@@ -14541,20 +14523,16 @@ ${a.instruction}` : ''
             const rec=districtWarnings.get(`${geoState(f)}|${geoDistrict(f)}`),sty=levelStyle[rec?.level||'none'];
             const title=f?.properties?.display_name || `${displayDistrict(f)} · ${displayState(f)}`;
             const note=f?.properties?.boundary_note;
-            layer.bindTooltip(`<b>${html(title)}</b><br>${html(sty.label)}${rec?`｜${rec.warnings.length} 項`:''}${rec&&note&&window.__sabahBoundaryUpgrade?.status!=='updated'?`<br><small>目前使用備用舊縣界</small>`:''}`,{sticky:true,direction:'top',className:'twCountyLabel'});
+            layer.bindTooltip(`<b>${html(title)}</b><br>${html(sty.label)}${rec?`｜${rec.warnings.length} 項`:''}${rec&&note?`<br><small>沙巴新設縣界尚未單獨劃分</small>`:''}`,{sticky:true,direction:'top',className:'twCountyLabel'});
             layer.on({mouseover:()=>layer.setStyle({weight:rec?2.4:.8,opacity:1,fillOpacity:rec?.62:.025}),mouseout:()=>myDistrictLayer?.resetStyle(layer)});
           }
         }).addTo(myMap);bounds.addLayer(myDistrictLayer);
       }
       requestAnimationFrame(()=>{myMap.invalidateSize();try{myMap.fitBounds(bounds.getBounds(),{padding:[18,18]});}catch(e){}});
       const matched=stateWarnings.size+districtWarnings.size;
-      const sabahStatus=window.__sabahBoundaryUpgrade?.status;
-      const boundaryNote=sabahStatus==='updated'?'沙巴 30 縣獨立邊界已載入。':
-        sabahStatus==='checking'?'正在核對沙巴獨立縣界。':
-        '沙巴目前使用舊版備援縣界，無法精確標示新設縣區。';
       if(q('myMapHint'))q('myMapHint').textContent=matched
-        ? `已標示 ${stateWarnings.size} 個完整州屬、${districtWarnings.size} 個受影響縣區。${boundaryNote}${unresolved.length?' 部分警報地區尚無可確認邊界。':''}`
-        : `目前沒有可標示的陸地警報。${boundaryNote}`;
+        ? `已標示 ${stateWarnings.size} 個完整州屬、${districtWarnings.size} 個受影響縣區。`
+        : '目前沒有可標示的陸地警報。';
     }
     function renderCards(){
       const type=q('myTypeFilter')?.value||'rain_all', box=q('myList');if(!box)return;
@@ -14587,122 +14565,12 @@ ${a.instruction}` : ''
         if(q('myList'))q('myList').innerHTML='<div class="warningEmpty">馬來西亞警報讀取失敗</div>';renderMap();}
     }
     // Expose pure helpers for deterministic tests and diagnosis, without exposing any credentials.
-    window.__malaysiaWarningLogic={norm,geoState,geoDistrict,parseCoverage,kind,level,collectAreas};
+    window.__malaysiaWarningLogic={norm,geoState,geoDistrict,parseCoverage,kind,level,collectAreas,areaClauses};
     setupControls();q('myRefresh')?.addEventListener('click',refresh);
     q('myTypeFilter')?.addEventListener('change',renderCards);
     ensureMap();refresh();
   };
 
-})();
-</script>
-<script id="sabah-boundary-upgrade">
-/* Sabah boundary layer update: validate actual district POLYGONS, never invent boundaries. */
-(function(){
-  'use strict';
-  const SOURCE_URLS=[
-    'https://mygos.mygeoportal.gov.my/gisserver/rest/services/MyGeomap/Msia_Coverage/MapServer/8/query',
-    'https://mygems.jmg.gov.my/server/rest/services/Demarcation_MIL1/FeatureServer/10/query'
-  ];
-  const NAMES=['Kuala Penyu','Ranau','Kota Belud','Kunak','Tawau','Semporna','Beaufort','Sipitang','Beluran','Sandakan','Kinabatangan','Telupid','Kota Kinabalu','Lahad Datu','Pitas','Putatan','Keningau','Tambunan','Papar','Kudat','Kota Marudu','Tongod','Nabawan','Tenom','Penampang','Kalabakan','Tuaran','Paitan','Sook','Membakut'];
-  function norm(v){return String(v??'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ')}
-  const known=new Map(NAMES.map(n=>[norm(n),n]));
-  const synonyms={'pensiangan':'Nabawan','pensiangan nabawan':'Nabawan','nabawan pensiangan':'Nabawan','labuk sugut':'Beluran','labuk and sugut':'Beluran','labuk dan sugut':'Beluran','labuk & sugut':'Beluran'};
-  function canonical(v){return known.get(norm(v))||synonyms[norm(v)]||null}
-  function division(name){
-    const d={
-      Interior:['Keningau','Tambunan','Nabawan','Tenom','Beaufort','Sipitang','Kuala Penyu','Sook','Membakut'],
-      'West Coast':['Kota Kinabalu','Kota Belud','Ranau','Tuaran','Penampang','Papar','Putatan'],
-      Kudat:['Kudat','Kota Marudu','Pitas'],
-      Sandakan:['Sandakan','Beluran','Paitan','Kinabatangan','Tongod','Telupid'],
-      Tawau:['Tawau','Lahad Datu','Semporna','Kunak','Kalabakan']
-    };
-    for(const [group,names] of Object.entries(d))if(names.includes(name))return group;
-    return '';
-  }
-  function polygonParts(g){
-    if(g?.type==='Polygon' && Array.isArray(g.coordinates) && g.coordinates.length)return [g.coordinates];
-    if(g?.type==='MultiPolygon' && Array.isArray(g.coordinates))return g.coordinates;
-    return [];
-  }
-  function plausible(g){
-    const parts=polygonParts(g);if(!parts.length)return false;
-    let pts=0, valid=true;
-    for(const poly of parts){
-      if(!Array.isArray(poly) || !poly.length){valid=false;break}
-      for(const ring of poly){
-        if(!Array.isArray(ring)||ring.length<4){valid=false;break}
-        for(const pair of ring){
-          if(!Array.isArray(pair)||!Number.isFinite(pair[0])||!Number.isFinite(pair[1])||pair[0]<114.4||pair[0]>120.5||pair[1]<3.2||pair[1]>8.6){valid=false;break}
-          pts++;
-        }
-      }
-    }
-    return valid && pts>=4;
-  }
-  function buildCandidate(geo,source){
-    if(!Array.isArray(geo?.features))throw Error('來源不是 GeoJSON FeatureCollection');
-    const grouped=new Map();
-    for(const f of geo.features){
-      const p=f?.properties||{};
-      const sk=norm(p.NEGERI||p.negeri||p.state_name||p.STATE||'');
-      if(sk && (sk.includes('sarawak')||sk.includes('semenanjung')))continue;
-      const name=canonical(p.NAM||p.NAME||p.name||p.name_full||p.FNM||'');
-      if(!name||!plausible(f.geometry))continue;
-      if(!grouped.has(name))grouped.set(name,[]);
-      grouped.get(name).push(...polygonParts(f.geometry));
-    }
-    const missing=NAMES.filter(n=>!grouped.has(n));
-    if(missing.length)throw Error('資料尚未提供完整獨立縣界：'+missing.join('、'));
-    const features=NAMES.map(name=>{
-      const shapes=grouped.get(name),geoShape=shapes.length===1?{type:'Polygon',coordinates:shapes[0]}:{type:'MultiPolygon',coordinates:shapes};
-      return {type:'Feature',properties:{
-        name, name_original:name,name_full:name,display_name:`${name} · Sabah`,
-        code_state:12,state:'SBH',state_code:'SBH',state_name:'Sabah',state_zh:'沙巴',
-        aliases:name==='Beluran'?['Labuk & Sugut','Labuk and Sugut','Labuk dan Sugut']:(name==='Nabawan'?['Pensiangan','Pensiangan / Nabawan']:[]),
-        met_division:division(name),administrative_division:division(name),
-        boundary_vintage:'verified_official_polygon',geometry_source:source
-      },geometry:geoShape};
-    });
-    return features;
-  }
-  function upgrade(baseline,candidate,source){
-    if(!Array.isArray(baseline?.features))throw Error('本地縣界資料格式不正確');
-    const incoming=buildCandidate(candidate,source);
-    const other=baseline.features.filter(f=>{
-      const p=f.properties||{};
-      return String(p.state_code||p.state||'').toUpperCase()!=='SBH' && norm(p.state_name||'')!=='sabah';
-    });
-    // All 30 polygons must exist; never ship a partially updated/overlapping Sabah.
-    return {type:'FeatureCollection',features:[...other,...incoming],
-      metadata:{sabah_boundary_source:source,sabah_district_count:30,
-        sabah_boundary_status:'30 independent district geometries validated',
-        updated_at:new Date().toISOString(),
-        note:'Reference administrative boundaries; not an official weather warning map.'}};
-  }
-  async function fetchSource(url){
-    const u=new URL(url);
-    u.searchParams.set('where','1=1');
-    u.searchParams.set('outFields','*');
-    u.searchParams.set('returnGeometry','true');
-    u.searchParams.set('outSR','4326');
-    u.searchParams.set('f','geojson');
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),9500);
-    try{
-      const r=await fetch(u.toString(),{signal:controller.signal,cache:'no-store',mode:'cors'});
-      if(!r.ok)throw Error(`HTTP ${r.status}`);
-      return await r.json();
-    }finally{clearTimeout(timer)}
-  }
-  async function fetchAndUpgrade(baseline){
-    const errors=[];
-    for(const source of SOURCE_URLS){
-      try{return upgrade(baseline,await fetchSource(source),source)}
-      catch(e){errors.push(source.split('/').slice(2,3).join('')+': '+String(e.message||e))}
-    }
-    throw Error(errors.join(' | '));
-  }
-  window.__sabahBoundaryUpgrade={upgrade,fetchAndUpgrade,buildCandidate,NAMES,sourceUrls:SOURCE_URLS,status:'fallback',ready:null,error:''};
 })();
 </script>
 <!-- ===== v70 CWA warning normalization + map color recovery + PNG 24h labels ===== -->
@@ -22848,8 +22716,6 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   function mColor(level){return ({none:'#f0f5e9',blue:'#38bdf8',yellow:'#fff35a',orange:'#ffa733',red:'#e53935'})[level||'none']||'#f0f5e9'}
   async function malaysia(ctx){
     const logic=window.__malaysiaWarningLogic;if(!logic?.collectAreas)throw Error('馬來西亞警報尚未初始化，請重新整理頁面。');
-    const checking=window.__sabahBoundaryUpgrade?.ready;
-    if(checking)await Promise.race([checking,new Promise(resolve=>setTimeout(resolve,5500))]);
     const state=window.__malaysiaBoundaryData?.state || await getGeo('data/malaysia.state.geojson');
     const dist=window.__malaysiaBoundaryData?.district || await getGeo('data/malaysia.district.geojson');
     const typeValue=$('myTypeFilter')?.value||'rain_all';
