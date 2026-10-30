@@ -14224,7 +14224,6 @@ ${a.instruction}` : ''
       'larut dan matang':['larut dan matang','larut matang','larut and matang'],
       'hulu langat':['hulu langat','ulu langat'],
       'hulu selangor':['hulu selangor','ulu selangor'],
-      'daerah kecil lojing':['daerah kecil lojing','kecil lojing','lojing'],
       'wilayah persekutuan kuala lumpur':['w p kuala lumpur','kuala lumpur'],
       'wilayah persekutuan labuan':['w p labuan','labuan'],
       'wilayah persekutuan putrajaya':['w p putrajaya','putrajaya'],
@@ -14245,6 +14244,25 @@ ${a.instruction}` : ''
       'kudat':['Kudat','Kota Marudu','Pitas'],
       'sandakan':['Sandakan','Beluran','Paitan','Kinabatangan','Tongod','Telupid'],
       'tawau':['Tawau','Lahad Datu','Semporna','Kunak','Kalabakan']
+    };
+    const SARAWAK_DIVISION_ALIASES = {
+      'kuching':'kuching','samarahan':'samarahan','serian':'serian','sri aman':'sri aman',
+      'betong':'betong','sarikei':'sarikei','sibu':'sibu','mukah':'mukah','kapit':'kapit',
+      'bintulu':'bintulu','miri':'miri','limbang':'limbang'
+    };
+    const SARAWAK_DIVISION_DISTRICTS = {
+      'kuching':['Kuching','Bau','Lundu'],
+      'samarahan':['Samarahan','Asajaya','Simunjan'],
+      'serian':['Serian','Tebedu'],
+      'sri aman':['Sri Aman','Lubok Antu'],
+      'betong':['Betong','Saratok','Pusa','Kabong'],
+      'sarikei':['Sarikei','Maradong','Julau','Pakan'],
+      'sibu':['Sibu','Kanowit','Selangau'],
+      'mukah':['Mukah','Dalat','Matu','Daro','Tanjung Manis'],
+      'kapit':['Kapit','Song','Belaga','Bukit Mabong'],
+      'bintulu':['Bintulu','Tatau','Sebauh'],
+      'miri':['Miri','Marudi','Subis','Beluru','Telang Usan'],
+      'limbang':['Limbang','Lawas']
     };
     const levelStyle = {
       blue:{fill:'#38bdf8',stroke:'#0369a1',label:'豪雨警報'},
@@ -14366,14 +14384,23 @@ ${a.instruction}` : ''
         return hits;
       }
       function markDivision(sk, input){
-        if(sk!=='sabah')return 0;
-        const div=SABAH_DIVISION_ALIASES[norm(input)];
+        const wanted=norm(input);
+        let div=null, groups=null;
+        if(sk==='sabah'){
+          div=SABAH_DIVISION_ALIASES[wanted];
+          groups=SABAH_DIVISION_DISTRICTS;
+        }else if(sk==='sarawak'){
+          div=SARAWAK_DIVISION_ALIASES[wanted];
+          groups=SARAWAK_DIVISION_DISTRICTS;
+        }else{
+          return 0;
+        }
         if(!div)return 0;
         let hits=0;
         (inState.get(sk)||[]).forEach(f=>{
           const p=f.properties||{};
           if(norm(p.met_division||p.administrative_division)===div ||
-             SABAH_DIVISION_DISTRICTS[div]?.some(n=>norm(n)===norm(p.name_original||p.name))){
+             groups[div]?.some(n=>norm(n)===norm(p.name_original||p.name_full||p.name))){
             districts.add(`${sk}|${geoDistrict(f)}`);hits++;
           }
         });
