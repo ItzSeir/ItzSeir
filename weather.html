@@ -14182,8 +14182,8 @@ ${a.instruction}` : ''
   // Malaysia weather warnings: state-aware mapping for full-state and named-district alerts.
   window.initMalaysiaWarnings = function(){
     const API = 'https://api.data.gov.my/weather/warning';
-    const STATE_GEOJSON_URL = 'data/malaysia.state.geojson';
-    const DISTRICT_GEOJSON_URL = 'data/malaysia.district.geojson';
+    const STATE_GEOJSON_URL = 'data/malaysia.state.geojson?v=20261030-topology';
+    const DISTRICT_GEOJSON_URL = 'data/malaysia.district.geojson?v=20261030-topology';
     const q = (id) => document.getElementById(id);
     if(!q('warnPanelMy')) return;
     let allData = [];
@@ -14221,7 +14221,6 @@ ${a.instruction}` : ''
     Object.keys(STATE_NAMES).forEach(k => { STATE_ALIASES[k] = k; });
     const SORTED_STATES = Object.keys(STATE_ALIASES).sort((a,b)=>b.length-a.length);
     const DISTRICT_ALIASES = {
-      'larut dan matang':['larut dan matang','larut matang','larut and matang'],
       'hulu langat':['hulu langat','ulu langat'],
       'hulu selangor':['hulu selangor','ulu selangor'],
       'wilayah persekutuan kuala lumpur':['w p kuala lumpur','kuala lumpur'],
@@ -14230,7 +14229,9 @@ ${a.instruction}` : ''
       // MET names for Sabah's older combined polygons. Names are aliases, not new surveyed polygons.
       'beluran labuk sugut paitan combined legacy boundary':['beluran','labuk sugut','labuk and sugut','labuk dan sugut'],
       'keningau':['keningau'],
-      'nabawan':['nabawan','pensiangan']
+      'nabawan':['nabawan','pensiangan'],
+      'lubok antu':['lubok antu','lubuk antu'],
+      'larut dan matang':['larut dan matang','larut matang','larut and matang']
     };
     const SABAH_DIVISION_ALIASES = {
       'interior':'interior','pedalaman':'interior','pedalaman atas':'interior','pedalaman bawah':'interior',
@@ -22743,8 +22744,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   function mColor(level){return ({none:'#f0f5e9',blue:'#38bdf8',yellow:'#fff35a',orange:'#ffa733',red:'#e53935'})[level||'none']||'#f0f5e9'}
   async function malaysia(ctx){
     const logic=window.__malaysiaWarningLogic;if(!logic?.collectAreas)throw Error('馬來西亞警報尚未初始化，請重新整理頁面。');
-    const state=window.__malaysiaBoundaryData?.state || await getGeo('data/malaysia.state.geojson');
-    const dist=window.__malaysiaBoundaryData?.district || await getGeo('data/malaysia.district.geojson');
+    const state=window.__malaysiaBoundaryData?.state || await getGeo('data/malaysia.state.geojson?v=20261030-topology');
+    const dist=window.__malaysiaBoundaryData?.district || await getGeo('data/malaysia.district.geojson?v=20261030-topology');
     const typeValue=$('myTypeFilter')?.value||'rain_all';
     const typeLabel=$('myTypeFilter')?.selectedOptions?.[0]?.textContent||'馬來西亞天氣警報';
     const area=logic.collectAreas(),sw=area.stateWarnings,dw=area.districtWarnings;
