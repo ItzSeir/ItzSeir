@@ -6951,6 +6951,11 @@ Implement by adjusting polygon style functions:
     }
 
     function buildForecastConePolygonSmooth(srcPoints = points){
+      // V20: this is the actual closure-private function used by Leaflet,
+      // the main PNG path and multi-typhoon exports. Previous patches only
+      // overwrote window.buildForecastConePolygonSmooth, leaving this untouched.
+      const liveCone = window.__forecastConeUnionV20;
+      if(typeof liveCone === 'function') return liveCone(srcPoints);
       const list = (srcPoints || []).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
       let latestObsIdx = -1;
       for(let i = list.length - 1; i >= 0; i--){
@@ -6999,46 +7004,68 @@ Implement by adjusting polygon style functions:
             rKm:smoothRadii[i] || firstForecastRadius
           }))
         ];
+        if(centers.length < 2) return null;
 
+        // For looping / clustered tracks, avoid a convex hull of all circle points.
+        // Instead build a radial envelope of the union of forecast circles. This keeps
+        // the cone closer to the official CWA/JMA style and prevents the big over-blown
+        // blob seen when the forecast path folds back on itself.
         const lat0 = centers.reduce((s,p)=>s+p.lat,0) / centers.length;
         const lon0 = centers.reduce((s,p)=>s+p.lon,0) / centers.length;
         const ky = 110.574;
         const kx = 111.320 * Math.max(.20, Math.cos(lat0 * Math.PI / 180));
 
-        const cloud = [];
-        centers.forEach((c,idx)=>{
-          // Current position stays relatively tight; forecast circles keep their 70% radius.
-          const rr = idx === 0 ? c.rKm : c.rKm;
-          for(let a=0; a<360; a+=10){
-            const pt = destinationPoint(c.lat, c.lon, a, kmToMeters(rr));
-            cloud.push({
-              x:(pt.lon-lon0)*kx,
-              y:(pt.lat-lat0)*ky
-            });
+        const cxy = centers.map(c=>({
+          x:(c.lon-lon0)*kx,
+          y:(c.lat-lat0)*ky,
+          r:Math.max(6, Number(c.rKm)||0)
+        }));
+
+        const ox = cxy.reduce((s,p)=>s+p.x,0) / cxy.length;
+        const oy = cxy.reduce((s,p)=>s+p.y,0) / cxy.length;
+        const radial=[];
+        const stepDeg = 4;
+
+        for(let ang=0; ang<360; ang+=stepDeg){
+          const th = toRad(ang);
+          const ux = Math.cos(th);
+          const uy = Math.sin(th);
+          let best = null;
+          for(const c of cxy){
+            const dx = c.x - ox;
+            const dy = c.y - oy;
+            const proj = dx*ux + dy*uy;
+            const perp2 = dx*dx + dy*dy - proj*proj;
+            const rr2 = c.r*c.r;
+            if(perp2 > rr2) continue;
+            const delta = Math.sqrt(Math.max(0, rr2 - perp2));
+            const t2 = proj + delta;
+            if(t2 <= 0) continue;
+            if(best == null || t2 > best) best = t2;
           }
+          if(best != null){
+            radial.push({ ang, d:best });
+          }
+        }
+
+        if(radial.length < 12) return null;
+
+        // Circular smoothing to reduce spikes between neighbouring sampled angles.
+        const smooth=[];
+        const n=radial.length;
+        for(let i=0;i<n;i++){
+          const prev = radial[(i-1+n)%n].d;
+          const curr = radial[i].d;
+          const next = radial[(i+1)%n].d;
+          smooth.push((prev + curr*2 + next) / 4);
+        }
+
+        const poly = smooth.map((d,i)=>{
+          const th = toRad(radial[i].ang);
+          const x = ox + Math.cos(th)*d;
+          const y = oy + Math.sin(th)*d;
+          return [lat0 + y/ky, lon0 + x/kx];
         });
-
-        cloud.sort((a,b)=>a.x===b.x ? a.y-b.y : a.x-b.x);
-        if(cloud.length < 3) return null;
-
-        const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
-        const lower=[];
-        for(const p of cloud){
-          while(lower.length>=2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
-          lower.push(p);
-        }
-        const upper=[];
-        for(let i=cloud.length-1;i>=0;i--){
-          const p=cloud[i];
-          while(upper.length>=2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
-          upper.push(p);
-        }
-
-        const hull = lower.slice(0,-1).concat(upper.slice(0,-1));
-        const poly = hull.map(p=>[
-          lat0 + p.y/ky,
-          lon0 + p.x/kx
-        ]);
         if(poly.length) poly.push(poly[0]);
         return poly;
       }
@@ -7490,6 +7517,8 @@ Implement by adjusting polygon style functions:
       btn.title = selectedTyphoonId === "all" ? "下載目前全部颱風的地圖 PNG" : "下載目前選取颱風的 PNG";
     }
 
+    // v53: looping / clustered forecast cone now uses a radial union envelope
+    // instead of an over-expanded convex hull.
     function drawForecastCone(){
       clearLayerArr(forecastErrorCircles);
 
@@ -14177,6 +14206,132 @@ ${a.instruction}` : ''
     return arr;
   }
 
+  // Malaysia marine maritime/nearshore zones.
+/* METMalaysia marine warning rendering: visual approximate zones, not navigation. */
+(function(){
+  const COLORS={none:'#eaf6fb',thunderstorm:'#38bdf8',first:'#fff35a',second:'#ffa733',third:'#e53935'};
+  const STROKES={none:'#63859a',thunderstorm:'#0284c7',first:'#b99e00',second:'#c46b08',third:'#a71923'};
+  const RANK={none:0,thunderstorm:1,first:2,second:3,third:4};
+  const shortZone={phuket:'Phuket',samui:'Samui',north_sm:'North S.M.',south_sm:'South S.M.',tioman:'Tioman',
+    condore:'Condore',bunguran:'Bunguran',reef_north:'Reef North',reef_south:'Reef South',palawan:'Palawan',
+    sulu:'Sulu',sulawesi:'Sulawesi',layang_layang:'Layang-Layang'};
+  const COAST={
+    coast_pls:['perlis'],coast_kdh:['kedah'],coast_png:['penang','pulau pinang'],coast_prk:['perak'],
+    coast_sgr:['selangor'],coast_nsn:['n sembilan','negeri sembilan'],coast_mlk:['melaka','malacca'],
+    coast_phg:['pahang'],coast_trg:['terengganu'],coast_ktn:['kelantan'],coast_lbn:['labuan'],
+    sarawak_coast:['sarawak'],western_sabah:['western sabah','sabah barat','west sabah'],
+    eastern_sabah:['eastern sabah','sabah timur','east sabah'],
+    west_johor:['west johor','western johor'],east_johor:['east johor','eastern johor']
+  };
+  const AREA_WORDS={
+    phuket:['phuket'],samui:['samui'],north_sm:['north s m','northern straits of melaka','northern straits of malacca'],
+    south_sm:['south s m','southern straits of melaka','southern straits of malacca'],
+    tioman:['tioman'],condore:['condore'],bunguran:['bunguran'],reef_north:['reef north'],
+    reef_south:['reef south'],palawan:['palawan'],sulu:['sulu'],sulawesi:['sulawesi'],layang_layang:['layang layang']
+  };
+  const norm=s=>String(s??'').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+  function hasTerm(s,term){return (' '+norm(s)+' ').includes(' '+norm(term)+' ')}
+  function normalizePart(token,zoneName){
+    const t=norm(token),n=norm(zoneName);
+    // Qualifier is extracted only from words directly before the area name.
+    const at=t.indexOf(n);if(at<0)return 'whole';
+    const prefix=t.slice(Math.max(0,at-60),at);
+    if(!/part[s]?\s+of\s*$/.test(prefix))return 'whole';
+    if(/northwest(?:ern)?\s+(?:and\s+|or\s+)?southeast(?:ern)?\s+parts? of\s*$/.test(prefix))return 'northwest southeast';
+    if(/northeast(?:ern)?\s+(?:and\s+|or\s+)?southwest(?:ern)?\s+parts? of\s*$/.test(prefix))return 'northeast southwest';
+    const matches=[...prefix.matchAll(/\b(northwestern|northeastern|southwestern|southeastern|northern|southern|western|eastern|northwest|northeast|southwest|southeast|north|south|west|east)\b/g)].map(m=>m[1]);
+    const m=matches.length?matches[matches.length-1]:null;
+    return ({northern:'north',southern:'south',western:'west',eastern:'east',northwestern:'northwest',northeastern:'northeast',southwestern:'southwest',southeastern:'southeast'})[m]||m||'whole';
+  }
+  function partMatch(geopart,wanted){
+    if(!wanted||wanted==='whole'||geopart==='whole')return true;
+    if(wanted.includes(' '))return wanted.split(' ').some(k=>partMatch(geopart,k));
+    if(geopart===wanted)return true;
+    if(wanted==='north'||wanted==='south'||wanted==='west'||wanted==='east')return geopart.includes(wanted);
+    if((wanted==='northwest'||wanted==='northeast'||wanted==='southwest'||wanted==='southeast') && geopart===wanted)return true;
+    return false;
+  }
+  function classify(section,heading){
+    const h=String(heading).toLowerCase();
+    if(/third category|kategori ketiga/.test(h))return 'third';
+    if(/second category|kategori kedua/.test(h))return 'second';
+    if(/first category|kategori pertama/.test(h))return 'first';
+    if(/thunderstorms?|ribut petir/.test(h))return 'thunderstorm';
+    return 'none';
+  }
+  function sections(text, which){
+    text=String(text||'');
+    if(which==='shipping'){
+      const m=text.match(/section\s*b\s*:\s*for\s*shipping/i);
+      if(m)text=text.slice(m.index+m[0].length);
+      else if(/section\s*a\s*:/i.test(text))return '';
+    }else{
+      const m=text.match(/section\s*a\s*:\s*for\s*malaysian\s*waters/i);
+      if(m)text=text.slice(m.index+m[0].length).split(/section\s*b\s*:/i)[0];
+      else if(/section\s*b\s*:/i.test(text))return '';
+    }
+    return text;
+  }
+  function parseTextBlocks(text, defaultHeading){
+    const parts=String(text||'').split(/(?=\b\d+\s*\)\s*(?:WARNING|THUNDERSTORMS|LOW HORIZONTAL|AMARAN))/i).filter(t=>t.trim());
+    return parts.map(p=>{
+      const heading=(p.match(/^\s*(?:\d+\s*\)\s*)?([^\n]{1,145})/i)||[])[1]||defaultHeading||'';
+      const level=classify(p.slice(0,180),heading)||classify(heading,heading);
+      // Extract marine coverage only, not broad references to safety and later passages.
+      const m=p.match(/\b(?:over|across|of)\s+the\s+waters?\s+of\s+([\s\S]+?)(?:\buntil\b|\bsehingga\b|\.\s+(?:This|The|However)|$)/i)
+        || p.match(/\bwaters?\s+of\s+([\s\S]+?)(?:\buntil\b|\bsehingga\b|\.\s+(?:This|The|However)|$)/i);
+      return {level:level==='none'?classify(defaultHeading,defaultHeading):level, areas:m?m[1].trim():'',heading};
+    });
+  }
+  function getMarineCoverage(warnings,features){
+    const records=new Map();
+    const activeWarnings=(Array.isArray(warnings)?warnings:[]);
+    function add(f,level,bulletin){
+      const id=f.properties.zone_id,old=records.get(id);
+      if(!old)records.set(id,{level,warnings:[bulletin]});
+      else{if(RANK[level]>RANK[old.level])old.level=level;if(!old.warnings.includes(bulletin))old.warnings.push(bulletin)}
+    }
+    for(const w of activeWarnings){
+      const text=String(w.text_en||w.text_bm||'');
+      const fallback=w.heading_en||w.heading_bm||w.warning_issue?.title_en||'';
+      for(const section of ['shipping','coastal']){
+        const txt=sections(text,section);
+        if(!txt)continue;
+        // If bulletin has neither Section A nor Section B, only map explicitly named shipping zones.
+        const blocks=parseTextBlocks(txt,fallback);
+        for(const block of blocks){
+          const lvl=block.level;
+          if(lvl==='none'||!block.areas)continue;
+          for(const f of features){
+            if(f.properties.section!==section)continue;
+            const zone=f.properties.zone;
+            const names=section==='shipping'?AREA_WORDS[zone]:COAST[zone];
+            if(!names)continue;
+            let match=false;
+            const list=block.areas.split(/[•·;]+/).map(x=>x.trim()).filter(Boolean);
+            for(const token of list){
+              for(const term of names){
+                if(!hasTerm(token,term))continue;
+                let part='whole';if(section==='shipping')part=normalizePart(token,term);
+                if(partMatch(f.properties.part||'whole',part)){match=true;break}
+              }
+              if(match)break;
+              // Generic Straits of Melaka and unqualified Sabah apply to the appropriate coastal/sea subregions.
+              if(section==='shipping' && (zone==='north_sm'||zone==='south_sm') && hasTerm(token,'straits of melaka'))match=true;
+              if(section==='coastal' && (zone==='western_sabah'||zone==='eastern_sabah') && hasTerm(token,'sabah')&&!/western|eastern|barat|timur/i.test(token))match=true;
+              if(section==='coastal' && (zone==='west_johor'||zone==='east_johor') && hasTerm(token,'johor')&&!/western|eastern|west|east/i.test(token))match=true;
+              if(match)break;
+            }
+            if(match)add(f,lvl,w);
+          }
+        }
+      }
+    }
+    return records;
+  }
+  window.__malaysiaMarineLogic={COLORS,STROKES,RANK,norm,shortZone,partMatch,normalizePart,sections,parseTextBlocks,getMarineCoverage};
+})();
+
   // Full override so sea warnings remain information-only while state/district borders are always visible.
   // Malaysia weather warnings: state-aware mapping for full-state and named-district alerts.
   // Malaysia weather warnings: state-aware mapping for full-state and named-district alerts.
@@ -14184,11 +14339,12 @@ ${a.instruction}` : ''
     const API = 'https://api.data.gov.my/weather/warning';
     const STATE_GEOJSON_URL = 'data/malaysia.state.geojson?v=20261030-topology';
     const DISTRICT_GEOJSON_URL = 'data/malaysia.district.geojson?v=20261030-topology';
+    const MARINE_GEOJSON_URL = 'data/malaysia.marine.geojson?v=20261030-marine-v1';
     const q = (id) => document.getElementById(id);
     if(!q('warnPanelMy')) return;
     let allData = [];
-    let myMap = null, myStateLayer = null, myDistrictLayer = null;
-    let myStateGeoJSON = null, myDistrictGeoJSON = null, myGeoLoading = null;
+    let myMap = null, myStateLayer = null, myDistrictLayer = null, myMarineLayer = null, myMarineLabels = null;
+    let myStateGeoJSON = null, myDistrictGeoJSON = null, myMarineGeoJSON = null, myGeoLoading = null;
     const myRenderer = L.svg({padding:.25});
 
     const STATE_CODES = {
@@ -14309,6 +14465,11 @@ ${a.instruction}` : ''
     }
     function level(w){
       const h=heading(w).toLowerCase(); // Never infer severity from place names or descriptive paragraphs.
+      if(kind(w)==='sea'){
+        if(/third category|kategori ketiga/.test(h))return 'red';
+        if(/second category|kategori kedua/.test(h))return 'orange';
+        if(/first category|kategori pertama/.test(h))return 'yellow';
+      }
       if(/\b(danger|red|bahaya|merah)\b/.test(h))return 'red';
       if(/\b(severe|orange|buruk|jingga)\b/.test(h))return 'orange';
       if(kind(w)==='thunderstorm')return 'blue';
@@ -14495,15 +14656,17 @@ ${a.instruction}` : ''
     }
     // Always read the two local, versioned GeoJSON files. No remote Sabah geometry service.
     async function loadGeo(){
-      if(myStateGeoJSON && myDistrictGeoJSON)return;
+      if(myStateGeoJSON && myDistrictGeoJSON && myMarineGeoJSON)return;
       if(myGeoLoading)return myGeoLoading;
       myGeoLoading=Promise.allSettled([
-        fetch(STATE_GEOJSON_URL,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('state GeoJSON '+r.status);return r.json();}),
-        fetch(DISTRICT_GEOJSON_URL,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('district GeoJSON '+r.status);return r.json();})
-      ]).then(([s,d])=>{
+        myStateGeoJSON?Promise.resolve(myStateGeoJSON):fetch(STATE_GEOJSON_URL,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('state GeoJSON '+r.status);return r.json();}),
+        myDistrictGeoJSON?Promise.resolve(myDistrictGeoJSON):fetch(DISTRICT_GEOJSON_URL,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('district GeoJSON '+r.status);return r.json();}),
+        myMarineGeoJSON?Promise.resolve(myMarineGeoJSON):fetch(MARINE_GEOJSON_URL,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('marine GeoJSON '+r.status);return r.json();})
+      ]).then(([s,d,m])=>{
         if(s.status==='fulfilled')myStateGeoJSON=s.value;else console.warn('Malaysia state GeoJSON unavailable',s.reason);
         if(d.status==='fulfilled')myDistrictGeoJSON=d.value;else console.warn('Malaysia district GeoJSON unavailable',d.reason);
-        window.__malaysiaBoundaryData={state:myStateGeoJSON,district:myDistrictGeoJSON,source:'local'};
+        if(m.status==='fulfilled')myMarineGeoJSON=m.value;else console.warn('Malaysia marine GeoJSON unavailable',m.reason);
+        window.__malaysiaBoundaryData={state:myStateGeoJSON,district:myDistrictGeoJSON,marine:myMarineGeoJSON,source:'local'};
       }).finally(()=>{myGeoLoading=null});
       return myGeoLoading;
     }
@@ -14526,6 +14689,56 @@ ${a.instruction}` : ''
       ensureMap();if(!myMap)return;
       if(myStateLayer){myMap.removeLayer(myStateLayer);myStateLayer=null;}
       if(myDistrictLayer){myMap.removeLayer(myDistrictLayer);myDistrictLayer=null;}
+      if(myMarineLayer){myMap.removeLayer(myMarineLayer);myMarineLayer=null;}
+      if(myMarineLabels){myMap.removeLayer(myMarineLabels);myMarineLabels=null;}
+      const selection=q('myTypeFilter')?.value||'rain_all';
+      const legend=document.querySelector('#warnPanelMy .myMapLegend');
+      if(selection==='sea'){
+        if(legend)legend.innerHTML=`<span><i style="background:#38bdf8;border-color:#0284c7"></i> 海上雷雨</span><span><i style="background:#fff35a;border-color:#b99e00"></i> 第一類</span><span><i style="background:#ffa733;border-color:#c46b08"></i> 第二類</span><span><i style="background:#e53935;border-color:#a71923"></i> 第三類</span>`;
+        if(!myMarineGeoJSON?.features?.length){
+          if(q('myMapHint'))q('myMapHint').textContent='海域 GeoJSON 尚未載入，請確認 data/malaysia.marine.geojson。';
+          return;
+        }
+        const marine=window.__malaysiaMarineLogic;
+        const affected=marine.getMarineCoverage(allData.filter(w=>kind(w)==='sea'),myMarineGeoJSON.features);
+        window.__malaysiaMarineStatus=affected;
+        myMarineLayer=L.geoJSON(myMarineGeoJSON,{
+          renderer:myRenderer,smoothFactor:.45,interactive:true,
+          style:f=>{
+            const l=affected.get(f.properties.zone_id)?.level||'none';
+            return {color:marine.STROKES[l]||marine.STROKES.none,weight:l==='none'?.9:1.6,
+              fillColor:marine.COLORS[l]||marine.COLORS.none,fillOpacity:l==='none'?.065:.58,
+              opacity:.9,interactive:true};
+          },
+          onEachFeature:(f,layer)=>{
+            const r=affected.get(f.properties.zone_id),part=f.properties.part;
+            const name=f.properties.display_name+(part==='whole'?'':' · '+part);
+            const level=({none:'無警報',thunderstorm:'海上雷雨',first:'第一類警報',second:'第二類警報',third:'第三類警報'})[r?.level||'none'];
+            layer.bindTooltip(`<b>${html(name)}</b><br>${html(level)}${r?' · '+r.warnings.length+' 則':''}<br><small>示意海域分區，非航海界線</small>`,{sticky:true,direction:'top',className:'twCountyLabel'});
+            layer.on({mouseover:()=>layer.setStyle({weight:2.6,fillOpacity:r?.68:.14}),mouseout:()=>myMarineLayer?.resetStyle(layer)});
+          }
+        }).addTo(myMap);
+        const marineLabels=[
+          ['PHUKET',[9.55,95.3]],['SAMUI',[9.6,102.7]],['NORTH S.M.',[6.5,96.2]],
+          ['TIOMAN',[6.2,104.0]],['CONDORE',[8.1,107.5]],['BUNGURAN',[4.8,107.5]],
+          ['REEF NORTH',[8.0,112.3]],['REEF SOUTH',[4.7,112.2]],
+          ['PALAWAN',[10.1,119.2]],['SULU',[8.0,121.0]],['SULAWESI',[3.0,121.4]]
+        ];
+        myMarineLabels=L.layerGroup();
+        marineLabels.forEach(([label,position])=>L.marker(position,{
+          interactive:false,keyboard:false,
+          icon:L.divIcon({className:'marineZoneMapLabel',html:html(label),iconSize:[104,18],iconAnchor:[52,9]})
+        }).addTo(myMarineLabels));
+        myMarineLabels.addTo(myMap);
+        requestAnimationFrame(()=>{
+          myMap.invalidateSize();
+          try{myMap.fitBounds([[.3,93.4],[12.0,122.7]],{padding:[12,12]});}catch(e){}
+        });
+        const marineCount=new Set([...affected.keys()].map(k=>k.replace(/_(northwest|northeast|southwest|southeast|north|south|west|east|whole)$/,''))).size;
+        if(q('myMapHint'))q('myMapHint').textContent=`海上警報示意：${marineCount} 個受影響海域 · 按警報級別上色。海域邊界根據參考圖估算，非官方航海座標。`;
+        return;
+      }
+      if(legend)legend.innerHTML=`<span><i style="background:#38bdf8;border-color:#0369a1"></i> 豪雨警報</span><span><i style="background:#fff35a;border-color:#c9a500"></i> 黃色警報</span><span><i style="background:#ffa733;border-color:#cf6400"></i> 橙色警報</span><span><i style="background:#e53935;border-color:#960000"></i> 紅色警報</span>`;
       if(!myStateGeoJSON && !myDistrictGeoJSON){
         if(q('myMapHint'))q('myMapHint').textContent='GeoJSON 載入失敗；請確認 data/malaysia.state.geojson 和 data/malaysia.district.geojson 路徑。';
         setTimeout(()=>myMap.invalidateSize(),80);return;
@@ -15664,7 +15877,7 @@ ${a.instruction}` : ''
   }
   function conePointsAsObjects(poly){ return (poly || []).map(p=>({lat:p[0], lon:p[1]})); }
   function drawCone(ctx, pts, proj){
-    const poly = buildForecastConePolygonSmoothFixed(pts); if(!poly || poly.length < 4) return null;
+    const poly = (typeof window.__forecastConeUnionV20==='function' ? window.__forecastConeUnionV20(pts) : buildForecastConePolygonSmoothFixed(pts)); if(!poly || poly.length < 4) return null;
     ctx.save(); ctx.beginPath(); poly.forEach(([la,lo], i)=>{ const q = proj(la,lo); if(i===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y); }); ctx.closePath(); ctx.fillStyle='rgba(96,165,250,.14)'; ctx.fill(); ctx.strokeStyle='rgba(82,152,232,.86)'; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke(); ctx.restore();
     const qq = poly.map(([la,lo])=>proj(la,lo)); return {minX:Math.min(...qq.map(q=>q.x)), maxX:Math.max(...qq.map(q=>q.x)), minY:Math.min(...qq.map(q=>q.y)), maxY:Math.max(...qq.map(q=>q.y))};
   }
@@ -15775,7 +15988,7 @@ ${a.instruction}` : ''
       titleSync();
       const meta = getWeatherMeta();
       const latest = latestObs(pts) || pts[0];
-      const cone = buildForecastConePolygonSmoothFixed(pts);
+      const cone = (typeof window.__forecastConeUnionV20==='function' ? window.__forecastConeUnionV20(pts) : buildForecastConePolygonSmoothFixed(pts));
       const fitPts = pts.concat(conePointsAsObjects(cone));
       const fc = pts.filter(p=>p.kind==='fcst');
       const warn = warningEntries();
@@ -15839,7 +16052,7 @@ ${a.instruction}` : ''
       const width=1600,height=900,dpr=2; const cv=document.createElement('canvas'); cv.width=width*dpr; cv.height=height*dpr; const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
       const groups = all.map(t=>({name:stripCwa(t.name||'颱風'), pts:sortPts(t.points||[])})).filter(g=>g.pts.length);
       const allPts = [], conePts = [];
-      groups.forEach(g=>{ allPts.push(...g.pts); const cone = buildForecastConePolygonSmoothFixed(g.pts); conePts.push(...conePointsAsObjects(cone)); });
+      groups.forEach(g=>{ allPts.push(...g.pts); const cone = (typeof window.__forecastConeUnionV20==='function' ? window.__forecastConeUnionV20(g.pts) : buildForecastConePolygonSmoothFixed(g.pts)); conePts.push(...conePointsAsObjects(cone)); });
       const latest = allPts.filter(p=>p.kind==='obs').sort((a,b)=>tval(b.time)-tval(a.time))[0];
 
       const bg=ctx.createLinearGradient(0,0,0,height); bg.addColorStop(0,'#fbfdff'); bg.addColorStop(1,'#edf7fa'); ctx.fillStyle=bg; ctx.fillRect(0,0,width,height); const glow=ctx.createRadialGradient(1320,-50,20,1320,-50,460); glow.addColorStop(0,'rgba(124,58,237,.12)'); glow.addColorStop(1,'rgba(124,58,237,0)'); ctx.fillStyle=glow; ctx.fillRect(0,0,width,height);
@@ -17805,7 +18018,7 @@ ${a.instruction}` : ''
   }
   // Gallery drawing, fitting and label avoidance all resolve the same builder.
   function buildCleanForecastCone(srcPoints){
-    const shared=W.__forecastConeUnionV19;
+    const shared=W.__forecastConeUnionV20 || W.__forecastConeUnionV19;
     return typeof shared==='function' ? shared(srcPoints) : buildMercatorForecastCone(srcPoints);
   }
   W.__buildMercatorForecastCone=buildMercatorForecastCone;
@@ -19056,7 +19269,7 @@ ${a.instruction}` : ''
     const obs=list.filter(p=>p.kind==='obs').slice(-1)[0]||list[0];
     const route=obs ? [obs,...list.filter(p=>p.kind==='fcst')] : [];
     if(route.length < 2) return null;
-    const key=JSON.stringify(route.map(p=>[identOf(p),p.kind,p.time,p.lat,p.lon,p.fcst_radius_km]));
+    const key='V20:'+JSON.stringify(route.map(p=>[identOf(p),p.kind,p.time,p.lat,p.lon,p.fcst_radius_km]));
     if(coneCache.has(key)) return coneCache.get(key);
 
     function unwrapPoly(poly){
@@ -19115,32 +19328,21 @@ ${a.instruction}` : ''
       return false;
     }
 
+    // V20 authoritative source: geographic union of published 70% circles,
+    // interpolated along the forecast centreline in Web Mercator.
+    // Never select the older tangent / convex hull shape again, even when
+    // the two bounding boxes have similar areas.
     const mercator=window.__buildMercatorForecastCone;
-    const original=window.buildOriginalConeFixed || buildOriginalConeFixed;
-    let mercPoly=typeof mercator==='function' ? mercator(list) : null;
-    if(!mercPoly || mercPoly.length<4) mercPoly=null;
-    let symPoly=typeof original==='function' ? original(list) : null;
-    if(!symPoly || symPoly.length<4 || polySelfCrosses(symPoly)) symPoly=null;
-
-    let polygon=mercPoly;
-    if(symPoly && mercPoly){
-      const a=polyMetrics(symPoly), b=polyMetrics(mercPoly);
-      const areaRatio=(a&&b&&b.area>1e-6)? a.area/b.area : 1;
-      const widthRatio=(a&&b&&b.width>1e-6)? a.width/b.width : 1;
-      const heightRatio=(a&&b&&b.height>1e-6)? a.height/b.height : 1;
-      const closeEnough=areaRatio>.70 && areaRatio<1.35 && widthRatio>.78 && widthRatio<1.28 && heightRatio>.78 && heightRatio<1.28;
-      if(closeEnough) polygon=symPoly;
-    }else if(symPoly){
-      polygon=symPoly;
-    }
-
+    let polygon = typeof mercator==='function' ? mercator(list) : null;
     if(!polygon || polygon.length<4) polygon=null;
     if(coneCache.size>=64) coneCache.delete(coneCache.keys().next().value);
     coneCache.set(key,polygon);
     return polygon;
   }
+  window.__forecastConeUnionV20=buildSharedForecastCone;
   window.__forecastConeUnionV19=buildSharedForecastCone;
   window.buildForecastConePolygonSmooth=buildSharedForecastCone;
+  window.__forecastConeEngineVersion='V20-20261030-unified-mercator-union';
   try{ buildForecastConePolygonSmooth=buildSharedForecastCone; }catch(e){}
 
   function redrawInteractiveMap(){
@@ -22539,6 +22741,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 </script>
 
 <style id="weather-warnings-image-export-style">
+.marineZoneMapLabel{font:800 10px/18px 'Noto Sans TC',sans-serif;text-align:center;color:#17475c;background:rgba(255,255,255,.85);border:1px solid rgba(17,76,100,.17);border-radius:7px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 5px rgba(14,45,60,.05)}
 #twWarningPngBtn,#myWarningPngBtn{background:linear-gradient(135deg,#0f4c5c,#2a9d8f);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(15,76,92,.15)}
 #twWarningPngBtn:hover,#myWarningPngBtn:hover{box-shadow:0 9px 22px rgba(15,76,92,.23)}
 #twWarningPngBtn:disabled,#myWarningPngBtn:disabled{cursor:progress;opacity:.65}
@@ -22765,6 +22968,32 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         ...time
       };
     });
+    if(typeValue==='sea'){
+      const geo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261030-marine-v1');
+      if(!geo?.features?.length)throw new Error('海域 GeoJSON 尚未載入');
+      const ml=window.__malaysiaMarineLogic;
+      const rec=ml.getMarineCoverage(filteredWarnings,geo.features);
+      stage(ctx,'馬來西亞','海象警報',`${warningCards.length} 項警報`,[
+        ['海上雷雨','#38bdf8'],['第一類','#fff35a'],['第二類','#ffa733'],['第三類','#e53935']
+      ],warningCards);
+      const views=[
+        {x:54,y:262,w:530,h:680,bounds:[93.5,.4,109.0,12.0],name:'馬六甲海峽 · 馬來半島'},
+        {x:600,y:262,w:521,h:680,bounds:[108.5,.3,123.0,12.0],name:'南海 · 東馬 · 蘇祿海'}
+      ];
+      for(const v of views){
+        const close=clipPanel(ctx,v.x,v.y,v.w,v.h,v.name),project=view(ctx,v,v.bounds);
+        state.features.forEach(f=>drawable(ctx,f,project,'#e4f0e3','#708a83',.5));
+        geo.features.forEach(f=>{
+          if(f.properties.section!=='shipping')return;
+          const lvl=rec.get(f.properties.zone_id)?.level||'none';
+          const fill=({none:'#ecf8fc',thunderstorm:'#38bdf8',first:'#fff35a',second:'#ffa733',third:'#e53935'})[lvl];
+          drawable(ctx,f,project,fill,lvl==='none'?'#85a5b2':'#265c75',lvl==='none'?.55:1.25);
+        });
+        close();
+      }
+      cards(ctx,warningCards,'目前沒有海象警報資訊','my');
+      return;
+    }
     stage(ctx,'馬來西亞',typeLabel,`${warningCards.length} 項警報`,[
       ['豪雨警報','#38bdf8'],['黃色警報','#fff35a'],['橙色警報','#ffa733'],['紅色警報','#e53935']
     ],warningCards);
