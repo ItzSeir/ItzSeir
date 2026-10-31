@@ -767,19 +767,185 @@ button{ -webkit-tap-highlight-color:transparent; }
 .warningTag.other{ background:#f3f4f6; color:#374151; }
 
 .warningMeta{
-  color:var(--muted);
+  margin-bottom:10px;
+}
+
+.warningMetaGrid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+
+.warningMetaItem{
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:14px;
+  background:linear-gradient(180deg, rgba(249,252,252,.96), rgba(241,247,248,.9));
+  padding:10px 12px;
+  min-width:0;
+}
+
+.warningMetaLabel{
+  color:#6c8088;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.03em;
+}
+
+.warningMetaValue{
+  margin-top:5px;
+  color:#183241;
   font-size:12px;
-  font-weight:800;
-  line-height:1.6;
-  margin-bottom:8px;
+  font-weight:900;
+  line-height:1.5;
+  word-break:break-word;
+}
+
+.warningSummaryChips,
+.warningAreaChips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.warningSummaryChips{
+  margin:0 0 10px;
+}
+
+.warningAreaChips{
+  margin:10px 0 0;
+}
+
+.warningStatChip,
+.warningAreaChip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:30px;
+  padding:6px 11px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:900;
+  line-height:1.35;
+  white-space:nowrap;
+}
+
+.warningStatChip{
+  background:rgba(15,76,92,.08);
+  color:#0f4c5c;
+  border:1px solid rgba(15,76,92,.12);
+}
+
+.warningAreaChip{
+  background:rgba(79,140,255,.09);
+  color:#25465b;
+  border:1px solid rgba(79,140,255,.12);
 }
 
 .warningDesc{
-  color:#374151;
+  display:grid;
+  gap:10px;
+}
+
+.warningSectionCard{
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:18px;
+  background:linear-gradient(180deg, rgba(250,252,253,.98), rgba(245,249,250,.95));
+  padding:12px 13px;
+}
+
+.warningSectionHead{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+}
+
+.warningSectionCode{
+  flex:0 0 auto;
+  min-width:30px;
+  height:30px;
+  padding:0 8px;
+  border-radius:999px;
+  background:#0f4c5c;
+  color:#fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+  font-weight:900;
+}
+
+.warningSectionTitle{
+  color:#183241;
   font-size:13px;
+  font-weight:900;
+  line-height:1.45;
+}
+
+.warningSectionSub{
+  margin-top:3px;
+  color:#5f7680;
+  font-size:11px;
+  font-weight:800;
+  line-height:1.5;
+}
+
+.warningSectionText{
+  margin-top:10px;
+  color:#425662;
+  font-size:12px;
   font-weight:700;
-  line-height:1.7;
+  line-height:1.72;
   white-space:pre-wrap;
+  word-break:break-word;
+}
+
+.warningRawDetails{
+  border:1px dashed rgba(15,76,92,.18);
+  border-radius:16px;
+  background:rgba(255,255,255,.72);
+  overflow:hidden;
+}
+
+.warningRawDetails summary{
+  list-style:none;
+  cursor:pointer;
+  padding:11px 13px;
+  color:#0f4c5c;
+  font-size:12px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.warningRawDetails summary::-webkit-details-marker{ display:none; }
+.warningRawDetails summary::after{ content:'展開'; color:#6c8088; font-size:11px; font-weight:900; }
+.warningRawDetails[open] summary::after{ content:'收起'; }
+
+.warningRawBody{
+  border-top:1px dashed rgba(15,76,92,.12);
+  padding:0 13px 13px;
+}
+
+.warningRawText{
+  margin-top:11px;
+  color:#425662;
+  font-size:12px;
+  font-weight:700;
+  line-height:1.72;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+.warningEmptyMini{
+  color:#6c8088;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.65;
+}
+
+@media (max-width:900px){
+  .warningMetaGrid{ grid-template-columns:1fr; }
+  .warningStatChip, .warningAreaChip{ white-space:normal; }
 }
 
 
@@ -14076,6 +14242,90 @@ ${a.instruction}` : ''
       if(q('myMapHint')) q('myMapHint').textContent = matched ? `已標示 ${matched} 個受影響地區。` : '已載入地圖；目前沒有可標示的馬來西亞地區警報。';
     }
 
+
+    function fmtDateCard(v){
+      const raw=String(v ?? '').trim();
+      if(!raw) return '—';
+      const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+      if(m) return `${m[1]}/${m[2]}/${m[3]} ${m[4]}:${m[5]}`;
+      const d=new Date(raw);
+      if(!Number.isNaN(d.getTime())){
+        const pad=n=>String(n).padStart(2,'0');
+        return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+      return raw.replace('T',' ');
+    }
+    function compactTextCard(s){
+      return String(s || '').replace(/ /g,' ').replace(/\s+/g,' ').trim();
+    }
+    function splitAreaNames(s){
+      return [...new Set(String(s||'')
+        .split(/\s*•\s*|\s*;\s*|\s*,\s*/)
+        .map(v=>v.trim())
+        .filter(Boolean)
+      )];
+    }
+    function firstSentences(text, count=2){
+      const clean=compactTextCard(text);
+      if(!clean) return '';
+      const parts=clean.match(/[^.!?]+[.!?]?/g) || [clean];
+      return parts.slice(0,count).join(' ').trim();
+    }
+    function buildSectionCard(code, title, subtitle, text, areas){
+      return `<div class="warningSectionCard">
+        <div class="warningSectionHead">
+          <span class="warningSectionCode">${html(code || '•')}</span>
+          <div>
+            <div class="warningSectionTitle">${html(title || '警報內容')}</div>
+            ${subtitle ? `<div class="warningSectionSub">${html(subtitle)}</div>` : ''}
+          </div>
+        </div>
+        ${text ? `<div class="warningSectionText">${html(text)}</div>` : ''}
+        ${areas?.length ? `<div class="warningAreaChips">${areas.map(a=>`<span class="warningAreaChip">${html(a)}</span>`).join('')}</div>` : ''}
+      </div>`;
+    }
+    function buildWarningBody(w, info){
+      const rawText=compactTextCard(w.text_en || w.text_bm || w.instruction_en || w.instruction_bm || '');
+      if(!rawText) return '<div class="warningEmptyMini">目前沒有詳細內容。</div>';
+      const chips=[];
+      const wind=(rawText.match(/winds? up to\s*([0-9.]+\s*kmph)/i)||[])[1];
+      const wave=(rawText.match(/wave(?:\s+height)?(?:s)?\s*(?:up to|height up to)\s*([0-9.]+(?:\s*[-–]\s*[0-9.]+)?\s*metres?)/i)||[])[1];
+      const endTime=(rawText.match(/until\s+([^.;]+(?:\d{4})?)/i)||[])[1];
+      if(wind) chips.push(`風速 ${wind}`);
+      if(wave) chips.push(`浪高 ${wave}`);
+      if(endTime) chips.push(`至 ${endTime.trim()}`);
+      const sections=[];
+      const secMatches=[...rawText.matchAll(/SECTION\s+([A-Z])\s*:\s*(.*?)(?=SECTION\s+[A-Z]\s*:|$)/gi)];
+      if(secMatches.length){
+        secMatches.forEach(m=>{
+          const code=`SECTION ${String(m[1]||'').toUpperCase()}`;
+          const content=compactTextCard(m[2]);
+          let title='警報內容', subtitle='';
+          let summary=content;
+          const head=content.match(/^(FOR\s+[^\d]+?)\s+1\)\s*([A-Z][A-Z\s\[\]\-]+WARNING)/i);
+          if(head){
+            title=head[2].trim();
+            subtitle=head[1].trim();
+            summary=content.slice(head[0].length).trim();
+          }else{
+            const head2=content.match(/^1\)\s*([A-Z][A-Z\s\[\]\-]+WARNING)/i);
+            if(head2){
+              title=head2[1].trim();
+              summary=content.slice(head2[0].length).trim();
+            }
+          }
+          const areaMatch=summary.match(/waters of\s+(.+?)\s+until/i);
+          const areas=areaMatch ? splitAreaNames(areaMatch[1]) : [];
+          sections.push(buildSectionCard(code, title, subtitle, firstSentences(summary,2), areas.slice(0,18)));
+          if(areas.length) chips.push(`${areas.length} 個區域`);
+        });
+      }else{
+        sections.push(buildSectionCard('', info?.name || '警報內容', '', firstSentences(rawText,3), []));
+      }
+      const uniqChips=[...new Set(chips)].map(t=>`<span class="warningStatChip">${html(t)}</span>`).join('');
+      return `${uniqChips ? `<div class="warningSummaryChips">${uniqChips}</div>` : ''}${sections.join('')}
+        <details class="warningRawDetails"><summary>查看完整原文</summary><div class="warningRawBody"><div class="warningRawText">${html(rawText)}</div></div></details>`;
+    }
     function renderCards(){
       const type = q('myTypeFilter')?.value || 'all';
       const box = q('myList');
@@ -14833,6 +15083,90 @@ ${a.instruction}` : ''
         ? `陸地：${stateWarnings.size} 個完整州屬、${districtWarnings.size} 個受影響縣區；海域：${marineAffectedCount} 個受影響區域。`
         : (matched ? `已標示 ${stateWarnings.size} 個完整州屬、${districtWarnings.size} 個受影響縣區。` : '目前沒有可標示的陸地警報。');
     }
+    function fmtDateCard(v){
+      const raw=String(v ?? '').trim();
+      if(!raw) return '—';
+      const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+      if(m) return `${m[1]}/${m[2]}/${m[3]} ${m[4]}:${m[5]}`;
+      const d=new Date(raw);
+      if(!Number.isNaN(d.getTime())){
+        const pad=n=>String(n).padStart(2,'0');
+        return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+      return raw.replace('T',' ');
+    }
+    function compactTextCard(s){
+      return String(s || '').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+    }
+    function splitAreaNames(s){
+      return [...new Set(String(s||'')
+        .split(/\s*•\s*|\s*;\s*|\s*,\s*/)
+        .map(v=>v.trim())
+        .filter(Boolean)
+      )];
+    }
+    function firstSentences(text, count=2){
+      const clean=compactTextCard(text);
+      if(!clean) return '';
+      const parts=clean.match(/[^.!?]+[.!?]?/g) || [clean];
+      return parts.slice(0,count).join(' ').trim();
+    }
+    function buildSectionCard(code, title, subtitle, text, areas){
+      return `<div class="warningSectionCard">
+        <div class="warningSectionHead">
+          <span class="warningSectionCode">${html(code || '•')}</span>
+          <div>
+            <div class="warningSectionTitle">${html(title || '警報內容')}</div>
+            ${subtitle ? `<div class="warningSectionSub">${html(subtitle)}</div>` : ''}
+          </div>
+        </div>
+        ${text ? `<div class="warningSectionText">${html(text)}</div>` : ''}
+        ${areas?.length ? `<div class="warningAreaChips">${areas.map(a=>`<span class="warningAreaChip">${html(a)}</span>`).join('')}</div>` : ''}
+      </div>`;
+    }
+    function buildWarningBody(w, info){
+      const rawText=compactTextCard(w.text_en || w.text_bm || w.instruction_en || w.instruction_bm || '');
+      if(!rawText) return '<div class="warningEmptyMini">目前沒有詳細內容。</div>';
+      const chips=[];
+      const wind=(rawText.match(/winds? up to\s*([0-9.]+\s*kmph)/i)||[])[1];
+      const wave=(rawText.match(/wave(?:\s+height)?(?:s)?\s*(?:up to|height up to)\s*([0-9.]+(?:\s*[-–]\s*[0-9.]+)?\s*metres?)/i)||[])[1];
+      const endTime=(rawText.match(/until\s+([^.;]+(?:\d{4})?)/i)||[])[1];
+      if(wind) chips.push(`風速 ${wind}`);
+      if(wave) chips.push(`浪高 ${wave}`);
+      if(endTime) chips.push(`至 ${endTime.trim()}`);
+      const sections=[];
+      const secMatches=[...rawText.matchAll(/SECTION\s+([A-Z])\s*:\s*(.*?)(?=SECTION\s+[A-Z]\s*:|$)/gi)];
+      if(secMatches.length){
+        secMatches.forEach(m=>{
+          const code=`SECTION ${String(m[1]||'').toUpperCase()}`;
+          const content=compactTextCard(m[2]);
+          let title='警報內容', subtitle='';
+          let summary=content;
+          const head=content.match(/^(FOR\s+[^\d]+?)\s+1\)\s*([A-Z][A-Z\s\[\]\-]+WARNING)/i);
+          if(head){
+            title=head[2].trim();
+            subtitle=head[1].trim();
+            summary=content.slice(head[0].length).trim();
+          }else{
+            const head2=content.match(/^1\)\s*([A-Z][A-Z\s\[\]\-]+WARNING)/i);
+            if(head2){
+              title=head2[1].trim();
+              summary=content.slice(head2[0].length).trim();
+            }
+          }
+          const areaMatch=summary.match(/waters of\s+(.+?)\s+until/i);
+          const areas=areaMatch ? splitAreaNames(areaMatch[1]) : [];
+          sections.push(buildSectionCard(code, title, subtitle, firstSentences(summary,2), areas.slice(0,18)));
+          if(areas.length) chips.push(`${areas.length} 個區域`);
+        });
+      }else{
+        sections.push(buildSectionCard('', info?.name || '警報內容', '', firstSentences(rawText,3), []));
+      }
+      const uniqChips=[...new Set(chips)].map(t=>`<span class="warningStatChip">${html(t)}</span>`).join('');
+      return `${uniqChips ? `<div class="warningSummaryChips">${uniqChips}</div>` : ''}${sections.join('')}
+        <details class="warningRawDetails"><summary>查看完整原文</summary><div class="warningRawBody"><div class="warningRawText">${html(rawText)}</div></div></details>`;
+    }
+
     function renderCards(){
       const type=q('myTypeFilter')?.value||'all', box=q('myList');if(!box)return;
       box.innerHTML='';const filtered=allData.filter(w=>typeMatchesWarning(type,w));
@@ -14845,8 +15179,11 @@ ${a.instruction}` : ''
         const title=(type==='rain_all' && kind(w)==='continuous') ? '長命雨警報' : info.name;
         const tag=(type==='rain_all' && kind(w)==='continuous') ? '長命雨' : info.tag;
         const el=document.createElement('div');el.className='warningCard';
-        el.innerHTML=`<div class="warningCardHead"><div class="warningHeadline">${html(title)}</div><span class="warningTag ${info.map?'rain':'tc'}" style="border-color:${st.stroke};color:${st.stroke};background:${st.fill}33">${html(tag)}</span></div>
-          <div class="warningMeta">原文：${html(raw)}<br>發布：${html(w.warning_issue?.issued||w.warning_issue__issued||w.issued||'—')}<br>有效時間：${html(w.valid_from||'—')} → ${html(w.valid_to||'—')}</div><div class="warningDesc">${html(desc)}</div>`;
+        const tagClass=(kind(w)==='sea'?'sea':(kind(w)==='typhoon'?'tc':'rain'));
+        const issueTime=fmtDateCard(w.warning_issue?.issued||w.warning_issue__issued||w.issued||'');
+        const validTime=`${fmtDateCard(w.valid_from||'')} → ${fmtDateCard(w.valid_to||'')}`;
+        el.innerHTML=`<div class="warningCardHead"><div class="warningHeadline">${html(title)}</div><span class="warningTag ${tagClass}" style="border-color:${st.stroke};color:${st.stroke};background:${st.fill}33">${html(tag)}</span></div>
+          <div class="warningMeta"><div class="warningMetaGrid"><div class="warningMetaItem"><div class="warningMetaLabel">原文標題</div><div class="warningMetaValue">${html(raw)}</div></div><div class="warningMetaItem"><div class="warningMetaLabel">發布時間</div><div class="warningMetaValue">${html(issueTime)}</div></div><div class="warningMetaItem"><div class="warningMetaLabel">有效時間</div><div class="warningMetaValue">${html(validTime)}</div></div></div></div><div class="warningDesc">${buildWarningBody(w, info)}</div>`;
         box.appendChild(el);
       });
       requestAnimationFrame(renderMap);
@@ -23003,118 +23340,214 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   }
   function norm(v){return String(v??'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ')}
   function mColor(level){return ({none:'#f0f5e9',blue:'#38bdf8',yellow:'#fff35a',orange:'#ffa733',red:'#e53935'})[level||'none']||'#f0f5e9'}
+  /* v24: New single-map editorial PNG layout for ALL Malaysian warning categories.
+     The source warning timestamps are shown, never the image creation time. */
+  function malaysiaDesignColor(level,isMarine=false){
+    if(isMarine)return ({thunderstorm:'#2bb6df',first:'#f5e064',second:'#ffab51',third:'#e65a55'})[level]||'#2bb6df';
+    return ({none:'#eaf1e9',blue:'#5ab9d7',yellow:'#f5e064',orange:'#ffab51',red:'#e65a55'})[level]||'#eaf1e9';
+  }
+  function malaysiaDesignBackdrop(ctx){
+    ctx.fillStyle='#f5f8f7';ctx.fillRect(0,0,W,H);
+    // Deep but understated editorial header.
+    const bg=ctx.createLinearGradient(0,0,W,170);
+    bg.addColorStop(0,'#092e42');bg.addColorStop(.65,'#104c5c');bg.addColorStop(1,'#177574');
+    ctx.fillStyle=bg;ctx.fillRect(0,0,W,158);
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+    for(let i=-300;i<1800;i+=96){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i+180,158);ctx.stroke()}
+    ctx.restore();
+    rr(ctx,50,36,6,84,3,'#6fe0cc');
+  }
+  function malaysiaDesignGrid(ctx,project){
+    ctx.save();ctx.strokeStyle='rgba(40,105,123,.105)';ctx.lineWidth=1;
+    for(let lon=95;lon<=120;lon+=5){
+      const [x0,y0]=project(lon,0),[x1,y1]=project(lon,12);
+      ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+    }
+    for(let lat=0;lat<=12;lat+=3){
+      const [x0,y0]=project(93.4,lat),[x1,y1]=project(120.2,lat);
+      ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function malaysiaDesignLegend(ctx,items,startX,y){
+    let x=startX;
+    items.forEach(([label,color])=>{
+      rr(ctx,x,y-13,15,15,4,color,'rgba(19,61,77,.2)');
+      txt(ctx,label,x+23,y,15,'#4b6672',780);
+      ctx.font='780 15px "Noto Sans TC",sans-serif';
+      x+=Math.max(122,ctx.measureText(label).width+46);
+    });
+  }
+  function malaysiaDesignCard(ctx,item,i,x,y,w,h){
+    ctx.save();ctx.shadowColor='rgba(19,61,78,.05)';ctx.shadowBlur=18;ctx.shadowOffsetY=4;
+    rr(ctx,x,y,w,h,18,'#ffffff');ctx.restore();
+    rr(ctx,x,y,w,h,18,null,'#dae5e7');
+    rr(ctx,x+17,y+20,5,43,2,item.color||'#4aa7c6');
+    ctx.font='900 22px "Noto Sans TC", sans-serif';
+    txt(ctx,ellipsis(ctx,item.title||'氣象警報',w-155),x+37,y+48,22,'#183b50',900);
+    txt(ctx,String(i+1).padStart(2,'0'),x+w-60,y+46,21,'#92a8ae',900);
+    ctx.strokeStyle='#ebf0ef';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x+21,y+70);ctx.lineTo(x+w-21,y+70);ctx.stroke();
+    txt(ctx,'發佈',x+24,y+99,14,'#718994',740);
+    txt(ctx,fmtDisplayTime(item.issued,'my'),x+82,y+99,16,'#1e4557',820);
+    txt(ctx,'有效',x+24,y+128,14,'#718994',740);
+    const from=fmtDisplayTime(item.validFrom,'my'),to=fmtDisplayTime(item.validTo,'my');
+    const str=(from==='—'&&to==='—')?'—':(from===to?from:`${from} － ${to}`);
+    ctx.font='740 14px "Noto Sans TC",sans-serif';
+    txt(ctx,ellipsis(ctx,str,w-104),x+82,y+128,14,'#1e4557',740);
+  }
   async function malaysia(ctx){
-    const logic=window.__malaysiaWarningLogic;if(!logic?.collectAreas)throw Error('馬來西亞警報尚未初始化，請重新整理頁面。');
+    const logic=window.__malaysiaWarningLogic;
+    if(!logic?.collectAreas)throw Error('馬來西亞警報尚未初始化，請重新整理頁面。');
     const state=window.__malaysiaBoundaryData?.state || await getGeo('data/malaysia.state.geojson?v=20261030-topology');
     const dist=window.__malaysiaBoundaryData?.district || await getGeo('data/malaysia.district.geojson?v=20261030-topology');
+    // Display-only context layer: Thailand, Indonesia, Brunei and the Philippines
+    // remain visible around Malaysia instead of a large blank ocean/land canvas.
+    // If unavailable, warnings still render using the existing local GeoJSON.
+    let regionalLand=null;
+    try{regionalLand=await getGeo('data/southeast-asia.land.geojson?v=20261031-v26-region');}
+    catch(e){console.warn('[Warning PNG] Regional context layer unavailable:',e);}
     const typeValue=$('myTypeFilter')?.value||'all';
-    const typeLabel=$('myTypeFilter')?.selectedOptions?.[0]?.textContent||'馬來西亞天氣警報';
-    const area=logic.collectAreas(),sw=area.stateWarnings,dw=area.districtWarnings;
+    const typeLabel=$('myTypeFilter')?.selectedOptions?.[0]?.textContent||'全部警報';
+    const areas=logic.collectAreas();
+    const sw=areas.stateWarnings,dw=areas.districtWarnings;
     const sourceWarnings=Array.isArray(window.myWarnings)?window.myWarnings:[];
-    const filteredWarnings=sourceWarnings.filter(w=>{
-      return logic.typeMatchesWarning ? logic.typeMatchesWarning(typeValue,w) : typeValue==='all';
-    });
+    const filteredWarnings=sourceWarnings.filter(w=>
+      logic.typeMatchesWarning?logic.typeMatchesWarning(typeValue,w):typeValue==='all');
     const warningCards=filteredWarnings.map(w=>{
-      const k=logic.kind(w),lvl=logic.level?logic.level(w):'yellow';
-      const levelColor=({blue:'#0369a1',yellow:'#b49400',orange:'#d97706',red:'#dc2626'})[lvl]||'#0f4c5c';
-      const time=bulletinTimes(w,'my');
+      const kind=logic.kind(w),level=logic.level?logic.level(w):'yellow';
       return {
-        title:({thunderstorm:'豪雨警報',continuous:'長命雨警報',sea:'海象警報',typhoon:'颱風警報'})[k]||'氣象警報',
-        color:levelColor,
-        sub:String(w.text_en||w.text_bm||'').trim(),
-        ...time
+        title:({thunderstorm:'豪雨警報',continuous:'長命雨警報',sea:'海象警報',typhoon:'颱風警報'})[kind]||'氣象警報',
+        color:({blue:'#2bb6df',yellow:'#c5ad3d',orange:'#ee9850',red:'#e65a55'})[level]||'#2babbf',
+        ...bulletinTimes(w,'my')
       };
     });
-    if(typeValue==='sea'){
-      const geo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261101-v23-all-onepanel');
-      if(!geo?.features?.length)throw new Error('海域 GeoJSON 尚未載入');
-      const ml=window.__malaysiaMarineLogic;
-      const rec=ml.getMarineCoverage(filteredWarnings,geo.features);
-      stage(ctx,'馬來西亞','海象警報',`${warningCards.length} 項警報`,[
-        ['海上雷雨','#38bdf8'],['第一類','#fff35a'],['第二類','#ffa733'],['第三類','#e53935']
-      ],warningCards);
-      const views=[
-        {x:54,y:262,w:1068,h:680,bounds:[93.5,.0,120.0,12.0],name:'馬來西亞海象警報總覽'}
-      ];
-      for(const v of views){
-        const close=clipPanel(ctx,v.x,v.y,v.w,v.h,v.name),project=view(ctx,v,v.bounds);
-        state.features.forEach(f=>drawable(ctx,f,project,'#e4f0e3','#708a83',.5));
-        geo.features.forEach(f=>{
-          if(f.properties.section!=='shipping')return;
-          const lvl=rec.get(f.properties.zone_id)?.level||'none';
-          const fill=({none:null,thunderstorm:'#38bdf8',first:'#fff35a',second:'#ffa733',third:'#e53935'})[lvl];
-          drawable(ctx,f,project,fill,lvl==='none'?'#cbdde5':'#265c75',lvl==='none'?.3:1.25);
-        });
-        geo.features.forEach(f=>{
-          if(f.properties.section!=='boundary')return;
-          const lines=f.geometry?.type==='LineString'?[f.geometry.coordinates]
-              :f.geometry?.type==='MultiLineString'?f.geometry.coordinates:[];
-          ctx.save();ctx.beginPath();ctx.lineWidth=1.1;ctx.strokeStyle='#567a91';
-          lines.forEach(line=>{let first=true;line.forEach(([lon,lat])=>{
-            const [x,y]=project(lon,lat);if(first){ctx.moveTo(x,y);first=false}else ctx.lineTo(x,y);
-          });});ctx.stroke();ctx.restore();
-        });
-        // Place issued coastal warnings above the shipping grid in the PNG as on
-        // the interactive map. No inactive coastal-water arcs.
-        geo.features.forEach(f=>{
-          if(f.properties.section!=='coastal')return;
-          const lvl=rec.get(f.properties.zone_id)?.level||'none';
-          // Labuan remains outlined in the PNG even without a coastal alert.
-          // Other inactive coastal-water strips stay hidden.
-          if(lvl==='none'){
-            if(f.properties.zone_id==='coast_lbn_whole') drawable(ctx,f,project,null,'#6f9da9',.7);
-            return;
-          }
-          const fill=({thunderstorm:'#38bdf8',first:'#fff35a',second:'#ffa733',third:'#e53935'})[lvl];
-          drawable(ctx,f,project,fill,'#265c75',.95);
-        });
-        close();
-      }
-      cards(ctx,warningCards,'目前沒有海象警報資訊','my');
-      return;
-    }
-    stage(ctx,'馬來西亞',typeLabel,`${warningCards.length} 項警報`,typeValue==='all' ? [
-      ['豪雨／海上雷雨','#38bdf8'],['黃色／第一類','#fff35a'],['橙色／第二類','#ffa733'],['紅色／第三類','#e53935']
-    ] : [
-      ['豪雨警報','#38bdf8'],['黃色警報','#fff35a'],['橙色警報','#ffa733'],['紅色警報','#e53935']
-    ],warningCards);
-    // All-warnings PNG displays marine and district alerts in the same two panels.
-    let activeMarine=null, activeMarineGeo=null;
-    if(typeValue==='all'){
-      activeMarineGeo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261101-v23-all-onepanel');
-      if(activeMarineGeo?.features?.length && window.__malaysiaMarineLogic){
-        activeMarine=window.__malaysiaMarineLogic.getMarineCoverage(
-          filteredWarnings.filter(w=>logic.kind(w)==='sea'),activeMarineGeo.features);
+    const hasMarine=typeValue==='all'||typeValue==='sea';
+    let marineGeo=null,marineRec=null;
+    if(hasMarine){
+      marineGeo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261101-v24-png-newdesign');
+      if(marineGeo?.features?.length && window.__malaysiaMarineLogic){
+        marineRec=window.__malaysiaMarineLogic.getMarineCoverage(
+          filteredWarnings.filter(w=>logic.kind(w)==='sea'),marineGeo.features);
       }
     }
-    const plots=typeValue==='all' ? [
-      {x:54,y:262,w:1068,h:680,bounds:[93.5,.0,120.0,12.0],name:'馬來西亞 · 全部警報總覽'}
-    ] : [
-      {x:54,y:262,w:520,h:680,bounds:[99.15,0.95,104.75,7.15],name:'馬來半島'},
-      {x:592,y:262,w:530,h:680,bounds:[109.2,0.95,118.95,7.35],name:'砂拉越 · 沙巴'}
-    ];
-    for(const v of plots){
-      const finish=clipPanel(ctx,v.x,v.y,v.w,v.h,v.name),project=view(ctx,v,v.bounds);
-      if(activeMarine && activeMarineGeo){
-        activeMarineGeo.features.forEach(f=>{
-          if(!['shipping','coastal'].includes(f.properties?.section))return;
-          const r=activeMarine.get(f.properties.zone_id);
-          if(!r)return;
-          const fill=({thunderstorm:'#38bdf8',first:'#fff35a',second:'#ffa733',third:'#e53935'})[r.level];
-          if(fill)drawable(ctx,f,project,fill,'#265c75',f.properties.section==='coastal'?1:1.2);
-        });
-      }
-      state.features.forEach(f=>drawable(ctx,f,project,'#edf5e5',null));
-      dist.features.forEach(f=>{
-        const key=`${logic.geoState(f)}|${logic.geoDistrict(f)}`;
-        const level=(dw.get(key)||sw.get(logic.geoState(f)))?.level||'none';
-        drawable(ctx,f,project,mColor(level),level==='none'?'#8ba5a2':'#3f8291',level==='none'?.55:1.05);
-      });
-      state.features.forEach(f=>drawable(ctx,f,project,null,'#344b57',1.8));
-      finish();
-    }
-    cards(ctx,warningCards,'目前分類沒有警報資訊','my');
+    malaysiaDesignBackdrop(ctx);
+    txt(ctx,'MALAYSIA  /  WEATHER ADVISORY',76,42,14,'#9ed7d6',780);
+    txt(ctx,'馬來西亞天氣警報',75,100,47,'#ffffff',900);
+    txt(ctx,typeLabel,78,131,17,'#c5e6e5',690);
+    const n=String(filteredWarnings.length).padStart(2,'0');
+    txt(ctx,n,1330,88,58,'#ffffff',850);
+    txt(ctx,'項警報',1436,85,20,'#d4efee',750);
+    txt(ctx,'以下均為氣象局警報發布及生效時間',1285,121,13,'#a3cecf',600);
 
+    // A single unobstructed national map. Map aspect is calculated from geo coordinates,
+    // not from two artificially separated West/East panels.
+    const px=40,py=176,pw=1520,ph=649;
+    ctx.save();ctx.shadowColor='rgba(13,54,76,.09)';ctx.shadowBlur=22;ctx.shadowOffsetY=6;
+    rr(ctx,px,py,pw,ph,24,'#fff');ctx.restore();
+    rr(ctx,px,py,pw,ph,24,null,'#dce8e9');
+    txt(ctx,'警報分布',70,222,26,'#17394d',900);
+    txt(ctx,'全馬來西亞 · 陸地與海域',210,221,16,'#698491',650);
+    const legend=typeValue==='sea' ? [
+      ['海上雷雨','#2bb6df'],['第一類','#f5e064'],['第二類','#ffab51'],['第三類','#e65a55']
+    ] : [
+      ['豪雨／海上雷雨','#2bb6df'],['黃色／第一類','#f5e064'],['橙色／第二類','#ffab51'],['紅色／第三類','#e65a55']
+    ];
+    malaysiaDesignLegend(ctx,legend,850,222);
+    ctx.strokeStyle='#e6eeee';ctx.beginPath();ctx.moveTo(64,242);ctx.lineTo(1535,242);ctx.stroke();
+    const mapX=59,mapY=255,mapW=1483,mapH=554;
+    ctx.save();ctx.beginPath();ctx.roundRect(mapX,mapY,mapW,mapH,15);ctx.clip();
+    const seaGradient=ctx.createLinearGradient(0,mapY,0,mapY+mapH);
+    seaGradient.addColorStop(0,'#e8f5f8');seaGradient.addColorStop(1,'#f0f7f6');
+    ctx.fillStyle=seaGradient;ctx.fillRect(mapX,mapY,mapW,mapH);
+    const mapRegion={x:mapX+12,y:mapY+10,w:mapW-24,h:mapH-18};
+    // Include neighboring countries without changing the warning area polygons.
+    const project=view(ctx,mapRegion,[93.3,-1.15,123.4,12.15]);
+    malaysiaDesignGrid(ctx,project);
+
+    // Shipping warnings beneath land. Inactive shipping divisions are not filled.
+    if(marineGeo?.features?.length && marineRec){
+      for(const f of marineGeo.features){
+        if(f.properties?.section!=='shipping')continue;
+        const rec=marineRec.get(f.properties.zone_id);
+        if(!rec){
+          if(typeValue==='sea')drawable(ctx,f,project,null,'rgba(44,104,126,.15)',.55);
+          continue;
+        }
+        ctx.save();ctx.globalAlpha=.83;
+        drawable(ctx,f,project,malaysiaDesignColor(rec.level,true),'#28809c',1.05);
+        ctx.restore();
+      }
+    }
+    // Regional coastline is drawn above marine fill, so Thailand/Indonesia/
+    // Philippines etc remain geographic context and are never mistaken for
+    // unpainted missing map areas. Malaysia is painted again immediately after.
+    // The extra dataset is presentation-only and does not affect alert matching.
+    if(regionalLand?.features?.length){
+      for(const f of regionalLand.features)
+        drawable(ctx,f,project,'#dce7dc','rgba(88,124,124,.52)',.57);
+    }
+    // Malaysia land polygons stay above marine fill; district colors keep
+    // their existing matching logic and only actual warned districts are tinted.
+    for(const f of state.features)drawable(ctx,f,project,'#ecf2e8',null);
+    for(const f of dist.features){
+      const key=`${logic.geoState(f)}|${logic.geoDistrict(f)}`;
+      const level=(dw.get(key)||sw.get(logic.geoState(f)))?.level||'none';
+      const active=level!=='none';
+      drawable(ctx,f,project,active?malaysiaDesignColor(level):null,
+        active?'rgba(35,87,99,.68)':'rgba(91,135,133,.26)',active?.95:.48);
+    }
+    for(const f of state.features)drawable(ctx,f,project,null,'#486977',1.4);
+    // Draw only active coastal warnings; avoid the stacked translucent blue arcs.
+    if(marineGeo?.features?.length && marineRec){
+      for(const f of marineGeo.features){
+        if(f.properties?.section!=='coastal')continue;
+        const rec=marineRec.get(f.properties.zone_id);
+        if(!rec)continue;
+        ctx.save();ctx.globalAlpha=.75;
+        drawable(ctx,f,project,malaysiaDesignColor(rec.level,true),'#247e98',.8);
+        ctx.restore();
+      }
+    }
+    // Quiet geographic labels for the surrounding context; never interpreted
+    // as alert areas and positioned away from Malaysia's warning markers.
+    if(regionalLand?.features?.length){
+      ctx.save();ctx.globalAlpha=.75;
+      ctx.textAlign='center';
+      for(const [label,lon,lat] of [
+        ['THAILAND',100.3,10.35],
+        ['SUMATRA',98.1,.45],
+        ['KALIMANTAN',113.1,.35],
+        ['PHILIPPINES',122.0,10.45]
+      ]){
+        const [x,y]=project(lon,lat);
+        if(x>mapX+50 && x<mapX+mapW-40 && y>mapY+38 && y<mapY+mapH-24)
+          txt(ctx,label,x,y,14,'#688b81',750);
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+    // Longitude labels share the map's coordinate projection to avoid drift.
+    for(const lon of [95,100,105,110,115,120]){
+      const [x]=project(lon,0);
+      if(x>mapX+30 && x<mapX+mapW-30)
+        txt(ctx,lon+'°E',x-17,mapY+mapH-10,12,'#72919b',650);
+    }
+
+    // Replace vertical sidebar with aligned horizontal advisory modules.
+    const nCards=Math.min(4,warningCards.length);
+    const cardX=40,cardY=846,cardGap=14;
+    const cardW=Math.min(750,(1520-(Math.max(nCards,1)-1)*cardGap)/Math.max(nCards,1));
+    if(nCards===0){
+      rr(ctx,40,846,1520,152,17,'#ffffff','#dce8e9');
+      txt(ctx,'目前沒有符合所選分類的警報',70,930,24,'#68818e',720);
+    }else{
+      for(let i=0;i<nCards;i++)malaysiaDesignCard(ctx,warningCards[i],i,cardX+i*(cardW+cardGap),cardY,cardW,153);
+    }
+    ctx.strokeStyle='#dce6e8';ctx.beginPath();ctx.moveTo(40,1021);ctx.lineTo(1560,1021);ctx.stroke();
+    txt(ctx,'來源：氣象局',45,1042,15,'#67818b',690);
+    if(warningCards.length>nCards)
+      txt(ctx,`另有 ${warningCards.length-nCards} 項警報未列出`,1252,1042,14,'#67818b',700);
   }
   function twColor(alert){
     if(!alert)return null;
