@@ -14347,7 +14347,7 @@ ${a.instruction}` : ''
     const API = 'https://api.data.gov.my/weather/warning';
     const STATE_GEOJSON_URL = 'data/malaysia.state.geojson?v=20261030-topology';
     const DISTRICT_GEOJSON_URL = 'data/malaysia.district.geojson?v=20261030-topology';
-    const MARINE_GEOJSON_URL = 'data/malaysia.marine.geojson?v=20261101-v22-labuan-connect';
+    const MARINE_GEOJSON_URL = 'data/malaysia.marine.geojson?v=20261101-v23-all-onepanel';
     const q = (id) => document.getElementById(id);
     if(!q('warnPanelMy')) return;
     let allData = [];
@@ -23026,7 +23026,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       };
     });
     if(typeValue==='sea'){
-      const geo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261101-v22-labuan-connect');
+      const geo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261101-v23-all-onepanel');
       if(!geo?.features?.length)throw new Error('海域 GeoJSON 尚未載入');
       const ml=window.__malaysiaMarineLogic;
       const rec=ml.getMarineCoverage(filteredWarnings,geo.features);
@@ -23081,15 +23081,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     // All-warnings PNG displays marine and district alerts in the same two panels.
     let activeMarine=null, activeMarineGeo=null;
     if(typeValue==='all'){
-      activeMarineGeo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261101-v22-labuan-connect');
+      activeMarineGeo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261101-v23-all-onepanel');
       if(activeMarineGeo?.features?.length && window.__malaysiaMarineLogic){
         activeMarine=window.__malaysiaMarineLogic.getMarineCoverage(
           filteredWarnings.filter(w=>logic.kind(w)==='sea'),activeMarineGeo.features);
       }
     }
     const plots=typeValue==='all' ? [
-      {x:54,y:262,w:530,h:680,bounds:[93.5,.0,109.0,12.0],name:'馬來半島 · 馬六甲海峽'},
-      {x:600,y:262,w:521,h:680,bounds:[108.5,.0,119.9,11.3],name:'東馬 · 南海海域'}
+      {x:54,y:262,w:1068,h:680,bounds:[93.5,.0,120.0,12.0],name:'馬來西亞 · 全部警報總覽'}
     ] : [
       {x:54,y:262,w:520,h:680,bounds:[99.15,0.95,104.75,7.15],name:'馬來半島'},
       {x:592,y:262,w:530,h:680,bounds:[109.2,0.95,118.95,7.35],name:'砂拉越 · 沙巴'}
