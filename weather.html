@@ -5528,6 +5528,7 @@ Implement by adjusting polygon style functions:
 </div>
 <div class="warningControls">
 <select class="warningSelect" id="myTypeFilter">
+<option value="all">全部警報</option>
 <option value="rain_all">所有降雨警報</option>
 <option value="thunderstorm">豪雨警報</option>
 <option value="continuous">長命雨警報</option>
@@ -14339,14 +14340,14 @@ ${a.instruction}` : ''
   window.__malaysiaMarineLogic={COLORS,STROKES,RANK,norm,shortZone,partMatch,normalizePart,sections,parseTextBlocks,getMarineCoverage};
 })();
 
-  // Full override so sea warnings remain information-only while state/district borders are always visible.
+  // Final Malaysia warning handler: active marine and land alerts share the all-warnings view.
   // Malaysia weather warnings: state-aware mapping for full-state and named-district alerts.
   // Malaysia weather warnings: state-aware mapping for full-state and named-district alerts.
   window.initMalaysiaWarnings = function(){
     const API = 'https://api.data.gov.my/weather/warning';
     const STATE_GEOJSON_URL = 'data/malaysia.state.geojson?v=20261030-topology';
     const DISTRICT_GEOJSON_URL = 'data/malaysia.district.geojson?v=20261030-topology';
-    const MARINE_GEOJSON_URL = 'data/malaysia.marine.geojson?v=20261031-v20-straight-1175';
+    const MARINE_GEOJSON_URL = 'data/malaysia.marine.geojson?v=20261101-v22-labuan-connect';
     const q = (id) => document.getElementById(id);
     if(!q('warnPanelMy')) return;
     let allData = [];
@@ -14631,17 +14632,18 @@ ${a.instruction}` : ''
     }
     function typeMatchesWarning(selectedType,w){
       const k=kind(w);
+      if(selectedType==='all') return true;
       if(selectedType==='rain_all') return k==='thunderstorm' || k==='continuous';
       return k===selectedType;
     }
     function selectedTypeTitle(v){
-      return ({rain_all:'所有降雨警報',thunderstorm:'豪雨警報',continuous:'長命雨警報',sea:'海象警報',typhoon:'颱風警報'})[v] || '馬來西亞警報';
+      return ({all:'全部警報',rain_all:'所有降雨警報',thunderstorm:'豪雨警報',continuous:'長命雨警報',sea:'海象警報',typhoon:'颱風警報'})[v] || '馬來西亞警報';
     }
     function collectAreas(){
       const stateWarnings=new Map(),districtWarnings=new Map(),unresolved=[];
       const fs=myDistrictGeoJSON?.features || [];
       const allStateKeys=new Set((myStateGeoJSON?.features || []).map(geoState));
-      const selectedType=q('myTypeFilter')?.value || 'rain_all';
+      const selectedType=q('myTypeFilter')?.value || 'all';
       allData.filter(w=>typeMatchesWarning(selectedType,w)).forEach(w=>{
         const info=label(w);if(!info.map)return;
         const cov=parseCoverage(w,fs);
@@ -14656,8 +14658,8 @@ ${a.instruction}` : ''
     }
     function setupControls(){
       const sel=q('myTypeFilter');
-      if(sel){const previous=sel.value||'rain_all';sel.innerHTML=`<option value="rain_all">所有降雨警報</option><option value="thunderstorm">豪雨警報</option><option value="continuous">長命雨警報</option><option value="sea">海象警報</option><option value="typhoon">颱風警報</option>`;
-        sel.value=['rain_all','thunderstorm','continuous','sea','typhoon'].includes(previous)?previous:'rain_all';}
+      if(sel){const previous=sel.value||'all';sel.innerHTML=`<option value="all">全部警報</option><option value="rain_all">所有降雨警報</option><option value="thunderstorm">豪雨警報</option><option value="continuous">長命雨警報</option><option value="sea">海象警報</option><option value="typhoon">颱風警報</option>`;
+        sel.value=['all','rain_all','thunderstorm','continuous','sea','typhoon'].includes(previous)?previous:'all';}
       const legend=document.querySelector('#warnPanelMy .myMapLegend');
       if(legend)legend.innerHTML=`<span><i style="background:#38bdf8;border-color:#0369a1"></i> 豪雨</span><span><i style="background:#fff35a;border-color:#c9a500"></i> 長命雨 / 黃色</span><span><i style="background:#ffa733;border-color:#cf6400"></i> 橙色</span><span><i style="background:#e53935;border-color:#960000"></i> 紅色</span>`;
     }
@@ -14698,7 +14700,7 @@ ${a.instruction}` : ''
       if(myDistrictLayer){myMap.removeLayer(myDistrictLayer);myDistrictLayer=null;}
       if(myMarineLayer){myMap.removeLayer(myMarineLayer);myMarineLayer=null;}
       if(myMarineLabels){myMap.removeLayer(myMarineLabels);myMarineLabels=null;}
-      const selection=q('myTypeFilter')?.value||'rain_all';
+      const selection=q('myTypeFilter')?.value||'all';
       const legend=document.querySelector('#warnPanelMy .myMapLegend');
       if(selection==='sea'){
         if(legend)legend.innerHTML=`<span><i style="background:#38bdf8;border-color:#0284c7"></i> 海上雷雨</span><span><i style="background:#fff35a;border-color:#b99e00"></i> 第一類</span><span><i style="background:#ffa733;border-color:#c46b08"></i> 第二類</span><span><i style="background:#e53935;border-color:#a71923"></i> 第三類</span>`;
@@ -14783,14 +14785,56 @@ ${a.instruction}` : ''
           }
         }).addTo(myMap);bounds.addLayer(myDistrictLayer);
       }
+      // "全部警報": combine live land warnings and active marine zones on ONE map.
+      // Keep the sea-only view unchanged; do not shade inactive shipping grids here.
+      let marineAffectedCount=0;
+      if(selection==='all' && myMarineGeoJSON?.features?.length && window.__malaysiaMarineLogic){
+        const marine=window.__malaysiaMarineLogic;
+        const marineAlerts=allData.filter(w=>kind(w)==='sea');
+        const marineAffected=marine.getMarineCoverage(marineAlerts,myMarineGeoJSON.features);
+        window.__malaysiaMarineStatus=marineAffected;
+        const affectedZones=new Set();
+        myMarineLayer=L.geoJSON(myMarineGeoJSON,{
+          renderer:myRenderer,smoothFactor:.45,interactive:true,
+          filter:f=>['shipping','coastal'].includes(f.properties?.section) && marineAffected.has(f.properties.zone_id),
+          style:f=>{
+            const lvl=marineAffected.get(f.properties.zone_id)?.level||'none';
+            const isCoast=f.properties.section==='coastal';
+            return {color:marine.STROKES[lvl]||marine.STROKES.none,
+              weight:isCoast?1.5:1.9,opacity:.98,
+              fillColor:marine.COLORS[lvl]||marine.COLORS.none,
+              fillOpacity:isCoast?.78:.53,lineJoin:'round'};
+          },
+          onEachFeature:(f,layer)=>{
+            const rec=marineAffected.get(f.properties.zone_id);
+            const part=f.properties.part;
+            const title=f.properties.display_name+(part==='whole'?'':' · '+part);
+            const severity=({thunderstorm:'海上雷雨',first:'第一類警報',second:'第二類警報',third:'第三類警報'})[rec?.level]||'海象警報';
+            layer.bindTooltip(`<b>${html(title)}</b><br>${html(severity)} · ${rec?.warnings?.length||0} 項`,
+              {sticky:true,direction:'top',className:'twCountyLabel'});
+            layer.on({mouseover:()=>layer.setStyle({weight:2.6,fillOpacity:.72}),
+              mouseout:()=>myMarineLayer?.resetStyle(layer)});
+            if(f.properties.section==='shipping')affectedZones.add(f.properties.zone);
+            else affectedZones.add(f.properties.zone_id);
+          }
+        });
+        if(myMarineLayer.getLayers().length){
+          myMarineLayer.addTo(myMap);
+          bounds.addLayer(myMarineLayer);
+        }
+        marineAffectedCount=affectedZones.size;
+      }
+      if(selection==='all' && legend){
+        legend.innerHTML=`<span><i style="background:#38bdf8;border-color:#0369a1"></i> 豪雨／海上雷雨</span><span><i style="background:#fff35a;border-color:#c9a500"></i> 黃色／第一類</span><span><i style="background:#ffa733;border-color:#cf6400"></i> 橙色／第二類</span><span><i style="background:#e53935;border-color:#960000"></i> 紅色／第三類</span>`;
+      }
       requestAnimationFrame(()=>{myMap.invalidateSize();try{myMap.fitBounds(bounds.getBounds(),{padding:[18,18]});}catch(e){}});
       const matched=stateWarnings.size+districtWarnings.size;
-      if(q('myMapHint'))q('myMapHint').textContent=matched
-        ? `已標示 ${stateWarnings.size} 個完整州屬、${districtWarnings.size} 個受影響縣區。`
-        : '目前沒有可標示的陸地警報。';
+      if(q('myMapHint'))q('myMapHint').textContent=selection==='all'
+        ? `陸地：${stateWarnings.size} 個完整州屬、${districtWarnings.size} 個受影響縣區；海域：${marineAffectedCount} 個受影響區域。`
+        : (matched ? `已標示 ${stateWarnings.size} 個完整州屬、${districtWarnings.size} 個受影響縣區。` : '目前沒有可標示的陸地警報。');
     }
     function renderCards(){
-      const type=q('myTypeFilter')?.value||'rain_all', box=q('myList');if(!box)return;
+      const type=q('myTypeFilter')?.value||'all', box=q('myList');if(!box)return;
       box.innerHTML='';const filtered=allData.filter(w=>typeMatchesWarning(type,w));
       if(q('myStatus'))q('myStatus').textContent=`${selectedTypeTitle(type)} · ${filtered.length} 項警報`;
       if(!filtered.length)box.innerHTML='<div class="warningEmpty">目前沒有符合條件的警報</div>';
@@ -14820,7 +14864,7 @@ ${a.instruction}` : ''
         if(q('myList'))q('myList').innerHTML='<div class="warningEmpty">馬來西亞警報讀取失敗</div>';renderMap();}
     }
     // Expose pure helpers for deterministic tests and diagnosis, without exposing any credentials.
-    window.__malaysiaWarningLogic={norm,geoState,geoDistrict,parseCoverage,kind,level,collectAreas,areaClauses};
+    window.__malaysiaWarningLogic={norm,geoState,geoDistrict,parseCoverage,kind,level,collectAreas,areaClauses,typeMatchesWarning};
     setupControls();q('myRefresh')?.addEventListener('click',refresh);
     q('myTypeFilter')?.addEventListener('change',renderCards);
     ensureMap();refresh();
@@ -22963,13 +23007,12 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     const logic=window.__malaysiaWarningLogic;if(!logic?.collectAreas)throw Error('馬來西亞警報尚未初始化，請重新整理頁面。');
     const state=window.__malaysiaBoundaryData?.state || await getGeo('data/malaysia.state.geojson?v=20261030-topology');
     const dist=window.__malaysiaBoundaryData?.district || await getGeo('data/malaysia.district.geojson?v=20261030-topology');
-    const typeValue=$('myTypeFilter')?.value||'rain_all';
+    const typeValue=$('myTypeFilter')?.value||'all';
     const typeLabel=$('myTypeFilter')?.selectedOptions?.[0]?.textContent||'馬來西亞天氣警報';
     const area=logic.collectAreas(),sw=area.stateWarnings,dw=area.districtWarnings;
     const sourceWarnings=Array.isArray(window.myWarnings)?window.myWarnings:[];
     const filteredWarnings=sourceWarnings.filter(w=>{
-      const k=logic.kind?logic.kind(w):'';
-      return typeValue==='rain_all' ? (k==='thunderstorm'||k==='continuous') : k===typeValue;
+      return logic.typeMatchesWarning ? logic.typeMatchesWarning(typeValue,w) : typeValue==='all';
     });
     const warningCards=filteredWarnings.map(w=>{
       const k=logic.kind(w),lvl=logic.level?logic.level(w):'yellow';
@@ -22983,7 +23026,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       };
     });
     if(typeValue==='sea'){
-      const geo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261031-v20-straight-1175');
+      const geo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261101-v22-labuan-connect');
       if(!geo?.features?.length)throw new Error('海域 GeoJSON 尚未載入');
       const ml=window.__malaysiaMarineLogic;
       const rec=ml.getMarineCoverage(filteredWarnings,geo.features);
@@ -22991,8 +23034,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         ['海上雷雨','#38bdf8'],['第一類','#fff35a'],['第二類','#ffa733'],['第三類','#e53935']
       ],warningCards);
       const views=[
-        {x:54,y:262,w:530,h:680,bounds:[93.5,.4,109.0,12.0],name:'馬六甲海峽 · 馬來半島'},
-        {x:600,y:262,w:521,h:680,bounds:[108.5,.0,119.9,11.3],name:'南海 · 東馬海域'}
+        {x:54,y:262,w:1068,h:680,bounds:[93.5,.0,120.0,12.0],name:'馬來西亞海象警報總覽'}
       ];
       for(const v of views){
         const close=clipPanel(ctx,v.x,v.y,v.w,v.h,v.name),project=view(ctx,v,v.bounds);
@@ -23031,15 +23073,38 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       cards(ctx,warningCards,'目前沒有海象警報資訊','my');
       return;
     }
-    stage(ctx,'馬來西亞',typeLabel,`${warningCards.length} 項警報`,[
+    stage(ctx,'馬來西亞',typeLabel,`${warningCards.length} 項警報`,typeValue==='all' ? [
+      ['豪雨／海上雷雨','#38bdf8'],['黃色／第一類','#fff35a'],['橙色／第二類','#ffa733'],['紅色／第三類','#e53935']
+    ] : [
       ['豪雨警報','#38bdf8'],['黃色警報','#fff35a'],['橙色警報','#ffa733'],['紅色警報','#e53935']
     ],warningCards);
-    const plots=[
+    // All-warnings PNG displays marine and district alerts in the same two panels.
+    let activeMarine=null, activeMarineGeo=null;
+    if(typeValue==='all'){
+      activeMarineGeo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261101-v22-labuan-connect');
+      if(activeMarineGeo?.features?.length && window.__malaysiaMarineLogic){
+        activeMarine=window.__malaysiaMarineLogic.getMarineCoverage(
+          filteredWarnings.filter(w=>logic.kind(w)==='sea'),activeMarineGeo.features);
+      }
+    }
+    const plots=typeValue==='all' ? [
+      {x:54,y:262,w:530,h:680,bounds:[93.5,.0,109.0,12.0],name:'馬來半島 · 馬六甲海峽'},
+      {x:600,y:262,w:521,h:680,bounds:[108.5,.0,119.9,11.3],name:'東馬 · 南海海域'}
+    ] : [
       {x:54,y:262,w:520,h:680,bounds:[99.15,0.95,104.75,7.15],name:'馬來半島'},
       {x:592,y:262,w:530,h:680,bounds:[109.2,0.95,118.95,7.35],name:'砂拉越 · 沙巴'}
     ];
     for(const v of plots){
       const finish=clipPanel(ctx,v.x,v.y,v.w,v.h,v.name),project=view(ctx,v,v.bounds);
+      if(activeMarine && activeMarineGeo){
+        activeMarineGeo.features.forEach(f=>{
+          if(!['shipping','coastal'].includes(f.properties?.section))return;
+          const r=activeMarine.get(f.properties.zone_id);
+          if(!r)return;
+          const fill=({thunderstorm:'#38bdf8',first:'#fff35a',second:'#ffa733',third:'#e53935'})[r.level];
+          if(fill)drawable(ctx,f,project,fill,'#265c75',f.properties.section==='coastal'?1:1.2);
+        });
+      }
       state.features.forEach(f=>drawable(ctx,f,project,'#edf5e5',null));
       dist.features.forEach(f=>{
         const key=`${logic.geoState(f)}|${logic.geoDistrict(f)}`;
