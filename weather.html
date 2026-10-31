@@ -5504,6 +5504,44 @@ html{scroll-padding-top:110px}
 .bodyShareModalOpen{overflow:hidden}
 @media (max-width:640px){.shareModal{padding:14px}.shareModalPanel{padding:18px 16px 16px;border-radius:22px}.shareGrid{grid-template-columns:1fr}.shareActions{flex-direction:column-reverse}.shareGhostBtn,.sharePrimaryBtn{width:100%}}
 </style>
+<style id="my-warning-v27-redesign">
+/* Malaysia warning redesign V27 — isolated from Taiwan/typhoon/other modules. */
+#warnPanelMy .warningCard.myEnhancedNotice{border:1px solid #dce8eb;border-radius:19px;padding:20px 21px;background:#fff;box-shadow:0 8px 30px rgba(25,64,80,.045);overflow:hidden;}
+#warnPanelMy .myEnhancedNotice + .myEnhancedNotice{margin-top:14px}
+#warnPanelMy .myEnhancedNotice .warningCardHead{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;padding-bottom:15px;border-bottom:1px solid #edf1f3;}
+#warnPanelMy .myEnhancedNotice .warningHeadline{font-size:19px;font-weight:900;line-height:1.4;color:#173a4d;}
+#warnPanelMy .myEnhancedNotice .warningHeadline small{display:block;font-size:11px;font-weight:700;color:#6c8490;margin-top:3px;letter-spacing:.02em;}
+#warnPanelMy .myEnhancedNotice .warningTag{font-size:11px;padding:6px 12px;}
+#warnPanelMy .myBulletinTime{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 17px;}
+#warnPanelMy .myBulletinTime>div{min-width:0;padding:11px 12px;border:1px solid #e3ecee;background:#f7faf9;border-radius:12px;}
+#warnPanelMy .myBulletinTime small{display:block;color:#728c94;font-size:11px;font-weight:800;margin-bottom:5px;}
+#warnPanelMy .myBulletinTime strong{display:block;color:#1c4554;font-size:12px;line-height:1.5;font-weight:850;overflow-wrap:anywhere;}
+#warnPanelMy .myWarningBody{display:grid;gap:11px;}
+#warnPanelMy .myWarningSection{padding:16px;border:1px solid #e1ebed;border-radius:14px;background:#f9fbfb;display:grid;gap:12px;}
+#warnPanelMy .myWarningSectionTop{display:flex;gap:11px;align-items:flex-start;}
+#warnPanelMy .mySectionIndicator{background:#144f62;color:#fff;border-radius:7px;font-weight:850;font-size:10px;letter-spacing:.04em;padding:7px 9px;white-space:nowrap;}
+#warnPanelMy .myWarningSectionTop strong{display:block;font-size:14px;color:#183b4e;line-height:1.45;}
+#warnPanelMy .myWarningSectionTop span:not(.mySectionIndicator){display:block;margin-top:3px;color:#6c8791;font-size:11px;font-weight:700;}
+#warnPanelMy .myMetrics{display:flex;gap:9px;flex-wrap:wrap;}
+#warnPanelMy .myMetric{border:1px solid #cfe8ee;border-radius:11px;padding:9px 13px;background:#eaf6f8;min-width:100px;}
+#warnPanelMy .myMetric small{display:block;color:#4b8190;font-size:11px;font-weight:700;margin-bottom:3px;}
+#warnPanelMy .myMetric strong{color:#12617a;font-size:19px;font-weight:900;font-variant-numeric:tabular-nums;}
+#warnPanelMy .myAreaCaption{font-weight:850;font-size:12px;color:#315363;margin:0 0 9px;display:flex;justify-content:space-between;gap:8px;}
+#warnPanelMy .myAreaCaption span{font-size:11px;color:#81969d;font-weight:750;}
+#warnPanelMy .myAreaTags{display:flex;flex-wrap:wrap;gap:7px;}
+#warnPanelMy .myAreaTag{display:inline-flex;align-items:center;border:1px solid #dae8ed;border-radius:7px;padding:6px 9px;background:#fff;font-size:11px;font-weight:800;color:#3a6475;line-height:1.5;}
+#warnPanelMy .myLocationGroups{display:grid;gap:10px;}
+#warnPanelMy .myLocationGroup{padding:14px;border:1px solid #e3ecee;border-radius:12px;background:#f8fbfb;}
+#warnPanelMy .myLocationGroup .myAreaCaption{font-size:13px;}
+#warnPanelMy .mySectionDescription,#warnPanelMy .myLandSummary{margin:0;color:#4a646e;line-height:1.78;font-size:12px;font-weight:650;overflow-wrap:anywhere;white-space:normal;}
+#warnPanelMy .myOriginalNotice{border:1px solid #e1e9ec;border-radius:11px;overflow:hidden;background:#fff;}
+#warnPanelMy .myOriginalNotice summary{list-style:none;cursor:pointer;color:#2b6a7a;font-size:12px;font-weight:850;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;}
+#warnPanelMy .myOriginalNotice summary::-webkit-details-marker{display:none;}
+#warnPanelMy .myOriginalNotice summary::after{content:'+';font-size:16px;color:#72919b;}
+#warnPanelMy .myOriginalNotice[open] summary::after{content:'−';}
+#warnPanelMy .myOriginalNotice>div{white-space:pre-wrap;overflow-wrap:anywhere;padding:13px 14px;border-top:1px solid #e8eef0;color:#435e69;font-size:12px;line-height:1.8;}
+@media(max-width:760px){#warnPanelMy .myBulletinTime{grid-template-columns:1fr;}#warnPanelMy .warningCard.myEnhancedNotice{padding:16px;}#warnPanelMy .myMetrics{flex-wrap:wrap;}}
+</style>
 </head>
 <body class="seir-weather">
 <!--
@@ -15083,90 +15121,112 @@ ${a.instruction}` : ''
         ? `陸地：${stateWarnings.size} 個完整州屬、${districtWarnings.size} 個受影響縣區；海域：${marineAffectedCount} 個受影響區域。`
         : (matched ? `已標示 ${stateWarnings.size} 個完整州屬、${districtWarnings.size} 個受影響縣區。` : '目前沒有可標示的陸地警報。');
     }
+    // Preserve numeric decimals such as 3.5 metres; never break on a decimal point.
     function fmtDateCard(v){
-      const raw=String(v ?? '').trim();
-      if(!raw) return '—';
+      const raw=String(v??'').trim();
+      if(!raw)return '—';
       const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
-      if(m) return `${m[1]}/${m[2]}/${m[3]} ${m[4]}:${m[5]}`;
+      if(m)return `${m[1]}/${m[2]}/${m[3]} ${m[4]}:${m[5]}`;
       const d=new Date(raw);
       if(!Number.isNaN(d.getTime())){
-        const pad=n=>String(n).padStart(2,'0');
-        return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const f=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(d).map(x=>[x.type,x.value]));
+        return `${f.year}/${f.month}/${f.day} ${f.hour}:${f.minute}`;
       }
       return raw.replace('T',' ');
     }
-    function compactTextCard(s){
-      return String(s || '').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+    function compactWarningText(v){return String(v||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();}
+    function isRealWarning(w){
+      const heading=String(w?.heading_en||w?.heading_bm||w?.warning_issue?.title_en||w?.warning_issue?.title_bm||'').trim();
+      const h=heading.toLowerCase().replace(/[.!\s]+$/,'');
+      if(/^(no advisory|no warning|no active advisory|no tropical cyclone advisory|tiada amaran|tiada amaran cuaca|tiada nasihat)$/.test(h))return false;
+      // Some MET bulletins have an empty headline and the same non-warning text in the body.
+      if(!h){const msg=compactWarningText(w?.text_en||w?.text_bm||'');if(/^no (?:tropical cyclone|advisory|warning)\b/i.test(msg))return false;}
+      return true;
     }
-    function splitAreaNames(s){
-      return [...new Set(String(s||'')
-        .split(/\s*•\s*|\s*;\s*|\s*,\s*/)
-        .map(v=>v.trim())
-        .filter(Boolean)
-      )];
-    }
-    function firstSentences(text, count=2){
-      const clean=compactTextCard(text);
-      if(!clean) return '';
-      const parts=clean.match(/[^.!?]+[.!?]?/g) || [clean];
-      return parts.slice(0,count).join(' ').trim();
-    }
-    function buildSectionCard(code, title, subtitle, text, areas){
-      return `<div class="warningSectionCard">
-        <div class="warningSectionHead">
-          <span class="warningSectionCode">${html(code || '•')}</span>
-          <div>
-            <div class="warningSectionTitle">${html(title || '警報內容')}</div>
-            ${subtitle ? `<div class="warningSectionSub">${html(subtitle)}</div>` : ''}
-          </div>
-        </div>
-        ${text ? `<div class="warningSectionText">${html(text)}</div>` : ''}
-        ${areas?.length ? `<div class="warningAreaChips">${areas.map(a=>`<span class="warningAreaChip">${html(a)}</span>`).join('')}</div>` : ''}
-      </div>`;
-    }
-    function buildWarningBody(w, info){
-      const rawText=compactTextCard(w.text_en || w.text_bm || w.instruction_en || w.instruction_bm || '');
-      if(!rawText) return '<div class="warningEmptyMini">目前沒有詳細內容。</div>';
-      const chips=[];
-      const wind=(rawText.match(/winds? up to\s*([0-9.]+\s*kmph)/i)||[])[1];
-      const wave=(rawText.match(/wave(?:\s+height)?(?:s)?\s*(?:up to|height up to)\s*([0-9.]+(?:\s*[-–]\s*[0-9.]+)?\s*metres?)/i)||[])[1];
-      const endTime=(rawText.match(/until\s+([^.;]+(?:\d{4})?)/i)||[])[1];
-      if(wind) chips.push(`風速 ${wind}`);
-      if(wave) chips.push(`浪高 ${wave}`);
-      if(endTime) chips.push(`至 ${endTime.trim()}`);
-      const sections=[];
-      const secMatches=[...rawText.matchAll(/SECTION\s+([A-Z])\s*:\s*(.*?)(?=SECTION\s+[A-Z]\s*:|$)/gi)];
-      if(secMatches.length){
-        secMatches.forEach(m=>{
-          const code=`SECTION ${String(m[1]||'').toUpperCase()}`;
-          const content=compactTextCard(m[2]);
-          let title='警報內容', subtitle='';
-          let summary=content;
-          const head=content.match(/^(FOR\s+[^\d]+?)\s+1\)\s*([A-Z][A-Z\s\[\]\-]+WARNING)/i);
-          if(head){
-            title=head[2].trim();
-            subtitle=head[1].trim();
-            summary=content.slice(head[0].length).trim();
-          }else{
-            const head2=content.match(/^1\)\s*([A-Z][A-Z\s\[\]\-]+WARNING)/i);
-            if(head2){
-              title=head2[1].trim();
-              summary=content.slice(head2[0].length).trim();
-            }
-          }
-          const areaMatch=summary.match(/waters of\s+(.+?)\s+until/i);
-          const areas=areaMatch ? splitAreaNames(areaMatch[1]) : [];
-          sections.push(buildSectionCard(code, title, subtitle, firstSentences(summary,2), areas.slice(0,18)));
-          if(areas.length) chips.push(`${areas.length} 個區域`);
-        });
-      }else{
-        sections.push(buildSectionCard('', info?.name || '警報內容', '', firstSentences(rawText,3), []));
+    function splitTopAreas(value){
+      let depth=0,buf='',results=[];
+      for(const ch of String(value||'')){
+        if(ch==='(')depth++;
+        if(ch===')')depth=Math.max(0,depth-1);
+        if((ch===','||ch==='•'||ch===';')&&!depth){if(buf.trim())results.push(buf.trim());buf='';}
+        else buf+=ch;
       }
-      const uniqChips=[...new Set(chips)].map(t=>`<span class="warningStatChip">${html(t)}</span>`).join('');
-      return `${uniqChips ? `<div class="warningSummaryChips">${uniqChips}</div>` : ''}${sections.join('')}
-        <details class="warningRawDetails"><summary>查看完整原文</summary><div class="warningRawBody"><div class="warningRawText">${html(rawText)}</div></div></details>`;
+      if(buf.trim())results.push(buf.trim());
+      return results.map(x=>x.replace(/\s+and\s+/gi,'、').trim()).filter(Boolean);
     }
-
+    function headerBadge(label){return `<span class="myAreaTag">${html(label)}</span>`;}
+    function firstSentences(text,max=2){
+      const clean=compactWarningText(text);
+      if(!clean)return '';
+      // Sentence-ending periods require a following space and new sentence; 3.5 is not a sentence break.
+      const pieces=clean.split(/(?<=[!?])\s+|(?<=\.)\s+(?=[A-Z])/g).filter(Boolean);
+      return pieces.slice(0,max).join(' ').trim();
+    }
+    function getWaveAndWind(raw){
+      const text=compactWarningText(raw),vals=[];
+      const wind=text.match(/\b(?:winds?|wind speed)\s+(?:of\s+|up to\s+|reaching\s+)?(\d+(?:\.\d+)?\s*(?:km\/h|kmph|kph|knots?))/i);
+      const wave=text.match(/\b(?:wave height|waves? height|waves?)\s*(?:of\s+|up to\s+|reaching\s+|as high as\s+)?(\d+(?:\.\d+)?(?:\s*[-–]\s*\d+(?:\.\d+)?)?\s*(?:metres?|meters?|m))\b/i);
+      if(wind)vals.push(['風速',wind[1]]);
+      if(wave)vals.push(['浪高',wave[1]]);
+      return vals;
+    }
+    function sectionFromEnglish(code,raw){
+      const content=compactWarningText(raw);
+      const match=content.match(/^(FOR\s+.+?)\s+1\)\s*([\s\S]+?WARNING)\s+(.*)$/i);
+      let subtitle=code==='A'?'馬來西亞沿岸海域':'航運海域';
+      let detail=content;
+      let title='海上雷雨警報';
+      if(match){subtitle=/WITHIN\s+24|MALAYSIAN WATERS/i.test(match[1])?'馬來西亞沿岸海域':'航運海域';title=match[2];detail=match[3];}
+      // Other sections can contain a second numbered warning; retain all text rather than truncating.
+      const loc=detail.match(/\bwaters? of\s+([\s\S]+?)\s+until\b/i);
+      const places=loc?splitTopAreas(loc[1]):[];
+      const measures=getWaveAndWind(detail);
+      return {code,title,subtitle,detail,places,measures};
+    }
+    function renderMarineSection(sct){
+      const areaList=sct.places.length?`<div class="myAreaGroup"><div class="myAreaCaption">受影響海域 <span>${sct.places.length} 個區域</span></div><div class="myAreaTags">${sct.places.map(headerBadge).join('')}</div></div>`:'';
+      const stats=sct.measures.length?`<div class="myMetrics">${sct.measures.map(([label,val])=>`<div class="myMetric"><small>${html(label)}</small><strong>${html(val)}</strong></div>`).join('')}</div>`:'';
+      const detail=loclessDetail(sct.detail,sct.places.length>0);
+      return `<section class="myWarningSection"><div class="myWarningSectionTop"><span class="mySectionIndicator">${html('SECTION '+sct.code)}</span><div><strong>${html(sct.subtitle)}</strong><span>${html(sct.title)}</span></div></div>${stats}${areaList}<p class="mySectionDescription">${html(detail)}</p></section>`;
+    }
+    function loclessDetail(text,hasLoc){
+      let result=compactWarningText(text);
+      if(hasLoc){
+        // Hide duplicated region list in display text; keep the original intact in <details>.
+        result=result.replace(/\b(over|in|across)\s+the\s+waters? of\s+[\s\S]+?\s+until\s+([^.;]+)([.;]|$)/i,(_whole,direction,time,punctuation)=>`${direction} the listed marine areas until ${time}${punctuation}`);
+      }
+      return result;
+    }
+    function renderLandContent(raw){
+      const text=compactWarningText(raw);
+      const location=text.match(/\b(?:over|across|in)\s+the\s+states? of\s+([\s\S]*?)\s+until\b/i);
+      const clause=location?.[1]||'';
+      let groups=[];
+      if(clause){
+        // MET bullet lists use • between states; commas inside a state belong to that state.
+        const blocks=clause.split(/\s*•\s*/).map(x=>x.trim()).filter(Boolean);
+        for(const block of blocks){
+          const colon=block.match(/^([^:]+)\s*:\s*(.+)$/);
+          if(colon){groups.push({title:colon[1].trim(),items:splitTopAreas(colon[2])});}
+          else groups.push({title:'受影響地區',items:splitTopAreas(block)});
+        }
+      }
+      const zones=groups.length?`<div class="myLocationGroups">${groups.map(g=>`<section class="myLocationGroup"><div class="myAreaCaption">${html(g.title)} <span>${g.items.length} 個地區</span></div><div class="myAreaTags">${g.items.map(headerBadge).join('')}</div></section>`).join('')}</div>`:'';
+      const summary=location?text.replace(/\b(?:over|across|in)\s+the\s+states? of\s+[\s\S]+?\s+until/i,'於上述地區生效至'):text;
+      return `${zones}<p class="myLandSummary">${html(summary)}</p>`;
+    }
+    function buildWarningBody(w,info){
+      const text=compactWarningText(w.text_en||w.text_bm||w.instruction_en||w.instruction_bm||'');
+      if(!text)return '<div class="warningEmptyMini">暫無警報說明。</div>';
+      const k=kind(w);
+      let markup='';
+      if(k==='sea'&&/SECTION\s+[A-Z]\s*:/i.test(text)){
+        const found=[...text.matchAll(/SECTION\s+([A-Z])\s*:\s*([\s\S]*?)(?=SECTION\s+[A-Z]\s*:|$)/gi)];
+        markup=found.map(m=>renderMarineSection(sectionFromEnglish(m[1].toUpperCase(),m[2]))).join('');
+      }else if(k==='thunderstorm'||k==='continuous')markup=renderLandContent(text);
+      else markup=`<p class="myLandSummary">${html(text)}</p>`;
+      return `${markup}<details class="myOriginalNotice"><summary>查看完整官方原文</summary><div>${html(text)}</div></details>`;
+    }
     function renderCards(){
       const type=q('myTypeFilter')?.value||'all', box=q('myList');if(!box)return;
       box.innerHTML='';const filtered=allData.filter(w=>typeMatchesWarning(type,w));
@@ -15178,12 +15238,14 @@ ${a.instruction}` : ''
         const desc=w.text_en||w.text_bm||w.instruction_en||w.instruction_bm||'';
         const title=(type==='rain_all' && kind(w)==='continuous') ? '長命雨警報' : info.name;
         const tag=(type==='rain_all' && kind(w)==='continuous') ? '長命雨' : info.tag;
-        const el=document.createElement('div');el.className='warningCard';
+        const el=document.createElement('article');el.className='warningCard myEnhancedNotice';
+        el.dataset.warningKind=kind(w);
         const tagClass=(kind(w)==='sea'?'sea':(kind(w)==='typhoon'?'tc':'rain'));
         const issueTime=fmtDateCard(w.warning_issue?.issued||w.warning_issue__issued||w.issued||'');
-        const validTime=`${fmtDateCard(w.valid_from||'')} → ${fmtDateCard(w.valid_to||'')}`;
-        el.innerHTML=`<div class="warningCardHead"><div class="warningHeadline">${html(title)}</div><span class="warningTag ${tagClass}" style="border-color:${st.stroke};color:${st.stroke};background:${st.fill}33">${html(tag)}</span></div>
-          <div class="warningMeta"><div class="warningMetaGrid"><div class="warningMetaItem"><div class="warningMetaLabel">原文標題</div><div class="warningMetaValue">${html(raw)}</div></div><div class="warningMetaItem"><div class="warningMetaLabel">發布時間</div><div class="warningMetaValue">${html(issueTime)}</div></div><div class="warningMetaItem"><div class="warningMetaLabel">有效時間</div><div class="warningMetaValue">${html(validTime)}</div></div></div></div><div class="warningDesc">${buildWarningBody(w, info)}</div>`;
+        const fromTime=fmtDateCard(w.valid_from||''),toTime=fmtDateCard(w.valid_to||'');
+        el.innerHTML=`<div class="warningCardHead"><div class="warningHeadline">${html(title)}<small>${html(raw)}</small></div><span class="warningTag ${tagClass}" style="border-color:${st.stroke};color:${st.stroke};background:${st.fill}20">${html(tag)}</span></div>
+          <div class="myBulletinTime"><div><small>發布時間</small><strong>${html(issueTime)}</strong></div><div><small>生效時間</small><strong>${html(fromTime)}</strong></div><div><small>結束時間</small><strong>${html(toTime)}</strong></div></div>
+          <div class="myWarningBody">${buildWarningBody(w, info)}</div>`;
         box.appendChild(el);
       });
       requestAnimationFrame(renderMap);
@@ -15194,14 +15256,16 @@ ${a.instruction}` : ''
       await loadGeo();
       try{
         const res=await fetch(API,{cache:'no-store'});if(!res.ok)throw Error(`HTTP ${res.status}`);
-        const data=await res.json();allData=Array.isArray(data)?data:(Array.isArray(data.data)?data.data:[]);
+        const data=await res.json();
+        const rows=Array.isArray(data)?data:(Array.isArray(data.data)?data.data:[]);
+        allData=rows.filter(isRealWarning);
         window.myWarnings=allData;
         renderCards();
       }catch(e){console.error(e);if(q('myStatus'))q('myStatus').textContent='錯誤';
         if(q('myList'))q('myList').innerHTML='<div class="warningEmpty">馬來西亞警報讀取失敗</div>';renderMap();}
     }
     // Expose pure helpers for deterministic tests and diagnosis, without exposing any credentials.
-    window.__malaysiaWarningLogic={norm,geoState,geoDistrict,parseCoverage,kind,level,collectAreas,areaClauses,typeMatchesWarning};
+    window.__malaysiaWarningLogic={norm,geoState,geoDistrict,parseCoverage,kind,level,collectAreas,areaClauses,typeMatchesWarning,isRealWarning};
     setupControls();q('myRefresh')?.addEventListener('click',refresh);
     q('myTypeFilter')?.addEventListener('change',renderCards);
     ensureMap();refresh();
@@ -23347,15 +23411,10 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     return ({none:'#eaf1e9',blue:'#5ab9d7',yellow:'#f5e064',orange:'#ffab51',red:'#e65a55'})[level]||'#eaf1e9';
   }
   function malaysiaDesignBackdrop(ctx){
-    ctx.fillStyle='#f5f8f7';ctx.fillRect(0,0,W,H);
-    // Deep but understated editorial header.
-    const bg=ctx.createLinearGradient(0,0,W,170);
-    bg.addColorStop(0,'#092e42');bg.addColorStop(.65,'#104c5c');bg.addColorStop(1,'#177574');
-    ctx.fillStyle=bg;ctx.fillRect(0,0,W,158);
-    ctx.save();ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
-    for(let i=-300;i<1800;i+=96){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i+180,158);ctx.stroke()}
-    ctx.restore();
-    rr(ctx,50,36,6,84,3,'#6fe0cc');
+    ctx.fillStyle='#f3f7f7';ctx.fillRect(0,0,W,H);
+    rr(ctx,38,27,1524,128,22,'#ffffff','#dce8e9');
+    rr(ctx,62,51,5,74,2,'#1e9c97');
+    rr(ctx,68,133,1470,1,0,'#f0f4f4');
   }
   function malaysiaDesignGrid(ctx,project){
     ctx.save();ctx.strokeStyle='rgba(40,105,123,.105)';ctx.lineWidth=1;
@@ -23396,6 +23455,24 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     ctx.font='740 14px "Noto Sans TC",sans-serif';
     txt(ctx,ellipsis(ctx,str,w-104),x+82,y+128,14,'#1e4557',740);
   }
+  function geoFeatureBox(f){
+    let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity;
+    for(const poly of geometryParts(f))for(const ring of poly)for(const co of ring){
+      const lon=Number(co?.[0]),lat=Number(co?.[1]);
+      if(!Number.isFinite(lon)||!Number.isFinite(lat))continue;
+      a=Math.min(a,lon);b=Math.min(b,lat);c=Math.max(c,lon);d=Math.max(d,lat);
+    }
+    return Number.isFinite(a)?[a,b,c,d]:null;
+  }
+  function warningMapBounds(activeFeatures){
+    let west=Infinity,south=Infinity,east=-Infinity,north=-Infinity;
+    for(const f of activeFeatures){const b=geoFeatureBox(f);if(!b)continue;
+      west=Math.min(west,b[0]);south=Math.min(south,b[1]);east=Math.max(east,b[2]);north=Math.max(north,b[3]);
+    }
+    if(!Number.isFinite(west))return [94.0,-.3,121.1,11.2];
+    const lonPad=Math.max(.65,(east-west)*.045),latPad=Math.max(.46,(north-south)*.07);
+    return [Math.max(92.7,west-lonPad),Math.max(-1,south-latPad),Math.min(124,east+lonPad),Math.min(13,north+latPad)];
+  }
   async function malaysia(ctx){
     const logic=window.__malaysiaWarningLogic;
     if(!logic?.collectAreas)throw Error('馬來西亞警報尚未初始化，請重新整理頁面。');
@@ -23413,7 +23490,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     const sw=areas.stateWarnings,dw=areas.districtWarnings;
     const sourceWarnings=Array.isArray(window.myWarnings)?window.myWarnings:[];
     const filteredWarnings=sourceWarnings.filter(w=>
-      logic.typeMatchesWarning?logic.typeMatchesWarning(typeValue,w):typeValue==='all');
+      (!logic.isRealWarning || logic.isRealWarning(w)) &&
+      (logic.typeMatchesWarning?logic.typeMatchesWarning(typeValue,w):typeValue==='all'));
     const warningCards=filteredWarnings.map(w=>{
       const kind=logic.kind(w),level=logic.level?logic.level(w):'yellow';
       return {
@@ -23432,17 +23510,16 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       }
     }
     malaysiaDesignBackdrop(ctx);
-    txt(ctx,'MALAYSIA  /  WEATHER ADVISORY',76,42,14,'#9ed7d6',780);
-    txt(ctx,'馬來西亞天氣警報',75,100,47,'#ffffff',900);
-    txt(ctx,typeLabel,78,131,17,'#c5e6e5',690);
+    txt(ctx,'馬來西亞天氣警報',86,85,37,'#123b4e',900);
+    txt(ctx,`氣象局資料  /  ${typeLabel}`,88,115,15,'#6c8b94',700);
     const n=String(filteredWarnings.length).padStart(2,'0');
-    txt(ctx,n,1330,88,58,'#ffffff',850);
-    txt(ctx,'項警報',1436,85,20,'#d4efee',750);
-    txt(ctx,'以下均為氣象局警報發布及生效時間',1285,121,13,'#a3cecf',600);
+    rr(ctx,1336,54,190,70,16,'#edf7f7','#d7eaea');
+    txt(ctx,n,1361,100,41,'#146a72',900);
+    txt(ctx,'項有效警報',1438,94,15,'#426c73',800);
 
     // A single unobstructed national map. Map aspect is calculated from geo coordinates,
     // not from two artificially separated West/East panels.
-    const px=40,py=176,pw=1520,ph=649;
+    const px=40,py=169,pw=1520,ph=656;
     ctx.save();ctx.shadowColor='rgba(13,54,76,.09)';ctx.shadowBlur=22;ctx.shadowOffsetY=6;
     rr(ctx,px,py,pw,ph,24,'#fff');ctx.restore();
     rr(ctx,px,py,pw,ph,24,null,'#dce8e9');
@@ -23453,16 +23530,24 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     ] : [
       ['豪雨／海上雷雨','#2bb6df'],['黃色／第一類','#f5e064'],['橙色／第二類','#ffab51'],['紅色／第三類','#e65a55']
     ];
-    malaysiaDesignLegend(ctx,legend,850,222);
+    malaysiaDesignLegend(ctx,legend,824,222);
     ctx.strokeStyle='#e6eeee';ctx.beginPath();ctx.moveTo(64,242);ctx.lineTo(1535,242);ctx.stroke();
-    const mapX=59,mapY=255,mapW=1483,mapH=554;
+    const mapX=55,mapY=244,mapW=1490,mapH=565;
     ctx.save();ctx.beginPath();ctx.roundRect(mapX,mapY,mapW,mapH,15);ctx.clip();
     const seaGradient=ctx.createLinearGradient(0,mapY,0,mapY+mapH);
     seaGradient.addColorStop(0,'#e8f5f8');seaGradient.addColorStop(1,'#f0f7f6');
     ctx.fillStyle=seaGradient;ctx.fillRect(mapX,mapY,mapW,mapH);
     const mapRegion={x:mapX+12,y:mapY+10,w:mapW-24,h:mapH-18};
     // Include neighboring countries without changing the warning area polygons.
-    const project=view(ctx,mapRegion,[93.3,-1.15,123.4,12.15]);
+    const highlighted=[];
+    if(marineRec&&marineGeo?.features)highlighted.push(...marineGeo.features.filter(f=>
+      ['shipping','coastal'].includes(f.properties?.section)&&marineRec.has(f.properties.zone_id)));
+    highlighted.push(...dist.features.filter(f=>{
+      const key=`${logic.geoState(f)}|${logic.geoDistrict(f)}`;
+      return dw.has(key)||sw.has(logic.geoState(f));
+    }));
+    const currentMapBounds=warningMapBounds(highlighted);
+    const project=view(ctx,mapRegion,currentMapBounds);
     malaysiaDesignGrid(ctx,project);
 
     // Shipping warnings beneath land. Inactive shipping divisions are not filled.
