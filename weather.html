@@ -14214,7 +14214,7 @@ ${a.instruction}` : ''
   const RANK={none:0,thunderstorm:1,first:2,second:3,third:4};
   const shortZone={phuket:'Phuket',samui:'Samui',north_sm:'North S.M.',south_sm:'South S.M.',tioman:'Tioman',
     condore:'Condore',bunguran:'Bunguran',reef_north:'Reef North',reef_south:'Reef South',palawan:'Palawan',
-    sulu:'Sulu',sulawesi:'Sulawesi',layang_layang:'Layang-Layang'};
+    sulu:'Sulu',sulawesi:'Sulawesi',labuan:'Labuan',layang_layang:'Layang-Layang'};
   const COAST={
     coast_pls:['perlis'],coast_kdh:['kedah'],coast_png:['penang','pulau pinang'],coast_prk:['perak'],
     coast_sgr:['selangor'],coast_nsn:['n sembilan','negeri sembilan'],coast_mlk:['melaka','malacca'],
@@ -14227,7 +14227,7 @@ ${a.instruction}` : ''
     phuket:['phuket'],samui:['samui'],north_sm:['north s m','northern straits of melaka','northern straits of malacca'],
     south_sm:['south s m','southern straits of melaka','southern straits of malacca'],
     tioman:['tioman'],condore:['condore'],bunguran:['bunguran'],reef_north:['reef north'],
-    reef_south:['reef south'],palawan:['palawan'],sulu:['sulu'],sulawesi:['sulawesi'],layang_layang:['layang layang']
+    reef_south:['reef south'],palawan:['palawan'],labuan:['labuan','labuan sea','labuan waters'],sulu:['sulu'],sulawesi:['sulawesi'],layang_layang:['layang layang']
   };
   const norm=s=>String(s??'').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
   function hasTerm(s,term){return (' '+norm(s)+' ').includes(' '+norm(term)+' ')}
@@ -14236,6 +14236,13 @@ ${a.instruction}` : ''
     // Qualifier is extracted only from words directly before the area name.
     const at=t.indexOf(n);if(at<0)return 'whole';
     const prefix=t.slice(Math.max(0,at-60),at);
+    // Cues may occur directly before the marine zone (e.g. 'Northern Reef North')
+    // as well as before 'part of' (e.g. 'Northern part of Reef North').
+    const qualifierTail=prefix.replace(/\b(?:part|parts|of|the)\s*$/g,'').trim();
+    const direct=qualifierTail.match(/(?:^|\s)(northwest(?:ern)?|northeast(?:ern)?|southwest(?:ern)?|southeast(?:ern)?|north(?:ern)?|south(?:ern)?|west(?:ern)?|east(?:ern)?|utara|selatan|barat|timur|barat laut|timur laut|barat daya|tenggara)\s*$/);
+    if(direct){
+      return ({northern:'north',southern:'south',western:'west',eastern:'east',northwestern:'northwest',northeastern:'northeast',southwestern:'southwest',southeastern:'southeast',utara:'north',selatan:'south',barat:'west',timur:'east','barat laut':'northwest','timur laut':'northeast','barat daya':'southwest',tenggara:'southeast'})[direct[1]]||direct[1];
+    }
     if(!/part[s]?\s+of\s*$/.test(prefix))return 'whole';
     if(/northwest(?:ern)?\s+(?:and\s+|or\s+)?southeast(?:ern)?\s+parts? of\s*$/.test(prefix))return 'northwest southeast';
     if(/northeast(?:ern)?\s+(?:and\s+|or\s+)?southwest(?:ern)?\s+parts? of\s*$/.test(prefix))return 'northeast southwest';
@@ -14339,7 +14346,7 @@ ${a.instruction}` : ''
     const API = 'https://api.data.gov.my/weather/warning';
     const STATE_GEOJSON_URL = 'data/malaysia.state.geojson?v=20261030-topology';
     const DISTRICT_GEOJSON_URL = 'data/malaysia.district.geojson?v=20261030-topology';
-    const MARINE_GEOJSON_URL = 'data/malaysia.marine.geojson?v=20261030-marine-v1';
+    const MARINE_GEOJSON_URL = 'data/malaysia.marine.geojson?v=20261031-v20-straight-1175';
     const q = (id) => document.getElementById(id);
     if(!q('warnPanelMy')) return;
     let allData = [];
@@ -14704,11 +14711,17 @@ ${a.instruction}` : ''
         window.__malaysiaMarineStatus=affected;
         myMarineLayer=L.geoJSON(myMarineGeoJSON,{
           renderer:myRenderer,smoothFactor:.45,interactive:true,
+          // Draw shipping grid at rest, but show coastal strips only with a real warning.
+          // Coastal warning polygons are already non-overlapping in the GeoJSON.
+          filter:f=>f.properties.section==='shipping' || f.properties.zone_id==='coast_lbn_whole' || (f.properties.section==='coastal' && affected.has(f.properties.zone_id)),
           style:f=>{
             const l=affected.get(f.properties.zone_id)?.level||'none';
-            return {color:marine.STROKES[l]||marine.STROKES.none,weight:l==='none'?.9:1.6,
-              fillColor:marine.COLORS[l]||marine.COLORS.none,fillOpacity:l==='none'?.065:.58,
-              opacity:.9,interactive:true};
+            const isCoast=f.properties.section==='coastal';
+            return {color:marine.STROKES[l]||marine.STROKES.none,
+              weight:l==='none'?(f.properties.zone_id==='coast_lbn_whole'?1.1:.5):(isCoast?1.25:1.6),
+              fillColor:marine.COLORS[l]||marine.COLORS.none,
+              fillOpacity:l==='none'?0:(isCoast?.93:.58),
+              opacity:l==='none'?(f.properties.zone_id==='coast_lbn_whole'?.75:.30):.95,interactive:true};
           },
           onEachFeature:(f,layer)=>{
             const r=affected.get(f.properties.zone_id),part=f.properties.part;
@@ -14719,10 +14732,11 @@ ${a.instruction}` : ''
           }
         }).addTo(myMap);
         const marineLabels=[
-          ['PHUKET',[9.55,95.3]],['SAMUI',[9.6,102.7]],['NORTH S.M.',[6.5,96.2]],
-          ['TIOMAN',[6.2,104.0]],['CONDORE',[8.1,107.5]],['BUNGURAN',[4.8,107.5]],
-          ['REEF NORTH',[8.0,112.3]],['REEF SOUTH',[4.7,112.2]],
-          ['PALAWAN',[10.1,119.2]],['SULU',[8.0,121.0]],['SULAWESI',[3.0,121.4]]
+          ['PHUKET',[9.55,96.0]],['SAMUI',[9.5,102.6]],['NORTH S.M.',[6.72,97.9]],['SOUTH S.M.',[3.55,101.0]],
+          ['TIOMAN',[5.0,104.15]],['CONDORE',[7.5,107.5]],['BUNGURAN',[1.8,107.5]],
+          ['REEF NORTH',[8.4,112.5]],['REEF SOUTH',[3.7,112.6]],
+          ['PALAWAN',[9.65,116.8]],['LABUAN SEA',[6.78,116.7]],
+          ['SULU',[7.15,119.05]],['SULAWESI',[2.55,119.15]]
         ];
         myMarineLabels=L.layerGroup();
         marineLabels.forEach(([label,position])=>L.marker(position,{
@@ -14732,7 +14746,7 @@ ${a.instruction}` : ''
         myMarineLabels.addTo(myMap);
         requestAnimationFrame(()=>{
           myMap.invalidateSize();
-          try{myMap.fitBounds([[.3,93.4],[12.0,122.7]],{padding:[12,12]});}catch(e){}
+          try{myMap.fitBounds([[.1,93.4],[11.5,119.9]],{padding:[12,12]});}catch(e){}
         });
         const marineCount=new Set([...affected.keys()].map(k=>k.replace(/_(northwest|northeast|southwest|southeast|north|south|west|east|whole)$/,''))).size;
         if(q('myMapHint'))q('myMapHint').textContent=`海上警報示意：${marineCount} 個受影響海域 · 按警報級別上色。海域邊界根據參考圖估算，非官方航海座標。`;
@@ -22969,7 +22983,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       };
     });
     if(typeValue==='sea'){
-      const geo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261030-marine-v1');
+      const geo=window.__malaysiaBoundaryData?.marine || await getGeo('data/malaysia.marine.geojson?v=20261031-v20-straight-1175');
       if(!geo?.features?.length)throw new Error('海域 GeoJSON 尚未載入');
       const ml=window.__malaysiaMarineLogic;
       const rec=ml.getMarineCoverage(filteredWarnings,geo.features);
@@ -22978,7 +22992,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       ],warningCards);
       const views=[
         {x:54,y:262,w:530,h:680,bounds:[93.5,.4,109.0,12.0],name:'馬六甲海峽 · 馬來半島'},
-        {x:600,y:262,w:521,h:680,bounds:[108.5,.3,123.0,12.0],name:'南海 · 東馬 · 蘇祿海'}
+        {x:600,y:262,w:521,h:680,bounds:[108.5,.0,119.9,11.3],name:'南海 · 東馬海域'}
       ];
       for(const v of views){
         const close=clipPanel(ctx,v.x,v.y,v.w,v.h,v.name),project=view(ctx,v,v.bounds);
@@ -22986,8 +23000,31 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         geo.features.forEach(f=>{
           if(f.properties.section!=='shipping')return;
           const lvl=rec.get(f.properties.zone_id)?.level||'none';
-          const fill=({none:'#ecf8fc',thunderstorm:'#38bdf8',first:'#fff35a',second:'#ffa733',third:'#e53935'})[lvl];
-          drawable(ctx,f,project,fill,lvl==='none'?'#85a5b2':'#265c75',lvl==='none'?.55:1.25);
+          const fill=({none:null,thunderstorm:'#38bdf8',first:'#fff35a',second:'#ffa733',third:'#e53935'})[lvl];
+          drawable(ctx,f,project,fill,lvl==='none'?'#cbdde5':'#265c75',lvl==='none'?.3:1.25);
+        });
+        geo.features.forEach(f=>{
+          if(f.properties.section!=='boundary')return;
+          const lines=f.geometry?.type==='LineString'?[f.geometry.coordinates]
+              :f.geometry?.type==='MultiLineString'?f.geometry.coordinates:[];
+          ctx.save();ctx.beginPath();ctx.lineWidth=1.1;ctx.strokeStyle='#567a91';
+          lines.forEach(line=>{let first=true;line.forEach(([lon,lat])=>{
+            const [x,y]=project(lon,lat);if(first){ctx.moveTo(x,y);first=false}else ctx.lineTo(x,y);
+          });});ctx.stroke();ctx.restore();
+        });
+        // Place issued coastal warnings above the shipping grid in the PNG as on
+        // the interactive map. No inactive coastal-water arcs.
+        geo.features.forEach(f=>{
+          if(f.properties.section!=='coastal')return;
+          const lvl=rec.get(f.properties.zone_id)?.level||'none';
+          // Labuan remains outlined in the PNG even without a coastal alert.
+          // Other inactive coastal-water strips stay hidden.
+          if(lvl==='none'){
+            if(f.properties.zone_id==='coast_lbn_whole') drawable(ctx,f,project,null,'#6f9da9',.7);
+            return;
+          }
+          const fill=({thunderstorm:'#38bdf8',first:'#fff35a',second:'#ffa733',third:'#e53935'})[lvl];
+          drawable(ctx,f,project,fill,'#265c75',.95);
         });
         close();
       }
