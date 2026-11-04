@@ -4305,6 +4305,45 @@ body::-webkit-scrollbar-thumb:hover,
   }
 }
 
+
+/* Hong Kong warning timestamps: compact and consistent with the site's typography. */
+#warnPanelHk .hkTimeGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));
+  gap:10px;
+  margin:12px 0 14px;
+}
+#warnPanelHk .hkTimeItem{
+  min-width:0;
+  padding:10px 13px;
+  border:1px solid rgba(15,76,92,.10);
+  border-radius:13px;
+  background:rgba(15,76,92,.045);
+}
+#warnPanelHk .hkTimeLabel{
+  display:block;
+  color:#70838d;
+  font-size:11px;
+  line-height:1.4;
+  font-weight:800;
+  margin-bottom:5px;
+}
+#warnPanelHk .hkTimeValue{
+  display:block;
+  color:#1c4254;
+  font-family:"Noto Sans TC","Segoe UI",Arial,sans-serif;
+  font-size:13px;
+  font-weight:750;
+  line-height:1.5;
+  font-variant-numeric:tabular-nums;
+  white-space:normal;
+  overflow-wrap:break-word;
+}
+@media(max-width:600px){
+  #warnPanelHk .hkTimeGrid{grid-template-columns:1fr;gap:8px;}
+  #warnPanelHk .hkTimeItem{padding:9px 12px;}
+}
+
 </style>
 <style id="seir-evergreen-design">
 
@@ -11995,6 +12034,10 @@ Implement by adjusting polygon style functions:
 
           const el = document.createElement("div");
           el.className = "warningCard";
+          const timeBoxes = [];
+          if(issue) timeBoxes.push(`<div class="hkTimeItem"><span class="hkTimeLabel">發布時間</span><time class="hkTimeValue">${escapeSimple(issue)}</time></div>`);
+          if(update) timeBoxes.push(`<div class="hkTimeItem"><span class="hkTimeLabel">更新時間</span><time class="hkTimeValue">${escapeSimple(update)}</time></div>`);
+          if(expire) timeBoxes.push(`<div class="hkTimeItem"><span class="hkTimeLabel">生效至</span><time class="hkTimeValue">${escapeSimple(expire)}</time></div>`);
           el.innerHTML = `
             <div class="warningCardHead">
               <div class="warningHeadline">${escapeSimple(w.name || "—")}</div>
@@ -12004,14 +12047,7 @@ Implement by adjusting polygon style functions:
                   cat === "tc" ? "熱帶氣旋" : "其他"}
               </span>
             </div>
-
-            ${(issue || update || expire) ? `
-            <div class="warningMeta">
-              ${issue ? `發布時間：${escapeSimple(issue)}<br>` : ""}
-              ${update ? `更新時間：${escapeSimple(update)}<br>` : ""}
-              ${expire ? `生效至：${escapeSimple(expire)}` : ""}
-            </div>` : ""}
-
+            ${timeBoxes.length ? `<div class="hkTimeGrid">${timeBoxes.join('')}</div>` : ""}
             <div class="warningDesc">${escapeSimple(w.action || w.description || "")}</div>
           `;
 
@@ -15247,12 +15283,25 @@ ${a.instruction}` : ''
     }
     function sectionFromEnglish(code,raw){
       const content=compactWarningText(raw);
-      const match=content.match(/^(FOR\s+.+?)\s+1\)\s*([\s\S]+?WARNING)\s+(.*)$/i);
       let subtitle=code==='A'?'馬來西亞沿岸海域':'航運海域';
-      let detail=content;
-      let title='海上雷雨警報';
-      if(match){subtitle=/WITHIN\s+24|MALAYSIAN WATERS/i.test(match[1])?'馬來西亞沿岸海域':'航運海域';title=match[2];detail=match[3];}
-      // Other sections can contain a second numbered warning; retain all text rather than truncating.
+      // Take the section designation out before finding the actual numbered warning.
+      // The former /.+?WARNING/ pattern could accidentally include a whole paragraph
+      // when the heading itself began with the word WARNING.
+      const preamble=content.match(/^FOR\s+(.+?)\s+(?=\d+\s*\))/i);
+      if(preamble && /MALAYSIAN WATERS|WITHIN\s+24/i.test(preamble[1])) subtitle='馬來西亞沿岸海域';
+      let detail=content.replace(/^FOR\s+.+?\s+(?=\d+\s*\))/i,'').replace(/^\d+\s*\)\s*/,'').trim();
+      const knownHeading=detail.match(/^(?:THUNDERSTORMS?\s+WARNING|WARNING\s+ON\s+STRONG\s+WINDS?\s+AND\s+ROUGH\s+SEAS(?:\s*\(\s*(?:FIRST|SECOND|THIRD)\s+CATEGORY\s*\))?|WARNING\s+ON\s+ROUGH\s+SEAS(?:\s*\(\s*(?:FIRST|SECOND|THIRD)\s+CATEGORY\s*\))?|LOW\s+HORIZONTAL\s+VISIBILITY\s+WARNING|STRONG\s+WIND\s+WARNING|ROUGH\s+SEAS\s+WARNING)(?=\s|$|[.:])/i);
+      let title=code==='A'?'THUNDERSTORMS WARNING':'MARINE WARNING';
+      if(knownHeading){
+        title=knownHeading[0].trim();
+        detail=detail.slice(knownHeading[0].length).trim();
+      }else{
+        // Conservative fallback: the title stays short; descriptive text is never
+        // appended to the English warning name.
+        const heading=detail.match(/^([A-Z][A-Z\s/()\-]{3,95}?(?:WARNING|ADVISORY))(?:\s+|$)/);
+        if(heading){title=heading[1].trim(); detail=detail.slice(heading[0].length).trim();}
+      }
+      // Keep every original warning sentence in the content and expandable source.
       const loc=detail.match(/\bwaters? of\s+([\s\S]+?)\s+until\b/i);
       const places=loc?splitTopAreas(loc[1]):[];
       const measures=getWaveAndWind(detail);
