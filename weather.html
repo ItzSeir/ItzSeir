@@ -5590,9 +5590,111 @@ html{scroll-padding-top:110px}
 #warnPanelMy .myLocationGroup .myAreaTag{max-width:100%;white-space:normal;word-break:break-word;}
 </style>
 
-
-
-
+<style id="taiwan-all-alerts-v28">
+/* Taiwan warning details: every active CAP bulletin is visible by default. */
+body.seir-weather #warnPanelTw .twAllAlertsPanel{
+  order:1!important;
+  width:100%;min-width:0;
+  border:1px solid #dce8eb;border-radius:21px;
+  background:#fff;
+  box-shadow:0 9px 26px rgba(24,67,83,.05);
+  overflow:hidden;
+}
+body.seir-weather #warnPanelTw .twAllAlertsHeading{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:19px 22px;border-bottom:1px solid #e7eef1;
+  background:linear-gradient(120deg,#f6fbfc 0%,#fff 100%);
+}
+body.seir-weather #warnPanelTw .twAllAlertsOverline{
+  display:block;font-size:10px;letter-spacing:.12em;font-weight:900;color:#2c8292;
+}
+body.seir-weather #warnPanelTw .twAllAlertsHeading h4{
+  margin:5px 0;font-size:20px;line-height:1.3;font-weight:900;color:#163b4d;
+}
+body.seir-weather #warnPanelTw .twAllAlertsHeading p{
+  margin:0;font-size:12px;line-height:1.6;color:#78919b;
+}
+body.seir-weather #warnPanelTw .twAllAlertsCount{
+  flex:0 0 auto;white-space:nowrap;padding:8px 12px;
+  border-radius:999px;background:#edf6f8;color:#166275;
+  border:1px solid #d6e9ee;font-size:12px;font-weight:850;
+}
+body.seir-weather #warnPanelTw .twAllAlertsCards{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:start;gap:14px;padding:17px;
+}
+body.seir-weather #warnPanelTw .twAllAlertCard{
+  min-width:0;overflow:hidden;position:relative;
+  background:#fff;border:1px solid #dce8eb;border-radius:17px;
+  padding:17px 18px 19px;box-shadow:0 3px 12px rgba(25,69,86,.025);
+}
+body.seir-weather #warnPanelTw .twAllAlertCard::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tw-alert-color,#2a9d8f);
+}
+body.seir-weather #warnPanelTw .twAllAlertCardHeader{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+}
+body.seir-weather #warnPanelTw .twAllAlertCategory{
+  display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:850;color:#356075;
+}
+body.seir-weather #warnPanelTw .twAllAlertCategory i{
+  width:9px;height:9px;border-radius:50%;background:var(--tw-alert-color,#2a9d8f);flex:none;
+}
+body.seir-weather #warnPanelTw .twAllAlertOrdinal{color:#a9bbc3;font-size:12px;font-weight:900;font-variant-numeric:tabular-nums;}
+body.seir-weather #warnPanelTw .twAllAlertCard h5{
+  margin:10px 0 14px;font-size:17px;line-height:1.5;font-weight:900;color:#17394c;
+  overflow-wrap:anywhere;
+}
+body.seir-weather #warnPanelTw .twAllAlertTimes{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
+}
+body.seir-weather #warnPanelTw .twAllAlertTimes>div{
+  min-width:0;padding:9px 10px;background:#f5fafb;border:1px solid #e5eef1;border-radius:11px;
+}
+body.seir-weather #warnPanelTw .twAllAlertTimes span{
+  display:block;font-size:10px;font-weight:850;color:#738d99;margin-bottom:4px;
+}
+body.seir-weather #warnPanelTw .twAllAlertTimes strong{
+  display:block;font-size:11px;font-weight:800;color:#294b5b;line-height:1.5;
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
+}
+body.seir-weather #warnPanelTw .twAllAlertArea,
+body.seir-weather #warnPanelTw .twAllAlertDetails,
+body.seir-weather #warnPanelTw .twAllAlertInstruction{margin-top:14px;min-width:0;}
+body.seir-weather #warnPanelTw .twAllAlertSectionLabel{
+  margin-bottom:8px;color:#456a7a;font-size:12px;font-weight:900;
+}
+body.seir-weather #warnPanelTw .twAllAlertArea .twAreaGroups{margin:0!important;}
+body.seir-weather #warnPanelTw .twAllAlertParagraph,
+body.seir-weather #warnPanelTw .twAllAlertInstruction div{
+  color:#4c6671;font-size:12px;font-weight:650;line-height:1.8;
+  white-space:pre-line;overflow-wrap:anywhere;
+}
+body.seir-weather #warnPanelTw .twAllAlertInstruction{
+  padding:12px 13px;border:1px solid #e2eaee;border-radius:12px;background:#f9fbfc;
+}
+body.seir-weather #warnPanelTw .twAllAlertInstruction strong{
+  display:block;font-size:12px;font-weight:900;color:#3b677a;margin-bottom:6px;
+}
+body.seir-weather #warnPanelTw .twAllAlertsEmpty{
+  grid-column:1/-1;text-align:center;border:1px dashed #d4e6ea;border-radius:14px;
+  padding:28px 14px;color:#6d8794;font-size:13px;font-weight:750;
+}
+/* Retain the interactive selected-alert inspector below the full list. */
+body.seir-weather #warnPanelTw .twOfficialTablePanel{order:2!important;}
+body.seir-weather #warnPanelTw .twOfficialDetailPanel{order:3!important;}
+body.seir-weather #warnPanelTw .twOfficialBottomDetailPanel{order:4!important;}
+@media(max-width:920px){
+  body.seir-weather #warnPanelTw .twAllAlertsCards{grid-template-columns:1fr;}
+}
+@media(max-width:620px){
+  body.seir-weather #warnPanelTw .twAllAlertsHeading{padding:15px;align-items:flex-start;flex-wrap:wrap;}
+  body.seir-weather #warnPanelTw .twAllAlertsHeading h4{font-size:18px;}
+  body.seir-weather #warnPanelTw .twAllAlertsCards{padding:10px;gap:10px;}
+  body.seir-weather #warnPanelTw .twAllAlertCard{padding:14px;}
+  body.seir-weather #warnPanelTw .twAllAlertTimes{grid-template-columns:1fr;}
+}
+</style>
 </head>
 <body class="seir-weather">
 <!--
@@ -5746,17 +5848,11 @@ Implement by adjusting polygon style functions:
 </div>
 <div class="twOfficialRight">
 <div class="twOfficialTablePanel">
-<div class="twOfficialTableHead twCompactToolbar">
-  <div class="twCompactTitle">
-    <strong>各縣市警特報</strong>
-    <span class="chip" id="twCount">0 筆</span>
-  </div>
-  <div class="twOfficialFilters" role="search" aria-label="篩選台灣警報">
-    <label class="twCompactFilterLabel" for="twTypeFilter">警報類型</label>
-    <select class="warningSelect" id="twTypeFilter" aria-label="篩選警報類型"></select>
-    <input class="warningSearch" id="twSearch" type="search" placeholder="搜尋地區、警報或內容…" aria-label="搜尋地區、警報或內容">
-  </div>
+<div class="twOfficialTableHead">
+<strong>📋 地區警特報</strong>
+<span class="chip" id="twCount">0 筆</span>
 </div>
+
 <div class="twOfficialCountyTables" id="twCountyTables">
 <table class="twOfficialTable">
 <thead><tr><th>地區</th><th>警特報</th></tr></thead>
@@ -5770,9 +5866,25 @@ Implement by adjusting polygon style functions:
 <div class="warningHint" id="twHint" style="display:none;"></div>
 <div class="warningList" id="twList" style="display:none;"></div>
 </div>
-<details class="twCompactDetails" id="twCompactDetails">
-  <summary><span>查看選取警報詳情</span><small>點擊表格的警報圖示，再展開查看發布時間與影響地區</small></summary>
-  <div class="twCompactDetailsBody">
+<section class="twAllAlertsPanel" aria-label="台灣所有生效警特報">
+  <div class="twAllAlertsHeading">
+    <div class="twAllAlertsHeadingText">
+      <span class="twAllAlertsOverline">ACTIVE WEATHER ADVISORIES</span>
+      <h4>全部生效警特報</h4>
+      <p>所有警報直接展開顯示，無需逐一選取地區。</p>
+    </div>
+    <div class="twAllAlertsTools">
+      <div class="twAllAlertsFilters twOfficialFilters" role="search" aria-label="篩選台灣警特報">
+        <select class="warningSelect" id="twTypeFilter" aria-label="警報類型"></select>
+        <input class="warningSearch" id="twSearch" type="search" placeholder="搜尋警報／地區／內容…" aria-label="搜尋警報地區與內容" />
+      </div>
+      <span class="twAllAlertsCount" id="twAllAlertsCount">讀取中…</span>
+    </div>
+  </div>
+  <div class="twAllAlertsCards" id="twAllAlertsCards" aria-live="polite">
+    <div class="twAllAlertsEmpty">正在載入中央氣象署警報…</div>
+  </div>
+</section>
 <div class="twOfficialDetailPanel">
 <div class="twOfficialDetailHead">
 <strong>🧾 警報詳細</strong>
@@ -5824,8 +5936,6 @@ Implement by adjusting polygon style functions:
 <div class="twOfficialDetailText" id="twText">—</div>
 <div class="twOfficialDetailText" id="twRaw" style="display:none;"></div>
 </div>
-  </div>
-</details>
 </div>
 </div>
 </div>
@@ -11408,7 +11518,7 @@ Implement by adjusting polygon style functions:
           const norm = county.trim();
           const alerts = warnMap.get(norm) || warnMap.get(county) || [];
           const badges = alerts.length ? alerts.map((a, idx) => `
-            <span class="twOfficialWarnBadge" role="button" tabindex="0" aria-label="查看 ${twEscape(norm)}：${twEscape(a.headline || a.event || '警報')}" data-county="${twEscape(norm)}" data-alert="${twEscape(String(allAlerts.indexOf(a)))}" title="${twEscape(a.headline || a.event || "")}">
+            <span class="twOfficialWarnBadge" data-county="${twEscape(norm)}" data-alert="${twEscape(String(allAlerts.indexOf(a)))}" title="${twEscape(a.headline || a.event || "")}">
               <span class="twOfficialWarnStrip" style="background:${twEscape(a.color)}"></span>
               <span class="twOfficialWarnIcon">${twEscape(a.icon)}</span>
             </span>
@@ -11426,21 +11536,54 @@ Implement by adjusting polygon style functions:
         right.innerHTML = counties.slice(half).map(rowHtml).join("");
 
         document.querySelectorAll(".twOfficialWarnBadge").forEach(el => {
-          const selectWarning=()=>{
-            const idx=Number(el.dataset.alert);
-            const a=allAlerts[idx];
-            if(a){
-              renderDetails(a);
-              const inspector=q("twCompactDetails");
-              if(inspector) inspector.open=true;
+          el.addEventListener("click", () => {
+            const idx = Number(el.dataset.alert);
+            const a = allAlerts[idx];
+            if(a) renderDetails(a);
+
+            if(typeof twAreaFocusCounty === "function"){
+              twAreaFocusCounty(el.dataset.county);
             }
-            if(typeof twAreaFocusCounty === "function") twAreaFocusCounty(el.dataset.county);
-          };
-          el.addEventListener("click",selectWarning);
-          el.addEventListener("keydown",e=>{
-            if(e.key==='Enter'||e.key===' '){e.preventDefault();selectWarning();}
           });
         });
+      }
+
+      function renderAllTaiwanAdvisories(){
+        const container = q("twAllAlertsCards");
+        const counter = q("twAllAlertsCount");
+        if(!container) return;
+        if(counter) counter.textContent = `${filteredAlerts.length} 項警報`;
+        if(!filteredAlerts.length){
+          container.innerHTML = `<div class="twAllAlertsEmpty">目前沒有符合條件的生效警報</div>`;
+          return;
+        }
+        const validColor=c=>/^#[0-9a-fA-F]{6}$/.test(String(c||''))?c:'#348fa0';
+        container.innerHTML = filteredAlerts.map((a,i)=>{
+          const title=twEscape(a.headline||a.event||a.datasetName||'氣象警特報');
+          const group=twEscape(a.datasetName||a.event||'警特報');
+          const level=validColor(a.color);
+          const issued=twEscape(fmtCapTime(a.sent));
+          const effective=twEscape(fmtCapTime(a.effective));
+          const until=twEscape(fmtCapTime(a.expires));
+          const region=renderAreaPills(a);
+          const description=a.description?`<div class="twAllAlertParagraph">${twEscape(a.description)}</div>`:'';
+          const instruction=a.instruction?`<div class="twAllAlertInstruction"><strong>注意事項</strong><div>${twEscape(a.instruction)}</div></div>`:'';
+          return `<article class="twAllAlertCard" style="--tw-alert-color:${level}">
+            <div class="twAllAlertCardHeader">
+              <span class="twAllAlertCategory"><i></i>${group}</span>
+              <span class="twAllAlertOrdinal">${String(i+1).padStart(2,'0')}</span>
+            </div>
+            <h5>${title}</h5>
+            <div class="twAllAlertTimes">
+              <div><span>發布時間</span><strong>${issued}</strong></div>
+              <div><span>生效時間</span><strong>${effective}</strong></div>
+              <div><span>有效至</span><strong>${until}</strong></div>
+            </div>
+            <div class="twAllAlertArea"><div class="twAllAlertSectionLabel">影響地區</div>${region}</div>
+            ${description?`<div class="twAllAlertDetails"><div class="twAllAlertSectionLabel">警報內容</div>${description}</div>`:''}
+            ${instruction}
+          </article>`;
+        }).join('');
       }
 
       function renderList(){
@@ -11448,6 +11591,7 @@ Implement by adjusting polygon style functions:
         q("twHint").textContent = "";
 
         renderCountyTables();
+        renderAllTaiwanAdvisories();
 
         window.__twCapAlerts = filteredAlerts;
         if(Array.isArray(allAlerts)) window.__twAllCapAlerts = allAlerts;
@@ -24351,95 +24495,75 @@ body.seir-weather #warnings .warningPanel[hidden]{display:none!important;}
   if(document.readyState==='complete')start();else window.addEventListener('load',start,{once:true});
 })();
 </script>
-<style id="taiwan-compact-alert-table-v29">
-/* V29 Taiwan: compact county-based overview. The previous long bulletin cards are removed. */
-body.seir-weather #warnPanelTw .twOfficialGrid{display:flex!important;flex-direction:column!important;gap:0!important;}
-body.seir-weather #warnPanelTw .twOfficialRight{display:contents!important;}
-body.seir-weather #warnPanelTw .twOfficialTablePanel{
-  order:1!important;width:100%!important;min-height:0!important;height:auto!important;
-  max-height:none!important;overflow:visible!important;
-  border-radius:20px!important;box-shadow:0 8px 24px rgba(20,67,80,.045)!important;
+
+<style id="taiwan-alert-cards-only-v30">
+/* V30: user chose the full advisory cards (figure 2), not the county grid (figure 1).
+   Keep hidden legacy nodes in DOM for compatibility with existing Taiwan CAP code. */
+body.seir-weather #warnPanelTw .twOfficialMapPanel,
+body.seir-weather #warnPanelTw .twOfficialTablePanel,
+body.seir-weather #warnPanelTw .twOfficialDetailPanel,
+body.seir-weather #warnPanelTw .twOfficialBottomDetailPanel{display:none!important;}
+body.seir-weather #warnPanelTw .twOfficialGrid{
+  display:block!important;width:100%!important;min-width:0!important;
+  grid-template-columns:none!important;grid-template-areas:none!important;
+  margin:0!important;
 }
-body.seir-weather #warnPanelTw .twCompactToolbar{
-  display:flex!important;align-items:center!important;justify-content:space-between!important;
-  flex-wrap:wrap!important;gap:12px!important;
-  padding:14px 18px!important;min-height:76px!important;
-  background:linear-gradient(100deg,#f8fcfc,#eef8f8)!important;
+body.seir-weather #warnPanelTw .twOfficialRight{
+  display:block!important;width:100%!important;min-width:0!important;
 }
-body.seir-weather #warnPanelTw .twCompactTitle{
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:0 1 auto;
+body.seir-weather #warnPanelTw .twAllAlertsPanel{
+  display:block!important;order:initial!important;width:100%!important;
+  border-radius:21px!important;margin:0!important;
 }
-body.seir-weather #warnPanelTw .twCompactTitle strong{color:#174553;font-size:16px;font-weight:900;white-space:nowrap;}
-body.seir-weather #warnPanelTw .twCompactTitle .chip{min-height:28px;white-space:nowrap;}
-body.seir-weather #warnPanelTw .twCompactToolbar .twOfficialFilters{
-  display:flex!important;flex:1 1 390px!important;align-items:center!important;
-  justify-content:flex-end!important;min-width:0!important;max-width:700px!important;
-  padding:0!important;border:0!important;background:transparent!important;
-  gap:9px!important;grid-template-columns:none!important;
+body.seir-weather #warnPanelTw .twAllAlertsHeading{
+  display:flex!important;align-items:center!important;flex-wrap:wrap!important;
+  gap:12px 22px!important;padding:16px 20px!important;
 }
-body.seir-weather #warnPanelTw .twCompactFilterLabel{font-size:11px;white-space:nowrap;color:#5c7b84;font-weight:850;}
-body.seir-weather #warnPanelTw .twCompactToolbar .warningSelect{
-  width:175px!important;max-width:100%;min-width:130px!important;min-height:38px!important;
-  border-radius:11px!important;background:#fff!important;flex:0 1 175px!important;
+body.seir-weather #warnPanelTw .twAllAlertsTools{
+  display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;
+  flex:1 1 440px;min-width:0;gap:10px;
 }
-body.seir-weather #warnPanelTw .twCompactToolbar .warningSearch{
-  width:auto!important;min-width:140px!important;min-height:38px!important;
-  border-radius:11px!important;background:#fff!important;flex:1 1 210px!important;
+body.seir-weather #warnPanelTw .twAllAlertsFilters.twOfficialFilters{
+  display:flex!important;align-items:center!important;justify-content:flex-end!important;
+  width:auto!important;min-width:0!important;flex:1 1 350px!important;
+  max-width:550px!important;margin:0!important;padding:0!important;
+  gap:9px!important;border:0!important;background:none!important;
+  grid-template-columns:none!important;box-shadow:none!important;
 }
-body.seir-weather #warnPanelTw .twOfficialCountyTables{
+body.seir-weather #warnPanelTw .twAllAlertsFilters .warningSelect{
+  display:block!important;width:165px!important;min-width:115px!important;flex:0 0 165px!important;
+  min-height:40px!important;border-radius:11px!important;background:#fff!important;
+}
+body.seir-weather #warnPanelTw .twAllAlertsFilters .warningSearch{
+  display:block!important;min-width:140px!important;width:auto!important;
+  min-height:40px!important;flex:1 1 180px!important;border-radius:11px!important;background:#fff!important;
+}
+body.seir-weather #warnPanelTw .twAllAlertsCards{
   display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
-  max-height:none!important;min-height:0!important;height:auto!important;
-  overflow:visible!important;gap:12px!important;padding:14px!important;
+  align-items:start!important;gap:13px!important;padding:15px!important;
 }
-body.seir-weather #warnPanelTw .twOfficialWarnBadge[role="button"]{cursor:pointer;}
-body.seir-weather #warnPanelTw .twOfficialWarnBadge[role="button"]:focus-visible{
-  outline:2px solid #0b94aa!important;outline-offset:3px!important;
+body.seir-weather #warnPanelTw .twAllAlertCard{
+  padding:15px!important;border-radius:16px!important;
 }
-body.seir-weather #warnPanelTw .twCompactDetails{
-  order:2!important;display:block!important;width:100%;margin-top:12px;
-  border:1px solid #dce9ec;border-radius:18px;background:#fff;
-  box-shadow:0 6px 20px rgba(20,67,80,.035);overflow:hidden;
+body.seir-weather #warnPanelTw .twAllAlertCard h5{margin:9px 0 12px!important;}
+@media(max-width:950px){
+  body.seir-weather #warnPanelTw .twAllAlertsCards{grid-template-columns:1fr!important;}
 }
-body.seir-weather #warnPanelTw .twCompactDetails>summary{
-  display:flex;align-items:center;gap:8px 14px;justify-content:space-between;flex-wrap:wrap;
-  cursor:pointer;padding:14px 18px;color:#1c5867;font-size:13px;font-weight:900;
-  list-style:none;user-select:none;
-}
-body.seir-weather #warnPanelTw .twCompactDetails>summary::-webkit-details-marker{display:none;}
-body.seir-weather #warnPanelTw .twCompactDetails>summary:after{
-  content:'展開';font-size:11px;color:#19899a;border-radius:999px;
-  border:1px solid #d7e9ec;padding:5px 10px;background:#f4fbfb;
-}
-body.seir-weather #warnPanelTw .twCompactDetails[open]>summary:after{content:'收起';}
-body.seir-weather #warnPanelTw .twCompactDetails>summary small{font-size:11px;font-weight:650;color:#79919b;}
-body.seir-weather #warnPanelTw .twCompactDetailsBody{
-  border-top:1px solid #e6eef0;padding:14px;
-  display:grid;grid-template-columns:1fr;gap:12px;
-}
-body.seir-weather #warnPanelTw .twCompactDetailsBody>.twOfficialDetailPanel,
-body.seir-weather #warnPanelTw .twCompactDetailsBody>.twOfficialBottomDetailPanel{
-  width:100%!important;min-height:0!important;height:auto!important;max-height:none!important;
-  grid-area:auto!important;order:initial!important;margin:0!important;
-}
-@media(max-width:900px){
-  body.seir-weather #warnPanelTw .twCompactToolbar .twOfficialFilters{max-width:none!important;}
-  body.seir-weather #warnPanelTw .twOfficialCountyTables{grid-template-columns:1fr!important;}
-}
-@media(max-width:630px){
-  body.seir-weather #warnPanelTw .twCompactToolbar{padding:12px!important;align-items:stretch!important;gap:10px!important;}
-  body.seir-weather #warnPanelTw .twCompactTitle{width:100%;}
-  body.seir-weather #warnPanelTw .twCompactToolbar .twOfficialFilters{
-    width:100%!important;flex:1 1 100%!important;justify-content:stretch!important;
-    display:grid!important;grid-template-columns:1fr!important;gap:7px!important;
+@media(max-width:660px){
+  body.seir-weather #warnPanelTw .twAllAlertsHeading{padding:14px!important;}
+  body.seir-weather #warnPanelTw .twAllAlertsTools{
+    width:100%;flex:1 1 100%;justify-content:stretch;align-items:stretch;
   }
-  body.seir-weather #warnPanelTw .twCompactFilterLabel{display:none;}
-  body.seir-weather #warnPanelTw .twCompactToolbar .warningSelect,
-  body.seir-weather #warnPanelTw .twCompactToolbar .warningSearch{
+  body.seir-weather #warnPanelTw .twAllAlertsFilters.twOfficialFilters{
+    max-width:none!important;width:100%!important;display:grid!important;
+    grid-template-columns:1fr!important;gap:8px!important;
+  }
+  body.seir-weather #warnPanelTw .twAllAlertsFilters .warningSelect,
+  body.seir-weather #warnPanelTw .twAllAlertsFilters .warningSearch{
     width:100%!important;min-width:0!important;max-width:none!important;flex:none!important;
   }
-  body.seir-weather #warnPanelTw .twOfficialCountyTables{padding:8px!important;gap:6px!important;}
-  body.seir-weather #warnPanelTw .twCompactDetails>summary small{width:100%;}
-  body.seir-weather #warnPanelTw .twCompactDetailsBody{padding:8px;}
+  body.seir-weather #warnPanelTw .twAllAlertsCount{margin-left:auto;}
+  body.seir-weather #warnPanelTw .twAllAlertsCards{padding:10px!important;gap:10px!important;}
 }
 </style>
 </body>
