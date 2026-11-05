@@ -24566,5 +24566,55 @@ body.seir-weather #warnPanelTw .twAllAlertCard h5{margin:9px 0 12px!important;}
   body.seir-weather #warnPanelTw .twAllAlertsCards{padding:10px!important;gap:10px!important;}
 }
 </style>
+
+<style id="malaysia-two-column-warnings-v31">
+/* Malaysia notices: two columns beneath the already shared large map.
+   Keep the original MET Malaysia notice rendering and county/map logic unchanged. */
+@media (min-width:1021px){
+  body.seir-weather #warnings #warnPanelMy #myList{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    column-gap:16px !important;
+    row-gap:16px !important;
+    align-items:start !important;
+    max-width:none !important;
+    width:100% !important;
+    min-width:0;
+    overflow:visible !important;
+  }
+  body.seir-weather #warnings #warnPanelMy #myList > .warningCard.myEnhancedNotice{
+    min-width:0;
+    width:100%;
+    margin:0 !important;
+    box-sizing:border-box;
+  }
+  /* Let a no-warning message use both columns. */
+  body.seir-weather #warnings #warnPanelMy #myList > .warningEmpty{
+    grid-column:1/-1;
+  }
+}
+@media (max-width:1020px){
+  body.seir-weather #warnings #warnPanelMy #myList{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    row-gap:14px !important;
+    width:100%;
+    min-width:0;
+  }
+  body.seir-weather #warnings #warnPanelMy #myList > .warningCard.myEnhancedNotice{
+    margin:0 !important;
+    min-width:0;
+  }
+}
+/* Keep the heading and time blocks legible in the narrower notice cards. */
+body.seir-weather #warnPanelMy .myEnhancedNotice .warningCardHead{gap:12px;}
+body.seir-weather #warnPanelMy .myEnhancedNotice .warningHeadline{overflow-wrap:anywhere;}
+body.seir-weather #warnPanelMy .myEnhancedNotice .myBulletinTime{grid-template-columns:repeat(3,minmax(0,1fr));}
+body.seir-weather #warnPanelMy .myEnhancedNotice .myBulletinTime strong{overflow-wrap:anywhere;}
+@media (max-width:620px){
+  body.seir-weather #warnPanelMy .myEnhancedNotice .myBulletinTime{grid-template-columns:1fr;}
+}
+</style>
+
 </body>
 </html>
