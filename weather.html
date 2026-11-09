@@ -5695,6 +5695,16 @@ body.seir-weather #warnPanelTw .twOfficialBottomDetailPanel{order:4!important;}
   body.seir-weather #warnPanelTw .twAllAlertTimes{grid-template-columns:1fr;}
 }
 </style>
+<style id="malaysia-continuous-section-accuracy-v32">
+/* The two sections of a single MET continuous-rain bulletin are separate grades. */
+#warnPanelMy .myEnhancedNotice .mySectionCode{
+  display:inline-flex;align-items:center;vertical-align:middle;
+  margin-left:9px;padding:3px 7px;border-radius:7px;
+  border:1px solid #d9e8ed;background:#f0f6f8;
+  color:#4b7180;font-size:10px;font-weight:850;letter-spacing:.02em;
+}
+@media(max-width:580px){#warnPanelMy .myEnhancedNotice .mySectionCode{margin-left:0;margin-top:4px;}}
+</style>
 </head>
 <body class="seir-weather">
 <!--
@@ -15028,6 +15038,7 @@ ${a.instruction}` : ''
       return 'other';
     }
     function level(w){
+      if(w?._metLevel) return w._metLevel; // SECTION-level grade; never take the grade from the parent bulletin.
       const h=heading(w).toLowerCase(); // Never infer severity from place names or descriptive paragraphs.
       if(kind(w)==='sea'){
         if(/third category|kategori ketiga/.test(h))return 'red';
@@ -15198,6 +15209,34 @@ ${a.instruction}` : ''
         });
       });
       return {fullStates,districts,unresolved};
+    }
+    // MET continuous-rain notices can contain two DIFFERENT warnings inside one API record.
+    // Do not let a SEVERE (Section A) headline color ALERT (Section B) areas.
+    function expandContinuousSections(w){
+      if(kind(w)!=='continuous')return [w];
+      const text=String(w?.text_en||'').replace(/\u00a0/g,' ');
+      const markers=[...text.matchAll(/\bSECTION\s+([A-Z])\s*:\s*/gi)];
+      if(markers.length<2)return [w];
+      const parts=markers.map((m,i)=>{
+        const raw=text.slice(m.index+m[0].length,i+1<markers.length?markers[i+1].index:text.length).trim();
+        const headingMatch=raw.match(/^(?:\d+\s*\)\s*)?(CONTINUOUS\s+RAIN\s+WARNING\s*\(\s*(SEVERE|ALERT|DANGER)\s*\))/i);
+        if(!headingMatch)return null;
+        const severity=headingMatch[2].toUpperCase();
+        const lvl=({SEVERE:'orange',ALERT:'yellow',DANGER:'red'})[severity];
+        return {code:m[1].toUpperCase(),level:lvl,heading:headingMatch[1].replace(/\s+/g,' ').toUpperCase(),
+          text:`${m[0]}${raw}`.trim()};
+      });
+      // If the API format is unfamiliar, keep the original rather than guess at categories.
+      if(parts.some(x=>!x)||new Set(parts.map(x=>x.code)).size!==parts.length)return [w];
+      return parts.map(p=>({
+        ...w,
+        heading_en:p.heading, text_en:p.text, text_bm:'',
+        _metSection:p.code, _metLevel:p.level,
+        _metOriginalText:text
+      }));
+    }
+    function expandMalaysiaNotices(rows){
+      return (Array.isArray(rows)?rows:[]).flatMap(expandContinuousSections);
     }
     function typeMatchesWarning(selectedType,w){
       const k=kind(w);
@@ -15572,7 +15611,8 @@ ${a.instruction}` : ''
         const whole=g.whole?'<div class="myWholeStateLabel">全州／全區警報</div>':'';
         return `<section class="myLocationGroup"><div class="myAreaCaption">${html(g.title)} <span>${html(stats)}</span></div>${whole}${plain}${divisions}</section>`;
       }).join('')}</div>`:'';
-      const summary=groups.length?text.replace(/\b(?:over|across|in)\s+the\s+states? of\s+[\s\S]+?\s+until/i,'in the areas listed above until'):text;
+      const onlySection=text.replace(/^SECTION\s+[A-Z]\s*:\s*CONTINUOUS\s+RAIN\s+WARNING\s*\([^)]*\)\s*/i,'');
+      const summary=groups.length?onlySection.replace(/\b(?:over|across|in)\s+the\s+states? of\s+[\s\S]+?\s+until/i,'in the areas listed above until'):onlySection;
       return `${zones}<p class="myLandSummary">${html(summary)}</p>`;
     }
     function buildWarningBody(w,info){
@@ -15585,7 +15625,8 @@ ${a.instruction}` : ''
         markup=found.map(m=>renderMarineSection(sectionFromEnglish(m[1].toUpperCase(),m[2]))).join('');
       }else if(k==='thunderstorm'||k==='continuous')markup=renderLandContent(text);
       else markup=`<p class="myLandSummary">${html(text)}</p>`;
-      return `${markup}<details class="myOriginalNotice"><summary>查看完整官方原文</summary><div>${html(text)}</div></details>`;
+      const rawSource=w?._metOriginalText||text;
+      return `${markup}<details class="myOriginalNotice"><summary>查看完整官方原文</summary><div>${html(rawSource)}</div></details>`;
     }
     function renderCards(){
       const type=q('myTypeFilter')?.value||'all', box=q('myList');if(!box)return;
@@ -15597,13 +15638,14 @@ ${a.instruction}` : ''
         const raw=w.heading_en||w.heading_bm||info.name||'—';
         const desc=w.text_en||w.text_bm||w.instruction_en||w.instruction_bm||'';
         const title=(type==='rain_all' && kind(w)==='continuous') ? '長命雨警報' : info.name;
-        const tag=(type==='rain_all' && kind(w)==='continuous') ? '長命雨' : info.tag;
+        const sectionGrade=({yellow:'黃色警報',orange:'橙色警報',red:'紅色警報'})[info.level];
+        const tag=w._metSection ? sectionGrade : ((type==='rain_all' && kind(w)==='continuous') ? '長命雨' : info.tag);
         const el=document.createElement('article');el.className='warningCard myEnhancedNotice';
         el.dataset.warningKind=kind(w);
         const tagClass=(kind(w)==='sea'?'sea':(kind(w)==='typhoon'?'tc':'rain'));
         const issueTime=fmtDateCard(w.warning_issue?.issued||w.warning_issue__issued||w.issued||'');
         const fromTime=fmtDateCard(w.valid_from||''),toTime=fmtDateCard(w.valid_to||'');
-        el.innerHTML=`<div class="warningCardHead"><div class="warningHeadline">${html(title)}<small>${html(raw)}</small></div><span class="warningTag ${tagClass}" style="border-color:${st.stroke};color:${st.stroke};background:${st.fill}20">${html(tag)}</span></div>
+        el.innerHTML=`<div class="warningCardHead"><div class="warningHeadline">${html(title)}${w._metSection?`<span class="mySectionCode">SECTION ${html(w._metSection)}</span>`:''}<small>${html(raw)}</small></div><span class="warningTag ${tagClass}" style="border-color:${st.stroke};color:${st.stroke};background:${st.fill}20">${html(tag)}</span></div>
           <div class="myBulletinTime"><div><small>發布時間</small><strong>${html(issueTime)}</strong></div><div><small>生效時間</small><strong>${html(fromTime)}</strong></div><div><small>結束時間</small><strong>${html(toTime)}</strong></div></div>
           <div class="myWarningBody">${buildWarningBody(w, info)}</div>`;
         box.appendChild(el);
@@ -15618,14 +15660,14 @@ ${a.instruction}` : ''
         const res=await fetch(API,{cache:'no-store'});if(!res.ok)throw Error(`HTTP ${res.status}`);
         const data=await res.json();
         const rows=Array.isArray(data)?data:(Array.isArray(data.data)?data.data:[]);
-        allData=rows.filter(isRealWarning);
+        allData=expandMalaysiaNotices(rows.filter(isRealWarning));
         window.myWarnings=allData;
         renderCards();
       }catch(e){console.error(e);if(q('myStatus'))q('myStatus').textContent='錯誤';
         if(q('myList'))q('myList').innerHTML='<div class="warningEmpty">馬來西亞警報讀取失敗</div>';renderMap();}
     }
     // Expose pure helpers for deterministic tests and diagnosis, without exposing any credentials.
-    window.__malaysiaWarningLogic={norm,geoState,geoDistrict,parseCoverage,kind,level,collectAreas,areaClauses,typeMatchesWarning,isRealWarning};
+    window.__malaysiaWarningLogic={norm,geoState,geoDistrict,parseCoverage,kind,level,collectAreas,areaClauses,typeMatchesWarning,isRealWarning,expandContinuousSections,expandMalaysiaNotices};
     setupControls();q('myRefresh')?.addEventListener('click',refresh);
     q('myTypeFilter')?.addEventListener('change',renderCards);
     ensureMap();refresh();
