@@ -1,0 +1,110 @@
+{
+  "note": "This list documents remote sources used by the game; licensed GeoJSON data files are NOT redistributed in this ZIP. The game fetches GeoJSON on demand and supports user-supplied GeoJSON.",
+  "count": 13,
+  "sources": [
+    {
+      "id": "kl",
+      "title": "吉隆坡行政市界",
+      "admin_level": "MYS ADM1",
+      "selected_features": "WP K Lumpur",
+      "source_url": "https://raw.githubusercontent.com/atifmustaffa/malaysia-geojson/master/malaysia.state.min.geojson",
+      "data_terms": "Community GeoJSON derived from local mapping; check upstream terms before reuse"
+    },
+    {
+      "id": "kv",
+      "title": "巴生谷",
+      "admin_level": "MYS ADM1",
+      "selected_features": "Selangor + WP K Lumpur + WP Putrajaya",
+      "source_url": "https://raw.githubusercontent.com/atifmustaffa/malaysia-geojson/master/malaysia.state.min.geojson",
+      "data_terms": "Community GeoJSON derived from local mapping; check upstream terms before reuse"
+    },
+    {
+      "id": "pn",
+      "title": "檳城全州",
+      "admin_level": "MYS ADM1",
+      "selected_features": "Pulau Pinang",
+      "source_url": "https://raw.githubusercontent.com/atifmustaffa/malaysia-geojson/master/malaysia.state.min.geojson",
+      "data_terms": "Community GeoJSON derived from local mapping; check upstream terms before reuse"
+    },
+    {
+      "id": "hk",
+      "title": "香港18區",
+      "admin_level": "HKG ADM1",
+      "selected_features": "all 18 districts",
+      "source_url": "https://raw.githubusercontent.com/stephanietuerk/admin-boundaries/master/lo-res/Admin1_simp10/gadm36_HKG_1.json",
+      "data_terms": "GADM: academic/noncommercial only; attribution and redistribution restrictions"
+    },
+    {
+      "id": "sg",
+      "title": "新加坡全境",
+      "admin_level": "SGP ADM1",
+      "selected_features": "all 5 regions",
+      "source_url": "https://raw.githubusercontent.com/stephanietuerk/admin-boundaries/master/lo-res/Admin1_simp10/gadm36_SGP_1.json",
+      "data_terms": "GADM: academic/noncommercial only; attribution and redistribution restrictions"
+    },
+    {
+      "id": "tp",
+      "title": "臺北／新北",
+      "admin_level": "TWN ADM1",
+      "selected_features": "Taipei + New Taipei",
+      "source_url": "https://raw.githubusercontent.com/stephanietuerk/admin-boundaries/master/lo-res/Admin1_simp10/gadm36_TWN_1.json",
+      "data_terms": "GADM: academic/noncommercial only; attribution and redistribution restrictions"
+    },
+    {
+      "id": "tc",
+      "title": "臺中",
+      "admin_level": "TWN ADM1",
+      "selected_features": "Taichung",
+      "source_url": "https://raw.githubusercontent.com/stephanietuerk/admin-boundaries/master/lo-res/Admin1_simp10/gadm36_TWN_1.json",
+      "data_terms": "GADM: academic/noncommercial only; attribution and redistribution restrictions"
+    },
+    {
+      "id": "kh",
+      "title": "高雄",
+      "admin_level": "TWN ADM1",
+      "selected_features": "Kaohsiung",
+      "source_url": "https://raw.githubusercontent.com/stephanietuerk/admin-boundaries/master/lo-res/Admin1_simp10/gadm36_TWN_1.json",
+      "data_terms": "GADM: academic/noncommercial only; attribution and redistribution restrictions"
+    },
+    {
+      "id": "bk",
+      "title": "曼谷",
+      "admin_level": "THA ADM1",
+      "selected_features": "Bangkok",
+      "source_url": "https://raw.githubusercontent.com/DevelopedbyWill/thailand-canonical-admin-names/main/data/v1.0.0/thailand-adm1-polygons-v1.0.0.geojson",
+      "data_terms": "DevelopedbyWill source polygons based on published admin data; verify source license for GeoJSON"
+    },
+    {
+      "id": "tk",
+      "title": "東京本島",
+      "admin_level": "JPN ADM1",
+      "selected_features": "Tokyo; distant islands excluded",
+      "source_url": "https://raw.githubusercontent.com/winterwang/japan-map/master/japan.geojson",
+      "data_terms": "winterwang/japan-map: MIT code license; polygon provenance in source repo"
+    },
+    {
+      "id": "os",
+      "title": "大阪府",
+      "admin_level": "JPN ADM1",
+      "selected_features": "Osaka",
+      "source_url": "https://raw.githubusercontent.com/winterwang/japan-map/master/japan.geojson",
+      "data_terms": "winterwang/japan-map: MIT code license; polygon provenance in source repo"
+    },
+    {
+      "id": "sl",
+      "title": "首爾",
+      "admin_level": "KOR ADM1",
+      "selected_features": "Seoul",
+      "source_url": "https://raw.githubusercontent.com/southkorea/seoul-maps/master/kostat/2013/json/seoul_municipalities_geo_simple.json",
+      "data_terms": "southkorea/seoul-maps: KOSTAT 2013 boundaries, verify source data terms"
+    },
+    {
+      "id": "jk",
+      "title": "雅加達",
+      "admin_level": "IDN ADM1",
+      "selected_features": "Jakarta",
+      "source_url": "https://raw.githubusercontent.com/gtsuid/geojson-indonesia/master/province-simplified/id-jk.min.geojson",
+      "data_terms": "gtsuid/geojson-indonesia: derived from OSM and Wikipedia, verify underlying attribution terms"
+    }
+  ]
+}
