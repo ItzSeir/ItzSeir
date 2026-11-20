@@ -43,19 +43,21 @@
 .demand-tooltip{position:absolute;z-index:6;pointer-events:none;min-width:150px;max-width:220px;padding:9px 11px;background:#132b33ef;color:#e8f7f5;border:1px solid #43847d;border-radius:10px;box-shadow:0 10px 35px #06202755;font-size:11px;line-height:1.5}.demand-tooltip strong{display:block;font-size:12px}.demand-tooltip small{font-size:10px;color:#a8cfca}
 @media(max-width:800px){.hotspot-banner{top:54px;left:10px;max-width:235px;padding:7px 8px}.hotspot-banner strong{font-size:10px}.hotspot-banner small{font-size:8px}.hotspot-banner button{font-size:9px}.map-legend{bottom:108px;left:10px;min-width:180px;padding:8px 10px}.station-legend{display:none}}
 @media(max-width:410px){.map-legend{display:block;bottom:90px;min-width:158px;padding:7px 9px}.heat-legend-head b{font-size:9px}.heat-legend-head small{font-size:8px}.hotspot-banner{max-width:196px}.demand-tooltip{max-width:160px}}
+
+.geo-status{font-size:10px;color:#477c74;background:#f2f8f6;border:1px solid #cce3db;border-radius:9px;line-height:1.7;padding:9px 10px;margin:10px 0}.geo-status.loading{color:#957540;background:#fffbf3;border-color:#f0e3c5}.geo-status.error{color:#ac5a51;background:#fff6f4;border-color:#f2d6d0}.geo-tools{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}.geo-tools .btn{flex:1;min-height:30px;padding:5px 7px;font-size:9px}.geo-upload input{display:none}.geo-upload{cursor:pointer}.boundary-loading{position:absolute;left:50%;top:22%;transform:translateX(-50%);z-index:4;text-align:center;pointer-events:none;background:#ffffffed;border:1px solid #cfe1df;border-radius:12px;padding:14px 18px;font-size:11px;font-weight:750;color:#47736a;box-shadow:0 4px 19px #193c381e;max-width:290px;line-height:1.7}.boundary-loading[hidden]{display:none!important}.map-credit{max-width:360px}.map-title small{letter-spacing:.07em}
 </style>
 </head>
 <body>
 <div class="app">
  <header class="top"><div class="identity"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v15M2 20h20M4 9h11M4 15h11M15 8h5v9h-5"/><path d="M8 6h3M8 12h3"/></svg></div><div class="brand">METRO <span style="font-weight:500;color:#73908d">/ Planner</span><small>CITY RAIL SIMULATOR</small></div></div><div class="top-center"><b>城市軌道規劃</b><span class="crumb"> / </span><span class="chip">模擬運行中</span></div><div class="top-actions"><button class="btn" id="statsBtn">▥ 統計分析</button><button class="btn" id="undoBtn" title="復原 Ctrl+Z">↶</button><button class="btn" id="redoBtn" title="重做 Ctrl+Y">↷</button><button class="btn" id="resetBtn">↻ 重設空白</button><button class="btn icon" id="helpBtn" title="玩法說明">?</button></div></header>
- <div class="body"><aside class="sidebar"><div class="scroll"><div class="sidepad"><div class="sec-cap">選擇城市 · CITY</div><select id="citySelect" class="citysel" aria-label="選擇城市"></select><div class="city-caption">城市規劃邊界已啟用；邊界外禁止建站，拖曳和縮放不能離開地圖範圍。人口／需求均為遊戲模擬，非官方統計。</div><div class="summary"><div class="sum"><em>每日搭乘</em><strong id="kRides">–</strong></div><div class="sum"><em>收支比</em><strong id="kRatio">–</strong></div><div class="sum"><em>運輸分擔</em><strong id="kShare">–</strong></div><div class="sum"><em>服務品質</em><strong id="kQuality">–</strong></div></div><div class="demand-hero" id="demandHero" aria-live="polite"></div>
+ <div class="body"><aside class="sidebar"><div class="scroll"><div class="sidepad"><div class="sec-cap">選擇城市 · CITY</div><select id="citySelect" class="citysel" aria-label="選擇城市"></select><div class="city-caption">使用實際行政區 GeoJSON 形狀限制建站；界線載入成功前無法編輯。需求及人口為遊戲模擬，非人口普查。</div><div class="geo-status" id="geoStatus">正在取得 GeoJSON 行政邊界…</div><div class="geo-tools"><button class="btn tiny" id="geoRetry" type="button">↻ 重新載入界線</button><button class="btn tiny" id="geoExport" type="button">↓ GeoJSON</button><label class="btn tiny geo-upload">↑ 匯入邊界<input id="geoInput" type="file" accept=".json,.geojson,application/geo+json,application/json"></label></div><div class="summary"><div class="sum"><em>每日搭乘</em><strong id="kRides">–</strong></div><div class="sum"><em>收支比</em><strong id="kRatio">–</strong></div><div class="sum"><em>運輸分擔</em><strong id="kShare">–</strong></div><div class="sum"><em>服務品質</em><strong id="kQuality">–</strong></div></div><div class="demand-hero" id="demandHero" aria-live="polite"></div>
 <div class="sec-head demand-head"><h3>需求最高的區域</h3><span id="zoneCount">—</span></div>
 <div class="zone-list" id="zoneList"></div>
 <button id="moreZonesBtn" class="show-more" type="button">查看全部需求區</button>
-<div class="demand-disclaimer">已加入郊區的低密度需求；虛線代表遊戲規劃邊界（非行政區界），灰色範圍不可建站。需求與人口為模擬資料。</div><div class="sec-head"><h3>營運路線</h3><span id="lineCount">0 條路線</span></div><div class="line-list" id="lineList"></div><div class="line-tools"><button class="btn primary" id="addLineBtn">＋ 新增路線</button><button class="btn" id="toggleDrawBtn">✎ 編輯路線</button></div><div class="edit-card" id="editCard"><div class="empty">先選擇一條路線，再編輯名稱、車輛和班次。</div></div></div></div><div class="sidebar-foot"><button class="btn tiny" id="blankBtn">建立空白方案</button><button class="btn tiny" id="exportBtn">↓ 匯出進度</button><label class="btn tiny upload-label">↑ 匯入<input id="importInput" type="file" accept="application/json,.json"></label></div></aside>
+<div class="demand-disclaimer">熱度及需求使用遊戲模擬數值；虛線跟隨 GeoJSON 行政邊界，灰色範圍禁止建站。不同城市範圍可能是市、州、府或都會區。部分資料來源是 GADM（限非商業使用）。其餘來源依原資料授權。</div><div class="sec-head"><h3>營運路線</h3><span id="lineCount">0 條路線</span></div><div class="line-list" id="lineList"></div><div class="line-tools"><button class="btn primary" id="addLineBtn">＋ 新增路線</button><button class="btn" id="toggleDrawBtn">✎ 編輯路線</button></div><div class="edit-card" id="editCard"><div class="empty">先選擇一條路線，再編輯名稱、車輛和班次。</div></div></div></div><div class="sidebar-foot"><button class="btn tiny" id="blankBtn">建立空白方案</button><button class="btn tiny" id="exportBtn">↓ 匯出進度</button><label class="btn tiny upload-label">↑ 匯入<input id="importInput" type="file" accept="application/json,.json"></label></div></aside>
  <main class="mapwrap"><div id="vectorBasemap" aria-hidden="true"></div><canvas id="map" aria-label="地理地圖與可編輯的地鐵路線"></canvas><div class="float-top"><div class="map-title"><small>URBAN TRANSPORT NETWORK</small><strong id="mapCity">吉隆坡</strong><span id="mapCaption">空白規劃畫布</span></div><div class="tools"><div class="toolgroup"><button id="modeSelect" class="mtbtn active">選取</button><button id="modeDraw" class="mtbtn">＋ 建站延線</button><button id="modeMove" class="mtbtn">移動車站</button></div><div class="toolgroup"><button id="heatBtn" class="mtbtn active" title="顯示或隱藏連續需求熱度圖">熱度圖</button><button id="trainBtn" class="mtbtn active" title="顯示或隱藏車輛">列車</button></div></div></div><div class="mapzooms"><button class="btn" id="zoomIn" aria-label="放大地圖">+</button><button class="btn" id="zoomOut" aria-label="縮小地圖">−</button><button class="btn" id="recenter" aria-label="重置地圖中心">⌖</button></div><div class="map-legend"><div class="heat-legend-head"><b>潛在搭乘需求</b><small>模型指數 0–100</small></div><div class="heat-scale"></div><div class="heat-legend-labels"><span>低</span><span>中</span><span>高</span><span>極高</span></div><div class="station-legend"><span class="key"><i></i>車站</span><span class="key"><i class="trans"></i>轉乘</span><span>· <b>虛線為遊戲邊界</b> · 拖曳平移／滾輪縮放</span></div></div>
 <div class="hotspot-banner" id="hotspotBanner"><span class="hotspot-spark">●</span><span><small>全市最高需求熱區</small><strong id="hotspotName">—</strong></span><button id="hotspotGo" type="button">定位</button></div>
-<div class="demand-tooltip" id="demandTooltip" role="status" hidden></div><div class="map-footer"><div class="timeline"><div class="timeline-head"><div><div class="clock" id="clock">07:30</div><label id="dayLabel">模擬星期一 · 早高峰</label></div><div class="timeBtns"><button id="pauseBtn">Ⅱ</button><button data-speed="1" class="active">1×</button><button data-speed="5">5×</button><button data-speed="25">25×</button></div></div><div class="daybar" id="daybar" style="--progress:31%"></div></div><div class="hinttoast" id="hint">選取路線後，按「建站延線」並在地圖上新增車站</div></div><div class="basemap-notice" id="basemapNotice" hidden><span id="basemapMessage">正在連接城市底圖…</span><button type="button" id="basemapRetry" title="重試載入地圖">重試</button></div><div class="map-credit" id="mapCredit">© <a href="https://www.mapbox.com/" target="_blank" rel="noopener noreferrer">Mapbox</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors</div><div class="inspector hidden" id="inspector"></div><div id="toast"></div></main></div>
+<div class="boundary-loading" id="boundaryLoading">正在載入行政邊界 GeoJSON…<br>界線確認後才可建站</div><div class="demand-tooltip" id="demandTooltip" role="status" hidden></div><div class="map-footer"><div class="timeline"><div class="timeline-head"><div><div class="clock" id="clock">07:30</div><label id="dayLabel">模擬星期一 · 早高峰</label></div><div class="timeBtns"><button id="pauseBtn">Ⅱ</button><button data-speed="1" class="active">1×</button><button data-speed="5">5×</button><button data-speed="25">25×</button></div></div><div class="daybar" id="daybar" style="--progress:31%"></div></div><div class="hinttoast" id="hint">選取路線後，按「建站延線」並在地圖上新增車站</div></div><div class="basemap-notice" id="basemapNotice" hidden><span id="basemapMessage">正在連接城市底圖…</span><button type="button" id="basemapRetry" title="重試載入地圖">重試</button></div><div class="map-credit" id="mapCredit">© <a href="https://www.mapbox.com/" target="_blank" rel="noopener noreferrer">Mapbox</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors · <a href="https://gadm.org/license.html" target="_blank" rel="noopener noreferrer">GeoJSON data terms</a></div><div class="inspector hidden" id="inspector"></div><div id="toast"></div></main></div>
 </div>
 <div class="modal-back" id="modalBack"><div class="modal"><div class="modalHead"><h2 id="modalTitle">路網統計</h2><button class="btn" id="closeModal">✕</button></div><div id="modalBody"></div></div></div>
 <script>
@@ -72,15 +74,67 @@ const CITIES={
  pn:{name:'檳城 · Penang',short:'檳城',center:[5.398,100.335],zoom:12,pop:1720000,fare:2.6,zones:[['George Town',5.417,100.339,158],['Komtar',5.414,100.330,166],['Gurney',5.437,100.314,150],['Tanjung Tokong',5.456,100.306,139],['Batu Ferringhi',5.470,100.244,81],['Bayan Lepas',5.296,100.262,163],['Gelugor',5.368,100.315,156],['Air Itam',5.403,100.284,178],['Sungai Dua',5.354,100.302,123],['Butterworth',5.399,100.369,167],['Bukit Mertajam',5.362,100.460,177],['Perai',5.371,100.385,143],['Jelutong',5.394,100.328,135]],lines:[{name:'島內南北線',color:0,places:[['Tanjung Tokong',5.456,100.306],['Gurney',5.437,100.314],['Komtar',5.414,100.330],['Jelutong',5.394,100.328],['Gelugor',5.368,100.315],['Sungai Dua',5.354,100.302],['Bayan Lepas',5.296,100.262]]},{name:'海峽聯絡線',color:1,places:[['Air Itam',5.403,100.284],['Komtar',5.414,100.330],['George Town',5.417,100.339],['Butterworth',5.399,100.369],['Perai',5.371,100.385],['Bukit Mertajam',5.362,100.460]]}]}
 };
 
-// Gameplay-only planning polygons, approximating each metro region; NOT administrative borders.
-// Coordinates [latitude, longitude]. Build/move stations only inside these areas.
-const PLAY_AREAS={
- kl:[[[3.37,101.49],[3.37,101.68],[3.31,101.81],[3.20,101.88],[3.02,101.88],[2.89,101.82],[2.89,101.63],[3.00,101.47],[3.19,101.45]]],
- hk:[[[22.55,113.94],[22.55,114.17],[22.47,114.32],[22.32,114.36],[22.20,114.29],[22.20,114.12],[22.27,113.91],[22.42,113.91]]],
- sg:[[[1.48,103.65],[1.51,103.78],[1.44,104.04],[1.35,104.06],[1.24,103.91],[1.24,103.76],[1.32,103.65]]],
- tp:[[[25.20,121.36],[25.21,121.56],[25.13,121.73],[24.97,121.73],[24.90,121.62],[24.90,121.40],[25.01,121.34]]],
- pn:[[[5.27,100.33],[5.25,100.25],[5.29,100.18],[5.4,100.16],[5.51,100.18],[5.5,100.29],[5.4825,100.325],[5.55,100.34],[5.55,100.48],[5.44,100.55],[5.25,100.54],[5.25,100.39],[5.336301,100.342055]]]
+
+const ADDITIONAL_CITIES={
+ kv:{name:'巴生谷 · Klang Valley (KL + Selangor)',short:'巴生谷',center:[3.115,101.658],zoom:11.3,pop:8800000,fare:2.9,zones:[],lines:[]},
+ bk:{name:'曼谷 · Bangkok',short:'曼谷',center:[13.753,100.506],zoom:11.9,pop:10500000,fare:37,zones:[['Siam',13.746,100.535,245],['Asok',13.737,100.560,210],['Silom',13.728,100.530,198],['Sathon',13.721,100.531,184],['Hua Lamphong',13.738,100.517,181],['Phaya Thai',13.754,100.533,160],['Ari',13.780,100.546,176],['Chatuchak',13.803,100.554,215],['Mo Chit',13.802,100.554,165],['Bang Sue',13.804,100.540,196],['Lat Phrao',13.817,100.606,180],['Bang Na',13.668,100.605,171],['On Nut',13.705,100.601,186],['Sukhumvit',13.737,100.565,219],['Bang Kapi',13.762,100.635,175],['Thonburi',13.726,100.478,170],['Don Mueang',13.919,100.603,131],['Ramkhamhaeng',13.751,100.601,160]],lines:[]},
+ tk:{name:'東京 · Tokyo (本島都市區)',short:'東京',center:[35.683,139.733],zoom:11.8,pop:14000000,fare:220,zones:[['Shinjuku',35.693,139.704,275],['Shibuya',35.659,139.703,263],['Ikebukuro',35.730,139.711,235],['Tokyo Station',35.681,139.767,243],['Ueno',35.713,139.777,193],['Shinagawa',35.629,139.739,192],['Roppongi',35.663,139.731,178],['Ginza',35.671,139.765,191],['Akihabara',35.698,139.774,205],['Nakano',35.707,139.666,182],['Koenji',35.704,139.650,176],['Kichijoji',35.703,139.580,183],['Nerima',35.736,139.654,176],['Setagaya',35.645,139.653,207],['Kameido',35.698,139.825,193],['Ota',35.570,139.725,153],['Tachikawa',35.699,139.413,134]],lines:[]},
+ os:{name:'大阪 · Osaka Prefecture',short:'大阪',center:[34.693,135.502],zoom:11.8,pop:8800000,fare:210,zones:[['Umeda',34.705,135.498,235],['Namba',34.663,135.502,239],['Tennoji',34.648,135.514,212],['Honmachi',34.683,135.500,188],['Shin-Osaka',34.733,135.500,194],['Kyobashi',34.696,135.535,178],['Tsuruhashi',34.665,135.529,182],['Bentencho',34.669,135.462,155],['Sakai',34.574,135.483,176],['Higashi Osaka',34.680,135.600,167],['Suita',34.760,135.518,129],['Toyonaka',34.781,135.470,137],['Hirakata',34.814,135.650,134],['Takatsuki',34.848,135.618,126]],lines:[]},
+ sl:{name:'首爾 · Seoul',short:'首爾',center:[37.565,126.977],zoom:11.8,pop:9600000,fare:1550,zones:[['Gangnam',37.498,127.028,259],['Jongno',37.572,126.978,195],['Myeongdong',37.564,126.985,210],['Hongdae',37.556,126.922,220],['Seoul Station',37.555,126.972,198],['Yeouido',37.523,126.925,186],['Jamsil',37.513,127.100,214],['Itaewon',37.534,126.994,158],['Dongdaemun',37.571,127.009,205],['Sinchon',37.559,126.936,171],['Sillim',37.484,126.929,159],['Nowon',37.655,127.061,158],['Gangdong',37.536,127.133,170],['Guro',37.501,126.882,149],['Mapo',37.556,126.908,151],['Songpa',37.515,127.116,187]],lines:[]},
+ jk:{name:'雅加達 · Jakarta',short:'雅加達',center:[-6.198,106.820],zoom:11.5,pop:10500000,fare:7500,zones:[['Thamrin',-6.194,106.823,235],['Sudirman',-6.215,106.816,225],['Kota Tua',-6.135,106.813,176],['Mangga Dua',-6.137,106.830,155],['Tanah Abang',-6.186,106.810,209],['Menteng',-6.196,106.834,190],['Kemang',-6.257,106.814,168],['Blok M',-6.245,106.797,197],['Kuningan',-6.229,106.829,223],['Cawang',-6.242,106.870,177],['Kelapa Gading',-6.156,106.909,160],['Tebet',-6.225,106.855,185],['Senayan',-6.222,106.802,184],['Pancoran',-6.240,106.841,169],['Pasar Minggu',-6.282,106.843,156],['Pulogadung',-6.184,106.911,161]],lines:[]},
+ tc:{name:'臺中 · Taichung City',short:'臺中',center:[24.157,120.665],zoom:11.8,pop:2810000,fare:25,zones:[['臺中車站',24.136,120.685,170],['新市政中心',24.161,120.644,190],['逢甲',24.178,120.647,203],['北屯',24.182,120.690,183],['南屯',24.139,120.635,178],['西屯',24.172,120.633,180],['大里',24.099,120.682,169],['太平',24.114,120.718,160],['烏日',24.106,120.615,148],['豐原',24.252,120.721,139],['潭子',24.210,120.706,134],['沙鹿',24.236,120.564,125],['大雅',24.220,120.650,132],['清水',24.269,120.571,111]],lines:[]},
+ kh:{name:'高雄 · Kaohsiung City',short:'高雄',center:[22.631,120.306],zoom:11.7,pop:2720000,fare:28,zones:[['高雄車站',22.640,120.302,188],['美麗島',22.632,120.301,183],['三多商圈',22.613,120.305,196],['左營',22.687,120.309,175],['楠梓',22.734,120.324,153],['鳳山',22.626,120.357,175],['苓雅',22.621,120.317,167],['鹽埕',22.625,120.283,143],['小港',22.565,120.337,134],['前鎮',22.602,120.315,160],['岡山',22.799,120.293,121],['橋頭',22.756,120.310,125],['鼓山',22.664,120.284,150],['前金',22.626,120.294,162]],lines:[]}
 };
+// Klang Valley shares a broader, metropolitan demand model with Kuala Lumpur.
+ADDITIONAL_CITIES.kv.zones=CITIES.kl.zones.map(z=>z.slice());
+Object.assign(CITIES,ADDITIONAL_CITIES);
+
+// Actual administrative polygons are fetched as GeoJSON, never approximated by hand.
+// Source: public GADM 3.6 simplified administrative divisions; for Malaysian states, MIT-licensed community state boundaries.
+const PLAY_AREAS=Object.create(null), PLAY_HOLES=Object.create(null), GEO_FEATURES=Object.create(null), GEO_READY=Object.create(null), GEO_LOADING=Object.create(null);
+const ADMIN_GADM='https://raw.githubusercontent.com/stephanietuerk/admin-boundaries/master/lo-res/Admin1_simp10/gadm36_';
+const ADMIN_MYS='https://raw.githubusercontent.com/atifmustaffa/malaysia-geojson/master/malaysia.state.min.geojson';
+const ADMIN_JPN='https://raw.githubusercontent.com/winterwang/japan-map/master/japan.geojson';
+const ADMIN_THA='https://raw.githubusercontent.com/DevelopedbyWill/thailand-canonical-admin-names/main/data/v1.0.0/thailand-adm1-polygons-v1.0.0.geojson';
+const ADMIN_KOR='https://raw.githubusercontent.com/southkorea/seoul-maps/master/kostat/2013/json/seoul_municipalities_geo_simple.json';
+const ADMIN_IDN='https://raw.githubusercontent.com/gtsuid/geojson-indonesia/master/province-simplified/id-jk.min.geojson';
+const BOUNDARY_SOURCE={
+ kl:{url:ADMIN_MYS,match:['WP K Lumpur'],label:'吉隆坡聯邦直轄區界線 · 社群 GeoJSON'},
+ kv:{url:ADMIN_MYS,match:['Selangor','WP K Lumpur','WP Putrajaya'],label:'雪蘭莪＋吉隆坡＋布城 · 社群 GeoJSON'},
+ pn:{url:ADMIN_MYS,match:['Pulau Pinang'],label:'檳城州界線 · 社群 GeoJSON'},
+ hk:{url:ADMIN_GADM+'HKG_1.json',match:'*',label:'香港18區行政邊界 · GADM 3.6'},
+ sg:{url:ADMIN_GADM+'SGP_1.json',match:'*',label:'新加坡5個行政規劃區 · GADM 3.6'},
+ tp:{url:ADMIN_GADM+'TWN_1.json',match:['Taipei','New Taipei'],label:'臺北＋新北行政邊界 · GADM 3.6'},
+ tc:{url:ADMIN_GADM+'TWN_1.json',match:['Taichung'],label:'臺中市行政邊界 · GADM 3.6'},
+ kh:{url:ADMIN_GADM+'TWN_1.json',match:['Kaohsiung'],label:'高雄市行政邊界 · GADM 3.6'},
+ bk:{url:ADMIN_THA,match:['Bangkok'],label:'曼谷行政區界線 · Thailand ADM1 GeoJSON'},
+ tk:{url:ADMIN_JPN,match:['Tokyo'],radius:85,label:'東京都本島部分 · 日本都道府縣 GeoJSON'},
+ os:{url:ADMIN_JPN,match:['Osaka'],label:'大阪府行政邊界 · 日本都道府縣 GeoJSON'},
+ sl:{url:ADMIN_KOR,match:'*',label:'首爾25自治區邊界 · Seoul Maps GeoJSON'},
+ jk:{url:ADMIN_IDN,match:'*',label:'雅加達五個市區 · 印尼 GeoJSON'}
+};
+const PLAY_BOUNDS=Object.fromEntries(Object.entries(CITIES).map(([id,c])=>[id,{south:c.center[0]-.18,north:c.center[0]+.18,west:c.center[1]-.25,east:c.center[1]+.25}]));
+function polygonHit(lat,lng,poly){
+ let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const a=poly[i],b=poly[j];const cross=(lng-a[1])*(b[0]-a[0])-(lat-a[0])*(b[1]-a[1]);
+  if(Math.abs(cross)<1e-10&&lng>=Math.min(a[1],b[1])-1e-10&&lng<=Math.max(a[1],b[1])+1e-10&&lat>=Math.min(a[0],b[0])-1e-10&&lat<=Math.max(a[0],b[0])+1e-10)return true;
+  if((a[0]>lat)!==(b[0]>lat)&&lng<(b[1]-a[1])*(lat-a[0])/(b[0]-a[0])+a[1])inside=!inside;
+ }return inside;
+}
+function inPlayableArea(lat,lng,code=city){
+ if(!GEO_READY[code]||!PLAY_AREAS[code])return false;
+ const b=PLAY_BOUNDS[code];if(lat<b.south||lat>b.north||lng<b.west||lng>b.east)return false;
+ for(let i=0;i<PLAY_AREAS[code].length;i++)if(polygonHit(lat,lng,PLAY_AREAS[code][i])&&!(PLAY_HOLES[code]?.[i]||[]).some(h=>polygonHit(lat,lng,h)))return true;
+ return false;
+}
+// Bridges/tunnels between separate land polygons are allowed when they are short and both ends are within the administrative area.
+function segmentWithinArea(a,b,code=city){
+ if(!inPlayableArea(a[0],a[1],code)||!inPlayableArea(b[0],b[1],code))return false;
+ const km=hKm(a,b),steps=Math.max(6,Math.ceil(km/.28)),gapAllowed=code==='pn'?14:code==='hk'?4:code==='sg'?2.5:1.8;
+ let gap=0;for(let i=0;i<=steps;i++){const t=i/steps,inside=inPlayableArea(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,code);gap=inside?0:gap+km/steps;if(gap>gapAllowed)return false;}
+ return true;
+}
+function stopLinksWithinArea(stationId,lat,lng){for(const l of plan.lines)for(let i=0;i<l.stops.length;i++)if(l.stops[i]===stationId)for(const j of [i-1,i+1]){const s=getStop(l.stops[j]);if(s&&!segmentWithinArea([lat,lng],[s.lat,s.lng]))return false}return true}
 // Extra hypothetical suburban demand anchors: [district, latitude, longitude, THOUSANDS of modeled residents].
 const SUBURBAN_ZONES={
  kl:[['Kepong',3.215,101.638,93],['Batu Caves',3.236,101.684,73],['Sungai Buloh',3.205,101.576,80],['Rawang',3.324,101.576,67],['Puchong',3.023,101.621,117],['Putrajaya',2.939,101.690,90],['Cyberjaya',2.926,101.655,61],['Serdang',3.007,101.717,96],['Bukit Jalil',3.060,101.674,86],['Balakong',3.044,101.748,71],['Semenyih',2.949,101.845,68],['Gombak',3.224,101.735,88],['Kota Damansara',3.151,101.586,106],['Shah Alam',3.082,101.518,115],['Setia Alam',3.108,101.475,63],['Sungai Long',3.052,101.785,68]],
@@ -90,32 +144,6 @@ const SUBURBAN_ZONES={
  pn:[['Bayan Baru',5.328,100.293,91],['Batu Maung',5.280,100.284,52],['Teluk Bahang',5.463,100.222,36],['Balik Pulau',5.349,100.233,66],['Tanjung Bungah',5.469,100.288,73],['Paya Terubong',5.375,100.280,71],['Bukit Jambul',5.334,100.292,78],['Kepala Batas',5.519,100.426,72],['Tasek Gelugor',5.465,100.498,56],['Simpang Ampat',5.284,100.479,76],['Bukit Tengah',5.373,100.415,68],['Alma',5.334,100.484,83],['Juru',5.313,100.434,63],['Bukit Minyak',5.334,100.457,61],['Seberang Jaya',5.398,100.391,100],['Perda',5.370,100.446,68],['Permatang Pauh',5.404,100.428,76]]
 };
 for(const [code,rows] of Object.entries(SUBURBAN_ZONES))CITIES[code].zones.push(...rows);
-function pointInPolygon(lat,lng,poly){
- let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-  const a=poly[i],b=poly[j],dy=b[0]-a[0],dx=b[1]-a[1];
-  const cross=(lng-a[1])*dy-(lat-a[0])*dx;
-  if(Math.abs(cross)<1e-9&&lng>=Math.min(a[1],b[1])-1e-9&&lng<=Math.max(a[1],b[1])+1e-9&&lat>=Math.min(a[0],b[0])-1e-9&&lat<=Math.max(a[0],b[0])+1e-9)return true;
-  if((a[0]>lat)!==(b[0]>lat)&&lng<(b[1]-a[1])*(lat-a[0])/(b[0]-a[0])+a[1])inside=!inside;
- }
- return inside;
-}
-function inPlayableArea(lat,lng,code=city){return PLAY_AREAS[code].some(poly=>pointInPolygon(lat,lng,poly))}
-function segmentWithinArea(a,b,code=city){
- const steps=Math.max(6,Math.ceil(hKm([a[0],a[1]],[b[0],b[1]])/.37));
- for(let i=0;i<=steps;i++){const t=i/steps;if(!inPlayableArea(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,code))return false;}
- return true;
-}
-function stopLinksWithinArea(stationId,lat,lng){
- for(const l of plan.lines){for(let i=0;i<l.stops.length;i++){if(l.stops[i]!==stationId)continue;
-  for(const j of [i-1,i+1]){const s=getStop(l.stops[j]);if(s&&!segmentWithinArea([lat,lng],[s.lat,s.lng]))return false}
- }}
- return true;
-}
-
-const PLAY_BOUNDS=Object.fromEntries(Object.entries(PLAY_AREAS).map(([code,polys])=>{
- const pts=polys.flat();return [code,{south:Math.min(...pts.map(p=>p[0])),north:Math.max(...pts.map(p=>p[0])),west:Math.min(...pts.map(p=>p[1])),east:Math.max(...pts.map(p=>p[1]))}];
-}));
-
 const TYPE={heavy:{label:'重型捷運',speed:40,capacity:165,ops:3700},medium:{label:'中運量',speed:34,capacity:105,ops:2600},light:{label:'輕軌',speed:24,capacity:65,ops:1600}};
 const uid=()=>Math.random().toString(36).slice(2,10), hKm=(a,b)=>{const r=Math.PI/180,dl=(b[0]-a[0])*r,do_=(b[1]-a[1])*r,x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(do_/2)**2;return 12742*Math.asin(Math.min(1,Math.sqrt(x)))};
 const zoneTotal=c=>CITIES[c].zones.reduce((s,z)=>s+(z[3]||0),0);
@@ -124,6 +152,57 @@ function zoneColor(v){return v>=220?'#c94323':v>=180?'#ee6d3d':v>=140?'#f6b24b':
 function demandScoreColor(v){return v>=85?'#c83038':v>=70?'#ff8551':v>=55?'#e5ad35':v>=40?'#6fc98b':'#58b7be'}
 function hexToRgba(hex,a){const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);if(!m)return `rgba(80,160,160,${a})`;return `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},${a})`}
 const fmtPop=v=>num(v)+'k';
+
+function geoStatus(message,type='loading'){
+ $('geoStatus').textContent=message;$('geoStatus').className='geo-status '+type;
+ $('boundaryLoading').hidden=(type==='ready');$('boundaryLoading').textContent=type==='error'?'界線下載失敗：請重試或匯入 GeoJSON':'正在載入真實行政邊界…';
+ const ready=!!GEO_READY[city];$('addLineBtn').disabled=!ready;$('modeDraw').disabled=!ready;$('modeMove').disabled=!ready;$('toggleDrawBtn').disabled=!ready;$('geoExport').disabled=!ready;
+}
+function normalizeGeo(json,code,raw=false){
+ if(!json||typeof json!=='object')throw Error('不是有效 GeoJSON');
+ const features=json.type==='FeatureCollection'?json.features:json.type==='Feature'?[json]:['Polygon','MultiPolygon'].includes(json.type)?[{type:'Feature',properties:{name:CITIES[code].short},geometry:json}]:[];
+ if(!Array.isArray(features)||features.length>500)throw Error('GeoJSON 的 Features 數量不合法');
+ const cfg=BOUNDARY_SOURCE[code],matches=f=>{if(raw||cfg.match==='*')return true;const n=String(f.properties?.NAME_1||f.properties?.name||f.properties?.ADM1_EN||'').toLowerCase();return cfg.match.some(s=>n===s.toLowerCase()||n.includes(s.toLowerCase()))};
+ const chosen=features.filter(matches);if(!chosen.length)throw Error('找不到 '+CITIES[code].short+' 的行政邊界，可能資料源格式有變');
+ const polys=[],holes=[],outFeatures=[];let vertices=0;
+ for(const f of chosen){const g=f.geometry;if(!g||!['Polygon','MultiPolygon'].includes(g.type))continue;
+  const variants=g.type==='Polygon'?[g.coordinates]:g.coordinates;
+  const kept=[];
+  for(const rings of variants){if(!rings||!rings[0]||rings[0].length<4)continue;
+    const outer=rings[0].map(p=>[Number(p[1]),Number(p[0])]);if(outer.some(p=>!isFinite(p[0])||!isFinite(p[1])||Math.abs(p[0])>85||Math.abs(p[1])>180))continue;
+    // Distant prefectural islands are outside the Tokyo mainland game map, not fabricated polygons.
+    if(cfg.radius){let nearest=Infinity;for(let i=0;i<outer.length;i+=Math.max(1,Math.floor(outer.length/90)))nearest=Math.min(nearest,hKm(outer[i],CITIES[code].center));if(nearest>cfg.radius)continue;}
+    const hh=rings.slice(1).map(r=>r.map(p=>[Number(p[1]),Number(p[0])])).filter(r=>r.length>=4);
+    vertices+=outer.length+hh.reduce((a,r)=>a+r.length,0);if(vertices>160000)throw Error('GeoJSON 頂點過多，請先簡化後再匯入');
+    polys.push(outer);holes.push(hh);kept.push(rings);
+  }
+  if(kept.length)outFeatures.push({type:'Feature',properties:{name:f.properties?.NAME_1||f.properties?.name||f.properties?.ADM1_EN||f.properties?.name_eng||CITIES[code].short},geometry:{type:'MultiPolygon',coordinates:kept}});
+ }
+ if(!polys.length)throw Error('沒有可用的 GeoJSON Polygon');
+ const b={south:90,north:-90,west:180,east:-180};for(const poly of polys)for(const p of poly){b.south=Math.min(b.south,p[0]);b.north=Math.max(b.north,p[0]);b.west=Math.min(b.west,p[1]);b.east=Math.max(b.east,p[1])}
+ return {polys,holes,b,fc:{type:'FeatureCollection',features:outFeatures},vertices};
+}
+function applyGeo(code,obj,label){
+ PLAY_AREAS[code]=obj.polys;PLAY_HOLES[code]=obj.holes;PLAY_BOUNDS[code]=obj.b;GEO_FEATURES[code]=obj.fc;GEO_READY[code]=label;
+ densityModels.delete(code);heatCache.key='';boundaryCache.key='';
+ try{sessionStorage.setItem('transit_geo_v2_'+code,JSON.stringify({fc:obj.fc,label}))}catch(e){}
+ if(city===code){fitPlayBoundary();metrics=simulate();renderAll();geoStatus('✓ '+label+' · '+obj.polys.length+' 個多邊形 · '+num(obj.vertices)+' 頂點','ready');}
+}
+async function loadGeo(code,force=false){
+ if(!force&&GEO_READY[code])return true;
+ if(GEO_LOADING[code])return GEO_LOADING[code];
+ if(!force){try{const v=JSON.parse(sessionStorage.getItem('transit_geo_v2_'+code)||'null');if(v?.fc){const norm=normalizeGeo(v.fc,code,true);applyGeo(code,norm,v.label||'已快取行政邊界');return true}}catch(e){}}
+ const cfg=BOUNDARY_SOURCE[code];if(code===city)geoStatus('正在取得 '+CITIES[code].short+' 的 GeoJSON 邊界…','loading');
+ const task=(async()=>{try{
+  const controller=new AbortController(),tid=setTimeout(()=>controller.abort(),24000);let response;
+  try{response=await fetch(cfg.url,{signal:controller.signal,mode:'cors',cache:'force-cache'});}finally{clearTimeout(tid)}
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const json=await response.json(),norm=normalizeGeo(json,code,false);
+  applyGeo(code,norm,cfg.label);return true;
+ }catch(error){if(code===city){geoStatus('無法讀取行政 GeoJSON：'+error.message+'。可重試或自行匯入。','error');renderAll()};return false}finally{delete GEO_LOADING[code]}})();
+ GEO_LOADING[code]=task;return task;
+}
+
 // Simulation model, NOT a measured block-level census.
 // Every district anchor is split into a broad catchment and deterministic micro-centers
 // to create a smooth, more granular surface; this is a visualization of hypothetical demand.
@@ -131,11 +210,12 @@ const densityModels=new Map();
 const tr01=n=>{const q=Math.sin(n*91.791+17.97)*43758.5453123;return q-Math.floor(q)};
 function densityModel(code){
  if(densityModels.has(code))return densityModels.get(code);
- const zones=CITIES[code].zones,nodes=[];
+ const zones=CITIES[code].zones.filter(z=>inPlayableArea(z[1],z[2],code)),nodes=[];
  const b=PLAY_BOUNDS[code];
  // Persistent lower-intensity outskirts layer: modeled residential patches with gentle variation.
  // This is deliberately subtle compared with urban demand concentrations.
- const latStep=.022,lonStep=.022/Math.max(.5,Math.cos((b.north+b.south)*Math.PI/360));
+ const area=Math.max(.005,(b.north-b.south)*(b.east-b.west));
+ const latStep=Math.max(.022,Math.sqrt(area/680)),lonStep=latStep/Math.max(.5,Math.cos((b.north+b.south)*Math.PI/360));
  for(let lat=b.south+.012;lat<b.north-.006;lat+=latStep){
   for(let lng=b.west+.012;lng<b.east-.006;lng+=lonStep){
    if(!inPlayableArea(lat,lng,code))continue;
@@ -218,29 +298,26 @@ function paintHeatSurface(ctx,W,H){
 }
 const boundaryCache={key:'',layer:null};
 function appendPlayPaths(ctx){
- for(const poly of PLAY_AREAS[city]){
-  const pts=poly.map(pt=>xy(...pt));
-  let area=0;for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];area+=a.x*b.y-b.x*a.y}
-  if(area<0)pts.reverse(); // Normalize winding so overlapping corridors become a union.
-  ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();
+ const polys=PLAY_AREAS[city]||[],holes=PLAY_HOLES[city]||[];
+ for(let k=0;k<polys.length;k++)for(const ring of [polys[k],...(holes[k]||[])]){
+  ring.forEach((pt,i)=>{const p=xy(...pt);i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)});ctx.closePath();
  }
 }
 function drawPlayBoundary(ctx,W,H){
  const key=[city,Math.round(W),Math.round(H),map.zoom.toFixed(3),map.center[0].toFixed(6),map.center[1].toFixed(6)].join(':');
  if(boundaryCache.key!==key||!boundaryCache.layer){
   const off=document.createElement('canvas');off.width=Math.round(W);off.height=Math.round(H);
-  const c=off.getContext('2d');c.fillStyle='rgba(48,65,75,.35)';c.fillRect(0,0,W,H);
-  c.globalCompositeOperation='destination-out';
-  for(const poly of PLAY_AREAS[city]){c.beginPath();poly.forEach((pt,i)=>{const p=xy(...pt);i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)});c.closePath();c.fill()}
+  const c=off.getContext('2d');c.fillStyle='rgba(48,65,75,.32)';c.fillRect(0,0,W,H);
+  c.globalCompositeOperation='destination-out';c.fillStyle='#000';
+  // Each GeoJSON polygon is cleared separately; MultiPolygons and holes retain their actual topology.
+  const ps=PLAY_AREAS[city]||[],hs=PLAY_HOLES[city]||[];
+  for(let k=0;k<ps.length;k++){c.beginPath();for(const r of [ps[k],...(hs[k]||[])]){r.forEach((pt,i)=>{const p=xy(...pt);i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)});c.closePath()}c.fill('evenodd')}
   boundaryCache.key=key;boundaryCache.layer=off;
  }
  ctx.save();ctx.drawImage(boundaryCache.layer,0,0,W,H);
- ctx.beginPath();appendPlayPaths(ctx);
- ctx.setLineDash([9,5]);ctx.lineWidth=3.5;ctx.strokeStyle='#ffffffef';ctx.stroke();
- ctx.lineWidth=1.75;ctx.strokeStyle='#13827e';ctx.stroke();
- ctx.restore();
+ ctx.beginPath();appendPlayPaths(ctx);ctx.setLineDash([7,5]);ctx.lineWidth=3;ctx.strokeStyle='#ffffffd9';ctx.stroke();ctx.lineWidth=1.4;ctx.strokeStyle='#0a9185';ctx.stroke();ctx.restore();
 }
-function drawDemandMarkers(ctx,W,H){
+function drawDemandMarkers(ctx,W,H){if(!GEO_READY[city])return;
  const model=densityModel(city),show=model.zonesRanked.slice(0,map.zoom>=13.5?6:3);
  ctx.save();ctx.font='800 10px '+getComputedStyle(document.body).fontFamily;
  for(let i=0;i<show.length;i++){
@@ -259,7 +336,9 @@ function drawDemandMarkers(ctx,W,H){
 }
 function focusDemandZone(z){focusedZone=z;map.center=[z.lat,z.lng];map.zoom=Math.max(map.zoom,13.1);constrainView();updateMap();toast('需求區域：'+z.name+' · 需求指數 '+z.score);}
 function renderDemandPanel(){
+ if(!GEO_READY[city]){ $('zoneCount').textContent='GeoJSON 載入中';$('demandHero').innerHTML='<p>讀取行政區界線後顯示需求分析。</p>';$('hotspotName').textContent='等待行政邊界';$('zoneList').innerHTML='';$('moreZonesBtn').disabled=true;return;}
  const model=densityModel(city),ranks=model.zonesRanked,top=ranks[0],unserved=ranks.find(z=>servedZone(z)==='wait'),n=ranks.length;
+ $('moreZonesBtn').disabled=false;if(!top){$('zoneCount').textContent='無需求點';$('demandHero').innerHTML='<p>此範圍暫無模擬需求點</p>';$('zoneList').innerHTML='';$('hotspotName').textContent='無資料';return;}
  $('zoneCount').textContent=n+' 個需求區';
  $('demandHero').innerHTML=`<div class="eyebrow">✦ 全市最高需求熱區</div><div class="topname"><strong>${escapeHTML(top.name)}</strong><b>${top.score} <small style="font-size:10px;color:#9c8c86">/ 100</small></b></div><div class="meter"><i style="width:${top.score}%"></i></div><p>模擬人口約 ${fmtPop(top.pop)} 人 · ${servedZone(top)==='covered'?'附近已有服務':servedZone(top)==='partial'?'服務覆蓋較弱':'尚無地鐵服務'}${unserved&&unserved.index!==top.index?' · 最高待服務：'+escapeHTML(unserved.name):''}</p>`;
  $('hotspotName').textContent=top.name+' · '+top.score+'/100';
@@ -284,13 +363,13 @@ function snapshot(){history.push(JSON.stringify(plan));if(history.length>40)hist
 function commit(){plan.stops=plan.stops.filter(s=>plan.lines.some(l=>l.stops.includes(s.id)));persist();metrics=simulate();renderSidebar();renderDemandPanel();renderInspector();updateMap();}
 function undo(){if(!history.length)return;future.push(JSON.stringify(plan));plan=JSON.parse(history.pop());selectedLine=plan.lines.find(l=>l.id===selectedLine)?.id||plan.lines[0]?.id||null;selectedStation=null;commit();toast('已復原操作')}
 function redo(){if(!future.length)return;history.push(JSON.stringify(plan));plan=JSON.parse(future.pop());selectedLine=plan.lines.find(l=>l.id===selectedLine)?.id||plan.lines[0]?.id||null;selectedStation=null;commit();toast('已重做操作')}
-function showCity(c){if(!CITIES[c])return;city=c;plan=getSaved(c);history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;mode='select';clock=450;gameDay=1;map.center=CITIES[c].center.slice();map.zoom=CITIES[c].zoom;constrainView();map.tiles.clear();setMode('select');metrics=simulate();heatCache.key='';focusedZone=null;zoneExpanded=false;renderAll();document.querySelector('.sidebar .scroll').scrollTop=0;toast('已切換至 '+CITIES[c].short+' · 空白規劃畫布已就緒')}
+function showCity(c){if(!CITIES[c])return;city=c;plan=getSaved(c);history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;mode='select';clock=450;gameDay=1;map.center=CITIES[c].center.slice();map.zoom=CITIES[c].zoom;constrainView();map.tiles.clear();setMode('select');metrics=simulate();heatCache.key='';boundaryCache.key='';focusedZone=null;zoneExpanded=false;renderAll();document.querySelector('.sidebar .scroll').scrollTop=0;if(GEO_READY[c]){fitPlayBoundary();updateMap();geoStatus('✓ '+GEO_READY[c],'ready')}else{geoStatus('正在載入 '+CITIES[c].short+' 的 GeoJSON…','loading');loadGeo(c)}toast('已切換至 '+CITIES[c].short)}
 function getStop(id){return plan.stops.find(s=>s.id===id)}function getLine(id){return plan.lines.find(l=>l.id===id)}function lineLength(l){let km=0;for(let i=1;i<l.stops.length;i++){let a=getStop(l.stops[i-1]),b=getStop(l.stops[i]);if(a&&b)km+=hKm([a.lat,a.lng],[b.lat,b.lng])}return km}
 function lineHeadway(l){if(l.stops.length<2||l.peak<1)return Infinity;const round=(lineLength(l)/TYPE[l.type].speed*120)+(l.stops.length*1.15)+8;return clamp(round/l.peak,1,90)}
 function nearestStation(z){let dist=Infinity,idx=-1;plan.stops.forEach((s,i)=>{const d=hKm([z[1],z[2]],[s.lat,s.lng]);if(d<dist){dist=d;idx=i}});return {dist,idx}}
 function simulate(){const m={rides:0,ratio:0,share:0,quality:0,expense:0,revenue:0,lineRides:{},stationRides:{},crowding:0,coverage:0,km:0,stations:plan.stops.length};const graph=new Map();const add=(a,b,time,line)=>{if(!graph.has(a))graph.set(a,[]);graph.get(a).push({to:b,time,line})};const lineRide={};const peakCapacity={};for(const l of plan.lines){lineRide[l.id]=0;m.lineRides[l.id]=0;m.km+=lineLength(l);if(l.stops.length<2)continue;const t=TYPE[l.type];const hw=lineHeadway(l);peakCapacity[l.id]=(60/hw)*l.cars*t.capacity*12*.52;for(let i=0;i<l.stops.length;i++){const node=l.stops[i]+'@'+l.id;add(node,node,0,null);if(i){const a=getStop(l.stops[i-1]),b=getStop(l.stops[i]);if(!a||!b)continue;const dur=hKm([a.lat,a.lng],[b.lat,b.lng])/t.speed*60+0.55;add(a.id+'@'+l.id,b.id+'@'+l.id,dur,l.id);add(b.id+'@'+l.id,a.id+'@'+l.id,dur,l.id)}}}
 const stationLines=new Map();for(const l of plan.lines)for(const id of l.stops){if(!stationLines.has(id))stationLines.set(id,[]);stationLines.get(id).push(l)}for(const [id,ls] of stationLines)for(const a of ls)for(const b of ls)if(a.id!==b.id)add(id+'@'+a.id,id+'@'+b.id,3.3+lineHeadway(b)*.45,null);
-const zones=CITIES[city].zones,nearest=zones.map(nearestStation),potential=zones.reduce((s,z)=>s+z[3]*1000*.26,0);let covered=0,weightedWait=0,totalTransfer=0;
+const zones=GEO_READY[city]?CITIES[city].zones.filter(z=>inPlayableArea(z[1],z[2])):[],nearest=zones.map(nearestStation),potential=zones.reduce((s,z)=>s+z[3]*1000*.26,0);let covered=0,weightedWait=0,totalTransfer=0;
 for(let i=0;i<zones.length;i++){const origin=nearest[i];if(origin.idx<0||origin.dist>2.35)continue;covered+=zones[i][3]*1000*Math.exp(-origin.dist*.38);const sid=plan.stops[origin.idx].id;const distMap=new Map(),prev=new Map(),done=new Set();const nodes=Array.from(graph.keys());for(const l of stationLines.get(sid)||[]){if(l.stops.length<2)continue;const key=sid+'@'+l.id;distMap.set(key,lineHeadway(l)*.52);prev.set(key,null)}for(let step=0;step<nodes.length;step++){let best=null,bestD=Infinity;for(const v of nodes)if(!done.has(v)&&distMap.has(v)&&distMap.get(v)<bestD){best=v;bestD=distMap.get(v)}if(!best)break;done.add(best);for(const e of graph.get(best)||[]){const cand=bestD+e.time;if(cand<(distMap.get(e.to)??Infinity)){distMap.set(e.to,cand);prev.set(e.to,{from:best,line:e.line})}}}
 let targets=[];for(let j=0;j<zones.length;j++)if(j!==i){const dest=nearest[j];if(dest.idx<0||dest.dist>2.35)continue;const dist=hKm([zones[i][1],zones[i][2]],[zones[j][1],zones[j][2]]);if(dist<1.5||dist>45)continue;let bestD=Infinity,best=null;const destid=plan.stops[dest.idx].id;for(const l of stationLines.get(destid)||[]){const key=destid+'@'+l.id;if((distMap.get(key)??Infinity)<bestD){bestD=distMap.get(key);best=key}}if(!isFinite(bestD))continue;const transit=bestD+(origin.dist+dest.dist)/4.5*60+2.2,drive=5.5+dist/27*60;const desirability=clamp(1/(1+Math.exp((transit-drive*1.21)/7.5)),0,.98);const access=Math.exp(-(origin.dist+dest.dist)*.2);const trips=zones[j][3]*Math.exp(-dist/23)*(.66+.34*Math.min(1,dist/10));targets.push({j,trips,desirability,access,best,wait:bestD,transit,drive})}
 const sum=targets.reduce((s,x)=>s+x.trips,0)||1;for(const t of targets){let rides=zones[i][3]*1000*.26*t.trips/sum*(.10+.66*t.desirability)*t.access;m.rides+=rides;weightedWait+=rides*Math.max(0,t.transit-t.drive);m.stationRides[sid]=(m.stationRides[sid]||0)+rides*.52;const did=plan.stops[nearest[t.j].idx].id;m.stationRides[did]=(m.stationRides[did]||0)+rides*.48;let key=t.best,lastLine=null,transfer=0,tries=0,seenLines=new Set();while(prev.has(key)&&prev.get(key)&&tries++<250){const edge=prev.get(key);if(edge.line)seenLines.add(edge.line);key=edge.from}for(const id of seenLines)m.lineRides[id]+=rides;if(seenLines.size>1)transfer+=(seenLines.size-1);totalTransfer+=rides*transfer;}}
@@ -301,9 +380,9 @@ $('lineName').addEventListener('change',e=>{snapshot();l.name=e.target.value.tri
 function renderInspector(){const el=$('inspector'),s=getStop(selectedStation);if(!s){el.classList.add('hidden');return}const lnames=plan.lines.filter(l=>l.stops.includes(s.id));el.classList.remove('hidden');el.innerHTML=`<div class="inspect-head"><strong>車站管理</strong><button id="closeInspect">✕</button></div><div class="inspect-sub">${lnames.length>1?'● 轉乘車站':'● 一般車站'} · ${num(s.lat,4)}°, ${num(s.lng,4)}°</div><label class="fieldlabel" for="stationName" style="margin-top:0">車站名稱</label><input id="stationName" class="field" maxlength="45" value="${escapeHTML(s.name)}"><div class="inspect-kpis"><div><span>日估計進出站</span><b>${num(metrics.stationRides[s.id]||0)}</b></div><div><span>途經路線</span><b>${lnames.length} 條</b></div></div><div style="font-size:10px;color:#7e939d;line-height:1.7">${lnames.map(l=>`<span style="color:${l.color};font-weight:800">●</span> ${escapeHTML(l.name)}`).join('　')||'尚無路線'}</div><div class="inspect-actions"><button class="btn primary" id="saveStation">儲存站名</button><button class="btn warn" id="delStation">移除車站</button></div><p class="edit-note">選擇「移動車站」後直接拖曳地圖上的站點。</p>`;$('closeInspect').onclick=()=>{selectedStation=null;renderInspector();updateMap()};$('saveStation').onclick=()=>{let v=$('stationName').value.trim();if(!v)return toast('車站名稱不能為空');snapshot();s.name=v;plan.source='custom';commit();toast('已更新站名')};$('stationName').onkeydown=e=>{if(e.key==='Enter')$('saveStation').click()};$('delStation').onclick=()=>{if(!confirm('確定刪除「'+s.name+'」？所有經過此站的路線都會移除這個停靠站。'))return;snapshot();for(const l of plan.lines)l.stops=l.stops.filter(id=>id!==s.id);selectedStation=null;plan.source='custom';commit();toast('已移除車站')};}
 function renderAll(){renderSidebar();renderDemandPanel();renderInspector();updateClock();updateMap()}
 function toast(msg){const e=$('toast');e.textContent=msg;e.classList.add('show');clearTimeout(toastHandle);toastHandle=setTimeout(()=>e.classList.remove('show'),2300)}
-function setMode(m){mode=m;updateDemandTooltip(null,true);['select','draw','move'].forEach(x=>$('mode'+x[0].toUpperCase()+x.slice(1)).classList.toggle('active',m===x));$('toggleDrawBtn').textContent=m==='draw'?'✓ 完成編輯':'✎ 編輯路線';$('map').classList.toggle('editing',m!=='select');$('hint').textContent=m==='draw'?'點擊地圖新增站點，點現有車站即可連接；點路線可插入站點':m==='move'?'拖曳車站移動位置，路線將同步更新':'選擇路線，或點擊地圖中的車站查看資料'}
-function addLine(){snapshot();const n=plan.lines.length+1,used=new Set(plan.lines.map(l=>l.color));const color=PALETTE.find(c=>!used.has(c))||PALETTE[(n-1)%PALETTE.length];const l={id:uid(),name:'新規劃線 '+n,color,type:'heavy',cars:4,peak:8,stops:[]};plan.lines.push(l);selectedLine=l.id;selectedStation=null;plan.source='custom';commit();setMode('draw');toast('已新增路線 · 點擊地圖開始建站')}
-function addOrJoin(lat,lng,existing,insertIndex=null){if(!inPlayableArea(lat,lng)){toast('超出此城市的規劃邊界，不能在此建站');return}let l=getLine(selectedLine);if(!l){addLine();l=getLine(selectedLine)}let s=existing;if(!s){const near=plan.stops.map(p=>({p,d:hKm([lat,lng],[p.lat,p.lng])})).sort((a,b)=>a.d-b.d)[0];if(near?.d<.16)s=near.p}if(s&&l.stops.includes(s.id)){toast('這個車站已在目前路線上');return}
+function setMode(m){if((m==='draw'||m==='move')&&!GEO_READY[city]){toast('先載入行政邊界 GeoJSON');return;}mode=m;updateDemandTooltip(null,true);['select','draw','move'].forEach(x=>$('mode'+x[0].toUpperCase()+x.slice(1)).classList.toggle('active',m===x));$('toggleDrawBtn').textContent=m==='draw'?'✓ 完成編輯':'✎ 編輯路線';$('map').classList.toggle('editing',m!=='select');$('hint').textContent=m==='draw'?'點擊地圖新增站點，點現有車站即可連接；點路線可插入站點':m==='move'?'拖曳車站移動位置，路線將同步更新':'選擇路線，或點擊地圖中的車站查看資料'}
+function addLine(){if(!GEO_READY[city]){toast('請先載入行政 GeoJSON 邊界才能建站');return;}snapshot();const n=plan.lines.length+1,used=new Set(plan.lines.map(l=>l.color));const color=PALETTE.find(c=>!used.has(c))||PALETTE[(n-1)%PALETTE.length];const l={id:uid(),name:'新規劃線 '+n,color,type:'heavy',cars:4,peak:8,stops:[]};plan.lines.push(l);selectedLine=l.id;selectedStation=null;plan.source='custom';commit();setMode('draw');toast('已新增路線 · 點擊地圖開始建站')}
+function addOrJoin(lat,lng,existing,insertIndex=null){if(!GEO_READY[city]){toast('界線尚未載入');return}if(!inPlayableArea(lat,lng)){toast('超出此城市的規劃邊界，不能在此建站');return}let l=getLine(selectedLine);if(!l){addLine();l=getLine(selectedLine)}let s=existing;if(!s){const near=plan.stops.map(p=>({p,d:hKm([lat,lng],[p.lat,p.lng])})).sort((a,b)=>a.d-b.d)[0];if(near?.d<.16)s=near.p}if(s&&l.stops.includes(s.id)){toast('這個車站已在目前路線上');return}
 const idBefore=insertIndex!==null&&insertIndex>=0?l.stops[insertIndex-1]:l.stops[l.stops.length-1];
 const idAfter=insertIndex!==null&&insertIndex>=0?l.stops[insertIndex]:null;
 for(const link of [idBefore,idAfter]){const p=getStop(link);if(p&&!segmentWithinArea([lat,lng],[p.lat,p.lng])){toast('軌道不可穿越規劃邊界；請沿區內增加轉折站');return}}
@@ -312,22 +391,20 @@ snapshot();if(!s){const nearZone=CITIES[city].zones.map(z=>({z,dist:hKm([lat,lng
 const map={canvas:$('map'),ctx:null,center:[3.145,101.697],zoom:12,tiles:new Map(),drag:null,pinch:null,hover:null,dirty:true,lastRender:0};map.ctx=map.canvas.getContext('2d',{alpha:true});
 const merc=(lat,lng,z)=>{const scale=256*2**z,phi=clamp(lat,-85,85)*Math.PI/180;return [(lng+180)/360*scale,(1-Math.log(Math.tan(phi)+1/Math.cos(phi))/Math.PI)/2*scale]},unmerc=(x,y,z)=>{const s=256*2**z;return [Math.atan(Math.sinh(Math.PI*(1-2*y/s)))*180/Math.PI,x/s*360-180]};
 function minPlayableZoom(){
- const b=PLAY_BOUNDS[city],w=Math.max(100,map.canvas.clientWidth),h=Math.max(100,map.canvas.clientHeight);
+ const b=PLAY_BOUNDS[city],w=Math.max(180,map.canvas.clientWidth),h=Math.max(180,map.canvas.clientHeight);
  const nw=merc(b.north,b.west,0),se=merc(b.south,b.east,0);
- const width=Math.max(.0001,se[0]-nw[0]),height=Math.max(.0001,se[1]-nw[1]);
- // The full viewport must fit inside the game's geographic rectangle.
- return clamp(Math.log2(Math.max(w/width,h/height))+0.02,7,15.5);
+ const bw=Math.max(.00001,se[0]-nw[0]),bh=Math.max(.00001,se[1]-nw[1]);
+ // The entire administrative area should fit on screen when first selected.
+ return clamp(Math.log2(Math.min((w-72)/bw,(h-105)/bh))-.25,6,15);
 }
 function constrainView(){
- const b=PLAY_BOUNDS[city],w=Math.max(100,map.canvas.clientWidth),h=Math.max(100,map.canvas.clientHeight);
- map.zoom=clamp(map.zoom,minPlayableZoom(),16);
+ const b=PLAY_BOUNDS[city];map.zoom=clamp(map.zoom,minPlayableZoom(),16);
  const nw=merc(b.north,b.west,map.zoom),se=merc(b.south,b.east,map.zoom);
- const hw=w/2,hh=h/2;
- const midX=(nw[0]+se[0])/2,midY=(nw[1]+se[1])/2;
- const p=merc(...map.center,map.zoom);
- const px=Math.max(nw[0]+hw,Math.min(se[0]-hw,p[0]));
- const py=Math.max(nw[1]+hh,Math.min(se[1]-hh,p[1]));
- map.center=unmerc(Number.isFinite(px)?px:midX,Number.isFinite(py)?py:midY,map.zoom);
+ const p=merc(...map.center,map.zoom),cx=Math.max(nw[0],Math.min(se[0],p[0])),cy=Math.max(nw[1],Math.min(se[1],p[1]));
+ map.center=unmerc(cx,cy,map.zoom);
+}
+function fitPlayBoundary(){
+ const b=PLAY_BOUNDS[city];map.center=[(b.north+b.south)/2,(b.west+b.east)/2];map.zoom=Math.min(15.5,minPlayableZoom()+.35);constrainView();
 }
 function xy(lat,lng){const p=merc(lat,lng,map.zoom),c=merc(...map.center,map.zoom);return {x:(p[0]-c[0])+map.canvas.clientWidth/2,y:(p[1]-c[1])+map.canvas.clientHeight/2}}
 function ll(x,y){const c=merc(...map.center,map.zoom);return unmerc(c[0]+x-map.canvas.clientWidth/2,c[1]+y-map.canvas.clientHeight/2,map.zoom)}
@@ -358,7 +435,7 @@ function onBasemapError(error){
   console.warn('Mapbox 底圖載入錯誤',error?.error||error);
   vectorErrorCount++;
   if(vectorErrorCount>=5&&!basemapReady){
-    basemapNotice('Mapbox 地圖服務暫不可用，已切換為離線路網模式',true);
+    basemapNotice('Mapbox 底圖暫不可用，已使用離線示意底圖',true);
   }
 }
 function mountVector(){
@@ -413,7 +490,7 @@ function drawFallback(ctx,W,H){ctx.fillStyle='#edf1eb';ctx.fillRect(0,0,W,H);ctx
 // Only the offline schematic is rendered here; the vector renderer handles genuine streets / terrain.
 function drawTiles(){return 0}
 function draw(){const W=map.canvas.clientWidth,H=map.canvas.clientHeight;if(W<2||H<2)return;const dpr=Math.min(window.devicePixelRatio||1,2),cw=Math.round(W*dpr),ch=Math.round(H*dpr);if(map.canvas.width!==cw||map.canvas.height!==ch){map.canvas.width=cw;map.canvas.height=ch}const ctx=map.ctx;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);if(!basemapReady)drawFallback(ctx,W,H);
-if(heat){ctx.save();ctx.beginPath();appendPlayPaths(ctx);ctx.clip();paintHeatSurface(ctx,W,H);ctx.restore()}drawPlayBoundary(ctx,W,H);if(heat)drawDemandMarkers(ctx,W,H)
+if(heat&&GEO_READY[city]){ctx.save();ctx.beginPath();appendPlayPaths(ctx);ctx.clip('evenodd');paintHeatSurface(ctx,W,H);ctx.restore()}if(GEO_READY[city])drawPlayBoundary(ctx,W,H);if(heat)drawDemandMarkers(ctx,W,H)
 ctx.lineCap='round';ctx.lineJoin='round';for(const l of plan.lines){let pts=l.stops.map(id=>getStop(id)).filter(Boolean).map(s=>xy(s.lat,s.lng));if(pts.length<2)continue;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle='#ffffffd9';ctx.lineWidth=l.id===selectedLine?11:9;ctx.stroke();ctx.strokeStyle=l.color;ctx.globalAlpha=selectedLine&&l.id!==selectedLine?.77:1;ctx.lineWidth=l.id===selectedLine?6:5;ctx.stroke();ctx.globalAlpha=1}
 if(trainsVisible){for(const l of plan.lines){if(l.stops.length<2)continue;const pts=l.stops.map(id=>getStop(id)).filter(Boolean);if(pts.length<2)continue;const seg=[],cum=[0];for(let i=1;i<pts.length;i++){seg.push(hKm([pts[i-1].lat,pts[i-1].lng],[pts[i].lat,pts[i].lng]));cum.push(cum[cum.length-1]+seg[i-1])}const total=cum.at(-1)||1;const cars=Math.min(32,l.peak);for(let k=0;k<cars;k++){let t=((clock/60/24*0)+clock/(total/TYPE[l.type].speed*120+pts.length*1.15+8)*((total*2)) + k/cars*total*2)%(total*2);if(t>total)t=total*2-t;let idx=0;while(idx<seg.length-1&&t>cum[idx+1])idx++;const f=clamp((t-cum[idx])/(seg[idx]||1),0,1);const lat=pts[idx].lat+(pts[idx+1].lat-pts[idx].lat)*f,lng=pts[idx].lng+(pts[idx+1].lng-pts[idx].lng)*f;const p=xy(lat,lng);if(p.x<-10||p.y<-10||p.x>W+10||p.y>H+10)continue;ctx.beginPath();ctx.arc(p.x,p.y,6.2,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle=l.color;ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(p.x,p.y,2.35,0,Math.PI*2);ctx.fillStyle=l.color;ctx.fill()}}}
 const stationLines=new Map();for(const l of plan.lines)for(const id of l.stops)stationLines.set(id,(stationLines.get(id)||0)+1);for(const s of plan.stops){const p=xy(s.lat,s.lng);if(p.x<-30||p.y<-30||p.x>W+30||p.y>H+30)continue;const active=s.id===selectedStation;const transfers=(stationLines.get(s.id)||0)>1;ctx.beginPath();ctx.arc(p.x,p.y,active?10:transfers?7.8:6.2,0,Math.PI*2);ctx.fillStyle=active?'#f9eed6':'#fff';ctx.fill();ctx.lineWidth=active?3:transfers?2.6:1.8;ctx.strokeStyle=active?'#c28a12':'#354e53';ctx.stroke();if(transfers){ctx.beginPath();ctx.arc(p.x,p.y,2.6,0,Math.PI*2);ctx.fillStyle='#aec4c2';ctx.fill()}if(active||map.hover===s.id){ctx.font='700 11px '+getComputedStyle(document.body).fontFamily;const tw=ctx.measureText(s.name).width;const bx=clamp(p.x-tw/2-10,2,W-tw-22),by=p.y-32;ctx.fillStyle='#fff';ctx.strokeStyle='#d4dede';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(bx,by,tw+20,23,7);ctx.fill();ctx.stroke();ctx.fillStyle='#253e47';ctx.fillText(s.name,bx+10,by+15)}}map.dirty=false}
@@ -442,10 +519,23 @@ map.canvas.addEventListener('pointerleave',()=>updateDemandTooltip(null,true));m
 function showModal(title,html){$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modalBack').classList.add('show')}
 function drawChart(){const canvas=$('ridershipChart');if(!canvas)return;const box=canvas.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);canvas.width=box.width*dpr;canvas.height=box.height*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);const w=box.width,h=box.height,arr=Array.from({length:24},(_,i)=>{const peak1=Math.exp(-(((i-8)/2.1)**2)),peak2=Math.exp(-(((i-18)/2.5)**2));return Math.round(metrics.rides*(.016+.050*peak1+.044*peak2))});const max=Math.max(1,...arr)*1.17;c.strokeStyle='#e0e8e8';for(let t=0;t<4;t++){let y=16+(h-45)*t/3;c.beginPath();c.moveTo(28,y);c.lineTo(w-12,y);c.stroke()}const bw=(w-55)/24;for(let i=0;i<24;i++){let bh=arr[i]/max*(h-45),x=30+i*bw,y=h-23-bh;c.fillStyle=i>=7&&i<=9||i>=17&&i<=19?'#0e8575':'#9fd5c8';c.fillRect(x,y,Math.max(2,bw-3),bh)}c.font='10px sans-serif';c.fillStyle='#81929c';for(let i=0;i<=24;i+=4)c.fillText(String(i).padStart(2,'0'),28+i*bw,h-6)}
 function showStats(){const rows=plan.lines.map(l=>`<tr><td><span style="color:${l.color};font-weight:900">●</span> ${escapeHTML(l.name)}</td><td>${l.stops.length}</td><td>${num(lineLength(l),1)} km</td><td>${isFinite(lineHeadway(l))?num(lineHeadway(l),1):'—'} 分</td><td>${num(metrics.lineRides[l.id]||0)}</td></tr>`).join('');showModal('城市營運統計',`<p>${CITIES[city].name} · 本遊戲以假設的需求區、接駁距離及乘車時間推估路網表現，並非真實官方運量資料。</p><div class="stat-grid"><div class="statbox"><small>模擬日運量</small><strong>${num(metrics.rides)}</strong></div><div class="statbox"><small>票務收入／日</small><strong>${num(metrics.revenue)}</strong></div><div class="statbox"><small>營運成本／日</small><strong>${num(metrics.expense)}</strong></div><div class="statbox"><small>收支比</small><strong style="color:${metrics.ratio>=100?'#14967f':'#bf6c54'}">${num(metrics.ratio)}%</strong></div></div><h3 style="font-size:12px">每小時乘車量（需求分布示意）</h3><canvas class="chart" id="ridershipChart"></canvas><div class="trend-caption"><span>早晚通勤高峰 · 車流隨模擬時鐘運行</span><span>收費單位：${city==='tp'?'NT$':city==='hk'?'HK$':city==='sg'?'S$':'RM'}</span></div><h3 style="font-size:12px;margin-top:20px">路線表現</h3><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left;white-space:nowrap;font-size:11px"><thead><tr style="color:#84949c;border-bottom:1px solid #dde5e7"><th style="padding:9px">路線</th><th>站數</th><th>里程</th><th>班距</th><th>搭乘量*</th></tr></thead><tbody>${rows||'<tr><td colspan="5">尚無路線</td></tr>'}</tbody></table></div><p>* 路線搭乘量計入轉乘，可能重複計算。客量使用簡化 OD 模型；車輛擁擠對結果的影響為品質分而非逐人排隊模擬。</p>`);requestAnimationFrame(drawChart)}
-function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>城市與郊區都顯示連續的模擬需求熱度；虛線為遊戲可規劃邊界，邊界外不可以建站或移動車站，地圖拖曳也受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。點既有軌道可在中間插入車站。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖採用 Mapbox 自訂底圖，需要網路連線。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲邊界並非官方行政界線；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
+function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>城市與郊區都顯示連續的模擬需求熱度；虛線為 GeoJSON 行政邊界，邊界外不可以建站或移動車站，地圖拖曳也受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。點既有軌道可在中間插入車站。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖使用 Mapbox 自訂樣式。行政 GeoJSON 首次載入亦需要網路，可從介面匯入自己的 GeoJSON；成功載入後會在本次瀏覽器會話快取。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲規劃範圍來自第三方行政 GeoJSON（精簡資料不保證法律精度；GADM 不允許未經授權的商業使用與再散布）；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
 function download(name,contents){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([contents],{type:'application/json;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
+
+$('geoRetry').onclick=()=>loadGeo(city,true);
+$('geoExport').onclick=()=>{if(!GEO_FEATURES[city])return;download('Metro_Boundary_'+city+'.geojson',JSON.stringify(GEO_FEATURES[city]))};
+$('geoInput').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{
+ if(f.size>12_000_000)throw Error('GeoJSON 檔案超過 12 MB');
+ const raw=JSON.parse(await f.text()),norm=normalizeGeo(raw,city,true);
+ if(!inBoundingRegion(norm.b,CITIES[city].center))throw Error('界線座標與目前城市相距太遠');
+ if(!confirm('將目前「'+CITIES[city].short+'」的可建站邊界改成此 GeoJSON？'))return;
+ applyGeo(city,norm,'自訂 GeoJSON · '+f.name);toast('已載入自訂行政邊界');
+ }catch(ex){alert('GeoJSON 匯入失敗：'+ex.message)}finally{e.target.value=''}
+};
+function inBoundingRegion(bounds,center){const lat=clamp(center[0],bounds.south,bounds.north),lon=clamp(center[1],bounds.west,bounds.east);return hKm(center,[lat,lon])<85;}
+
 $('citySelect').innerHTML=Object.entries(CITIES).map(([k,c])=>`<option value="${k}">${c.name}</option>`).join('');$('citySelect').onchange=e=>showCity(e.target.value);
-$('modeSelect').onclick=()=>setMode('select');$('modeDraw').onclick=()=>{if(!selectedLine&&plan.lines.length)addLine();setMode('draw')};$('modeMove').onclick=()=>setMode('move');$('addLineBtn').onclick=addLine;$('toggleDrawBtn').onclick=()=>setMode(mode==='draw'?'select':'draw');$('moreZonesBtn').onclick=()=>{zoneExpanded=!zoneExpanded;renderDemandPanel()};$('heatBtn').onclick=()=>{heat=!heat;$('heatBtn').classList.toggle('active',heat);toast(heat?'已顯示連續需求熱度圖':'已隱藏需求熱度圖');updateDemandTooltip(null,true);updateMap()};$('trainBtn').onclick=()=>{trainsVisible=!trainsVisible;$('trainBtn').classList.toggle('active',trainsVisible);updateMap()};$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('zoomIn').onclick=()=>zoomAt(map.zoom+.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('zoomOut').onclick=()=>zoomAt(map.zoom-.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('recenter').onclick=()=>{map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();updateMap()};$('pauseBtn').onclick=()=>{paused=!paused;updateClock()};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b));toast('模擬速度 '+speed+'×')});$('daybar').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();clock=clamp((e.clientX-r.left)/r.width,0,1)*1439;updateClock();updateMap()};$('statsBtn').onclick=showStats;$('helpBtn').onclick=showHelp;$('closeModal').onclick=()=>$('modalBack').classList.remove('show');$('modalBack').onclick=e=>{if(e.target===$('modalBack'))$('closeModal').click()};$('resetBtn').onclick=()=>{if(!confirm('重新載入此城市的空白規劃畫布？目前的修改將被取代。建議先匯出備份。'))return;snapshot();plan=demo(city);selectedLine=plan.lines[0]?.id||null;selectedStation=null;commit();setMode('select');toast('已恢復空白規劃畫布')};$('blankBtn').onclick=()=>{if(!confirm('確定建立空白路網？這會取代目前城市的規劃，建議先匯出備份。'))return;snapshot();plan={stops:[],lines:[],source:'custom'};selectedLine=null;selectedStation=null;commit();setMode('select');toast('已建立空白方案')};$('exportBtn').onclick=()=>download('MetroPlanner_'+city+'_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'TransitStudio.Metro',version:3,city,exportedAt:new Date().toISOString(),plan},null,2));$('importInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!CITIES[p.city]||!validate(p.plan))throw Error('格式不正確');if(p.plan.stops.some(s=>!inPlayableArea(s.lat,s.lng,p.city)))throw Error('匯入路網含有規劃邊界外的車站，請先調整位置');if(!confirm('匯入將取代「'+CITIES[p.city].short+'」現有路網，確定要繼續？'))return;city=p.city;plan=p.plan;history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;persist();map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();map.tiles.clear();metrics=simulate();renderAll();setMode('select');toast('已成功匯入路網')}catch(ex){alert('無法匯入：'+ex.message)}finally{e.target.value=''}};
+$('modeSelect').onclick=()=>setMode('select');$('modeDraw').onclick=()=>{if(!selectedLine&&plan.lines.length)addLine();setMode('draw')};$('modeMove').onclick=()=>setMode('move');$('addLineBtn').onclick=addLine;$('toggleDrawBtn').onclick=()=>setMode(mode==='draw'?'select':'draw');$('moreZonesBtn').onclick=()=>{zoneExpanded=!zoneExpanded;renderDemandPanel()};$('heatBtn').onclick=()=>{heat=!heat;$('heatBtn').classList.toggle('active',heat);toast(heat?'已顯示連續需求熱度圖':'已隱藏需求熱度圖');updateDemandTooltip(null,true);updateMap()};$('trainBtn').onclick=()=>{trainsVisible=!trainsVisible;$('trainBtn').classList.toggle('active',trainsVisible);updateMap()};$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('zoomIn').onclick=()=>zoomAt(map.zoom+.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('zoomOut').onclick=()=>zoomAt(map.zoom-.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('recenter').onclick=()=>{map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();updateMap()};$('pauseBtn').onclick=()=>{paused=!paused;updateClock()};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b));toast('模擬速度 '+speed+'×')});$('daybar').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();clock=clamp((e.clientX-r.left)/r.width,0,1)*1439;updateClock();updateMap()};$('statsBtn').onclick=showStats;$('helpBtn').onclick=showHelp;$('closeModal').onclick=()=>$('modalBack').classList.remove('show');$('modalBack').onclick=e=>{if(e.target===$('modalBack'))$('closeModal').click()};$('resetBtn').onclick=()=>{if(!confirm('重新載入此城市的空白規劃畫布？目前的修改將被取代。建議先匯出備份。'))return;snapshot();plan=demo(city);selectedLine=plan.lines[0]?.id||null;selectedStation=null;commit();setMode('select');toast('已恢復空白規劃畫布')};$('blankBtn').onclick=()=>{if(!confirm('確定建立空白路網？這會取代目前城市的規劃，建議先匯出備份。'))return;snapshot();plan={stops:[],lines:[],source:'custom'};selectedLine=null;selectedStation=null;commit();setMode('select');toast('已建立空白方案')};$('exportBtn').onclick=()=>download('MetroPlanner_'+city+'_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'TransitStudio.Metro',version:3,city,exportedAt:new Date().toISOString(),plan},null,2));$('importInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!CITIES[p.city]||!validate(p.plan))throw Error('格式不正確');if(!(await loadGeo(p.city)))throw Error('請先載入 '+CITIES[p.city].short+' 的 GeoJSON 界線');if(p.plan.stops.some(s=>!inPlayableArea(s.lat,s.lng,p.city)))throw Error('匯入路網含有行政邊界外的車站，請先調整位置');if(!confirm('匯入將取代「'+CITIES[p.city].short+'」現有路網，確定要繼續？'))return;city=p.city;plan=p.plan;history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;persist();map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();map.tiles.clear();metrics=simulate();renderAll();setMode('select');toast('已成功匯入路網')}catch(ex){alert('無法匯入：'+ex.message)}finally{e.target.value=''}};
 window.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo()}if(e.key==='Escape'){$('modalBack').classList.remove('show');selectedStation=null;renderInspector();updateMap()}});window.addEventListener('resize',()=>{constrainView();heatCache.key='';if(vectorMap){try{vectorMap.resize()}catch(e){}syncVectorMap(true)}updateMap()});
 showCity('kl');requestAnimationFrame(renderFrame);loadVectorScript();
 })();
