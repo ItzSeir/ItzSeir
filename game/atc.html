@@ -4427,10 +4427,11 @@ function v14DrawPlane(c,f){
   // Normal overflights remain selectable by tapping their radar target (pickFlight
   // has a 24px hit radius) and stay in the traffic list, but do not cover the map.
   if(passiveOverflight&&!selected&&!needsOverflightAttention){c.restore();return;}
+  if(p.x<-8||p.x>viewport.w+8||p.y<-8||p.y>viewport.h+8){c.restore();return;}
   const mobile=viewport.w<620;
   const w=selected?(mobile?170:202):(mobile?116:132);
   const h=selected?(mobile?84:93):(mobile?42:45);
-  const rect=v14TagPlacement(p,w,h,selected);
+  const rect=v14TagPlacement(p,w,h,selected,f);
   const x=rect.x,y=rect.y;
   const anchorX=x>p.x?x:x+w,anchorY=Math.min(y+h-7,Math.max(y+7,p.y));
   c.beginPath();c.moveTo(p.x,p.y);c.lineTo(anchorX,anchorY);c.strokeStyle=color+(selected?'a5':'78');c.lineWidth=selected?1.6:1;c.stroke();
@@ -4836,9 +4837,10 @@ drawWeather=function(c){
    // When the crew requests diversion or declares an emergency, reveal its tag.
    const passiveTransit=role==='OVR'&&!selected&&!f.v37DiversionRequested&&!f.v34Emergency&&!f.warning&&!f.requestedAlt;
    if(passiveTransit){c.restore();return;}
+   if(p.x<-8||p.x>viewport.w+8||p.y<-8||p.y>viewport.h+8){c.restore();return;}
    const mobile=viewport.w<620;
    const w=selected?(mobile?172:194):(mobile?96:112),h=selected?(mobile?78:85):38;
-   let rect=v14TagPlacement(p,w,h,selected);
+   let rect=v14TagPlacement(p,w,h,selected,f);
    const x=rect.x,y=rect.y;
    const tx=Math.max(x,Math.min(x+w,p.x)),ty=Math.max(y+6,Math.min(y+h-6,p.y));
    c.beginPath();c.moveTo(p.x,p.y);c.lineTo(tx,ty);c.strokeStyle=color+'74';c.lineWidth=selected?1.3:.8;c.stroke();
@@ -6584,6 +6586,12 @@ drawWeather=function(c){
  const wxRasterCtx=wxRaster.getContext('2d',{alpha:true});
  let wxRasterKey='',wxRasterScene=null,wxRasterTime=-Infinity;
  drawWeather=function(c){
+   // V68 supplies the sole world-registered radar echo layer. Keep all
+   // flight/vector/terrain overlays in the normal render pipeline.
+   if(window.__atcV68UnifiedRain){
+     if(weatherOn)window.__atcV68UnifiedRain.draw(c);
+     return;
+   }
    if(weatherOn&&scene){
      const stamp=performance.now();
      const dpr=viewport.dpr||1;
@@ -6672,7 +6680,24 @@ drawWeather=function(c){
      airborne:flights.filter(f=>f.kind==='arrival').map(f=>({callsign:f.callsign,mode:f.mode,speed:f.speed,heading:f.heading,xy:{x:f.x,y:f.y}}))}),
   preset:p=>initWeather(p),
   precipitationAt:(x,y)=>scene?localPrecipitation(scene,x,y):0,
-  fastForwardWeather:dt=>updateWeather(dt)
+  fastForwardWeather:dt=>updateWeather(dt),
+  // Raster source used by the V68 merged reflectivity engine. Draw the exact
+  // SAME precipitation cell sprites used in V27; don't invent new rain blobs.
+  paintRegularRadar:(ctx)=>{
+    if(!scene)return;
+    const ss=scale();
+    ctx.save();ctx.imageSmoothingEnabled=true;
+    for(const cell of scene.cells){
+      const p=toScreen(cell),rx=cell.rx*ss,ry=cell.ry*ss;
+      if(rx<.5||ry<.5||p.x+rx<0||p.y+ry<0||p.x-rx>viewport.w||p.y-ry>viewport.h)continue;
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(cell.rotation||0);
+      ctx.drawImage(echoSprite(cell,scene,scene.elapsed),-rx,-ry,rx*2,ry*2);
+      ctx.restore();
+    }
+    ctx.restore();
+  },
+  echoOpacity:()=>radarOpacity,
+  sceneRevision:()=>scene?.revision||0
  };
 })();
 </script>
@@ -8587,6 +8612,7 @@ window.__atcV31={
  }
  const zones=[];
  let showZones=true,showTyphoon=true,episodeSerial=0;
+ window.__atcV68TyphoonVisible=()=>showTyphoon;
  const nearScale=()=>Math.max(80,Number(entryRadius)||90);
  function createZone(isInitial=false){
    const bearing=rnd(0,360),radial=rnd(22,nearScale()+27),p=vector(bearing,radial);
@@ -8709,10 +8735,16 @@ window.__atcV31={
      const p=toScreen(ev.center),ss=scale(),power=clamp38(ev.strength||.8,.22,1.36);
      const rad=Math.max(8,ev.radius*ss*(.88+power*.16));
      if(Number.isFinite(p.x)&&p.x+rad>0&&p.x-rad<viewport.w&&p.y+rad>0&&p.y-rad<viewport.h){
+       // V67 renders ALL cyclone precipitation as a single combined field.
+       // Individual translucent cyclone stamps would double darken overlapping
+       // storms and fail to show their shear/convergence bridge.
+       if(weatherOn&&ev===allStorms[0]&&window.__atcV67Weather&&!window.__atcV68UnifiedRain){
+         window.__atcV67Weather.drawEcho(c);
+       }
        c.save();c.translate(p.x,p.y);
        c.rotate((toGeographic(ev.center).lat<0?1:-1)*((simTime-ev.start)/780+.14*Math.sin(simTime/830)));
        c.globalAlpha=clamp38(.70+.16*power,.42,.96);
-       if(weatherOn)c.drawImage(typhoonRaster(ev),-rad,-rad,rad*2,rad*2);
+       if(weatherOn&&!window.__atcV67Weather)c.drawImage(typhoonRaster(ev),-rad,-rad,rad*2,rad*2);
        c.globalAlpha=1;c.restore();
        c.save();
        if(ev.track?.length>1){c.beginPath();ev.track.forEach((pt,i)=>{const q=toScreen(pt);i?c.lineTo(q.x,q.y):c.moveTo(q.x,q.y)});c.strokeStyle='rgba(112,80,139,.58)';c.lineWidth=1.6;c.setLineDash([5,6]);c.stroke();c.setLineDash([]);}
@@ -12006,5 +12038,539 @@ window.__atcV65={minimumAt,alongTrack,tileInfo:()=>({airport:currentAirport,cell
 document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
 })();
 </script>
+
+<style id="v67-coupled-weather-style">
+/* UI stays unchanged; the weather source explains how overlapped echoes behave. */
+.v67-wx-note{margin-top:9px;padding:9px 10px;border-radius:9px;border:1px solid #d6e6e6;
+  background:#f2f8f8;color:#4b7580;font-size:10px;line-height:1.65}
+</style>
+<script id="v67-coupled-cyclone-and-synoptic-weather">
+/* V67: one coherent, offline rainfall/wind composition for regular rain and
+   multiple interacting tropical cyclones. Not a numerical weather model or METAR.
+   Each storm retains its own dynamical core, while approaching systems deform
+   outer rainbands and may develop a shared convergence band. */
+(()=>{
+ 'use strict';
+ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+ const smooth=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
+ const RAD=Math.PI/180;
+ const storms=()=>window.__atcV35Typhoons?.()||[];
+ const engine=window.__atcV50Cloud;
+ const originalField=engine?.field;
+ if(!engine||!originalField||!window.__atcV44StormWind)return;
+ const rawWind=window.__atcV44StormWind;
+ const useBaseRain=p=>Number(window.__atcV24?.precipitationAt?.(p.x,p.y))||0;
+ const stormRadius=s=>Math.max(38,Number(s.radius)||72);
+ const pairData=(a,b)=>{
+   const dx=b.center.x-a.center.x,dy=b.center.y-a.center.y;
+   const d=Math.hypot(dx,dy),r=(stormRadius(a)+stormRadius(b))/2;
+   const activity=1-smooth(1.08,2.45,d/Math.max(r,1));
+   return {dx,dy,d,r,activity,ux:d>.001?dx/d:0,uy:d>.001?dy/d:0};
+ };
+ const interactionAt=(a)=>{
+   let strongest=null;
+   for(const b of storms()){
+     if(a===b||a.id===b.id)continue;
+     const p=pairData(a,b);
+     if(!strongest||p.activity>strongest.activity)strongest=p;
+   }
+   return strongest;
+ };
+ // The old sprite layer rotates each cyclone image. Match that transform in
+ // the world-space echo sampler, so the visual rainbands and sampled rain rate
+ // stay aligned even as a storm moves through the radar sector.
+ function densityForStorm(p,s,nearby){
+   const r=stormRadius(s);
+   let dx=p.x-s.center.x,dy=p.y-s.center.y;
+   if(Math.hypot(dx,dy)>r*1.17)return 0;
+   const pair=nearby||interactionAt(s);
+   if(pair&&pair.activity>.001){
+     const radial=Math.hypot(dx,dy)/r;
+     const toward=(dx*pair.ux+dy*pair.uy)/r;
+     // Only bend the outer circulation: retain the individual eyewalls/eyes.
+     const outer=smooth(.25,.60,radial)*(1-smooth(.95,1.17,radial));
+     const pull=pair.activity*outer*Math.max(0,toward)*r*.20;
+     dx-=pair.ux*pull;dy-=pair.uy*pull;
+     // Shear/compression on the inward-facing edge of the two rain shields.
+     const transverse=(dx*-pair.uy+dy*pair.ux)/r;
+     const squash=pair.activity*.11*outer;
+     dx+=-pair.uy*transverse*squash*r;
+     dy+=pair.ux*transverse*squash*r;
+   }
+   const latitude=toGeographic(s.center).lat;
+   const angle=(latitude<0?1:-1)*((simTime-s.start)/780+.14*Math.sin(simTime/830));
+   const ca=Math.cos(angle),sa=Math.sin(angle);
+   const screenX=dx/r,screenY=-dy/r;
+   const u=screenX*ca+screenY*sa,v=-screenX*sa+screenY*ca;
+   return clamp(originalField(u,v,s),0,1.45);
+ }
+ function linkEcho(p,a,b){
+   const pair=pairData(a,b);
+   if(pair.activity<=.0001||pair.d<.01)return 0;
+   const apx=p.x-a.center.x,apy=p.y-a.center.y;
+   const along=(apx*pair.ux+apy*pair.uy)/pair.d;
+   if(along<-.17||along>1.17)return 0;
+   const side=Math.abs(-apy*pair.ux+apx*pair.uy);
+   const meanR=pair.r;
+   const width=meanR*(.12+.075*pair.activity);
+   const central=Math.exp(-.5*(side/Math.max(width,3))**2);
+   const gate=smooth(-.15,.13,along)*(1-smooth(.87,1.16,along));
+   const curve=Math.sin(along*8.9+simTime/3400+a.id*2.31+b.id*.91);
+   const filaments=.56+.23*Math.cos(along*19.0+side/Math.max(meanR,1)*10+simTime/1100)+.12*curve;
+   const retain=Math.sqrt(clamp((a.v56RainMoisture||.9)*(b.v56RainMoisture||.9),.07,1.15));
+   return clamp(pair.activity*central*gate*filaments*retain*.65,0,.56);
+ }
+ function fieldAt(p,all=storms()){
+   if(!all.length)return {echo:0,stormRain:0,stormCloud:0,link:0,nearest:Infinity};
+   let peak=0,secondary=0,nearest=Infinity;
+   for(const s of all){
+     nearest=Math.min(nearest,Math.hypot(p.x-s.center.x,p.y-s.center.y));
+     const v=densityForStorm(p,s);
+     if(v>peak){secondary=peak;peak=v;}else if(v>secondary){secondary=v;}
+   }
+   let link=0;
+   for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){
+     link=Math.max(link,linkEcho(p,all[i],all[j]));
+   }
+   // A probabilistic union protects against unrealistically doubling red echoes
+   // when two eyewalls intersect. A narrow bridge forms only where circulation
+   // geometry and both storms' retained moisture support it.
+   const overlap=peak>0&&secondary>0?Math.min(.16,secondary*.19):0;
+   let echo=clamp(Math.max(peak,link)+overlap,0,1.38);
+   const ordinary=clamp(useBaseRain(p),0,1);
+   // Embed scattered synoptic convection at rain-shield boundaries; don't
+   // magically turn a fair-weather zone into a full tropical cyclone shield.
+   if(echo>.06)echo=clamp(echo+ordinary*.095*smooth(.06,.38,echo),0,1.38);
+   // Echo strength and quantitative precipitation sample the same field.
+   let rain=clamp((echo-.13)*58,0,78);
+   if(rain>0){
+     let wSum=0,eta=0;
+     for(const s of all){
+       const d=Math.hypot(p.x-s.center.x,p.y-s.center.y);
+       const weight=Math.exp(-Math.pow(d/(stormRadius(s)*.63),2));
+       wSum+=weight;eta+=weight*(1-.29*smooth(4.0,23.0,Number(s.v56LandHours)||0));
+     }
+     rain*=wSum?eta/wSum:1;
+   }
+   return {echo,stormRain:rain,stormCloud:clamp(echo*.87,0,1),link,nearest};
+ }
+ function observe(p={x:0,y:0}){
+   const all=storms();const a=fieldAt(p,all);
+   return {...a,normalRainFactor:clamp(useBaseRain(p),0,1),stormCount:all.length};
+ }
+ // Update rainfall sampling used by all other weather and display consumers.
+ // Avoid an internal recursion: fieldAt calls the original *density*, not
+ // engine.precip(), and the station compositor calls fieldAt directly.
+ engine.precip=function(p,s){
+   if(!s)return {mmh:0,cloud:0,influence:0,distanceNM:Infinity};
+   const v=fieldAt(p,storms().length?storms():[s]);
+   return {mmh:v.stormRain,cloud:v.stormCloud,influence:clamp(v.echo*.8,0,1),
+     distanceNM:Math.hypot(p.x-s.center.x,p.y-s.center.y)};
+ };
+ const cache={key:null,canvas:null,x:0,y:0,w:0,h:0};
+ function drawEcho(c){
+   const all=storms();if(!all.length)return;
+   // Build a single low-resolution, world-registered composite. Regular rain
+   // cells remain in the underlying synoptic radar; only the TC layer is
+   // replaced. This avoids two overlapping red discs and alpha doubling.
+   const ss=scale();if(!Number.isFinite(ss)||ss<=0)return;
+   let x0=viewport.w,y0=viewport.h,x1=0,y1=0;
+   for(const s of all){
+     const p=toScreen(s.center),r=stormRadius(s)*ss*1.2;
+     x0=Math.min(x0,p.x-r);y0=Math.min(y0,p.y-r);
+     x1=Math.max(x1,p.x+r);y1=Math.max(y1,p.y+r);
+   }
+   x0=clamp(Math.floor(x0)-4,0,viewport.w);y0=clamp(Math.floor(y0)-4,0,viewport.h);
+   x1=clamp(Math.ceil(x1)+4,0,viewport.w);y1=clamp(Math.ceil(y1)+4,0,viewport.h);
+   if(x1<=x0||y1<=y0)return;
+   const width=x1-x0,height=y1-y0;
+   const key=[Math.floor(simTime/58),Math.round(viewport.w),Math.round(viewport.h),
+       rangeNM,pan.x.toFixed(2),pan.y.toFixed(2),x0,y0,x1,y1,
+       ...all.flatMap(s=>[s.id,Math.round(s.center.x*2),Math.round(s.center.y*2),
+         Math.round(s.strength*30),Math.round((s.v56CloudStructure||.5)*12),
+         Math.round((s.v56RainMoisture||.8)*12)])].join('/');
+   if(cache.key!==key){
+     const step=viewport.w<620?3.4:4.8;
+     const cw=clamp(Math.ceil(width/step),2,465),ch=clamp(Math.ceil(height/step),2,340);
+     if(!cache.canvas)cache.canvas=document.createElement('canvas');
+     const tmp=cache.canvas;tmp.width=cw;tmp.height=ch;
+     const context=tmp.getContext('2d');const im=context.createImageData(cw,ch);const data=im.data;
+     for(let iy=0;iy<ch;iy++)for(let ix=0;ix<cw;ix++){
+       const wp=fromScreen(x0+(ix+.5)*width/cw,y0+(iy+.5)*height/ch);
+       const val=fieldAt(wp,all).echo;
+       const fade=smooth(.13,.29,val);
+       if(fade<.003)continue;
+       let color,alpha;
+       if(val>.91){color=[189,45,58];alpha=.89}
+       else if(val>.75){color=[216,75,64];alpha=.87}
+       else if(val>.59){color=[234,143,69];alpha=.82}
+       else if(val>.44){color=[234,197,77];alpha=.75}
+       else if(val>.30){color=[69,153,114];alpha=.66}
+       else{color=[107,183,148];alpha=.51}
+       const k=(iy*cw+ix)*4;
+       data[k]=color[0];data[k+1]=color[1];data[k+2]=color[2];
+       data[k+3]=Math.round(255*alpha*fade);
+     }
+     context.putImageData(im,0,0);
+     cache.key=key;cache.x=x0;cache.y=y0;cache.w=width;cache.h=height;
+   }
+   c.save();c.imageSmoothingEnabled=true;c.drawImage(cache.canvas,cache.x,cache.y,cache.w,cache.h);c.restore();
+ }
+ const baseName=()=>preset==='storm'?'雷暴 / CB':preset==='rain'?'陣雨 / RA':'局部多雲';
+ const oldCombined=window.__atcV46ApplyStorm;
+ // One station observation is computed from the independent synoptic weather
+ // baseline + the FINAL multi-cyclone field. Do not call the older sequential
+ // primary + extra routines, which could double-count rain and/or abruptly
+ // replace the monsoon wind.
+ window.__atcV46ApplyStorm=function(base){
+   if(!conditions)return;
+   const v=observe({x:0,y:0});
+   const all=storms();
+   if(!all.length)return oldCombined?.(base,null);
+   const primary=all[0];
+   const wind=rawWind({x:0,y:0},primary,base);
+   const normalRain=Math.max(0,Number(base.precipitationMm)||0);
+   // Existing convective cells are included once; cyclone/monsoon interaction
+   // is a moderate moisture boost, not a simple sum of saturated cloud decks.
+   const coupling=v.stormRain>1?Math.min(1.18,1+normalRain*.016):1;
+   const rain=clamp(normalRain+v.stormRain*coupling,0,95);
+   const baseCloud=clamp(Number(base.cloudCover)||25,0,100);
+   const cloud=Math.round(clamp(100*(1-(1-baseCloud/100)*(1-v.stormCloud*.88)),0,100));
+   const rainVis=17/(1+.19*rain+.011*rain*rain);
+   const lowDeck=cloud>85&&(Number(base.ceiling)||9000)<1900;
+   const vis=clamp(Math.min(Number(base.vis)||20,rainVis)*(lowDeck?.84:1),.25,25);
+   const stormCeil=10000*Math.pow(Math.max(0,1-v.stormCloud),2.15)+250;
+   conditions.windFrom=wind.from;
+   conditions.windKt=wind.speed;
+   conditions.gust=clamp(Math.max(wind.gust,wind.speed+2+Math.min(18,rain*.17)),wind.speed+1,185);
+   conditions.vis=vis;
+   conditions.ceiling=Math.round(Math.max(220,Math.min(Number(base.ceiling)||10000,stormCeil)));
+   conditions.cloudCover=cloud;
+   conditions.precipitationMm=rain;
+   conditions.rain=clamp(Math.max(Number(base.rain)||0,rain/44),0,1);
+   conditions.stormNear=!!base.stormNear||v.stormRain>12||wind.speed>=44;
+   const merged=all.length>1&&v.link>.05;
+   conditions.weatherName=rain>=28?(merged?'雙颱交互雨帶／強降雨':'颱風強降雨'):
+       rain>=8?(merged?'雙颱共伴降雨':'颱風雨帶影響'):
+       v.stormRain>1.5?'颱風外圍雨帶':(base.weatherName||baseName());
+   conditions.v46TyphoonDistanceNM=v.nearest;
+   conditions.v46StormRainMmH=v.stormRain;
+   conditions.v46StormCloud=v.stormCloud;
+ };
+ // Make the station and local aircraft wind sample the same combined wind
+ // vector; retain the multiple-vortex implementation already in V62.
+ const originalWind=window.__atcV44StormWind;
+ window.__atcV44StormWind=function(p,t,base){
+   const out=originalWind(p,t,base);
+   if(!out)return out;
+   return {...out,speed:clamp(out.speed,0,160),gust:clamp(Math.max(out.gust,out.speed+2),out.speed+2,185)};
+ };
+ const wxBox=document.querySelector('#wxDisclosure .wx-detail-body');
+ if(wxBox&&!document.getElementById('v67WxNote')){
+   const div=document.createElement('div');div.id='v67WxNote';div.className='v67-wx-note';
+   div.textContent='天氣融合模型：一般移動雨區與多颱風環流共同影響機場風速、降雨和能見度；雙颱靠近時外圍雨帶會變形或連接。均為離線模擬。';
+   wxBox.appendChild(div);
+ }
+ window.__atcV67Weather={drawEcho,observe,fieldAt,linkEcho,
+   pair:(a,b)=>pairData(a,b),clearCache:()=>{cache.key=null},
+   testOverlap:()=>storms().map(s=>({id:s.id,closest:interactionAt(s)?.d,interaction:interactionAt(s)?.activity||0}))};
+ document.title='AIRSPACE — ATC V67 · Coupled Weather & Cyclone Circulations';
+})();
+</script>
+
+
+<style id="v68-unified-radar-style">
+.v68-radar-note{padding:10px 11px;margin-top:10px;background:#edf6f3;border:1px solid #c6dfd6;
+  border-radius:9px;color:#2d695d;font-size:10px;line-height:1.7}
+.v68-radar-note strong{display:block;font-size:10px;margin-bottom:3px;color:#216658}
+</style>
+<script id="v68-merged-precipitation-radar">
+/* V68 — Single reflectivity compositing pass for rain, thunderstorms and
+   interacting cyclones. World-registered ordinary showers are drawn into the
+   SAME grid as the vortex precipitation and merged by intensity rather than
+   canvas alpha-over. No official dBZ calibration is claimed. */
+(()=>{
+ 'use strict';
+ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ const smoother=(a,b,x)=>{let t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
+ const base=window.__atcV24,cyclones=window.__atcV67Weather;
+ if(!base?.paintRegularRadar||!cyclones?.fieldAt)return;
+ const scratch=document.createElement('canvas');
+ const joined=document.createElement('canvas');
+ const sctx=scratch.getContext('2d',{willReadFrequently:true});
+ const jctx=joined.getContext('2d');
+ const cache={key:'',last:-1,width:0,height:0};
+ let stats={regularPixels:0,cyclonePixels:0,mixedPixels:0,mergedPixels:0,
+            thunderCells:0,frameMs:0,scenario:'',storms:0};
+ const echoColour=v=>{
+   if(v>.91)return [189,45,58,.89];
+   if(v>.75)return [216,75,64,.87];
+   if(v>.59)return [234,143,69,.82];
+   if(v>.44)return [234,197,77,.75];
+   if(v>.30)return [69,153,114,.66];
+   return [107,183,148,.51];
+ };
+ // Decode the palette used by the existing per-cell sprite. The alpha is
+ // retained as a fine-scale coverage/feathering measure, so convective holes
+ // and tapering edges survive the final raster composition.
+ function regularEcho(r,g,b,a){
+   if(a<8)return 0;
+   const opacity=clamp((base.echoOpacity?.()||1),.1,1);
+   const alpha=clamp(a/(255*opacity),0,1);
+   let val;
+   if(r>190&&g<123)val=.94+(alpha-.78)*.43;        // red core
+   else if(r>185&&g<184)val=.72+(alpha-.73)*.43;    // orange
+   else if(r>185&&g>=184)val=.53+(alpha-.64)*.47;   // yellow
+   else if(r<75&&g>135)val=.35+(alpha-.42)*.43;     // green
+   else val=.19+(alpha-.15)*.39;                     // weak turquoise
+   return clamp(val,0,1.27)*smoother(.02,.2,alpha);
+ }
+ function relevantCyclones(x,y,all){
+   // Avoid evaluating expensive cyclone noise outside any storm or bridge.
+   for(const s of all){const r=Math.max(38,Number(s.radius)||72)*1.28;
+     if(Math.abs(x-s.center.x)<=r&&Math.abs(y-s.center.y)<=r)return true;
+   }
+   if(all.length<2)return false;
+   for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){
+     const a=all[i],b=all[j],rad=(Math.max(38,a.radius||72)+Math.max(38,b.radius||72))*.62;
+     const dx=b.center.x-a.center.x,dy=b.center.y-a.center.y,den=dx*dx+dy*dy;
+     if(den<1)return true;
+     const t=clamp(((x-a.center.x)*dx+(y-a.center.y)*dy)/den,0,1);
+     if(Math.hypot(x-a.center.x-t*dx,y-a.center.y-t*dy)<rad*.35)return true;
+   }
+   return false;
+ }
+ function frame(){
+   const w=viewport.w,h=viewport.h;
+   if(!w||!h||!weatherOn)return;
+   const active=window.__atcV68TyphoonVisible?.()===false?[]:(window.__atcV35Typhoons?.()||[]);
+   const simStamp=Math.floor(simTime/8),mode=preset||'fair';
+   const step=w<630?3.5:4.8;
+   const cols=Math.max(1,Math.ceil(w/step)),rows=Math.max(1,Math.ceil(h/step));
+   const key=[cols,rows,w,h,rangeNM,pan.x.toFixed(2),pan.y.toFixed(2),
+     simStamp,mode,base.echoOpacity?.(),base.sceneRevision?.(),active.length,...active.flatMap(s=>[
+       s.id,Math.round(s.center.x*4),Math.round(s.center.y*4),
+       Math.round(s.strength*20),Math.round((s.v56RainMoisture||.8)*18)])].join('/');
+   // Sim clock is authoritative. Also allow updates on panning/zooming and
+   // manual weather-change while paused.
+   const now=performance.now();
+   if(key===cache.key&&now-cache.last<800)return;
+   const t0=performance.now();
+   scratch.width=cols;scratch.height=rows;
+   sctx.setTransform(cols/w,0,0,rows/h,0,0);
+   sctx.clearRect(0,0,w,h);
+   base.paintRegularRadar(sctx);
+   sctx.setTransform(1,0,0,1,0,0);
+   const source=sctx.getImageData(0,0,cols,rows).data;
+   joined.width=cols;joined.height=rows;
+   const output=jctx.createImageData(cols,rows),data=output.data;
+   const sc=scale();
+   const left=pan.x-w/(2*sc),top=pan.y+h/(2*sc);
+   const dx=w/(cols*sc),dy=h/(rows*sc);
+   let ordinary=0,storm=0,mixed=0,visible=0,strong=0;
+   const influence=active.length>0;
+   for(let row=0;row<rows;row++){
+     const wy=top-(row+.5)*dy;
+     for(let col=0;col<cols;col++){
+       const idx=(row*cols+col)*4;
+       const vRegular=regularEcho(source[idx],source[idx+1],source[idx+2],source[idx+3]);
+       const wx=left+(col+.5)*dx;
+       let vCyclone=0;
+       if(influence&&relevantCyclones(wx,wy,active)){
+         vCyclone=clamp(cyclones.fieldAt({x:wx,y:wy},active).echo,0,1.4);
+       }
+       if(vRegular>.13)ordinary++;
+       if(vCyclone>.13)storm++;
+       if(vRegular>.15&&vCyclone>.15)mixed++;
+       // A capped mixed-field union. The dominant echo determines core strength;
+       // overlap adds *some* convergent intensity without making a solid red
+       // shape or double-applying semi-transparent images.
+       const weaker=Math.min(vRegular,vCyclone),stronger=Math.max(vRegular,vCyclone);
+       const v=clamp(stronger+weaker*.14*smoother(.13,.48,stronger),0,1.40);
+       if(v<.135)continue;
+       let [r,g,b,alpha]=echoColour(v);
+       // Preserve the original sprite's feathering and isolated convection.
+       const soft=smoother(.135,.29,v);
+       alpha*=soft*clamp(base.echoOpacity?.()||1,.1,1);
+       data[idx]=r;data[idx+1]=g;data[idx+2]=b;
+       data[idx+3]=Math.round(255*alpha);
+       if(v>.57)strong++;
+       visible++;
+     }
+   }
+   jctx.putImageData(output,0,0);
+   cache.key=key;cache.last=now;cache.width=w;cache.height=h;
+   stats={regularPixels:ordinary,cyclonePixels:storm,mixedPixels:mixed,
+     mergedPixels:visible,thunderCells:strong,frameMs:Math.round(performance.now()-t0),
+     scenario:mode,storms:active.length};
+ }
+ function draw(c){
+   if(!weatherOn)return;
+   frame();
+   if(!joined.width||!joined.height)return;
+   c.save();c.imageSmoothingEnabled=true;
+   c.imageSmoothingQuality='medium';
+   c.drawImage(joined,0,0,joined.width,joined.height,0,0,viewport.w,viewport.h);
+   c.restore();
+ }
+ // Radar colour and weather readouts now refer to one underlying synoptic+
+ // vortex field, including rain and local thunderstorms during multi-TC events.
+ // Keep runway/flight/weather input functions from V67 unchanged.
+ window.__atcV68UnifiedRain={draw,stats:()=>({...stats}),refresh:()=>{cache.key='';},
+   sample:(x,y)=>{const c=cyclones.observe({x,y});const r=Number(base.precipitationAt?.(x,y))||0;
+     return {ordinaryRainFraction:r,cycloneRainMmH:c.stormRain,
+       combinedRainFraction:clamp(Math.max(r,c.echo)+Math.min(r,c.echo)*.14,0,1.4)};}};
+ const detail=document.querySelector('#wxDisclosure .wx-detail-body');
+ if(detail){
+   const note=document.createElement('div');note.id='v68RadarNote';note.className='v68-radar-note';
+   note.innerHTML='<strong>統一降水回波 · RAIN / CB / TC</strong>雨天、雷暴與颱風共用一張降雨雷達；重疊處只按合成強度著色，不會因透明圖層重疊而整片變紅。離線遊戲模擬，非真實 dBZ。';
+   detail.appendChild(note);
+ }
+ document.title='AIRSPACE — ATC V68 · Unified Rain / Thunder / Typhoon Radar';
+})();
+</script>
+
+
+<script id="v69-stable-flight-tags">
+/* V69 — Persisted radar labels.
+ * The V14 collision solver reassigned the label among 10 slots *every animation
+ * frame*.  As nearby aircraft moved, tiny cost changes made the tag instantly
+ * leap between different corners.  These per-flight anchors preserve a stable
+ * relative position, with a debounced reflow and an eased transition.
+ */
+(()=>{
+  'use strict';
+  const cache=new Map();
+  // Weather integrations after V14 bypassed the old label-box reset and kept
+  // appending hit rectangles forever (including positions from prior frames).
+  // Reset once, at the start of the current radar frame.
+  const weatherBeforeTagReset=drawWeather;
+  drawWeather=function(c){
+    v14TagBoxes.length=0;
+    return weatherBeforeTagReset(c);
+  };
+  const isVisible=(r)=>r.x>=-15&&r.x<=viewport.w+15&&r.y>=-15&&r.y<=viewport.h+15;
+  const nowMs=()=>performance.now();
+  const slots=(w,h)=>[
+    {dx:19,dy:-h-12}, {dx:19,dy:14},
+    {dx:-w-19,dy:-h-12}, {dx:-w-19,dy:14},
+    {dx:19,dy:-h*.52}, {dx:-w-19,dy:-h*.52},
+    {dx:-w*.5,dy:-h-18}, {dx:-w*.5,dy:23}
+  ];
+  const snap=(p,w,h,slot)=>{
+    const minX=7,maxX=Math.max(minX,viewport.w-w-7);
+    // The radar metadata and top buttons take only a small part of the canvas.
+    // Do not shove aircraft tags 165px down as the original solver did.
+    const minY=viewport.w<620?61:65;
+    const maxY=Math.max(minY,viewport.h-h-10);
+    return {x:Math.min(maxX,Math.max(minX,p.x+slot.dx)),
+            y:Math.min(maxY,Math.max(minY,p.y+slot.dy)),w,h};
+  };
+  const overlapArea=(a,b)=>Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*
+                           Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
+  const boxDistance=(p,r)=>Math.hypot(p.x-Math.min(r.x+r.w,Math.max(r.x,p.x)),
+                                     p.y-Math.min(r.y+r.h,Math.max(r.y,p.y)));
+  const allOthers=(flight)=>v14TagBoxes.filter(r=>r.id!==flight.id);
+  function grade(p,r,flight,slotIndex){
+    const area=r.w*r.h;
+    let score=slotIndex*2.8;
+    for(const other of allOthers(flight))score+=660*Math.min(1,overlapArea(r,other)/area);
+    const edge=boxDistance(p,r);
+    score+=edge*.29;
+    // Penalize labels covering their own target, which would make clicking a
+    // radar symbol select a box instead of the aircraft beneath it.
+    if(edge<11)score+=100+(11-edge)*10;
+    // Prefer the side toward the middle of the radar without making labels
+    // migrate when the aircraft crosses the halfway line.
+    if((p.x>viewport.w*.65 && r.x>p.x)||(p.x<viewport.w*.35 && r.x+r.w<p.x))score+=16;
+    // Keep selected tags out of the lower right command sheet where possible.
+    if(viewport.w>850&&flight.id===selectedId){
+      const command={x:viewport.w-382,y:viewport.h-300,w:382,h:300};
+      score+=200*Math.min(1,overlapArea(r,command)/area);
+    }
+    return score;
+  }
+  function choose(p,w,h,flight){
+    const possibilities=slots(w,h).map((slot,i)=>({i,slot,rect:snap(p,w,h,slot)}));
+    for(const v of possibilities)v.score=grade(p,v.rect,flight,v.i);
+    possibilities.sort((a,b)=>a.score-b.score);
+    return possibilities;
+  }
+  v14TagPlacement=function(p,w,h,selected,flight){
+    // All current tag draw calls provide an aircraft.  Preserve fallback for
+    // any optional older drawer that may invoke this helper without one.
+    if(!flight){
+      return snap(p,w,h,slots(w,h)[0]);
+    }
+    const time=nowMs(),key=flight.id;
+    const opts=choose(p,w,h,flight);
+    let record=cache.get(key);
+    if(!record||record.flight!==flight||record.selected!==selected||
+       record.w!==w||record.h!==h){
+      const best=opts[0];
+      record={flight,selected,w,h,index:best.i,dx:best.slot.dx,dy:best.slot.dy,
+        targetDx:best.slot.dx,targetDy:best.slot.dy,pending:-1,pendingAt:0,
+        lastSwitch:time,lastFrame:time,changes:0};
+      cache.set(key,record);
+    }else{
+      const dt=Math.max(0,Math.min(.16,(time-record.lastFrame)/1000));
+      record.lastFrame=time;
+      const current=opts.find(o=>o.i===record.index)||opts[0];
+      const best=opts[0];
+      const improvement=current.score-best.score;
+      // Reflow only after a sustained, significant conflict. A close aircraft
+      // appearing for a moment must not send labels flying around the screen.
+      const serious=improvement>185;
+      const severe=improvement>440;
+      const stayMs=severe?520:1250;
+      const cooldown=severe?1700:3000;
+      if(best.i!==record.index && serious && time-record.lastSwitch>cooldown){
+        if(record.pending!==best.i){record.pending=best.i;record.pendingAt=time}
+        else if(time-record.pendingAt>stayMs){
+          record.index=best.i;
+          record.targetDx=best.slot.dx;record.targetDy=best.slot.dy;
+          record.pending=-1;record.lastSwitch=time;record.changes++;
+        }
+      }else{record.pending=-1}
+      const alpha=1-Math.exp(-dt*7.5);
+      record.dx+=(record.targetDx-record.dx)*alpha;
+      record.dy+=(record.targetDy-record.dy)*alpha;
+      if(Math.abs(record.dx-record.targetDx)<.08)record.dx=record.targetDx;
+      if(Math.abs(record.dy-record.targetDy)<.08)record.dy=record.targetDy;
+    }
+    return snap(p,w,h,{dx:record.dx,dy:record.dy});
+  };
+  // Pick the actual radar target first when another label happens to cover it.
+  // Existing v14TagBoxes hit-testing remains available for clicking the card.
+  const labelAwarePick=pickFlight;
+  pickFlight=function(x,y){
+    let closest=null,d=14;
+    for(const f of flights){
+      const q=toScreen(f),dist=Math.hypot(q.x-x,q.y-y);
+      if(dist<d){closest=f;d=dist;}
+    }
+    return closest||labelAwarePick(x,y);
+  };
+  // Force the pointer hitboxes to continue following their eased rectangles.
+  // Extra state is for deterministic browser regression tests only.
+  window.__atcV69Tags={
+    list:()=>Array.from(cache.entries()).filter(([id,r])=>flights.includes(r.flight)).map(([id,r])=>({
+      id,call:r.flight.callsign,index:r.index,changes:r.changes,dx:r.dx,dy:r.dy,
+      x:toScreen(r.flight).x+r.dx,y:toScreen(r.flight).y+r.dy
+    })),
+    reset:()=>cache.clear()
+  };
+  const gc=()=>{if(cache.size<100)return;for(const [id,r] of cache){if(!flights.includes(r.flight))cache.delete(id)}};
+  const oldInit=initFlights;
+  initFlights=function(...args){cache.clear();return oldInit(...args)};
+  const oldSetAirport=setAirport;
+  setAirport=function(...args){cache.clear();return oldSetAirport(...args)};
+  // Do not expose a global timer for work; clean records only during UI refresh.
+  const oldHud=renderHud;
+  renderHud=function(...args){const res=oldHud(...args);gc();return res};
+  document.title='AIRSPACE — ATC V69 · Stable Aircraft Tags';
+})();
+</script>
+
 </body>
 </html>
