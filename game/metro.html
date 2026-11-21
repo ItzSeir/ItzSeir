@@ -245,17 +245,61 @@ body{background:linear-gradient(180deg,#eef3f2 0%,#e8eeee 100%)}
 #legendTitle{letter-spacing:-.015em}
 @media(max-width:800px){.population-source-panel{margin:11px 0}}
 .pop-attribution{font-size:9px;line-height:1.65;padding:8px 2px;color:#768995}.pop-attribution a{color:#17766e;text-decoration:underline;text-underline-offset:2px}
+
+/* v17 — smooth population renderer, measured grid values remain unchanged */
+.pop-source-title{flex:1;min-width:0}
+.pop-smooth-switch{flex:0 0 auto;border:1px solid #d6e4e5;background:#f6faf9;color:#607a80;min-height:28px;padding:5px 9px;border-radius:9px;font-weight:800;font-size:10px;cursor:pointer;transition:background .16s,box-shadow .16s,border-color .16s}
+.pop-smooth-switch:hover{border-color:#98c4bd;background:#f1fbf8}
+.pop-smooth-switch.active{background:#e1f5ee;color:#117769;border-color:#a4d8c9;box-shadow:inset 0 0 0 1px #eafff8}
+.population-source-panel{background:linear-gradient(165deg,#ffffff 0%,#f6fbfb 100%)}
+.map-legend.population-legend .heat-scale{background:linear-gradient(90deg,#42aab7 0%,#36a99b 15%,#82c280 32%,#d9d379 50%,#f2b968 66%,#e78156 83%,#c8475a 100%);height:11px}
+.map-legend.population-legend .heat-legend-labels{color:#5c767c}
+.map-legend.population-legend .heat-note{color:#597a82}
+
+
+/* v18 — zone-specific simulated metro usage readout; no census implication */
+.usage-panel{background:linear-gradient(155deg,#fff 0%,#f4faf8 100%);border:1px solid #d7e7e2;border-radius:16px;padding:13px 12px;margin:13px 0;box-shadow:0 9px 22px #294a4509}
+.usage-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.usage-panel-head strong{font-size:12px;letter-spacing:-.02em}
+.usage-panel-head span{font-size:10px;color:#6c8790}
+.usage-overview{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:11px 0 9px}
+.usage-overview b{font-size:25px;line-height:1;letter-spacing:-.07em;color:#147c70;font-variant-numeric:tabular-nums}
+.usage-overview small{font-size:9px;color:#798c94;text-align:right;line-height:1.6}
+.usage-meter{height:7px;border-radius:50px;background:#e7eeec;overflow:hidden}
+.usage-meter>i{height:100%;display:block;background:linear-gradient(90deg,#41aaa6,#d8ab59);border-radius:inherit;transition:width .2s}
+.usage-list{display:flex;flex-direction:column;gap:6px;margin-top:11px}
+.usage-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:9px;background:#fff;border:1px solid #e3ece9;border-radius:11px;padding:8px 9px;text-align:left;min-width:0;color:#233e45;cursor:pointer}
+.usage-row:hover{background:#f0faf7;border-color:#a1cfc4}.usage-row span{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.usage-row b{font-size:11px;font-variant-numeric:tabular-nums}
+.usage-dot{width:9px;height:9px;border-radius:50%;display:block}
+.usage-note{font-size:9px;color:#72858c;line-height:1.6;margin:9px 0 0}
+.usage-legend{margin:8px 0 0;padding:9px 0 0;border-top:1px solid #dfeae8}
+.usage-legend[hidden]{display:none!important}
+.usage-legend-head{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#536d74;gap:10px}
+.usage-legend-head b{color:#25454a}
+.usage-chips{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap}
+.usage-chips span{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:4px 6px;background:#fffdfdeb;font-weight:700;font-size:9px;color:#4e6870}
+.usage-chips i{width:8px;height:8px;border-radius:3px;display:inline-block}
+@media(max-width:800px){.usage-panel{margin-top:10px}.usage-legend{max-width:250px}.usage-chips{gap:3px}}
+
 </style>
 </head>
 <body>
 <div class="app">
  <header class="top"><div class="identity"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 20V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v15M2 20h20M4 9h11M4 15h11M15 8h5v9h-5"/><path d="M8 6h3M8 12h3"/></svg></div><div class="brand">METRO <span style="font-weight:500;color:#73908d">/ Planner</span><small>CITY RAIL SIMULATOR</small></div></div><div class="top-center"><b>城市軌道規劃</b><span class="crumb"> / </span><span class="chip">模擬運行中</span></div><div class="top-actions"><button class="btn" id="statsBtn">▥ 統計分析</button><button class="btn" id="undoBtn" title="復原 Ctrl+Z">↶</button><button class="btn" id="redoBtn" title="重做 Ctrl+Y">↷</button><button class="btn" id="resetBtn">↻ 重設空白</button><button class="btn icon" id="helpBtn" title="玩法說明">?</button></div></header>
  <div class="body"><aside class="sidebar"><div class="scroll"><div class="sidepad"><div class="sec-cap">選擇城市 · CITY</div><select id="citySelect" class="citysel" aria-label="選擇城市"></select><div class="city-caption">使用實際行政區 GeoJSON 形狀限制建站；界線載入成功前無法編輯。需求及人口為遊戲模擬，非人口普查。</div><div class="geo-status" id="geoStatus">正在取得 GeoJSON 行政邊界…</div><div class="geo-tools"><button class="btn tiny" id="geoRetry" type="button">↻ 重新載入界線</button><button class="btn tiny" id="geoExport" type="button">↓ GeoJSON</button><label class="btn tiny geo-upload">↑ 匯入邊界<input id="geoInput" type="file" accept=".json,.geojson,application/geo+json,application/json"></label></div><div id="regionHint" class="region-hint"></div><div class="summary"><div class="sum"><em>每日搭乘</em><strong id="kRides">–</strong></div><div class="sum"><em>收支比</em><strong id="kRatio">–</strong></div><div class="sum"><em>運輸分擔</em><strong id="kShare">–</strong></div><div class="sum"><em>服務品質</em><strong id="kQuality">–</strong></div></div><div class="demand-hero" id="demandHero" aria-live="polite"></div>
-<div class="population-source-panel"><div class="pop-source-head"><span class="pop-source-icon">▦</span><div><strong>人口網格 · WorldPop 2025</strong><small>模型估計常住人口 · 非乘車量</small></div></div><div class="pop-source-status" id="populationStatus">等待 GeoJSON，然後下載人口資料…</div><div class="pop-tools"><button type="button" id="populationRetry" class="btn tiny">↻ 重新載入人口</button><button type="button" id="populationExport" class="btn tiny" disabled>↓ 人口 CSV</button></div></div><div class="sec-head demand-head"><h3 id="zoneHeading">人口密度最高的網格</h3><span id="zoneCount">—</span></div>
+<section class="usage-panel" id="usagePanel" aria-label="各區模擬地鐵使用率">
+ <div class="usage-panel-head"><strong>各區地鐵使用率</strong><span>營運模擬 · 非實測</span></div>
+ <div class="usage-overview"><b id="usageCityValue">0%</b><small id="usageCityDesc">本城市模擬出行中<br>選擇地鐵的比例</small></div>
+ <div class="usage-meter"><i id="usageCityMeter" style="width:0%"></i></div>
+ <div class="usage-list" id="usageList"></div>
+ <button id="usageMoreBtn" type="button" class="show-more" style="margin-top:8px">查看所有地區</button>
+ <p class="usage-note">各區以遊戲既有需求地點為代表；地圖縮小時自動避開重疊標籤，放大可看更多。百分比＝該區模擬地鐵旅次 ÷ 該區潛在出行旅次。不是 WorldPop 人口比例，也不等於行政區實測搭乘率。</p>
+</section>
+<div class="population-source-panel"><div class="pop-source-head"><span class="pop-source-icon">◉</span><div class="pop-source-title"><strong>人口分布 · WorldPop 2025</strong><small>模型估計常住人口 · 非乘車量</small></div><button type="button" id="popSmoothBtn" class="pop-smooth-switch active" aria-pressed="true" title="平滑色彩僅改善顯示，不會變更 WorldPop 原始人口資料">平滑</button></div><div class="pop-source-status" id="populationStatus">等待 GeoJSON，然後下載人口資料…</div><div class="pop-tools"><button type="button" id="populationRetry" class="btn tiny">↻ 重新載入人口</button><button type="button" id="populationExport" class="btn tiny" disabled>↓ 人口 CSV</button></div></div><div class="sec-head demand-head"><h3 id="zoneHeading">人口密度最高的網格</h3><span id="zoneCount">—</span></div>
 <div class="zone-list" id="zoneList"></div>
 <button id="moreZonesBtn" class="show-more" type="button">查看全部需求區</button>
 <div id="boundaryAudit" class="boundary-audit" hidden></div><div class="pop-attribution">人口資料：<a href="https://api.worldpop.org/v3/documentation" target="_blank" rel="noopener noreferrer">WorldPop Global2 R2025A（CC BY 4.0）</a>，2025 年模型估計。馬來西亞行政區統計參考 <a href="https://open.dosm.gov.my/data-catalogue/population_district" target="_blank" rel="noopener noreferrer">OpenDOSM</a>。</div><div class="demand-disclaimer">熱度及需求均為遊戲模擬；郊區低強度底色是模型外插，並非實測人口。虛線是 GeoJSON 建站邊界：站點須在區內，軌道可跨海或越過界線。不同城市範圍可能是市、州、府或都會區。部分資料來源是 GADM（限非商業使用）。其餘來源依原資料授權。</div><div class="sec-head"><h3>營運路線</h3><span id="lineCount">0 條路線</span></div><div class="line-list" id="lineList"></div><div class="line-tools"><button class="btn primary" id="addLineBtn">＋ 新增路線</button><button class="btn" id="toggleDrawBtn">✎ 編輯路線</button><button class="btn" id="branchBtn" title="從主線任一車站建立可分岔的支線">⤷ 新增支線</button></div><div class="edit-card" id="editCard"><div class="empty">先選擇一條路線，再編輯名稱、車輛和班次。</div></div></div></div><div class="sidebar-foot"><button class="btn tiny" id="blankBtn">建立空白方案</button><button class="btn tiny" id="exportBtn">↓ 匯出進度</button><label class="btn tiny upload-label">↑ 匯入<input id="importInput" type="file" accept="application/json,.json"></label></div></aside>
- <main class="mapwrap"><div id="vectorBasemap" aria-hidden="true"></div><canvas id="map" aria-label="地理地圖與可編輯的地鐵路線"></canvas><div class="float-top"><div class="map-title"><small>URBAN TRANSPORT NETWORK</small><strong id="mapCity">吉隆坡</strong><span id="mapCaption">空白規劃畫布</span></div><div class="tools"><div class="toolgroup"><button id="modeSelect" class="mtbtn active">選取</button><button id="modeDraw" class="mtbtn">＋ 建站延線</button><button id="modeMove" class="mtbtn">移動車站</button><button id="modeCurve" class="mtbtn" title="選取軌道路段並拖曳控制點，調整彎道">調整彎道</button></div><div class="toolgroup"><button id="heatBtn" class="mtbtn active" title="顯示或隱藏人口／需求熱度圖">熱度圖</button><button id="populationModeBtn" class="mtbtn active" aria-pressed="true" title="切換 WorldPop 人口估計與遊戲模擬需求">人口</button><button id="gapBtn" class="mtbtn" aria-pressed="false" title="標出尚未被車站服務的高需求區">需求缺口</button><button id="trainBtn" class="mtbtn active" title="顯示或隱藏列車車廂">列車</button><button id="platformBtn" class="mtbtn active" title="顯示或隱藏站臺示意（放大地圖後可見）">站臺</button><button id="poiBtn" class="mtbtn active" title="顯示或隱藏人流樞紐標註">樞紐點</button></div><div class="toolgroup view-mode-group" role="group" aria-label="地圖視角"><button id="view2DBtn" class="mtbtn active" aria-pressed="true" title="回到平面地圖">2D</button><button id="view3DBtn" class="mtbtn" aria-pressed="false" title="快捷切換立體地圖；亦可在地圖上右鍵拖曳">3D</button><button id="rotate3DBtn" class="mtbtn" title="在 3D 模式旋轉地圖" disabled>↻</button></div></div></div><div class="curve-editor" id="curveEditor" hidden><div><b>軌道彎度編輯</b><small id="curveInfo">選取路段，拖曳藍色控制點</small></div><button id="curveReset" class="btn tiny" type="button">還原直線</button><button id="curveDone" class="btn tiny primary" type="button">完成</button></div><div class="mapzooms"><button class="btn" id="zoomIn" aria-label="放大地圖">+</button><button class="btn" id="zoomOut" aria-label="縮小地圖">−</button><button class="btn" id="recenter" aria-label="重置地圖中心">⌖</button></div><div class="map-legend"><div class="heat-legend-head"><b id="legendTitle">常住人口密度</b><small id="legendSubtitle">WorldPop · 人／km²</small></div><div class="heat-scale"></div><div class="heat-legend-labels"><span>低</span><span>中</span><span>高</span><span>極高</span></div><div class="heat-note" id="layerNote">2025 人口估算 · 網格著色，並非由市中心向外擴散</div><div class="station-legend"><span class="key"><i></i>車站</span><span class="key"><i class="trans"></i>轉乘</span><span class="key"><i class="platform-key"></i>站臺</span><span>· <b>虛線為建站範圍（軌道可跨海）</b> · 右鍵／Shift＋拖曳調整 3D 視角</span></div></div>
+ <main class="mapwrap"><div id="vectorBasemap" aria-hidden="true"></div><canvas id="map" aria-label="地理地圖與可編輯的地鐵路線"></canvas><div class="float-top"><div class="map-title"><small>URBAN TRANSPORT NETWORK</small><strong id="mapCity">吉隆坡</strong><span id="mapCaption">空白規劃畫布</span></div><div class="tools"><div class="toolgroup"><button id="modeSelect" class="mtbtn active">選取</button><button id="modeDraw" class="mtbtn">＋ 建站延線</button><button id="modeMove" class="mtbtn">移動車站</button><button id="modeCurve" class="mtbtn" title="選取軌道路段並拖曳控制點，調整彎道">調整彎道</button></div><div class="toolgroup"><button id="heatBtn" class="mtbtn active" title="顯示或隱藏人口／需求熱度圖">熱度圖</button><button id="populationModeBtn" class="mtbtn active" aria-pressed="true" title="切換 WorldPop 人口估計與遊戲模擬需求">人口</button><button id="gapBtn" class="mtbtn" aria-pressed="false" title="標出尚未被車站服務的高需求區">需求缺口</button><button id="usageBtn" class="mtbtn active" aria-pressed="true" title="在地圖顯示各區的模擬地鐵使用率">使用率</button><button id="trainBtn" class="mtbtn active" title="顯示或隱藏列車車廂">列車</button><button id="platformBtn" class="mtbtn active" title="顯示或隱藏站臺示意（放大地圖後可見）">站臺</button><button id="poiBtn" class="mtbtn active" title="顯示或隱藏人流樞紐標註">樞紐點</button></div><div class="toolgroup view-mode-group" role="group" aria-label="地圖視角"><button id="view2DBtn" class="mtbtn active" aria-pressed="true" title="回到平面地圖">2D</button><button id="view3DBtn" class="mtbtn" aria-pressed="false" title="快捷切換立體地圖；亦可在地圖上右鍵拖曳">3D</button><button id="rotate3DBtn" class="mtbtn" title="在 3D 模式旋轉地圖" disabled>↻</button></div></div></div><div class="curve-editor" id="curveEditor" hidden><div><b>軌道彎度編輯</b><small id="curveInfo">選取路段，拖曳藍色控制點</small></div><button id="curveReset" class="btn tiny" type="button">還原直線</button><button id="curveDone" class="btn tiny primary" type="button">完成</button></div><div class="mapzooms"><button class="btn" id="zoomIn" aria-label="放大地圖">+</button><button class="btn" id="zoomOut" aria-label="縮小地圖">−</button><button class="btn" id="recenter" aria-label="重置地圖中心">⌖</button></div><div class="map-legend"><div class="heat-legend-head"><b id="legendTitle">常住人口密度</b><small id="legendSubtitle">WorldPop · 人／km²</small></div><div class="heat-scale"></div><div class="heat-legend-labels"><span>低</span><span>中</span><span>高</span><span>極高</span></div><div class="heat-note" id="layerNote">WorldPop 2025 · 平滑顯示，不改變原始人口數值</div><div id="usageLegend" class="usage-legend"><div class="usage-legend-head"><b>地區地鐵使用率</b><small>模擬乘車比例 · %</small></div><div class="usage-chips"><span><i style="background:#98a8aa"></i>0%</span><span><i style="background:#3a9da0"></i>1–9%</span><span><i style="background:#5aaa78"></i>10–24%</span><span><i style="background:#d8a148"></i>25–49%</span><span><i style="background:#d7644e"></i>50%+</span></div></div><div class="station-legend"><span class="key"><i></i>車站</span><span class="key"><i class="trans"></i>轉乘</span><span class="key"><i class="platform-key"></i>站臺</span><span>· <b>虛線為建站範圍（軌道可跨海）</b> · 右鍵／Shift＋拖曳調整 3D 視角</span></div></div>
 <div class="hotspot-banner" id="hotspotBanner"><span class="hotspot-spark">●</span><span><small id="hotspotSubtitle">人口密度最高網格</small><strong id="hotspotName">—</strong></span><button id="hotspotGo" type="button">定位</button></div>
 <div class="boundary-loading" id="boundaryLoading">正在載入行政邊界 GeoJSON…<br>界線確認後才可建站</div><div class="demand-tooltip" id="demandTooltip" role="status" hidden></div><div class="map-footer"><div class="timeline"><div class="timeline-head"><div><div class="clock" id="clock">07:30</div><label id="dayLabel">模擬星期一 · 早高峰</label></div><div class="timeBtns"><button id="pauseBtn">Ⅱ</button><button data-speed="1" class="active">1×</button><button data-speed="5">5×</button><button data-speed="25">25×</button></div></div><div class="daybar" id="daybar" style="--progress:31%"></div></div><div class="hinttoast" id="hint">車站依附近醫院、景點、機場、公共設施、道路或地名命名；不使用店鋪名稱</div></div><div class="basemap-notice" id="basemapNotice" hidden><span id="basemapMessage">正在連接城市底圖…</span><button type="button" id="basemapRetry" title="重試載入地圖">重試</button></div><div class="map-credit" id="mapCredit">© <a href="https://www.mapbox.com/" target="_blank" rel="noopener noreferrer">Mapbox</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors · <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon/OSM 地名</a> · <a href="https://gadm.org/license.html" target="_blank" rel="noopener noreferrer">GeoJSON data terms</a></div><div class="inspector hidden" id="inspector"></div><div id="toast"></div></main></div>
 </div>
@@ -437,28 +481,131 @@ function populationCellAt(lat,lng,code=city){
  for(const c of ds.cells)if(lat>=c.s&&lat<c.n&&lng>=c.w&&lng<c.e)return c;
  return null;
 }
+// A continuous palette in ABSOLUTE people/km²; identical colors in every city.
+// The visual mesh interpolates adjacent measured cells; exported, listed and hovered values NEVER change.
+const POP_COLOR_STOPS=[
+ [0,64,170,186,.075],[250,52,170,163,.16],[1000,75,178,137,.23],
+ [3500,176,204,109,.32],[7500,245,200,101,.44],[15000,244,150,87,.54],
+ [25000,227,91,81,.63],[40000,187,47,78,.69]
+];
+const POP_COLOR_LOGS=POP_COLOR_STOPS.map(s=>Math.log1p(s[0]));
+let populationSmooth=true;
+const POP_TEXTURE_RES=28;
+const populationTextureCache={key:'',items:null};
+function populationColorArray(logDensity){
+ const s=POP_COLOR_STOPS,logs=POP_COLOR_LOGS;
+ let i=0;while(i<logs.length-2&&logDensity>logs[i+1])i++;
+ const a=s[i],b=s[i+1],t=clamp((logDensity-logs[i])/Math.max(1e-7,logs[i+1]-logs[i]),0,1);
+ return [
+  Math.round(a[1]+(b[1]-a[1])*t),Math.round(a[2]+(b[2]-a[2])*t),
+  Math.round(a[3]+(b[3]-a[3])*t),Math.round((a[4]+(b[4]-a[4])*t)*255)
+ ];
+}
 function populationColor(density){
- // Absolute people/km² thresholds, consistent across cities.
- const bins=[[0,66,178,188,0],[200,68,186,181,.20],[1000,60,180,116,.28],[3500,194,208,80,.37],[7500,245,189,75,.48],[15000,244,113,60,.58],[25000,216,60,54,.66],[40000,165,34,56,.72]];
- let i=0;while(i<bins.length-1&&density>=bins[i+1][0])i++;
- const b=bins[i];return `rgba(${b[1]},${b[2]},${b[3]},${b[4]})`;
+ const rgba=populationColorArray(Math.log1p(Math.max(0,density||0)));
+ return `rgba(${rgba[0]},${rgba[1]},${rgba[2]},${(rgba[3]/255).toFixed(3)})`;
+}
+function buildPopulationTextures(ds){
+ // Density is sampled at source-cell CENTERS; the exact source estimate is preserved there.
+ // Neighboring WorldPop cells are only used to interpolate DISPLAY colors across seams.
+ const b=PLAY_BOUNDS[city],nx=ds.nx,ny=ds.ny;
+ if(!nx||!ny||nx>300||ny>300)return null;
+ const latStep=(b.north-b.south)/ny,lonStep=(b.east-b.west)/nx;
+ const values=new Float64Array(nx*ny);values.fill(NaN);
+ const coords=[];
+ for(const cell of ds.cells){
+  const x=Math.round((cell.lng-b.west)/lonStep-.5);
+  const y=Math.round((cell.lat-b.south)/latStep-.5);
+  if(x<0||y<0||x>=nx||y>=ny)continue;
+  values[y*nx+x]=Math.log1p(Math.max(0,cell.density));
+  coords.push({cell,x,y});
+ }
+ const get=(x,y,fallback)=>x>=0&&y>=0&&x<nx&&y<ny&&Number.isFinite(values[y*nx+x])?values[y*nx+x]:fallback;
+ const items=[];const N=POP_TEXTURE_RES;
+ for(const {cell,x,y} of coords){
+  const baseline=values[y*nx+x];
+  const image=document.createElement('canvas');image.width=N;image.height=N;
+  const g=image.getContext('2d');if(!g)continue;
+  const pixels=g.createImageData(N,N),d=pixels.data;
+  for(let j=0;j<N;j++){
+   // row 0 = north; the source grid has increasing y = south-to-north
+   const fy=(N-j-.5)/N;
+   const gy=fy-.5,sy=gy>=0?y:y-1,wy=gy>=0?gy:gy+1;
+   for(let i=0;i<N;i++){
+    const fx=(i+.5)/N,gx=fx-.5,sx=gx>=0?x:x-1,wx=gx>=0?gx:gx+1;
+    const a=get(sx,sy,baseline),bb=get(sx+1,sy,baseline);
+    const cc=get(sx,sy+1,baseline),dd=get(sx+1,sy+1,baseline);
+    const mix=(a*(1-wx)+bb*wx)*(1-wy)+(cc*(1-wx)+dd*wx)*wy;
+    const color=populationColorArray(mix),p=(j*N+i)*4;
+    d[p]=color[0];d[p+1]=color[1];d[p+2]=color[2];d[p+3]=color[3];
+   }
+  }
+  g.putImageData(pixels,0,0);
+  items.push({cell,texture:image});
+ }
+ return items;
+}
+// Maps a 28x28 color patch onto the actual projected map quad.
+// Affine in flat mode; two triangles in 3D so pitch and rotation stay anchored to coordinates.
+function paintPopulationTriangle(ctx,texture,sp,dp){
+ const [u0,u1,u2]=sp,[p0,p1,p2]=dp;
+ const ux=u1[0]-u0[0],uy=u1[1]-u0[1],vx=u2[0]-u0[0],vy=u2[1]-u0[1];
+ const determinant=ux*vy-uy*vx;
+ if(Math.abs(determinant)<1e-8)return;
+ const px=p1.x-p0.x,py=p1.y-p0.y,qx=p2.x-p0.x,qy=p2.y-p0.y;
+ const a=(px*vy-qx*uy)/determinant,b=(py*vy-qy*uy)/determinant;
+ const c=(qx*ux-px*vx)/determinant,d=(qy*ux-py*vx)/determinant;
+ const e=p0.x-a*u0[0]-c*u0[1],f=p0.y-b*u0[0]-d*u0[1];
+ ctx.save();ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.lineTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.closePath();ctx.clip();
+ ctx.transform(a,b,c,d,e,f);ctx.drawImage(texture,0,0);ctx.restore();
 }
 function drawPopulationSurface(ctx,W,H){
- const ds=POP_DATA[city];if(!ds||!ds.cells?.length)return;
- const key=[city,ds.key,W,H,map.center.join(','),map.zoom.toFixed(5),view3D,mapBearing.toFixed(2),mapPitch.toFixed(2)].join('|');
+ const ds=POP_DATA[city];if(!ds?.cells?.length)return;
+ const key=[city,ds.key,ds.refreshedAt,W,H,map.center.join(','),map.zoom.toFixed(5),view3D,mapBearing.toFixed(2),mapPitch.toFixed(2),populationSmooth].join('|');
  if(populationLayerCache.key!==key||!populationLayerCache.layer){
   const off=document.createElement('canvas');off.width=Math.max(1,Math.round(W));off.height=Math.max(1,Math.round(H));
   const c=off.getContext('2d');if(!c)return;
-  for(const cell of ds.cells){
-   const points=[[cell.s,cell.w],[cell.s,cell.e],[cell.n,cell.e],[cell.n,cell.w]].map(p=>xy(...p));
-   if(points.every(p=>p.x < -80)||points.every(p=>p.x>W+80)||points.every(p=>p.y < -80)||points.every(p=>p.y>H+80))continue;
-   c.beginPath();points.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.closePath();
-   c.fillStyle=populationColor(cell.density);c.fill();
-   if(map.zoom>=13.2){c.strokeStyle='rgba(255,255,255,.16)';c.lineWidth=.65;c.stroke()}
+  c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';
+  if(populationSmooth){
+   const sourceKey=[city,ds.key,ds.refreshedAt,ds.nx,ds.ny].join('|');
+   if(populationTextureCache.key!==sourceKey||!populationTextureCache.items){
+    populationTextureCache.items=buildPopulationTextures(ds);
+    populationTextureCache.key=sourceKey;
+   }
+   if(populationTextureCache.items){
+    for(const {cell,texture} of populationTextureCache.items){
+     const nw=xy(cell.n,cell.w),ne=xy(cell.n,cell.e),se=xy(cell.s,cell.e),sw=xy(cell.s,cell.w);
+     if(Math.max(nw.x,ne.x,se.x,sw.x)<-50||Math.min(nw.x,ne.x,se.x,sw.x)>W+50||Math.max(nw.y,ne.y,se.y,sw.y)<-50||Math.min(nw.y,ne.y,se.y,sw.y)>H+50)continue;
+     const N=POP_TEXTURE_RES;
+     // Flat world-Mercator cells are nearly affine; in pitched 3D split into two warped triangles.
+     if(!isPerspectiveReady()){
+      const a=(ne.x-nw.x)/N,b=(ne.y-nw.y)/N,d=(sw.y-nw.y)/N,cx=(sw.x-nw.x)/N;
+      c.save();c.transform(a,b,cx,d,nw.x,nw.y);c.drawImage(texture,0,0);c.restore();
+     }else{
+      paintPopulationTriangle(c,texture,[[0,0],[N,0],[N,N]],[nw,ne,se]);
+      paintPopulationTriangle(c,texture,[[0,0],[N,N],[0,N]],[nw,se,sw]);
+     }
+    }
+   }
+  }else{
+   // Exact source-cell view, if the player wants to inspect cell-level differences.
+   for(const cell of ds.cells){
+    const points=[[cell.s,cell.w],[cell.s,cell.e],[cell.n,cell.e],[cell.n,cell.w]].map(p=>xy(...p));
+    if(points.every(p=>p.x<-80)||points.every(p=>p.x>W+80)||points.every(p=>p.y<-80)||points.every(p=>p.y>H+80))continue;
+    c.beginPath();points.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.closePath();
+    c.fillStyle=populationColor(cell.density);c.fill();
+   }
   }
   populationLayerCache.layer=off;populationLayerCache.key=key;
  }
  ctx.drawImage(populationLayerCache.layer,0,0,W,H);
+}
+function refreshPopulationAppearance(){
+ const btn=$('popSmoothBtn');btn.classList.toggle('active',populationSmooth);
+ btn.setAttribute('aria-pressed',String(populationSmooth));btn.textContent=populationSmooth?'平滑':'原始';
+ btn.title=populationSmooth?'目前：平滑色階。點擊對照原始人口格網':'目前：原始格網。點擊恢復平滑色階';
+ $('layerNote').textContent=populationSmooth?'WorldPop 2025 · 網格間僅作視覺平滑，統計值維持原始數據':'WorldPop 2025 · 原始網格色彩；每格的人口估計值不變';
+ const legend=document.querySelector('.map-legend');legend?.classList.toggle('population-legend',heatMode==='population');
 }
 function populationLabel(c){
  let best=null,d=Infinity;for(const z of CITIES[city].zones){const h=hKm([c.lat,c.lng],[z[1],z[2]]);if(h<d){d=h;best=z}}
@@ -471,7 +618,7 @@ function focusPopulationCell(cell){
 function renderPopulationPanel(){
  const heading=$('zoneHeading');if(heading)heading.textContent='地區人口（半徑 2km）';
  $('legendTitle').textContent='常住人口密度';$('legendSubtitle').textContent='WorldPop 2025 · 人／km²';
- $('layerNote').textContent='網格使用 WorldPop 2025 模型估算人口，不是實際乘車需求';
+ refreshPopulationAppearance();
  $('hotspotSubtitle').textContent='人口密度最高網格';
  const ds=POP_DATA[city];
  if(!ds?.cells?.length){
@@ -493,6 +640,7 @@ function refreshHeatModeUI(){
  const el=$('populationModeBtn');if(!el)return;
  el.textContent=heatMode==='population'?'人口':'需求';el.classList.toggle('active',heatMode==='population');el.setAttribute('aria-pressed',String(heatMode==='population'));
  if(heatMode==='demand'){
+  document.querySelector('.map-legend')?.classList.remove('population-legend');
   $('zoneHeading').textContent='需求最高的區域';$('legendTitle').textContent='潛在搭乘需求';$('legendSubtitle').textContent='模擬指數 0–100';
   $('layerNote').textContent='需求層為遊戲模擬，不是官方人口統計';$('hotspotSubtitle').textContent='模擬最高需求熱區';
  }
@@ -1107,7 +1255,8 @@ function renderDemandPanel(){
  $('moreZonesBtn').textContent=zoneExpanded?'收起其他區域':'查看全部 '+n+' 個需求區';
 }
 
-let city='kl',plan=null,selectedLine=null,selectedStation=null,branchPickParentId=null,selectedCurve=null,mode='select',heat=true,showGaps=false,trainsVisible=true,platformsVisible=true,poiVisible=true,view3D=false,mapBearing=-22,mapPitch=0,clock=450,speed=1,paused=false,history=[],future=[],metrics={},lastFrame=0,trainTick=0,gameDay=1,toastHandle=0;
+let usageExpanded=false;
+let city='kl',plan=null,selectedLine=null,selectedStation=null,branchPickParentId=null,selectedCurve=null,mode='select',heat=true,showGaps=false,usageVisible=true,trainsVisible=true,platformsVisible=true,poiVisible=true,view3D=false,mapBearing=-22,mapPitch=0,clock=450,speed=1,paused=false,history=[],future=[],metrics={},lastFrame=0,trainTick=0,gameDay=1,toastHandle=0;
 const storeKey=c=>'transit_studio_metro_v3_'+c;
 function emptyPlan(){return {stops:[],lines:[],trackCurves:{},source:'blank'}}
 function demo(c){return emptyPlan()}
@@ -1159,10 +1308,10 @@ function stationSpacingInfo(s){const rows=[];const seen=new Set();for(const l of
 
 function persist(){try{localStorage.setItem(storeKey(city),JSON.stringify(plan))}catch(e){} }
 function snapshot(){history.push(JSON.stringify(plan));if(history.length>40)history.shift();future=[]}
-function commit(){trackShapeCache.clear();trainTimetableCache.clear();syncBranchRoutes();if(plan.trackCurves){const valid=new Set();for(const l of plan.lines)for(let i=1;i<l.stops.length;i++)valid.add(trackKey(l.stops[i-1],l.stops[i]));for(const key of Object.keys(plan.trackCurves))if(!valid.has(key))delete plan.trackCurves[key]}plan.stops=plan.stops.filter(s=>plan.lines.some(l=>l.stops.includes(s.id)));persist();metrics=simulate();renderSidebar();renderDemandPanel();renderBoundaryAudit();renderInspector();renderStationService();updateMap();}
+function commit(){trackShapeCache.clear();trainTimetableCache.clear();syncBranchRoutes();if(plan.trackCurves){const valid=new Set();for(const l of plan.lines)for(let i=1;i<l.stops.length;i++)valid.add(trackKey(l.stops[i-1],l.stops[i]));for(const key of Object.keys(plan.trackCurves))if(!valid.has(key))delete plan.trackCurves[key]}plan.stops=plan.stops.filter(s=>plan.lines.some(l=>l.stops.includes(s.id)));persist();metrics=simulate();renderSidebar();renderUsagePanel();renderDemandPanel();renderBoundaryAudit();renderInspector();renderStationService();updateMap();}
 function undo(){if(!history.length)return;future.push(JSON.stringify(plan));plan=JSON.parse(history.pop());selectedLine=plan.lines.find(l=>l.id===selectedLine)?.id||plan.lines[0]?.id||null;selectedStation=null;commit();toast('已復原操作')}
 function redo(){if(!future.length)return;history.push(JSON.stringify(plan));plan=JSON.parse(future.pop());selectedLine=plan.lines.find(l=>l.id===selectedLine)?.id||plan.lines[0]?.id||null;selectedStation=null;commit();toast('已重做操作')}
-function showCity(c){if(!CITIES[c])return;STATION_CHOICES.clear();city=c;plan=getSaved(c);syncBranchRoutes();branchPickParentId=null;refreshLegacyCommercialNames();history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;mode='select';clock=450;gameDay=1;map.center=CITIES[c].center.slice();map.zoom=CITIES[c].zoom;constrainView();map.tiles.clear();setMode('select');metrics=simulate();heatCache.key='';boundaryCache.key='';populationLayerCache.key='';focusedZone=null;zoneExpanded=false;renderAll();document.querySelector('.sidebar .scroll').scrollTop=0;if(GEO_READY[c]){fitPlayBoundary();updateMap();geoStatus('✓ '+GEO_READY[c],'ready');loadPopulation(c)}else{geoStatus('正在載入 '+CITIES[c].short+' 的 GeoJSON…','loading');loadGeo(c)}toast('已切換至 '+CITIES[c].short)}
+function showCity(c){if(!CITIES[c])return;STATION_CHOICES.clear();usageExpanded=false;city=c;plan=getSaved(c);syncBranchRoutes();branchPickParentId=null;refreshLegacyCommercialNames();history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;mode='select';clock=450;gameDay=1;map.center=CITIES[c].center.slice();map.zoom=CITIES[c].zoom;constrainView();map.tiles.clear();setMode('select');metrics=simulate();heatCache.key='';boundaryCache.key='';populationLayerCache.key='';focusedZone=null;zoneExpanded=false;renderAll();document.querySelector('.sidebar .scroll').scrollTop=0;if(GEO_READY[c]){fitPlayBoundary();updateMap();geoStatus('✓ '+GEO_READY[c],'ready');loadPopulation(c)}else{geoStatus('正在載入 '+CITIES[c].short+' 的 GeoJSON…','loading');loadGeo(c)}toast('已切換至 '+CITIES[c].short)}
 function getStop(id){return plan.stops.find(s=>s.id===id)}function getLine(id){return plan.lines.find(l=>l.id===id)}
 // A quadratic control is stored once per undirected pair of station IDs, so branch
 // services using the same rails automatically share exactly the same geometry.
@@ -1258,11 +1407,78 @@ function lineHeadway(l){if(l.stops.length<2||l.peak<1)return Infinity;const roun
 function nearestStation(z){let dist=Infinity,idx=-1;plan.stops.forEach((s,i)=>{const d=hKm([z[1],z[2]],[s.lat,s.lng]);if(d<dist){dist=d;idx=i}});return {dist,idx}}
 function simulate(){const m={rides:0,ratio:0,share:0,quality:0,expense:0,revenue:0,lineRides:{},stationRides:{},crowding:0,coverage:0,km:0,stations:plan.stops.length};const graph=new Map();const add=(a,b,time,line)=>{if(!graph.has(a))graph.set(a,[]);graph.get(a).push({to:b,time,line})};const lineRide={};const peakCapacity={};for(const l of plan.lines){lineRide[l.id]=0;m.lineRides[l.id]=0;m.km+=lineLength(l);if(l.stops.length<2)continue;const t=TYPE[l.type];const hw=lineHeadway(l);peakCapacity[l.id]=(60/hw)*l.cars*t.capacity*12*.52;for(let i=0;i<l.stops.length;i++){const node=l.stops[i]+'@'+l.id;add(node,node,0,null);if(i){const a=getStop(l.stops[i-1]),b=getStop(l.stops[i]);if(!a||!b)continue;const dur=trackLengthKm(a,b)/t.speed*60+0.55;add(a.id+'@'+l.id,b.id+'@'+l.id,dur,l.id);add(b.id+'@'+l.id,a.id+'@'+l.id,dur,l.id)}}}
 const stationLines=new Map();for(const l of plan.lines)for(const id of l.stops){if(!stationLines.has(id))stationLines.set(id,[]);stationLines.get(id).push(l)}for(const [id,ls] of stationLines)for(const a of ls)for(const b of ls)if(a.id!==b.id)add(id+'@'+a.id,id+'@'+b.id,3.3+lineHeadway(b)*.45,null);
-const zones=GEO_READY[city]?CITIES[city].zones.filter(z=>inPlayableArea(z[1],z[2])):[],nearest=zones.map(nearestStation),potential=zones.reduce((s,z)=>s+z[3]*1000*.26,0);let covered=0,weightedWait=0,totalTransfer=0;
+const zones=GEO_READY[city]?CITIES[city].zones.filter(z=>inPlayableArea(z[1],z[2])):[];
+m.zoneStats=zones.map((z,i)=>({id:city+'_'+i,name:z[0],lat:z[1],lng:z[2],potential:z[3]*1000*.26,rides:0,rate:0}));
+const nearest=zones.map(nearestStation),potential=zones.reduce((s,z)=>s+z[3]*1000*.26,0);let covered=0,weightedWait=0,totalTransfer=0;
 for(let i=0;i<zones.length;i++){const origin=nearest[i];if(origin.idx<0||origin.dist>2.35)continue;covered+=zones[i][3]*1000*Math.exp(-origin.dist*.38);const sid=plan.stops[origin.idx].id;const distMap=new Map(),prev=new Map(),done=new Set();const nodes=Array.from(graph.keys());for(const l of stationLines.get(sid)||[]){if(l.stops.length<2)continue;const key=sid+'@'+l.id;distMap.set(key,lineHeadway(l)*.52);prev.set(key,null)}for(let step=0;step<nodes.length;step++){let best=null,bestD=Infinity;for(const v of nodes)if(!done.has(v)&&distMap.has(v)&&distMap.get(v)<bestD){best=v;bestD=distMap.get(v)}if(!best)break;done.add(best);for(const e of graph.get(best)||[]){const cand=bestD+e.time;if(cand<(distMap.get(e.to)??Infinity)){distMap.set(e.to,cand);prev.set(e.to,{from:best,line:e.line})}}}
 let targets=[];for(let j=0;j<zones.length;j++)if(j!==i){const dest=nearest[j];if(dest.idx<0||dest.dist>2.35)continue;const dist=hKm([zones[i][1],zones[i][2]],[zones[j][1],zones[j][2]]);if(dist<1.5||dist>45)continue;let bestD=Infinity,best=null;const destid=plan.stops[dest.idx].id;for(const l of stationLines.get(destid)||[]){const key=destid+'@'+l.id;if((distMap.get(key)??Infinity)<bestD){bestD=distMap.get(key);best=key}}if(!isFinite(bestD))continue;const transit=bestD+(origin.dist+dest.dist)/4.5*60+2.2,drive=5.5+dist/27*60;const desirability=clamp(1/(1+Math.exp((transit-drive*1.21)/7.5)),0,.98);const access=Math.exp(-(origin.dist+dest.dist)*.2);const trips=zones[j][3]*Math.exp(-dist/23)*(.66+.34*Math.min(1,dist/10));targets.push({j,trips,desirability,access,best,wait:bestD,transit,drive})}
-const sum=targets.reduce((s,x)=>s+x.trips,0)||1;for(const t of targets){let rides=zones[i][3]*1000*.26*t.trips/sum*(.10+.66*t.desirability)*t.access;m.rides+=rides;weightedWait+=rides*Math.max(0,t.transit-t.drive);m.stationRides[sid]=(m.stationRides[sid]||0)+rides*.52;const did=plan.stops[nearest[t.j].idx].id;m.stationRides[did]=(m.stationRides[did]||0)+rides*.48;let key=t.best,lastLine=null,transfer=0,tries=0,seenLines=new Set();while(prev.has(key)&&prev.get(key)&&tries++<250){const edge=prev.get(key);if(edge.line)seenLines.add(edge.line);key=edge.from}for(const id of seenLines)m.lineRides[id]+=rides;if(seenLines.size>1)transfer+=(seenLines.size-1);totalTransfer+=rides*transfer;}}
+const sum=targets.reduce((s,x)=>s+x.trips,0)||1;for(const t of targets){let rides=zones[i][3]*1000*.26*t.trips/sum*(.10+.66*t.desirability)*t.access;m.rides+=rides;m.zoneStats[i].rides+=rides;weightedWait+=rides*Math.max(0,t.transit-t.drive);m.stationRides[sid]=(m.stationRides[sid]||0)+rides*.52;const did=plan.stops[nearest[t.j].idx].id;m.stationRides[did]=(m.stationRides[did]||0)+rides*.48;let key=t.best,lastLine=null,transfer=0,tries=0,seenLines=new Set();while(prev.has(key)&&prev.get(key)&&tries++<250){const edge=prev.get(key);if(edge.line)seenLines.add(edge.line);key=edge.from}for(const id of seenLines)m.lineRides[id]+=rides;if(seenLines.size>1)transfer+=(seenLines.size-1);totalTransfer+=rides*transfer;}}
+for(const z of m.zoneStats)z.rate=z.potential?clamp(z.rides/z.potential*100,0,100):0;
 let crowdScore=0,crowdW=0;for(const l of plan.lines){const ratio=(m.lineRides[l.id]||0)/(peakCapacity[l.id]||1);const clamped=clamp(ratio,0,3);crowdScore+=(m.lineRides[l.id]||0)*clamped;crowdW+=(m.lineRides[l.id]||0);const km=lineLength(l);m.expense+=(l.stops.length*680)+(km*560)+(l.peak*TYPE[l.type].ops*(.25+.75*(l.offPeakPct??55)/100))}m.crowding=crowdW?crowdScore/crowdW:0;m.rides=Math.round(m.rides);m.revenue=m.rides*CITIES[city].fare;m.ratio=m.expense>0?m.revenue/m.expense*100:0;m.share=potential?m.rides/potential*100:0;m.coverage=CITIES[city].pop?covered/CITIES[city].pop*100:0;m.quality=plan.lines.some(l=>l.stops.length>1)?clamp(Math.round(94-Math.max(0,m.crowding-.55)*23-(totalTransfer/Math.max(1,m.rides))*3.8-(weightedWait/Math.max(1,m.rides))*.36),14,98):0;return m}
+
+
+// v18: regional MODE SHARE is derived from OD simulation; never treat it as measured population.
+function usageColor(pct){return pct<.5?'#98a8aa':pct<10?'#3a9da0':pct<25?'#5aaa78':pct<50?'#d8a148':'#d7644e'}
+function focusUsageRegion(z){
+ if(!z)return;map.center=[z.lat,z.lng];map.zoom=Math.max(map.zoom,13.4);
+ constrainView();updateMap();toast(z.name+' · 地鐵使用率 '+num(z.rate,1)+'%（模擬）');
+}
+function renderUsagePanel(){
+ const el=$('usageList');if(!el)return;
+ const rows=(metrics.zoneStats||[]).slice().sort((a,b)=>b.rate-a.rate||b.potential-a.potential);
+ $('usageCityValue').textContent=num(metrics.share||0,1)+'%';
+ $('usageCityMeter').style.width=clamp(metrics.share||0,0,100)+'%';
+ $('usageCityDesc').innerHTML=rows.length+' 個遊戲需求區<br>模擬日搭乘 '+num(metrics.rides||0)+' 人次';
+ el.innerHTML=(usageExpanded?rows:rows.slice(0,5)).map(z=>`<button class="usage-row" type="button" data-usage-id="${z.id}" title="定位 ${escapeHTML(z.name)}，模擬搭乘 ${num(z.rides)} / ${num(z.potential)} 旅次"><i class="usage-dot" style="background:${usageColor(z.rate)}"></i><span>${escapeHTML(z.name)}</span><b style="color:${usageColor(z.rate)}">${num(z.rate,1)}%</b></button>`).join('') || '<div class="empty">行政 GeoJSON 載入後顯示各區模擬使用率。</div>';
+ el.querySelectorAll('[data-usage-id]').forEach(b=>b.onclick=()=>focusUsageRegion(rows.find(z=>z.id===b.dataset.usageId)));
+ $('usageMoreBtn').textContent=usageExpanded?'收起其他地區':'查看全部 '+rows.length+' 個地區';$('usageMoreBtn').disabled=!rows.length;
+ $('usageLegend').hidden=!usageVisible;
+ $('usageBtn').classList.toggle('active',usageVisible);
+ $('usageBtn').setAttribute('aria-pressed',String(usageVisible));
+}
+function drawUsageMarkers(ctx,W,H){
+ if(!usageVisible||!GEO_READY[city])return;
+ const zones=metrics.zoneStats||[];if(!zones.length)return;
+ const font=getComputedStyle(document.body).fontFamily;
+ // Higher usage is drawn first; do not hide every low-use area at larger zoom levels.
+ const sorted=zones.slice().sort((a,b)=>b.rate-a.rate||b.potential-a.potential);
+ const occupied=[];
+ ctx.save();ctx.textBaseline='middle';
+ let visible=0;
+ for(const z of sorted){
+  const p=xy(z.lat,z.lng);
+  if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<15||p.y<90||p.x>W-15||p.y>H-128)continue;
+  // Avoid overlapping the main selection, legend and controls; expand naturally as user zooms.
+  ctx.font='700 10px '+font;
+  const label=z.name, rate=num(z.rate,1)+'%';
+  const nameWidth=ctx.measureText(label).width;
+  const text=label+' · '+rate;
+  const w=Math.min(W-20,ctx.measureText(text).width+25),h=23;
+  if(w<20)continue;
+  const bx=clamp(p.x-w/2,5,Math.max(5,W-w-5)), by=clamp(p.y-35,90,Math.max(90,H-150));
+  const r={x:bx-4,y:by-4,w:w+8,h:h+9};
+  if(occupied.some(q=>r.x<q.x+q.w&&r.x+r.w>q.x&&r.y<q.y+q.h&&r.y+r.h>q.y))continue;
+  occupied.push(r);visible++;
+  const color=usageColor(z.rate);
+  ctx.strokeStyle=color;ctx.lineWidth=1.25;
+  ctx.beginPath();ctx.moveTo(p.x,p.y-3);ctx.lineTo(clamp(p.x,bx+9,bx+w-9),by+h);ctx.stroke();
+  ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=color;ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.93)';ctx.strokeStyle='rgba(215,228,229,.96)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.roundRect(bx,by,w,h,10);ctx.fill();ctx.stroke();
+  ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(bx+2.5,by+3,3.5,h-6,2);ctx.fill();
+  ctx.fillStyle='#253e45';ctx.font='700 10px '+font;ctx.fillText(label,bx+11,by+h/2);
+  ctx.fillStyle=color;ctx.font='800 10px '+font;ctx.fillText(rate,bx+11+nameWidth+7,by+h/2);
+ }
+ // Rendering is deliberately de-cluttered at the whole-city scale; all named regions
+ // remain accessible via map zoom and the left list, even if labels overlap at this zoom.
+ ctx.restore();
+}
+function usageAtScreen(p){
+ if(!usageVisible||!GEO_READY[city])return null;
+ let best=null,d=Infinity;
+ for(const z of metrics.zoneStats||[]){const q=xy(z.lat,z.lng),dist=Math.hypot(p.x-q.x,p.y-q.y);if(dist<16&&dist<d){best=z;d=dist}}
+ return best;
+}
 
 function renderRegionHint(){
  const el=$('regionHint');
@@ -1297,7 +1513,7 @@ if(l.branchParentId){
 }
 $('deleteLine').onclick=()=>{if(!confirm('確定刪除「'+l.name+'」及其路線？共用車站仍會保留在其他路線。'))return;snapshot();for(const child of plan.lines.filter(x=>x.branchParentId===l.id)){delete child.branchParentId;delete child.branchOriginId;delete child.branchTail;}plan.lines=plan.lines.filter(x=>x.id!==l.id);selectedLine=plan.lines[0]?.id||null;plan.source='custom';commit()};}
 function renderInspector(){const el=$('inspector'),s=getStop(selectedStation);if(!s){el.classList.add('hidden');return}const lnames=plan.lines.filter(l=>l.stops.includes(s.id));el.classList.remove('hidden');el.innerHTML=`<div class="inspect-head"><strong>車站管理</strong><button id="closeInspect">✕</button></div><div class="inspect-sub">${lnames.length>1?'● 轉乘車站':'● 一般車站'} · 示意站臺 ${lnames.length*2} 座 · ${num(s.lat,4)}°, ${num(s.lng,4)}°</div><label class="fieldlabel" for="stationName" style="margin-top:0">車站名稱</label><input id="stationName" class="field" maxlength="45" value="${escapeHTML(s.name)}"><div class="auto-name-hint">來源：${escapeHTML(s.nameOrigin||'現有站名')} · 可自行修改</div>${(STATION_CHOICES.get(s.id)||[]).length?'<div class="name-choices"><small>附近其他名稱（點擊使用）</small>'+STATION_CHOICES.get(s.id).slice(0,4).map((x,i)=>`<button type="button" class="name-choice" data-name-index="${i}"><b>${escapeHTML(x.base)}</b><span>${escapeHTML(x.source)}</span></button>`).join('')+'</div>':''}<button class="btn tiny auto-name-btn" id="refreshStationName" title="優先查詢醫院、景點、機場、公共設施與道路；排除商店和餐廳">⌖ 搜尋附近公共設施／道路</button><label class="fieldlabel" for="stationLevel">站臺形式（示意）</label><select class="field" id="stationLevel"><option value="ground" ${(!s.level||s.level==='ground')?'selected':''}>地面</option><option value="elevated" ${s.level==='elevated'?'selected':''}>高架</option><option value="underground" ${s.level==='underground'?'selected':''}>地下</option></select><div class="inspect-kpis"><div><span>日估計進出站</span><b>${num(metrics.stationRides[s.id]||0)}</b></div><div><span>途經路線</span><b>${lnames.length} 條</b></div></div><div style="font-size:10px;color:#7e939d;line-height:1.7">${lnames.map(l=>`<span style="color:${l.color};font-weight:800">●</span> ${escapeHTML(l.name)}`).join('　')||'尚無路線'}</div>${stationSpacingInfo(s)}<div class="station-service" id="stationService" aria-live="off"></div><div class="inspect-actions"><button class="btn primary" id="saveStation">儲存站名</button><button class="btn warn" id="delStation">移除車站</button></div><p class="edit-note">選擇「移動車站」後直接拖曳地圖上的站點。</p>`;$('closeInspect').onclick=()=>{selectedStation=null;renderInspector();updateMap()};$('stationLevel').onchange=e=>{snapshot();s.level=e.target.value;plan.source='custom';commit();toast('站臺形式已更新（示意）')};$('saveStation').onclick=()=>{let v=$('stationName').value.trim();if(!v)return toast('車站名稱不能為空');snapshot();s.name=v;s.autoName=false;s.autoRank=100;s.nameOrigin='自行命名';plan.source='custom';commit();toast('已更新站名')};$('refreshStationName').onclick=()=>{snapshot();s.autoName=true;s.autoRank=-1;updateAutoName(s.id,true);toast('正在搜尋醫院、景點、機場、道路與附近地名…');reverseStationName(s.id,true).then(list=>toast(list.length?'附近地名查詢完成，可點選候選站名':'尚無更精細地名，請自行命名'))};el.querySelectorAll('[data-name-index]').forEach(b=>b.onclick=()=>{const chosen=(STATION_CHOICES.get(s.id)||[])[Number(b.dataset.nameIndex)];if(!chosen)return;snapshot();s.name=namedStation(chosen.base,s.id);s.autoName=false;s.autoRank=120;s.nameOrigin='自行選擇 · '+chosen.source;plan.source='custom';commit();toast('已採用附近地名')});$('stationName').onkeydown=e=>{if(e.key==='Enter')$('saveStation').click()};$('delStation').onclick=()=>{if(!confirm('確定刪除「'+s.name+'」？所有經過此站的路線都會移除這個停靠站。'))return;snapshot();for(const l of plan.lines){l.stops=l.stops.filter(id=>id!==s.id);if(l.branchTail)l.branchTail=l.branchTail.filter(id=>id!==s.id)}selectedStation=null;plan.source='custom';commit();toast('已移除車站')};}
-function renderAll(){renderBoundaryAudit();$('heatBtn').classList.toggle('active',heat);$('trainBtn').classList.toggle('active',trainsVisible);$('platformBtn').classList.toggle('active',platformsVisible);const poiEl=$('poiBtn');if(poiEl)poiEl.classList.toggle('active',poiVisible);renderSidebar();renderDemandPanel();renderInspector();renderStationService();updateClock();updateMap()}
+function renderAll(){renderUsagePanel();renderBoundaryAudit();$('heatBtn').classList.toggle('active',heat);$('trainBtn').classList.toggle('active',trainsVisible);$('platformBtn').classList.toggle('active',platformsVisible);const poiEl=$('poiBtn');if(poiEl)poiEl.classList.toggle('active',poiVisible);renderSidebar();renderDemandPanel();renderInspector();renderStationService();updateClock();updateMap()}
 function toast(msg){const e=$('toast');e.textContent=msg;e.classList.add('show');clearTimeout(toastHandle);toastHandle=setTimeout(()=>e.classList.remove('show'),2300)}
 function setMode(m){branchPickParentId=null;document.querySelector('.app').classList.remove('branch-mode');if((['draw','move','insert','curve'].includes(m))&&!GEO_READY[city]){toast('先載入行政邊界 GeoJSON');return;}mode=m;updateDemandTooltip(null,true);$('modeCurve').classList.toggle('active',m==='curve');document.querySelector('.mapwrap').classList.toggle('curve-editing',m==='curve');$('curveEditor').hidden=m!=='curve'||!selectedCurve;['select','draw','move'].forEach(x=>$('mode'+x[0].toUpperCase()+x.slice(1)).classList.toggle('active',x==='draw'&&m==='insert'||m===x));$('toggleDrawBtn').textContent=m==='draw'||m==='insert'?'✓ 完成編輯':'✎ 編輯路線';$('map').classList.toggle('editing',m!=='select');$('hint').textContent=m==='curve'?'調整彎道：點選軌道，拖曳藍色控制點；過急彎道或越界路段會被拒絕':m==='insert'?'插站模式：點擊任一軌道路段，在兩站之間新增車站':m==='draw'?'點擊地圖建站 · 點軌道插入中途站 · 也可建立支線；站距會自動提醒':m==='move'?'拖曳車站移動位置，路線將同步更新':'選擇路線，或點擊地圖中的車站查看資料'}
 function beginBranchPick(){
@@ -1923,12 +2139,14 @@ drawStationSpacingWarnings(ctx,W,H);drawCurveEditor(ctx,W,H);
 drawStationPlatforms(ctx,W,H);
 drawMovingTrains(ctx,W,H);
 if(poiVisible)drawLandmarks(ctx,W,H)
-const stationLines=new Map();for(const l of plan.lines)for(const id of l.stops)stationLines.set(id,(stationLines.get(id)||0)+1);for(const s of plan.stops){const p=xy(s.lat,s.lng);if(p.x<-30||p.y<-30||p.x>W+30||p.y>H+30)continue;const active=s.id===selectedStation;const outside=GEO_READY[city]&&!inPlayableArea(s.lat,s.lng);const transfers=(stationLines.get(s.id)||0)>1;if(active){ctx.beginPath();ctx.arc(p.x,p.y,STATION_MARKER_RADIUS+4,0,Math.PI*2);ctx.fillStyle='rgba(240,184,56,.22)';ctx.fill()};ctx.beginPath();ctx.arc(p.x,p.y,STATION_MARKER_RADIUS,0,Math.PI*2);ctx.fillStyle=active?'#f9eed6':'#fff';ctx.fill();ctx.lineWidth=active?2.4:transfers?2.6:1.8;ctx.strokeStyle=outside?'#d32c50':active?'#c28a12':'#354e53';ctx.stroke();if(outside){ctx.strokeStyle='#c32743';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.x-5,p.y-5);ctx.lineTo(p.x+5,p.y+5);ctx.moveTo(p.x+5,p.y-5);ctx.lineTo(p.x-5,p.y+5);ctx.stroke()}if(transfers){ctx.beginPath();ctx.arc(p.x,p.y,2.6,0,Math.PI*2);ctx.fillStyle='#aec4c2';ctx.fill()}if(active||map.hover===s.id){ctx.font='700 11px '+getComputedStyle(document.body).fontFamily;const tw=ctx.measureText(s.name).width;const bx=clamp(p.x-tw/2-10,2,W-tw-22),by=p.y-32;ctx.fillStyle='#fff';ctx.strokeStyle='#d4dede';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(bx,by,tw+20,23,7);ctx.fill();ctx.stroke();ctx.fillStyle='#253e47';ctx.fillText(s.name,bx+10,by+15)}}map.dirty=false}
+const stationLines=new Map();for(const l of plan.lines)for(const id of l.stops)stationLines.set(id,(stationLines.get(id)||0)+1);for(const s of plan.stops){const p=xy(s.lat,s.lng);if(p.x<-30||p.y<-30||p.x>W+30||p.y>H+30)continue;const active=s.id===selectedStation;const outside=GEO_READY[city]&&!inPlayableArea(s.lat,s.lng);const transfers=(stationLines.get(s.id)||0)>1;if(active){ctx.beginPath();ctx.arc(p.x,p.y,STATION_MARKER_RADIUS+4,0,Math.PI*2);ctx.fillStyle='rgba(240,184,56,.22)';ctx.fill()};ctx.beginPath();ctx.arc(p.x,p.y,STATION_MARKER_RADIUS,0,Math.PI*2);ctx.fillStyle=active?'#f9eed6':'#fff';ctx.fill();ctx.lineWidth=active?2.4:transfers?2.6:1.8;ctx.strokeStyle=outside?'#d32c50':active?'#c28a12':'#354e53';ctx.stroke();if(outside){ctx.strokeStyle='#c32743';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.x-5,p.y-5);ctx.lineTo(p.x+5,p.y+5);ctx.moveTo(p.x+5,p.y-5);ctx.lineTo(p.x-5,p.y+5);ctx.stroke()}if(transfers){ctx.beginPath();ctx.arc(p.x,p.y,2.6,0,Math.PI*2);ctx.fillStyle='#aec4c2';ctx.fill()}if(active||map.hover===s.id){ctx.font='700 11px '+getComputedStyle(document.body).fontFamily;const tw=ctx.measureText(s.name).width;const bx=clamp(p.x-tw/2-10,2,W-tw-22),by=p.y-32;ctx.fillStyle='#fff';ctx.strokeStyle='#d4dede';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(bx,by,tw+20,23,7);ctx.fill();ctx.stroke();ctx.fillStyle='#253e47';ctx.fillText(s.name,bx+10,by+15)}}drawUsageMarkers(ctx,W,H);map.dirty=false}
 function updateMap(){map.dirty=true;syncVectorMap()}function renderFrame(now){let elapsed=lastFrame?Math.min((now-lastFrame)/1000,.1):0;lastFrame=now;if(!paused){clock+=(elapsed*SIM_MINUTES_PER_REAL_SECOND*speed);if(clock>=1440){clock%=1440;gameDay++;}trainTick+=elapsed}if(map.dirty||(!paused&&trainTick>.05)){draw();trainTick=0}if(now%1000<30)updateClock();if(selectedStation&&now%400<50)renderStationService();requestAnimationFrame(renderFrame)}
 function updateClock(){let min=Math.floor(clock)%1440;$('clock').textContent=String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0');const h=min/60;$('dayLabel').textContent='模擬第 '+gameDay+' 天 · '+(h>=7&&h<10?'早高峰':h>=17&&h<20?'晚高峰':h>=23||h<5?'夜間離峰':'日間時段');$('daybar').style.setProperty('--progress',min/1440*100+'%');$('pauseBtn').textContent=paused?'▶':'Ⅱ'}
 function pointerXY(e){const b=map.canvas.getBoundingClientRect();return{x:e.clientX-b.left,y:e.clientY-b.top}}
 function updateDemandTooltip(p,hide=false){
  const tip=$('demandTooltip');if(hide||!heat||mode!=='select'){tip.hidden=true;return}
+ const usage=usageAtScreen(p);
+ if(usage){tip.hidden=false;tip.innerHTML=`<strong>${escapeHTML(usage.name)} · ${num(usage.rate,1)}%</strong><small>模擬搭乘 ${num(usage.rides)} ／潛在出行 ${num(usage.potential)} 旅次／日；非官方統計</small>`;const maxX=Math.max(6,map.canvas.clientWidth-250),maxY=Math.max(6,map.canvas.clientHeight-110);tip.style.left=clamp(p.x+15,6,maxX)+'px';tip.style.top=clamp(p.y+15,6,maxY)+'px';return;}
  const loc=ll(p.x,p.y);
  if(heatMode==='population'){
   const c=populationCellAt(loc[0],loc[1]);if(!c||!inPlayableArea(loc[0],loc[1])){tip.hidden=true;return}
@@ -1983,7 +2201,7 @@ map.canvas.addEventListener('pointerleave',()=>updateDemandTooltip(null,true));m
 function showModal(title,html){$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modalBack').classList.add('show')}
 function drawChart(){const canvas=$('ridershipChart');if(!canvas)return;const box=canvas.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);canvas.width=box.width*dpr;canvas.height=box.height*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);const w=box.width,h=box.height,arr=Array.from({length:24},(_,i)=>{const peak1=Math.exp(-(((i-8)/2.1)**2)),peak2=Math.exp(-(((i-18)/2.5)**2));return Math.round(metrics.rides*(.016+.050*peak1+.044*peak2))});const max=Math.max(1,...arr)*1.17;c.strokeStyle='#e0e8e8';for(let t=0;t<4;t++){let y=16+(h-45)*t/3;c.beginPath();c.moveTo(28,y);c.lineTo(w-12,y);c.stroke()}const bw=(w-55)/24;for(let i=0;i<24;i++){let bh=arr[i]/max*(h-45),x=30+i*bw,y=h-23-bh;c.fillStyle=i>=7&&i<=9||i>=17&&i<=19?'#0e8575':'#9fd5c8';c.fillRect(x,y,Math.max(2,bw-3),bh)}c.font='10px sans-serif';c.fillStyle='#81929c';for(let i=0;i<=24;i+=4)c.fillText(String(i).padStart(2,'0'),28+i*bw,h-6)}
 function showStats(){const rows=plan.lines.map(l=>`<tr><td><span style="color:${l.color};font-weight:900">●</span> ${escapeHTML(l.name)}</td><td>${l.stops.length}</td><td>${num(lineLength(l),1)} km</td><td>${isFinite(lineHeadway(l))?num(lineHeadway(l),1):'—'} 分</td><td>${num(metrics.lineRides[l.id]||0)}</td></tr>`).join('');showModal('城市營運統計',`<p>${CITIES[city].name} · 本遊戲以假設的需求區、接駁距離及乘車時間推估路網表現，並非真實官方運量資料。</p><div class="stat-grid"><div class="statbox"><small>模擬日運量</small><strong>${num(metrics.rides)}</strong></div><div class="statbox"><small>票務收入／日</small><strong>${num(metrics.revenue)}</strong></div><div class="statbox"><small>營運成本／日</small><strong>${num(metrics.expense)}</strong></div><div class="statbox"><small>收支比</small><strong style="color:${metrics.ratio>=100?'#14967f':'#bf6c54'}">${num(metrics.ratio)}%</strong></div></div><h3 style="font-size:12px">每小時乘車量（需求分布示意）</h3><canvas class="chart" id="ridershipChart"></canvas><div class="trend-caption"><span>早晚通勤高峰 · 車流隨模擬時鐘運行</span><span>收費單位：${city==='tp'?'NT$':city==='hk'?'HK$':city==='sg'?'S$':'RM'}</span></div><h3 style="font-size:12px;margin-top:20px">路線表現</h3><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left;white-space:nowrap;font-size:11px"><thead><tr style="color:#84949c;border-bottom:1px solid #dde5e7"><th style="padding:9px">路線</th><th>站數</th><th>里程</th><th>班距</th><th>搭乘量*</th></tr></thead><tbody>${rows||'<tr><td colspan="5">尚無路線</td></tr>'}</tbody></table></div><p>* 路線搭乘量計入轉乘，可能重複計算。客量使用簡化 OD 模型；車輛擁擠對結果的影響為品質分而非逐人排隊模擬。</p>`);requestAnimationFrame(drawChart)}
-function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>預設從 WorldPop API 取得 2025 年人口網格估算（不等同於地鐵搭乘需求）；可以切換至獨立的模擬需求熱度；虛線為 GeoJSON 行政邊界，邊界外不能新增或移動車站，但軌道可跨海與跨行政界線；地圖拖曳仍受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。切換「調整彎道」後，點選路段並拖曳藍色控制點改變曲率，系統會檢查彎道半徑與 GeoJSON 邊界。點既有軌道可在中間插入車站；選主線後可在現有車站或路段建立分岔支線，支線列車會共用分岔前的路段。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。站距會依列車類型提醒過密／過疏，但不會強制阻止建站。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車會按編組節數畫出各自獨立的小車廂，過彎時逐節跟隨軌道；編組也影響容量。放大後可看到示意站臺及候車人流黑點，車站還能設定地面／高架／地下顯示（示意，非實際工程圖）。可在地圖上右鍵拖曳或 Shift＋左鍵拖曳，直接平滑改變 2D／3D 傾斜角與方向；2D／3D 鍵只是快捷方式。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>新車站會讀取 Mapbox 已載入的道路與公共設施圖徵，再以限速的 OpenStreetMap Photon 反查醫院、景點、機場、學校、博物館等；店鋪、餐廳、咖啡廳與一般商業建築不作為自動站名；外部服務可能有延遲或暫時無法使用，沒有精確結果時不會冒充真實建築名稱。已手動命名的站不會被更改。進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖使用 Mapbox 自訂樣式。行政 GeoJSON 首次載入亦需要網路，可從介面匯入自己的 GeoJSON；成功載入後會在本次瀏覽器會話快取。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲規劃範圍來自第三方行政 GeoJSON（精簡資料不保證法律精度；GADM 不允許未經授權的商業使用與再散布）；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
+function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>預設從 WorldPop API 取得 2025 年人口網格估算（不等同於地鐵搭乘需求）；人口圖使用相鄰資料格色彩插值平滑顯示，點擊「平滑／原始」可對照；滑鼠與 CSV 仍保留原始數值。可以切換至獨立的模擬需求熱度；新增「使用率」圖層可在各個遊戲需求地點直接顯示百分比：地鐵模擬搭乘旅次除以該區的潛在出行旅次。這是路網表現的遊戲估算，不是 WorldPop 人口比例或行政區實測使用率。放大地圖可減少標籤重疊；虛線為 GeoJSON 行政邊界，邊界外不能新增或移動車站，但軌道可跨海與跨行政界線；地圖拖曳仍受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。切換「調整彎道」後，點選路段並拖曳藍色控制點改變曲率，系統會檢查彎道半徑與 GeoJSON 邊界。點既有軌道可在中間插入車站；選主線後可在現有車站或路段建立分岔支線，支線列車會共用分岔前的路段。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。站距會依列車類型提醒過密／過疏，但不會強制阻止建站。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車會按編組節數畫出各自獨立的小車廂，過彎時逐節跟隨軌道；編組也影響容量。放大後可看到示意站臺及候車人流黑點，車站還能設定地面／高架／地下顯示（示意，非實際工程圖）。可在地圖上右鍵拖曳或 Shift＋左鍵拖曳，直接平滑改變 2D／3D 傾斜角與方向；2D／3D 鍵只是快捷方式。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>新車站會讀取 Mapbox 已載入的道路與公共設施圖徵，再以限速的 OpenStreetMap Photon 反查醫院、景點、機場、學校、博物館等；店鋪、餐廳、咖啡廳與一般商業建築不作為自動站名；外部服務可能有延遲或暫時無法使用，沒有精確結果時不會冒充真實建築名稱。已手動命名的站不會被更改。進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖使用 Mapbox 自訂樣式。行政 GeoJSON 首次載入亦需要網路，可從介面匯入自己的 GeoJSON；成功載入後會在本次瀏覽器會話快取。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲規劃範圍來自第三方行政 GeoJSON（精簡資料不保證法律精度；GADM 不允許未經授權的商業使用與再散布）；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
 function downloadText(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF',text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
 function download(name,contents){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([contents],{type:'application/json;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
 
@@ -2000,8 +2218,9 @@ $('geoInput').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{
 function inBoundingRegion(bounds,center){const lat=clamp(center[0],bounds.south,bounds.north),lon=clamp(center[1],bounds.west,bounds.east);return hKm(center,[lat,lon])<85;}
 
 $('citySelect').innerHTML=Object.entries(CITIES).map(([k,c])=>`<option value="${k}">${c.name}</option>`).join('');$('citySelect').onchange=e=>showCity(e.target.value);
-$('modeSelect').onclick=()=>setMode('select');$('modeDraw').onclick=()=>{if(!selectedLine&&plan.lines.length)addLine();setMode('draw')};$('modeMove').onclick=()=>setMode('move');$('modeCurve').onclick=()=>setMode(mode==='curve'?'select':'curve');$('addLineBtn').onclick=addLine;$('toggleDrawBtn').onclick=()=>setMode(mode==='draw'||mode==='insert'?'select':'draw');$('branchBtn').onclick=beginBranchPick;$('curveReset').onclick=()=>{if(!selectedCurve)return;const a=getStop(selectedCurve.aId),b=getStop(selectedCurve.bId);if(!a||!b)return;const k=trackKey(a.id,b.id);if(plan.trackCurves?.[k]){snapshot();delete plan.trackCurves[k];plan.source='custom';commit();refreshCurveInfo();toast('軌道已還原直線')}};$('curveDone').onclick=()=>setMode('select');$('moreZonesBtn').onclick=()=>{zoneExpanded=!zoneExpanded;renderDemandPanel()};$('gapBtn').onclick=()=>{showGaps=!showGaps;$('gapBtn').classList.toggle('active',showGaps);$('gapBtn').setAttribute('aria-pressed',String(showGaps));toast(showGaps?'已標出未獲地鐵服務的需求熱區':'已關閉需求缺口');updateMap()};$('heatBtn').onclick=()=>{heat=!heat;$('heatBtn').classList.toggle('active',heat);toast(heat?'已顯示熱度圖':'已隱藏熱度圖');updateDemandTooltip(null,true);updateMap()};
+$('modeSelect').onclick=()=>setMode('select');$('modeDraw').onclick=()=>{if(!selectedLine&&plan.lines.length)addLine();setMode('draw')};$('modeMove').onclick=()=>setMode('move');$('modeCurve').onclick=()=>setMode(mode==='curve'?'select':'curve');$('addLineBtn').onclick=addLine;$('toggleDrawBtn').onclick=()=>setMode(mode==='draw'||mode==='insert'?'select':'draw');$('branchBtn').onclick=beginBranchPick;$('curveReset').onclick=()=>{if(!selectedCurve)return;const a=getStop(selectedCurve.aId),b=getStop(selectedCurve.bId);if(!a||!b)return;const k=trackKey(a.id,b.id);if(plan.trackCurves?.[k]){snapshot();delete plan.trackCurves[k];plan.source='custom';commit();refreshCurveInfo();toast('軌道已還原直線')}};$('curveDone').onclick=()=>setMode('select');$('moreZonesBtn').onclick=()=>{zoneExpanded=!zoneExpanded;renderDemandPanel()};$('usageMoreBtn').onclick=()=>{usageExpanded=!usageExpanded;renderUsagePanel()};$('usageBtn').onclick=()=>{usageVisible=!usageVisible;renderUsagePanel();updateMap();toast(usageVisible?'已顯示各區模擬地鐵使用率':'已隱藏各區使用率')};$('gapBtn').onclick=()=>{showGaps=!showGaps;$('gapBtn').classList.toggle('active',showGaps);$('gapBtn').setAttribute('aria-pressed',String(showGaps));toast(showGaps?'已標出未獲地鐵服務的需求熱區':'已關閉需求缺口');updateMap()};$('heatBtn').onclick=()=>{heat=!heat;$('heatBtn').classList.toggle('active',heat);toast(heat?'已顯示熱度圖':'已隱藏熱度圖');updateDemandTooltip(null,true);updateMap()};
 $('populationModeBtn').onclick=()=>{heatMode=heatMode==='population'?'demand':'population';zoneExpanded=false;renderDemandPanel();updateDemandTooltip(null,true);updateMap();toast(heatMode==='population'?'顯示 WorldPop 2025 人口資料':'已切換為遊戲模擬需求（非官方人口）')};
+$('popSmoothBtn').onclick=()=>{populationSmooth=!populationSmooth;populationLayerCache.key='';refreshPopulationAppearance();updateMap()};
 $('populationRetry').onclick=()=>loadPopulation(city,true);
 $('populationExport').onclick=()=>{
  const ds=POP_DATA[city];if(!ds)return;
