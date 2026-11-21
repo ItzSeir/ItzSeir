@@ -1410,53 +1410,121 @@ function drawPlatformCrowd(ctx,station,line,angle,pxLen,gap){
  ctx.restore();
 }
 
-function visibleCarriageSpacing(station,zoom=map.zoom){
- const lat=station.lat||0,physical=(23*256*2**zoom)/(40075016.7*Math.max(.22,Math.cos(lat*Math.PI/180)));
- return clamp(Math.max(11,physical),11,Math.max(11,Math.min(74,10+(zoom-12)*11)));
+// Shared screen-space rail geometry: train bodies and platforms use the EXACT same
+// projected curve. This prevents the enormous gaps caused by mixing 23 m spacing
+// with a capped 74 px carriage sprite when zooming in.
+function carriagePitchPx(zoom=map.zoom){return clamp(8+(zoom-12)*5.25,8,52)}
+function platformLengthPx(station,cars,zoom=map.zoom){
+ const n=clamp(Math.round(Number(cars)||4),2,8);
+ return n*carriagePitchPx(zoom)+Math.max(8,carriagePitchPx(zoom)*.27);
 }
-function platformLengthPx(station,cars){
- const step=visibleCarriageSpacing(station),n=clamp(Number(cars)||4,2,8);
- return n*step+Math.max(10,step*.36);
+function railScreenGeometry(l){
+ const geometry=trackLineGeometry(l);
+ const points=geometry.pts.map(p=>xy(p.lat,p.lng));
+ const cum=[0];
+ for(let i=1;i<points.length;i++){
+  const dx=points[i].x-points[i-1].x,dy=points[i].y-points[i-1].y;
+  cum.push(cum[i-1]+Math.hypot(dx,dy));
+ }
+ return {geom:geometry,points,cum,total:cum[cum.length-1]||0};
 }
-
+function pxAtRailKm(rail,km){
+ const a=rail.geom.cum;if(a.length<2)return 0;
+ const d=clamp(km,0,rail.geom.total);let lo=0,hi=a.length-1;
+ while(lo<hi){const mid=(lo+hi)>>1;if(a[mid]<d)lo=mid+1;else hi=mid}
+ const i=Math.max(0,lo-1),f=clamp((d-a[i])/(a[i+1]-a[i]||1),0,1);
+ return rail.cum[i]+(rail.cum[i+1]-rail.cum[i])*f;
+}
+function sampleRailPx(rail,dist){
+ const a=rail.cum;if(a.length<2)return {x:0,y:0,angle:0};
+ const d=clamp(dist,0,rail.total);let lo=0,hi=a.length-1;
+ while(lo<hi){const mid=(lo+hi)>>1;if(a[mid]<d)lo=mid+1;else hi=mid}
+ let i=Math.max(0,lo-1);
+ if(a[i+1]-a[i]<.001){for(let k=i+1;k<a.length-1;k++){if(a[k+1]-a[k]>.001){i=k;break}}}
+ const p=rail.points[i],q=rail.points[i+1],step=a[i+1]-a[i];
+ const f=clamp((d-a[i])/(step||1),0,1);
+ return {x:p.x+(q.x-p.x)*f,y:p.y+(q.y-p.y)*f,angle:Math.atan2(q.y-p.y,q.x-p.x)};
+}
+function usableTrainPitch(rail,cars){
+ const n=clamp(Math.round(Number(cars)||4),2,8);
+ // On short or highly foreshortened 3D routes, scale the entire consist together
+ // instead of compressing the car sprites but leaving their centres far apart.
+ return Math.min(carriagePitchPx(),Math.max(3.25,rail.total/(n+.6)));
+}
+function stopCentrePx(rail,index,fullLength){
+ const at=pxAtRailKm(rail,rail.geom.stopKm[index]??0);
+ const half=Math.min(rail.total/2,fullLength/2);
+ return clamp(at,half,Math.max(half,rail.total-half));
+}
+function strokeRailSide(ctx,rail,start,end,side,gap,width,color){
+ const pieces=Math.max(2,Math.min(110,Math.ceil((end-start)/9)));
+ ctx.beginPath();
+ for(let i=0;i<=pieces;i++){
+  const p=sampleRailPx(rail,start+(end-start)*i/pieces);
+  const dx=-Math.sin(p.angle)*side*gap,dy=Math.cos(p.angle)*side*gap;
+  if(i===0)ctx.moveTo(p.x+dx,p.y+dy);else ctx.lineTo(p.x+dx,p.y+dy);
+ }
+ ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+}
+function drawPlatformPeople(ctx,rail,start,end,station,gap,dwell){
+ if(map.zoom<13.4||end-start<9)return;
+ const base=Math.max(0,metrics.stationRides?.[station.id]||0);
+ const count=clamp(Math.round(Math.sqrt(base)/12),2,map.zoom>=17?15:9);
+ const anim=clock*.095;
+ ctx.save();
+ for(const side of [-1,1]){
+  for(let k=0;k<count;k++){
+   const seed=hash((k+1)*7.31+station.lat*21.73+side*.53);
+   const f=clamp((k+.45+seed*.15)/count+.018*Math.sin(anim*.37+k*3.3),.04,.96);
+   const at=start+(end-start)*f;
+   const p=sampleRailPx(rail,at);
+   let ofs=gap+(seed-.5)*2.3;
+   // Small boarding movement when doors are open; passengers remain on the platform.
+   if(dwell?.doorOpen)ofs-=Math.sin(dwell.progress*Math.PI)*2.2;
+   const x=p.x-side*Math.sin(p.angle)*ofs,y=p.y+side*Math.cos(p.angle)*ofs;
+   ctx.beginPath();ctx.arc(x,y,map.zoom>=17?1.6:1.35,0,2*Math.PI);
+   ctx.fillStyle='#182327';ctx.fill();
+  }
+ }
+ ctx.restore();
+}
 function drawStationPlatforms(ctx,W,H){
  if(!platformsVisible||map.zoom<12.15)return;
- const gap=map.zoom>=13?8.5:6.4;
- ctx.save();ctx.lineJoin='round';
+ const gap=map.zoom>=13?9:6.6;
+ const already=new Map();
+ ctx.save();
  for(const l of plan.lines){
-  const ids=l.stops;if(ids.length<2)continue;
-  for(let j=0;j<ids.length;j++){
-   const station=getStop(ids[j]);if(!station||!inPlayableArea(station.lat,station.lng))continue;
-   const anchor=xy(station.lat,station.lng);
+  if(l.stops.length<2)continue;
+  const rail=railScreenGeometry(l);if(rail.total<6)continue;
+  const states=trainStatesForLine(l);
+  for(let j=0;j<l.stops.length;j++){
+   const station=getStop(l.stops[j]);if(!station||!inPlayableArea(station.lat,station.lng))continue;
    const maxCars=Math.max(...plan.lines.filter(v=>v.stops.includes(station.id)).map(v=>clamp(Number(v.cars)||4,2,8)),clamp(Number(l.cars)||4,2,8));
-   const pxLen=platformLengthPx(station,maxCars);
-   if(anchor.x<-50||anchor.y<-50||anchor.x>W+50||anchor.y>H+50)continue;
-   const before=getStop(ids[Math.max(0,j-1)]),after=getStop(ids[Math.min(ids.length-1,j+1)]);
-   // Build tangent from close-by ground points; projecting faraway neighbours can flip
-   // direction during Mapbox pitch/bearing changes at a sharp bend.
-   const near=(other,portion)=>other?xy(station.lat+(other.lat-station.lat)*portion,station.lng+(other.lng-station.lng)*portion):anchor;
-   const cBefore=before?segmentShape(before,station).pts:null,cAfter=after?segmentShape(station,after).pts:null;
-   const pa=cBefore?xy(cBefore[Math.max(0,cBefore.length-2)].lat,cBefore[Math.max(0,cBefore.length-2)].lng):anchor;
-   const pb=cAfter?xy(cAfter[Math.min(1,cAfter.length-1)].lat,cAfter[Math.min(1,cAfter.length-1)].lng):anchor;
-   let dx=pb.x-pa.x,dy=pb.y-pa.y;
-   if(Math.hypot(dx,dy)<.7){const farA=before?xy(before.lat,before.lng):anchor,farB=after?xy(after.lat,after.lng):anchor;dx=farB.x-farA.x;dy=farB.y-farA.y}
-   const angle=Math.atan2(dy,dx);
-   if(!isFinite(angle))continue;
-   ctx.save();ctx.translate(anchor.x,anchor.y);ctx.rotate(angle);ctx.globalAlpha=station.level==='underground'?.54:1;
-   for(const sign of [-1,1]){
-    const y=sign*gap;
-    ctx.fillStyle='rgba(246,250,249,.97)';ctx.strokeStyle='#4a626b';ctx.lineWidth=1.15;
-    ctx.beginPath();ctx.roundRect(-pxLen/2,y-3.8,pxLen,7.6,2.8);ctx.fill();ctx.stroke();
-    ctx.strokeStyle=l.color;ctx.lineWidth=2.1;ctx.beginPath();ctx.moveTo(-pxLen/2+3,y+(sign>0?-1.0:1.0));ctx.lineTo(pxLen/2-3,y+(sign>0?-1.0:1.0));ctx.stroke();
-    if(map.zoom>=13.4){ctx.fillStyle='#f4b352';for(let n=-2;n<=2;n++)ctx.fillRect(n*4.8-1,y-1.15,2,2.3)}
+   const pitch=usableTrainPitch(rail,maxCars);
+   const length=Math.min(rail.total, maxCars*pitch+Math.max(6,pitch*.22));
+   const centre=stopCentrePx(rail,j,length);
+   const at=sampleRailPx(rail,centre);
+   if(at.x<-length||at.x>W+length||at.y<-length||at.y>H+length)continue;
+   // Shared main-line / branch platforms are only drawn once along one tangent.
+   const a=((at.angle%Math.PI)+Math.PI)%Math.PI;
+   const angles=already.get(station.id)||[];
+   if(angles.some(t=>Math.abs(Math.atan2(Math.sin(2*(t-a)),Math.cos(2*(t-a))))<.33))continue;
+   angles.push(a);already.set(station.id,angles);
+   const start=clamp(centre-length/2,0,rail.total),end=clamp(centre+length/2,0,rail.total);
+   const levelAlpha=station.level==='underground'?.55:1;
+   ctx.save();ctx.globalAlpha=levelAlpha;
+   for(const side of [-1,1]){
+    strokeRailSide(ctx,rail,start,end,side,gap,9,'rgba(69,93,103,.88)');
+    strokeRailSide(ctx,rail,start,end,side,gap,7.3,'rgba(249,252,250,.98)');
+    strokeRailSide(ctx,rail,start,end,side,gap,2.0,l.color);
    }
-   if(map.zoom>=12.8) drawPlatformCrowd(ctx,station,l,0,pxLen,gap);
+   const dwell=states.find(s=>s.dwell&&s.stationId===station.id);
+   drawPlatformPeople(ctx,rail,start,end,station,gap,dwell);
    ctx.restore();
   }
  }
  ctx.restore();
 }
-// Each carriage has its own location and tangent along the line, including bends.
 function drawCarriageIcon(ctx,x,y,angle,color,zoom,front=false,carSize=10){
  const len=clamp(carSize,8,Math.min(74,10+(zoom-12)*11)),ht=clamp(5+(zoom-12)*.72,5.8,11.4);
  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
@@ -1599,41 +1667,42 @@ function drawMovingTrains(ctx,W,H){
   const stops=l.stops.map(getStop).filter(Boolean);if(stops.length<2)continue;
   if(stops.some(st=>!inPlayableArea(st.lat,st.lng)))continue;
   if(stops.slice(1).some((st,i)=>!trackWithinArea(stops[i],st)))continue;
-  const tt=trainTimetable(l),geom=trackLineGeometry(l);if(!tt||geom.pts.length<2)continue;
-  const {total}=geom,operating=Math.min(32,serviceTrainCount(l)),cars=clamp(Math.round(l.cars)||4,2,8);
-  const spacingKm=l.type==='light'?.014:l.type==='medium'?.018:.023;
-  const halfSpan=(cars-1)*spacingKm/2;
-  const visible=Math.max(1,Math.min(operating,Math.floor(total*256*2**map.zoom/(40075*Math.max(.25,Math.cos(stops[0].lat*Math.PI/180)))/(map.zoom<13?70:170))));
+  const tt=trainTimetable(l);if(!tt)continue;
+  const rail=railScreenGeometry(l);if(rail.total<2)continue;
+  const cars=clamp(Math.round(l.cars)||4,2,8),pitch=usableTrainPitch(rail,cars);
+  const carGap=clamp(pitch*.045,1,2.4),carLen=Math.max(3.5,pitch-carGap);
+  const length=(cars-1)*pitch+carLen;
+  const n=Math.min(32,serviceTrainCount(l));
+  const visible=Math.max(1,Math.min(n,Math.floor(rail.total/(map.zoom<13?48:Math.max(80,length*1.35)))));
   const states=trainStatesForLine(l);
+  const stopCenters=stops.map((_,i)=>stopCentrePx(rail,i,length));
   for(let k=0;k<visible;k++){
-   const ix=Math.floor(k*operating/visible),state=states[ix];if(!state)continue;
-   const direction=state.direction,along=state.along,dwell=state.dwell;
-   const middle=clamp(along,Math.min(halfSpan,total/2),Math.max(total-halfSpan,total/2));
-   const center=routePointScreen(geom,middle),fwd=routePointScreen(geom,clamp(middle+direction*.008,0,total));
-   const axis=Math.atan2(fwd.y-center.y,fwd.x-center.x);
-   if(!isFinite(axis))continue;
-   const iconStep=visibleCarriageSpacing(stops[0]),points=[];
+   const ix=Math.floor(k*n/visible),state=states[ix];if(!state)continue;
+   const phase=state.phase;
+   const centre=state.dwell?stopCenters[phase.at]:
+     stopCenters[phase.from]+(stopCenters[phase.to]-stopCenters[phase.from])*(state.progress**2*(3-2*state.progress));
+   const direction=state.direction;
+   const carsToDraw=[];
    for(let j=0;j<cars;j++){
-    const d=clamp(middle+direction*(halfSpan-j*spacingKm),0,total);
-    const world=routePointScreen(geom,d),front=routePointScreen(geom,clamp(d+direction*.003,0,total));
-    let angle=Math.atan2(front.y-world.y,front.x-world.x),x=world.x,y=world.y,size=iconStep*.8;
-    if(map.zoom<16.1){const offset=((cars-1)/2-j)*iconStep;x=center.x+offset*Math.cos(axis);y=center.y+offset*Math.sin(axis);angle=axis;size=iconStep*.8;}
-    if(!isFinite(angle))angle=axis;
-    if(x<-95||x>W+95||y<-95||y>H+95)continue;
-    points.push({x,y,angle,size,front:j===0});
+    const distance=clamp(centre+direction*((cars-1)/2-j)*pitch,0,rail.total);
+    const p=sampleRailPx(rail,distance);
+    if(p.x<-100||p.y<-100||p.x>W+100||p.y>H+100)continue;
+    carsToDraw.push({...p,angle:p.angle+(direction<0?Math.PI:0),front:j===0});
    }
-   for(let j=points.length-1;j>=0;j--){
-    const p=points[j];drawCarriageIcon(ctx,p.x,p.y,p.angle,l.color,map.zoom,p.front,p.size);
-    if(dwell&&state.doorOpen&&map.zoom>=13.1){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);ctx.fillStyle='#1cb79b';ctx.fillRect(-Math.min(p.size,20)*.16,3,Math.max(3,p.size*.3),2.4);ctx.restore()}
+   for(let j=carsToDraw.length-1;j>=0;j--){
+    const p=carsToDraw[j];drawCarriageIcon(ctx,p.x,p.y,p.angle,l.color,map.zoom,p.front,carLen);
+    if(state.dwell&&state.doorOpen&&map.zoom>=13.1){
+     ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);ctx.fillStyle='#11aa92';
+     ctx.fillRect(-Math.min(carLen,20)*.15,3,Math.max(2.3,Math.min(carLen,20)*.3),2.3);ctx.restore();
+    }
    }
-   if(dwell&&state.doorOpen&&(!selectedStation||selectedStation===state.stationId)){
-    const st=tt.stops[state.phase.at],marker=xy(st.lat,st.lng);
+   if(state.dwell&&state.doorOpen&&(!selectedStation||selectedStation===state.stationId)){
+    const st=tt.stops[phase.at],marker=xy(st.lat,st.lng);
     if(marker.x>0&&marker.x<W&&marker.y>0&&marker.y<H)drawBoardingStatus(ctx,marker.x,marker.y,state,state.board,state.alight);
    }
   }
  }
 }
-
 function drawCurveEditor(ctx,W,H){
  if(mode!=='curve')return;
  const target=getLine(selectedLine);
