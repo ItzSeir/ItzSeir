@@ -2439,6 +2439,19 @@ function runFlight(f,dt){
  f.x+=travel.x+wind.x;f.y+=travel.y+wind.y;
  f.trailTick+=dt;if(f.trailTick>=12){f.trail.push({x:f.x,y:f.y});if(f.trail.length>17)f.trail.shift();f.trailTick=0;}
 }
+ // V66 — a radar range circle is a display aid, not a wall across open water.
+ // Coastal/offshore aircraft can continue on an established path beyond it.
+ function v66OffshoreTrack(f){
+   if(!f||!Number.isFinite(f.x)||!Number.isFinite(f.y))return false;
+   const coast=window.__atcV36?.landAt;
+   if(typeof coast!=='function')return false;
+   try{
+     if(coast(f.x,f.y)===false)return true;
+     const ahead=vector(Number(f.heading)||0,8);
+     return coast(f.x+ahead.x,f.y+ahead.y)===false;
+   }catch(_){return false;}
+ }
+ function v66ExitLimit(f,landNM,oceanNM){return v66OffshoreTrack(f)?oceanNM:landNM;}
 function removeFlight(f){flights=flights.filter(p=>p.id!==f.id);if(f.id===selectedId){selectedId=null;drafted=null;renderInspector();}lastTrafficFingerprint='';}
 function simulate(dt){if(dt<=0)return;
  simTime+=dt;spawnTimer-=dt;updateWeather(dt);
@@ -2465,9 +2478,9 @@ function simulate(dt){if(dt<=0)return;
   if(f.mode==='divert'){
    const dest=dynamicRouteTarget(f),d=dest?len(f,dest):999;
    if(d<1.7 && f.altitude<1800 && f.speed<210){diverted++;score+=55;addLog(`${f.callsign} 已備降 ${f.divertTo} +55`,'good');notify(`${f.callsign} 已安全備降 ${f.divertTo}`);removeFlight(f);continue;}
-   if(dist>Math.max(108,entryRadius+30)){diverted++;score+=45;addLog(`${f.callsign} 已向 ${f.divertTo} 移交 +45`,'good');removeFlight(f);continue;}
-  }else if(f.kind==='departure'&&f.mode!=='queued'&&dist>Math.max(83,entryRadius+8)){departures++;score+=70;addLog(`${f.callsign} 離場移交 +70`,'good');notify(`${f.callsign} 已安全離開空域`);removeFlight(f);continue;}
-  else if(f.kind==='arrival'&&!f.v37Transit&&dist>Math.max(112,entryRadius+29)){score-=25;addLog(`${f.callsign} 未完成管制、飛離空域 −25`,'warn');removeFlight(f);}
+   if(dist>v66ExitLimit(f,Math.max(108,entryRadius+30),Math.max(205,entryRadius+102))){diverted++;score+=45;addLog(`${f.callsign} 已向 ${f.divertTo} 移交 +45`,'good');removeFlight(f);continue;}
+  }else if(f.kind==='departure'&&f.mode!=='queued'&&dist>v66ExitLimit(f,Math.max(83,entryRadius+8),Math.max(195,entryRadius+105))){departures++;score+=70;addLog(`${f.callsign} 離場移交 +70`,'good');notify(`${f.callsign} 已安全離開空域`);removeFlight(f);continue;}
+  else if(f.kind==='arrival'&&!f.v37Transit&&dist>v66ExitLimit(f,Math.max(112,entryRadius+29),Math.max(210,entryRadius+115))){score-=25;addLog(`${f.callsign} 未完成管制、飛離空域 −25`,'warn');removeFlight(f);}
  }
 }
 function msgBox(text,kind='good'){const e=$('toast');e.textContent=text;e.className='radar-message show'+(kind==='bad'?' bad':kind==='warn'?' warn':'');clearTimeout(alertTimer);alertTimer=setTimeout(()=>e.classList.remove('show'),3500);}
@@ -2666,7 +2679,7 @@ function renderHud(force=false){$('simClock').innerHTML=fmtT(simTime)+' <em>SIM<
  const f=selectedFlight();if(f && $('curHeading')){$('curHeading').textContent=fmtH(f.heading);$('curAltitude').innerHTML=fmtN(f.altitude)+' <small>ft</small>';$('curSpeed').innerHTML=Math.round(f.speed)+' <small>kt</small>';$('metricDistance').textContent=len(f,{x:0,y:0}).toFixed(1);if($('fuelText'))$('fuelText').textContent=Math.max(0,f.fuel).toFixed(0)+' min';}
 }
 function refreshPause(){$('pauseText').textContent=paused?'繼續':'暫停';$('pauseIcon').setAttribute('href',paused?'#i-play':'#i-pause');$('liveWord').textContent=paused?'PAUSED':'SIMULATION';$('liveStatus').classList.toggle('paused',paused);$('pauseOverlay').classList.toggle('show',paused);}
-function setRange(v){rangeNM=clamp(Math.round(v),24,window.__atcV48?.isOpen?.()?1200:140);$('rangeLabel').textContent=rangeNM+' NM';backgroundDirty=true;}
+function setRange(v){rangeNM=clamp(Math.round(v),24,window.__atcV48?.isOpen?.()?1200:280);$('rangeLabel').textContent=rangeNM+' NM';backgroundDirty=true;}
 function setRunway(){runwayIndex=(runwayIndex+1)%airport.runways.length;buildFixes();$('runwayNumber').textContent=rwyLabel();backgroundDirty=true;updateWeatherUi();for(const f of flights)if(f.mode==='approach'){f.approachPhase=0;f.uiVersion++;}if(selectedId)renderInspector();addLog('變更進場跑道 RWY '+rwyLabel(),'warn');notify('已改用 RWY '+rwyLabel());}
 function pickFlight(x,y){let found=null,d=24;for(const f of flights){const p=toScreen(f),n=Math.hypot(p.x-x,p.y-y);if(n<d){d=n;found=f;}}return found;}
 function clickRadar(x,y){const p=pickFlight(x,y);if(p){selectFlight(p.id);return;}
@@ -11297,8 +11310,8 @@ refreshBadge();
     if(d.plane&&isFlightUsable(d.plane)){
       d.point=fromScreen(p.x,p.y);hover={plane:d.plane,point:d.point};
     }else{
-      pan.x=clamp(pan.x-(p.x-d.last.x)/scale(),-200,200);
-      pan.y=clamp(pan.y+(p.y-d.last.y)/scale(),-200,200);
+      pan.x=clamp(pan.x-(p.x-d.last.x)/scale(),-340,340);
+      pan.y=clamp(pan.y+(p.y-d.last.y)/scale(),-340,340);
       backgroundDirty=true;
     }
    }
@@ -11901,7 +11914,9 @@ function minimumAt(p,buffer=4.5){setup();if(!terrain||!p)return null;
   if(Math.hypot(i,j)>r+.2)continue;
   const xx=c+i,yy=row+j;
   if(xx<0||xx>=N||yy<0||yy>=N)continue;
-  const cl=terrain[yy*N+xx],min=minimumFromClass(cl);
+  const sx=-R+xx*STEP,sy=R-yy*STEP;
+   if(window.__atcV36?.landAt?.(sx,sy)===false)continue;
+   const cl=terrain[yy*N+xx],min=minimumFromClass(cl);
   if(min>max){max=min;height=altFromClass(cl);peak={x:-R+xx*STEP,y:R-yy*STEP};}
  }
  return max?{name:'山區地形',min:max,elevationFt:Math.round(height),peak,approximate:true}:null;
@@ -12006,5 +12021,71 @@ window.__atcV65={minimumAt,alongTrack,tileInfo:()=>({airport:currentAirport,cell
 document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
 })();
 </script>
+
+<style id="v66-sea-extended-map-style">
+#v66SeaTip{position:absolute;z-index:2;bottom:35px;right:13px;pointer-events:none;
+ background:rgba(248,253,254,.91);border:1px solid #c8dce0;border-radius:7px;
+ color:#4f7884;font:700 10px system-ui;padding:5px 8px;display:none}
+@media(max-width:850px){#v66SeaTip{right:8px;bottom:176px;font-size:9px}}
+</style>
+<script id="v66-offshore-navigation-extension">
+(function(){
+ 'use strict';
+ const area=document.getElementById('radarArea');if(!area)return;
+ const tip=document.createElement('div');tip.id='v66SeaTip';tip.textContent='海上航路可延伸至雷達圈外 · 點邊緣航機標記追蹤';area.append(tip);
+ const finite=(v)=>Number.isFinite(v);
+ function markers(){
+   const result=[],w=viewport.w,h=viewport.h,margin=21;
+   if(w<120||h<120)return result;
+   for(const f of flights){
+     if(!f||!finite(f.x)||!finite(f.y)||['queued','lineup','takeoff-roll','landed','rollout'].includes(f.mode))continue;
+     if(f.v22Sector==='tower')continue;
+     const p=toScreen(f);
+     if(p.x>=margin&&p.x<=w-margin&&p.y>=margin&&p.y<=h-margin)continue;
+     const dx=p.x-w/2,dy=p.y-h/2;
+     const t=Math.min((w/2-margin)/Math.max(.001,Math.abs(dx)),(h/2-margin)/Math.max(.001,Math.abs(dy)));
+     if(!finite(t)||t<=0)continue;
+     const point={x:w/2+dx*t,y:h/2+dy*t};
+     // Nudge crowded pointers away from each other, without changing bearings.
+     for(const prev of result){
+       if(Math.hypot(prev.x-point.x,prev.y-point.y)<22){
+         if(point.x<margin+3||point.x>w-margin-3)point.y=Math.max(margin+9,Math.min(h-margin-9,point.y+24));
+         else point.x=Math.max(margin+9,Math.min(w-margin-9,point.x+24));
+       }
+     }
+     result.push({...point,f,angle:Math.atan2(dy,dx),range:Math.hypot(f.x-pan.x,f.y-pan.y)});
+   }
+   return result;
+ }
+ const originalDraw=drawFlight;
+ drawFlight=function(c,f){
+   const result=originalDraw(c,f);
+   const m=markers().find(x=>x.f.id===f?.id);if(!m)return result;
+   c.save();c.translate(m.x,m.y);c.rotate(m.angle);
+   c.fillStyle=f.id===selectedId?'#236d6f':'#517891';c.strokeStyle='#fff';c.lineWidth=1.6;
+   c.beginPath();c.moveTo(11,0);c.lineTo(-6,-6);c.lineTo(-2,0);c.lineTo(-6,6);c.closePath();c.fill();c.stroke();c.restore();
+   const right=m.x>viewport.w/2;
+   c.save();c.font='750 10px system-ui';c.textBaseline='middle';c.textAlign=right?'right':'left';
+   c.strokeStyle='rgba(255,255,255,.91)';c.lineWidth=3.5;
+   c.strokeText(f.callsign,m.x+(right?-15:15),m.y-9);
+   c.fillStyle=f.id===selectedId?'#175c60':'#456775';c.fillText(f.callsign,m.x+(right?-15:15),m.y-9);
+   c.restore();return result;
+ };
+ const previousClick=clickRadar;
+ clickRadar=function(x,y){
+   const hit=markers().find(m=>Math.hypot(m.x-x,m.y-y)<24);
+   if(!hit)return previousClick(x,y);
+   selectFlight(hit.f.id);
+   pan={x:hit.f.x,y:hit.f.y};backgroundDirty=true;
+   if(rangeNM<60)setRange(75);
+   notify(`${hit.f.callsign} · 已定位至雷達顯示範圍外的航機`);
+ };
+ const oldDrawWx=drawWeather;
+ drawWeather=function(c){const r=oldDrawWx(c);tip.style.display=flights.some(f=>v66OffshoreTrack(f)&&Math.hypot(f.x,f.y)>entryRadius*1.1)?'block':'none';return r;};
+ window.__atcV66={isOverSea:f=>v66OffshoreTrack(f),exitLimit:(f,land=100,sea=205)=>v66ExitLimit(f,land,sea),offscreen:()=>markers().map(m=>({callsign:m.f.callsign,x:m.x,y:m.y}))};
+ document.title='AIRSPACE — ATC V66 · Offshore Flight Paths';
+})();
+</script>
+
 </body>
 </html>
