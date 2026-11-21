@@ -140,6 +140,13 @@ body{background:linear-gradient(180deg,#eef3f2 0%,#e8eeee 100%)}
 .name-choice b{font-size:11px;font-weight:750;color:#264b48;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .name-choice span{color:#7f939b;font-size:9px;text-align:right;flex:1}
 .name-choice:hover{background:#eaf7f1;border-color:#b6d9ca}
+
+/* Rail motion and platform legend */
+.station-legend .platform-key{height:5px;width:18px;border-radius:3px;background:#f7fafb;border:1px solid #4a626b;position:relative;box-shadow:inset 0 -1px #168c81}
+@media(max-width:1050px){.tools{flex-wrap:wrap;justify-content:flex-end}.mtbtn{padding:0 9px}}
+@media(max-width:800px){.float-top{align-items:start}.tools{max-width:65%;gap:5px}.toolgroup{max-width:100%}.mtbtn{font-size:9px;padding:0 7px}.map-legend{max-width:230px}}
+@media(max-width:410px){.float-top{right:9px;left:9px}.tools{max-width:76%}.toolgroup{padding:3px}.mtbtn{font-size:9px;min-height:29px;padding:0 5px}.map-title{padding:8px 9px}.map-title strong{font-size:11px}.station-legend{font-size:9px}}
+
 </style>
 </head>
 <body>
@@ -150,9 +157,9 @@ body{background:linear-gradient(180deg,#eef3f2 0%,#e8eeee 100%)}
 <div class="zone-list" id="zoneList"></div>
 <button id="moreZonesBtn" class="show-more" type="button">查看全部需求區</button>
 <div class="demand-disclaimer">熱度及需求均為遊戲模擬；郊區低強度底色是模型外插，並非實測人口。虛線跟隨 GeoJSON 行政邊界，灰色範圍禁止建站。不同城市範圍可能是市、州、府或都會區。部分資料來源是 GADM（限非商業使用）。其餘來源依原資料授權。</div><div class="sec-head"><h3>營運路線</h3><span id="lineCount">0 條路線</span></div><div class="line-list" id="lineList"></div><div class="line-tools"><button class="btn primary" id="addLineBtn">＋ 新增路線</button><button class="btn" id="toggleDrawBtn">✎ 編輯路線</button></div><div class="edit-card" id="editCard"><div class="empty">先選擇一條路線，再編輯名稱、車輛和班次。</div></div></div></div><div class="sidebar-foot"><button class="btn tiny" id="blankBtn">建立空白方案</button><button class="btn tiny" id="exportBtn">↓ 匯出進度</button><label class="btn tiny upload-label">↑ 匯入<input id="importInput" type="file" accept="application/json,.json"></label></div></aside>
- <main class="mapwrap"><div id="vectorBasemap" aria-hidden="true"></div><canvas id="map" aria-label="地理地圖與可編輯的地鐵路線"></canvas><div class="float-top"><div class="map-title"><small>URBAN TRANSPORT NETWORK</small><strong id="mapCity">吉隆坡</strong><span id="mapCaption">空白規劃畫布</span></div><div class="tools"><div class="toolgroup"><button id="modeSelect" class="mtbtn active">選取</button><button id="modeDraw" class="mtbtn">＋ 建站延線</button><button id="modeMove" class="mtbtn">移動車站</button></div><div class="toolgroup"><button id="heatBtn" class="mtbtn active" title="顯示或隱藏連續需求熱度圖">熱度圖</button><button id="trainBtn" class="mtbtn active" title="顯示或隱藏車輛">列車</button><button id="poiBtn" class="mtbtn active" title="顯示或隱藏人流樞紐標註">樞紐點</button></div></div></div><div class="mapzooms"><button class="btn" id="zoomIn" aria-label="放大地圖">+</button><button class="btn" id="zoomOut" aria-label="縮小地圖">−</button><button class="btn" id="recenter" aria-label="重置地圖中心">⌖</button></div><div class="map-legend"><div class="heat-legend-head"><b>潛在搭乘需求</b><small>模擬指數 0–100</small></div><div class="heat-scale"></div><div class="heat-legend-labels"><span>低</span><span>中</span><span>高</span><span>極高</span></div><div class="heat-note">淺藍色：郊區模擬低需求（非零）</div><div class="station-legend"><span class="key"><i></i>車站</span><span class="key"><i class="trans"></i>轉乘</span><span>· <b>虛線為遊戲邊界</b> · 拖曳平移／滾輪縮放</span></div></div>
+ <main class="mapwrap"><div id="vectorBasemap" aria-hidden="true"></div><canvas id="map" aria-label="地理地圖與可編輯的地鐵路線"></canvas><div class="float-top"><div class="map-title"><small>URBAN TRANSPORT NETWORK</small><strong id="mapCity">吉隆坡</strong><span id="mapCaption">空白規劃畫布</span></div><div class="tools"><div class="toolgroup"><button id="modeSelect" class="mtbtn active">選取</button><button id="modeDraw" class="mtbtn">＋ 建站延線</button><button id="modeMove" class="mtbtn">移動車站</button></div><div class="toolgroup"><button id="heatBtn" class="mtbtn active" title="顯示或隱藏連續需求熱度圖">熱度圖</button><button id="trainBtn" class="mtbtn active" title="顯示或隱藏列車車廂">列車</button><button id="platformBtn" class="mtbtn active" title="顯示或隱藏站臺示意（放大地圖後可見）">站臺</button><button id="poiBtn" class="mtbtn active" title="顯示或隱藏人流樞紐標註">樞紐點</button></div></div></div><div class="mapzooms"><button class="btn" id="zoomIn" aria-label="放大地圖">+</button><button class="btn" id="zoomOut" aria-label="縮小地圖">−</button><button class="btn" id="recenter" aria-label="重置地圖中心">⌖</button></div><div class="map-legend"><div class="heat-legend-head"><b>潛在搭乘需求</b><small>模擬指數 0–100</small></div><div class="heat-scale"></div><div class="heat-legend-labels"><span>低</span><span>中</span><span>高</span><span>極高</span></div><div class="heat-note">淺藍色：郊區模擬低需求（非零）</div><div class="station-legend"><span class="key"><i></i>車站</span><span class="key"><i class="trans"></i>轉乘</span><span class="key"><i class="platform-key"></i>站臺</span><span>· <b>虛線為遊戲邊界</b> · 拖曳平移／滾輪縮放</span></div></div>
 <div class="hotspot-banner" id="hotspotBanner"><span class="hotspot-spark">●</span><span><small>全市最高需求熱區</small><strong id="hotspotName">—</strong></span><button id="hotspotGo" type="button">定位</button></div>
-<div class="boundary-loading" id="boundaryLoading">正在載入行政邊界 GeoJSON…<br>界線確認後才可建站</div><div class="demand-tooltip" id="demandTooltip" role="status" hidden></div><div class="map-footer"><div class="timeline"><div class="timeline-head"><div><div class="clock" id="clock">07:30</div><label id="dayLabel">模擬星期一 · 早高峰</label></div><div class="timeBtns"><button id="pauseBtn">Ⅱ</button><button data-speed="1" class="active">1×</button><button data-speed="5">5×</button><button data-speed="25">25×</button></div></div><div class="daybar" id="daybar" style="--progress:31%"></div></div><div class="hinttoast" id="hint">建站後自動查詢附近道路／建築／設施，站名也能手動選擇</div></div><div class="basemap-notice" id="basemapNotice" hidden><span id="basemapMessage">正在連接城市底圖…</span><button type="button" id="basemapRetry" title="重試載入地圖">重試</button></div><div class="map-credit" id="mapCredit">© <a href="https://www.mapbox.com/" target="_blank" rel="noopener noreferrer">Mapbox</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors · <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon/OSM 地名</a> · <a href="https://gadm.org/license.html" target="_blank" rel="noopener noreferrer">GeoJSON data terms</a></div><div class="inspector hidden" id="inspector"></div><div id="toast"></div></main></div>
+<div class="boundary-loading" id="boundaryLoading">正在載入行政邊界 GeoJSON…<br>界線確認後才可建站</div><div class="demand-tooltip" id="demandTooltip" role="status" hidden></div><div class="map-footer"><div class="timeline"><div class="timeline-head"><div><div class="clock" id="clock">07:30</div><label id="dayLabel">模擬星期一 · 早高峰</label></div><div class="timeBtns"><button id="pauseBtn">Ⅱ</button><button data-speed="1" class="active">1×</button><button data-speed="5">5×</button><button data-speed="25">25×</button></div></div><div class="daybar" id="daybar" style="--progress:31%"></div></div><div class="hinttoast" id="hint">車站依附近醫院、景點、機場、公共設施、道路或地名命名；不使用店鋪名稱</div></div><div class="basemap-notice" id="basemapNotice" hidden><span id="basemapMessage">正在連接城市底圖…</span><button type="button" id="basemapRetry" title="重試載入地圖">重試</button></div><div class="map-credit" id="mapCredit">© <a href="https://www.mapbox.com/" target="_blank" rel="noopener noreferrer">Mapbox</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors · <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon/OSM 地名</a> · <a href="https://gadm.org/license.html" target="_blank" rel="noopener noreferrer">GeoJSON data terms</a></div><div class="inspector hidden" id="inspector"></div><div id="toast"></div></main></div>
 </div>
 <div class="modal-back" id="modalBack"><div class="modal"><div class="modalHead"><h2 id="modalTitle">路網統計</h2><button class="btn" id="closeModal">✕</button></div><div id="modalBody"></div></div></div>
 <script>
@@ -306,28 +313,35 @@ function featureDistanceMeters(lat,lng,geom){
  }else if(geom.type==='MultiPolygon')for(const poly of g){for(const ring of poly)walkLine(ring);if(poly[0]&&contains(poly[0])&&!poly.slice(1).some(contains))best=0}
  return best;
 }
-const NAME_LIMIT={poi:190,building:115,road:115,locality:500};
-const NAME_BASE={poi:107,building:98,road:89,locality:54};
-function nameType(layer,props){
- const l=String(layer||'').toLowerCase(),p=props||{};
- const c=String([p.class,p.type,p.subclass,p.kind,p.category,p.maki,p.feature_type].filter(Boolean).join(' ')).toLowerCase();
- if(/^(?:motorway|trunk|primary|secondary|tertiary|service|road)$/.test(c)&&!/\broad\b/.test(l))return 'road';
- if(/road|street|highway|transportation_name|street_name/.test(l))return 'road';
- if(/poi|railway|transit|transportation|airport|terminal|ferry|station|school|hospital|college|university|museum|mall|shop|market|amenity|tourism|leisure/.test(l+' '+c))return 'poi';
- if(/building/.test(l+' '+c))return 'building';
- if(/place|locality|neighbou?rhood|suburb|settlement|district/.test(l+' '+c))return 'locality';
+// Naming policy v7: only public institutions, notable attractions, transport facilities,
+// meaningful public roads, and locality names. Never promote shops, restaurants,
+// cafes, ordinary businesses or anonymous commercial buildings to station names.
+const NAME_LIMIT={facility:230,road:135,locality:540};
+const NAME_BASE={facility:121,road:78,locality:44};
+const PRIVATE_POI=/(?:^|[^a-z])(shop|shops|store|retail|supermarket|mall|shopping|commercial|restaurant|cafe|coffee|bakery|fast.food|food.court|bar|pub|hotel|motel|hostel|bank|atm|office|company|business|chemist|pharmacy|salon|beauty|boutique|grocery|convenience|fuel|parking|garage|car.wash|car.repair|marketplace|department.store|nightclub)(?:$|[^a-z])/i;
+const PUBLIC_POI=/(?:^|[^a-z])(hospital|clinic|healthcare|medical|health.centre|university|college|school|campus|library|museum|gallery|historic|heritage|monument|memorial|castle|fort|temple|mosque|church|cathedral|shrine|tourism|attraction|viewpoint|observatory|park|garden|botanical|zoo|aquarium|stadium|sports.centre|theatre|concert.hall|airport|aerodrome|aeroway|terminal|ferry|pier|harbour|harbor|port|bus.station|bus.terminal|railway.station|train.station|transit.station|public.transport|transportation.station|station|government|city.hall|town.hall|courthouse|civic|public.building|police|fire.station|landmark)(?:$|[^a-z])/i;
+function namingCategory(layer,props){
+ const p=props||{},l=String(layer||'').toLowerCase();
+ const attrs=[p.class,p.type,p.subclass,p.kind,p.category,p.maki,p.feature_type,p.osm_key,p.osm_value,p.amenity,p.tourism,p.historic,p.leisure,p.aeroway,p.healthcare,p.public_transport,p.railway,p.designation,p.shop,p.office,p.building].filter(Boolean).join(' ').toLowerCase();
+ // Reject explicitly commercial places even when the same feature is in a POI layer.
+ if(PRIVATE_POI.test(attrs)||p.shop||p.office)return '';
+ if(PUBLIC_POI.test(attrs)||PUBLIC_POI.test(l))return 'facility';
+ if(/road|street|highway|transportation_name|street_name/.test(l)||/^(primary|secondary|tertiary|residential|living.street|unclassified|road|street)$/.test(attrs.trim()))return 'road';
+ if(/place|locality|neighbou?rhood|suburb|settlement|district|village|quarter/.test(l)||/^(?:city|town|suburb|neighbou?rhood|village|locality|district|hamlet|quarter)$/.test(attrs.trim()))return 'locality';
+ // Generic POIs and building labels are not trustworthy enough to name stations.
  return '';
 }
+function nameType(layer,props){return namingCategory(layer,props)}
 function nameFeatureCandidate(f,lat,lng,layerHint='',origin='地圖圖徵'){
  const p=f?.properties||{},type=nameType(f.sourceLayer||f.layer?.['source-layer']||f.layer?.id||layerHint,p);
  if(!type)return null;
  const name=cleanPlaceName(p['name:zh-Hant']||p.name_zh_Hant||p.name_zh||p['name:zh']||p.name_local||p.name||p.name_en||p.label);
  if(!name||/^(?:entrance|exit|service road|motorway|parking|unclassified|footway)$/i.test(name))return null;
- let d=featureDistanceMeters(lat,lng,f.geometry);
- if(!isFinite(d))return null;
- const limit=NAME_LIMIT[type];if(d>limit)return null;
- const priority=NAME_BASE[type],rank=Math.round(Math.max(5,priority-24*(d/limit)));
- return {base:name,type,rank,metres:Math.round(d),source:`${origin} · ${type==='poi'?'建築／設施':type==='road'?'道路':type==='building'?'建築':'地區'} ${Math.round(d)}m`};
+ const d=featureDistanceMeters(lat,lng,f.geometry);
+ if(!isFinite(d)||d>NAME_LIMIT[type])return null;
+ const priority=NAME_BASE[type],rank=Math.round(Math.max(5,priority-23*(d/NAME_LIMIT[type])));
+ const group=type==='facility'?'公共設施／景點':type==='road'?'道路':'地區';
+ return {base:name,type,rank,metres:Math.round(d),source:`${origin} · ${group} ${Math.round(d)}m`};
 }
 function queryMapNames(lat,lng){
  if(!basemapReady||!vectorMap||!vectorMap.getStyle)return [];
@@ -343,7 +357,7 @@ function queryMapNames(lat,lng){
   for(const layer of style?.layers||[]){
    const source=layer.source,sLayer=layer['source-layer'];
    if(!sLayer||!source||sourceDefs[source]?.type!=='vector')continue;
-   if(!/(poi|road|street|building|place|neigh|settlement|transit|rail|transport|airport|landmark|label)/i.test(sLayer))continue;
+   if(!/(poi|road|street|building|place|neigh|settlement|transit|rail|transport|airport|landmark|hospital|health|school|tourism|museum|park|ferry|label)/i.test(sLayer))continue;
    pairs.add(source+'\u001f'+sLayer);
   }
   for(const pair of [...pairs].slice(0,22)){
@@ -372,18 +386,19 @@ function nearbyStationNames(lat,lng){
 }
 function nearbyStationName(lat,lng){return nearbyStationNames(lat,lng)[0]||{base:'新車站',rank:0,source:'附近沒有地名 · 等候精細搜尋',metres:null}}
 function parsePhotonCandidate(feature,lat,lng){
- const props=feature?.properties||{},geo=feature?.geometry;
- const osm=String(props.osm_key||'').toLowerCase(),layer=String(props.layer||'').toLowerCase();
- const isRoad=osm==='highway'||layer==='street';
- const isPOI=/^(?:amenity|shop|tourism|leisure|historic|office|railway|aeroway|public_transport|man_made|healthcare|craft)$/.test(osm);
- const isBuilding=osm==='building';
- const isArea=osm==='place'||/^(?:locality|district|city|county|state)$/.test(layer);
- const type=isPOI?'poi':isRoad?'road':isBuilding?'building':isArea?'locality':props.street?'road':'poi';
- const name=cleanPlaceName(isRoad?(props.name||props.street):(props.name||props.street));
- if(!name)return null;
+ const p=feature?.properties||{},geo=feature?.geometry;
+ const osm=String(p.osm_key||'').toLowerCase(),value=String(p.osm_value||'').toLowerCase(),layer=String(p.layer||'').toLowerCase();
+ let type='';
+ if(PRIVATE_POI.test(osm+' '+value+' '+layer))return null;
+ if(osm==='highway'||layer==='street')type='road';
+ else if(PUBLIC_POI.test(osm+' '+value+' '+layer))type='facility';
+ else if(osm==='place'||/^(?:locality|district|city|county|state)$/.test(layer))type='locality';
+ else if(p.street&&osm==='highway')type='road';
+ if(!type)return null; // Do not use arbitrary buildings or unspecified amenity / shop features.
+ const name=cleanPlaceName(p.name||(type==='road'?p.street:''));if(!name)return null;
  const d=featureDistanceMeters(lat,lng,geo);if(!isFinite(d)||d>NAME_LIMIT[type])return null;
- const rank=Math.round(Math.max(5,NAME_BASE[type]-24*d/NAME_LIMIT[type]));
- return {base:name,type,metres:Math.round(d),rank,source:`OpenStreetMap 地點反查 · ${type==='road'?'道路':type==='poi'?'建築／設施':type==='building'?'建築':'地區'} ${Math.round(d)}m`};
+ const rank=Math.round(Math.max(5,NAME_BASE[type]-23*d/NAME_LIMIT[type]));
+ return {base:name,type,metres:Math.round(d),rank,source:`OpenStreetMap 地點反查 · ${type==='road'?'道路':type==='facility'?'公共設施／景點':'地區'} ${Math.round(d)}m`};
 }
 // Photon is a best-effort, low-volume OSM reverse lookup (demo instance).
 // No automatic search on map pan/zoom and at most one call for each station,
@@ -418,7 +433,7 @@ function reverseStationName(stationId,force=false){
   }
   const live=plan?.stops?.find(v=>v.id===stationId);
   if(!live||city!==requestCity||Math.abs(live.lat-requestLat)>.00004||Math.abs(live.lng-requestLng)>.00004)return [];
-  const previous=STATION_CHOICES.get(stationId)||[];
+  const previous=(STATION_CHOICES.get(stationId)||[]).filter(x=>x.type!=='poi'&&x.type!=='building'||/已知交通樞紐/.test(x.source));
   const merged=new Map();for(const x of [...results,...previous]){const k=x.base.toLowerCase();if(!merged.has(k)||x.rank>merged.get(k).rank)merged.set(k,x)}
   const choices=[...merged.values()].sort((a,b)=>b.rank-a.rank||a.metres-b.metres).slice(0,6);
   STATION_CHOICES.set(stationId,choices);
@@ -447,6 +462,19 @@ function updateAutoName(stationId,force=false){
  const choices=nearbyStationNames(s.lat,s.lng);STATION_CHOICES.set(s.id,choices);
  const next=choices[0]||nearbyStationName(s.lat,s.lng);
  applyStationAutoName(s,next,force);
+}
+// Existing saved auto names created by older versions may be from shops or generic buildings.
+// Re-evaluate only those legacy machine-generated labels; manual names stay untouched.
+function refreshLegacyCommercialNames(){
+ if(!plan?.stops)return;
+ let changed=false;
+ for(const stop of plan.stops){
+  if(stop.autoName!==true||!/建築／設施|建築/.test(String(stop.nameOrigin||'')))continue;
+  const near=fallbackStationNames(stop.lat,stop.lng).sort((a,b)=>b.rank-a.rank)[0]||{base:'新車站',rank:0,source:'暫定站名 · 待查公共設施'};
+  stop.name=namedStation(near.base,stop.id);stop.autoRank=near.rank;stop.nameOrigin=near.source;
+  changed=true;
+ }
+ if(changed)persist();
 }
 function refreshAutoNames(){
  if(!plan||!basemapReady)return;
@@ -716,7 +744,7 @@ function renderDemandPanel(){
  $('moreZonesBtn').textContent=zoneExpanded?'收起其他區域':'查看全部 '+n+' 個需求區';
 }
 
-let city='kl',plan=null,selectedLine=null,selectedStation=null,mode='select',heat=true,trainsVisible=true,poiVisible=true,clock=450,speed=1,paused=false,history=[],future=[],metrics={},lastFrame=0,trainTick=0,gameDay=1,toastHandle=0;
+let city='kl',plan=null,selectedLine=null,selectedStation=null,mode='select',heat=true,trainsVisible=true,platformsVisible=true,poiVisible=true,clock=450,speed=1,paused=false,history=[],future=[],metrics={},lastFrame=0,trainTick=0,gameDay=1,toastHandle=0;
 const storeKey=c=>'transit_studio_metro_v3_'+c;
 function emptyPlan(){return {stops:[],lines:[],source:'blank'}}
 function demo(c){return emptyPlan()}
@@ -727,7 +755,7 @@ function snapshot(){history.push(JSON.stringify(plan));if(history.length>40)hist
 function commit(){plan.stops=plan.stops.filter(s=>plan.lines.some(l=>l.stops.includes(s.id)));persist();metrics=simulate();renderSidebar();renderDemandPanel();renderInspector();updateMap();}
 function undo(){if(!history.length)return;future.push(JSON.stringify(plan));plan=JSON.parse(history.pop());selectedLine=plan.lines.find(l=>l.id===selectedLine)?.id||plan.lines[0]?.id||null;selectedStation=null;commit();toast('已復原操作')}
 function redo(){if(!future.length)return;history.push(JSON.stringify(plan));plan=JSON.parse(future.pop());selectedLine=plan.lines.find(l=>l.id===selectedLine)?.id||plan.lines[0]?.id||null;selectedStation=null;commit();toast('已重做操作')}
-function showCity(c){if(!CITIES[c])return;STATION_CHOICES.clear();city=c;plan=getSaved(c);history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;mode='select';clock=450;gameDay=1;map.center=CITIES[c].center.slice();map.zoom=CITIES[c].zoom;constrainView();map.tiles.clear();setMode('select');metrics=simulate();heatCache.key='';boundaryCache.key='';focusedZone=null;zoneExpanded=false;renderAll();document.querySelector('.sidebar .scroll').scrollTop=0;if(GEO_READY[c]){fitPlayBoundary();updateMap();geoStatus('✓ '+GEO_READY[c],'ready')}else{geoStatus('正在載入 '+CITIES[c].short+' 的 GeoJSON…','loading');loadGeo(c)}toast('已切換至 '+CITIES[c].short)}
+function showCity(c){if(!CITIES[c])return;STATION_CHOICES.clear();city=c;plan=getSaved(c);refreshLegacyCommercialNames();history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;mode='select';clock=450;gameDay=1;map.center=CITIES[c].center.slice();map.zoom=CITIES[c].zoom;constrainView();map.tiles.clear();setMode('select');metrics=simulate();heatCache.key='';boundaryCache.key='';focusedZone=null;zoneExpanded=false;renderAll();document.querySelector('.sidebar .scroll').scrollTop=0;if(GEO_READY[c]){fitPlayBoundary();updateMap();geoStatus('✓ '+GEO_READY[c],'ready')}else{geoStatus('正在載入 '+CITIES[c].short+' 的 GeoJSON…','loading');loadGeo(c)}toast('已切換至 '+CITIES[c].short)}
 function getStop(id){return plan.stops.find(s=>s.id===id)}function getLine(id){return plan.lines.find(l=>l.id===id)}function lineLength(l){let km=0;for(let i=1;i<l.stops.length;i++){let a=getStop(l.stops[i-1]),b=getStop(l.stops[i]);if(a&&b)km+=hKm([a.lat,a.lng],[b.lat,b.lng])}return km}
 function lineHeadway(l){if(l.stops.length<2||l.peak<1)return Infinity;const round=(lineLength(l)/TYPE[l.type].speed*120)+(l.stops.length*1.15)+8;return clamp(round/l.peak,1,90)}
 function nearestStation(z){let dist=Infinity,idx=-1;plan.stops.forEach((s,i)=>{const d=hKm([z[1],z[2]],[s.lat,s.lng]);if(d<dist){dist=d;idx=i}});return {dist,idx}}
@@ -741,8 +769,8 @@ let crowdScore=0,crowdW=0;for(const l of plan.lines){const ratio=(m.lineRides[l.
 function renderSidebar(){const c=CITIES[city];$('citySelect').value=city;$('mapCity').textContent=c.short;$('mapCaption').textContent=plan.lines.length?'自訂規劃路網':'空白規劃畫布';$('kRides').textContent=num(metrics.rides);$('kRatio').innerHTML=`<span class="${metrics.ratio>=100?'positive':'negative'}">${num(metrics.ratio)}%</span>`;$('kShare').textContent=num(metrics.share,1)+'%';$('kQuality').textContent=metrics.quality+' /100';$('lineCount').textContent=plan.lines.length+' 條路線';$('undoBtn').disabled=!history.length;$('redoBtn').disabled=!future.length;const el=$('lineList');el.innerHTML=plan.lines.length?plan.lines.map(l=>`<button class="line-item ${l.id===selectedLine?'active':''}" data-line="${escapeHTML(l.id)}"><span class="bar" style="background:${l.color}"></span><span><strong>${escapeHTML(l.name)}</strong><small>${TYPE[l.type]?.label||'重型捷運'} · ${num(lineLength(l),1)} km · ${l.peak} 列車</small></span><span class="count">${l.stops.length} 站</span></button>`).join(''):'<div class="empty">目前沒有路線。地圖已顯示模擬需求熱度，選擇最高需求區後按「新增路線」。</div>';
 el.querySelectorAll('[data-line]').forEach(b=>b.onclick=()=>{selectedLine=b.dataset.line;selectedStation=null;renderSidebar();renderInspector();updateMap()});const l=getLine(selectedLine),ed=$('editCard');if(!l){ed.innerHTML='<div class="empty">先按「新增路線」，再開始建站與安排列車。<br>目前地圖是空白規劃模式。</div>';return}ed.innerHTML=`<div class="edit-heading"><i style="--lineColor:${l.color}"></i><strong>路線營運設定</strong></div><label class="fieldlabel" for="lineName">路線名稱</label><input class="field" id="lineName" maxlength="36" value="${escapeHTML(l.name)}"><div class="twocol"><div><label class="fieldlabel" for="lineType">系統型式</label><select class="field" id="lineType">${Object.entries(TYPE).map(([k,v])=>`<option value="${k}" ${k===l.type?'selected':''}>${v.label}</option>`).join('')}</select></div><div><label class="fieldlabel" for="carsNum">每列編組</label><select class="field" id="carsNum">${[2,3,4,5,6,8].map(n=>`<option value="${n}" ${n===l.cars?'selected':''}>${n} 節</option>`).join('')}</select></div></div><label class="fieldlabel">尖峰營運列車數</label><div class="sliderline"><input type="range" id="peakNum" min="1" max="32" step="1" value="${l.peak}"><b id="peakValue">${l.peak} 列</b></div><div class="twocol"><div><label class="fieldlabel">估計班距</label><strong style="font-size:13px">${isFinite(lineHeadway(l))?num(lineHeadway(l),1)+' 分鐘':'未連接'}</strong></div><div><label class="fieldlabel">日搭乘流量</label><strong style="font-size:13px">${num(metrics.lineRides[l.id]||0)}</strong></div></div><label class="fieldlabel">路線配色</label><div class="colors">${PALETTE.map(c=>`<button class="swatch ${c===l.color?'active':''}" style="background:${c}" data-color="${c}" aria-label="套用路線色 ${c}"></button>`).join('')}</div><div class="line-tools"><button class="btn primary" id="editSelected">＋ 地圖建站</button><button class="btn warn" id="deleteLine">刪除路線</button></div><div class="edit-note">調整列車數、編組與路線走向會重新估算等候時間、運量及經營成本。</div>`;
 $('lineName').addEventListener('change',e=>{snapshot();l.name=e.target.value.trim()||l.name;plan.source='custom';commit()});$('lineType').onchange=e=>{snapshot();l.type=e.target.value;plan.source='custom';commit()};$('carsNum').onchange=e=>{snapshot();l.cars=Number(e.target.value);plan.source='custom';commit()};$('peakNum').oninput=e=>$('peakValue').textContent=e.target.value+' 列';$('peakNum').onchange=e=>{snapshot();l.peak=Number(e.target.value);plan.source='custom';commit()};ed.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>{snapshot();l.color=b.dataset.color;plan.source='custom';commit()});$('editSelected').onclick=()=>setMode('draw');$('deleteLine').onclick=()=>{if(!confirm('確定刪除「'+l.name+'」及其路線？共用車站仍會保留在其他路線。'))return;snapshot();plan.lines=plan.lines.filter(x=>x.id!==l.id);selectedLine=plan.lines[0]?.id||null;plan.source='custom';commit()};}
-function renderInspector(){const el=$('inspector'),s=getStop(selectedStation);if(!s){el.classList.add('hidden');return}const lnames=plan.lines.filter(l=>l.stops.includes(s.id));el.classList.remove('hidden');el.innerHTML=`<div class="inspect-head"><strong>車站管理</strong><button id="closeInspect">✕</button></div><div class="inspect-sub">${lnames.length>1?'● 轉乘車站':'● 一般車站'} · ${num(s.lat,4)}°, ${num(s.lng,4)}°</div><label class="fieldlabel" for="stationName" style="margin-top:0">車站名稱</label><input id="stationName" class="field" maxlength="45" value="${escapeHTML(s.name)}"><div class="auto-name-hint">來源：${escapeHTML(s.nameOrigin||'現有站名')} · 可自行修改</div>${(STATION_CHOICES.get(s.id)||[]).length?'<div class="name-choices"><small>附近其他名稱（點擊使用）</small>'+STATION_CHOICES.get(s.id).slice(0,4).map((x,i)=>`<button type="button" class="name-choice" data-name-index="${i}"><b>${escapeHTML(x.base)}</b><span>${escapeHTML(x.source)}</span></button>`).join('')+'</div>':''}<button class="btn tiny auto-name-btn" id="refreshStationName" title="讀取地圖原始道路圖徵，並精細查詢附近地點">⌖ 搜尋附近道路／建築重新命名</button><div class="inspect-kpis"><div><span>日估計進出站</span><b>${num(metrics.stationRides[s.id]||0)}</b></div><div><span>途經路線</span><b>${lnames.length} 條</b></div></div><div style="font-size:10px;color:#7e939d;line-height:1.7">${lnames.map(l=>`<span style="color:${l.color};font-weight:800">●</span> ${escapeHTML(l.name)}`).join('　')||'尚無路線'}</div><div class="inspect-actions"><button class="btn primary" id="saveStation">儲存站名</button><button class="btn warn" id="delStation">移除車站</button></div><p class="edit-note">選擇「移動車站」後直接拖曳地圖上的站點。</p>`;$('closeInspect').onclick=()=>{selectedStation=null;renderInspector();updateMap()};$('saveStation').onclick=()=>{let v=$('stationName').value.trim();if(!v)return toast('車站名稱不能為空');snapshot();s.name=v;s.autoName=false;s.autoRank=100;s.nameOrigin='自行命名';plan.source='custom';commit();toast('已更新站名')};$('refreshStationName').onclick=()=>{snapshot();s.autoName=true;s.autoRank=-1;updateAutoName(s.id,true);toast('正在搜尋車站周圍的道路與建築…');reverseStationName(s.id,true).then(list=>toast(list.length?'附近地名查詢完成，可點選候選站名':'尚無更精細地名，請自行命名'))};el.querySelectorAll('[data-name-index]').forEach(b=>b.onclick=()=>{const chosen=(STATION_CHOICES.get(s.id)||[])[Number(b.dataset.nameIndex)];if(!chosen)return;snapshot();s.name=namedStation(chosen.base,s.id);s.autoName=false;s.autoRank=120;s.nameOrigin='自行選擇 · '+chosen.source;plan.source='custom';commit();toast('已採用附近地名')});$('stationName').onkeydown=e=>{if(e.key==='Enter')$('saveStation').click()};$('delStation').onclick=()=>{if(!confirm('確定刪除「'+s.name+'」？所有經過此站的路線都會移除這個停靠站。'))return;snapshot();for(const l of plan.lines)l.stops=l.stops.filter(id=>id!==s.id);selectedStation=null;plan.source='custom';commit();toast('已移除車站')};}
-function renderAll(){$('heatBtn').classList.toggle('active',heat);$('trainBtn').classList.toggle('active',trainsVisible);const poiEl=$('poiBtn');if(poiEl)poiEl.classList.toggle('active',poiVisible);renderSidebar();renderDemandPanel();renderInspector();updateClock();updateMap()}
+function renderInspector(){const el=$('inspector'),s=getStop(selectedStation);if(!s){el.classList.add('hidden');return}const lnames=plan.lines.filter(l=>l.stops.includes(s.id));el.classList.remove('hidden');el.innerHTML=`<div class="inspect-head"><strong>車站管理</strong><button id="closeInspect">✕</button></div><div class="inspect-sub">${lnames.length>1?'● 轉乘車站':'● 一般車站'} · 示意站臺 ${lnames.length*2} 座 · ${num(s.lat,4)}°, ${num(s.lng,4)}°</div><label class="fieldlabel" for="stationName" style="margin-top:0">車站名稱</label><input id="stationName" class="field" maxlength="45" value="${escapeHTML(s.name)}"><div class="auto-name-hint">來源：${escapeHTML(s.nameOrigin||'現有站名')} · 可自行修改</div>${(STATION_CHOICES.get(s.id)||[]).length?'<div class="name-choices"><small>附近其他名稱（點擊使用）</small>'+STATION_CHOICES.get(s.id).slice(0,4).map((x,i)=>`<button type="button" class="name-choice" data-name-index="${i}"><b>${escapeHTML(x.base)}</b><span>${escapeHTML(x.source)}</span></button>`).join('')+'</div>':''}<button class="btn tiny auto-name-btn" id="refreshStationName" title="優先查詢醫院、景點、機場、公共設施與道路；排除商店和餐廳">⌖ 搜尋附近公共設施／道路</button><div class="inspect-kpis"><div><span>日估計進出站</span><b>${num(metrics.stationRides[s.id]||0)}</b></div><div><span>途經路線</span><b>${lnames.length} 條</b></div></div><div style="font-size:10px;color:#7e939d;line-height:1.7">${lnames.map(l=>`<span style="color:${l.color};font-weight:800">●</span> ${escapeHTML(l.name)}`).join('　')||'尚無路線'}</div><div class="inspect-actions"><button class="btn primary" id="saveStation">儲存站名</button><button class="btn warn" id="delStation">移除車站</button></div><p class="edit-note">選擇「移動車站」後直接拖曳地圖上的站點。</p>`;$('closeInspect').onclick=()=>{selectedStation=null;renderInspector();updateMap()};$('saveStation').onclick=()=>{let v=$('stationName').value.trim();if(!v)return toast('車站名稱不能為空');snapshot();s.name=v;s.autoName=false;s.autoRank=100;s.nameOrigin='自行命名';plan.source='custom';commit();toast('已更新站名')};$('refreshStationName').onclick=()=>{snapshot();s.autoName=true;s.autoRank=-1;updateAutoName(s.id,true);toast('正在搜尋醫院、景點、機場、道路與附近地名…');reverseStationName(s.id,true).then(list=>toast(list.length?'附近地名查詢完成，可點選候選站名':'尚無更精細地名，請自行命名'))};el.querySelectorAll('[data-name-index]').forEach(b=>b.onclick=()=>{const chosen=(STATION_CHOICES.get(s.id)||[])[Number(b.dataset.nameIndex)];if(!chosen)return;snapshot();s.name=namedStation(chosen.base,s.id);s.autoName=false;s.autoRank=120;s.nameOrigin='自行選擇 · '+chosen.source;plan.source='custom';commit();toast('已採用附近地名')});$('stationName').onkeydown=e=>{if(e.key==='Enter')$('saveStation').click()};$('delStation').onclick=()=>{if(!confirm('確定刪除「'+s.name+'」？所有經過此站的路線都會移除這個停靠站。'))return;snapshot();for(const l of plan.lines)l.stops=l.stops.filter(id=>id!==s.id);selectedStation=null;plan.source='custom';commit();toast('已移除車站')};}
+function renderAll(){$('heatBtn').classList.toggle('active',heat);$('trainBtn').classList.toggle('active',trainsVisible);$('platformBtn').classList.toggle('active',platformsVisible);const poiEl=$('poiBtn');if(poiEl)poiEl.classList.toggle('active',poiVisible);renderSidebar();renderDemandPanel();renderInspector();updateClock();updateMap()}
 function toast(msg){const e=$('toast');e.textContent=msg;e.classList.add('show');clearTimeout(toastHandle);toastHandle=setTimeout(()=>e.classList.remove('show'),2300)}
 function setMode(m){if((m==='draw'||m==='move')&&!GEO_READY[city]){toast('先載入行政邊界 GeoJSON');return;}mode=m;updateDemandTooltip(null,true);['select','draw','move'].forEach(x=>$('mode'+x[0].toUpperCase()+x.slice(1)).classList.toggle('active',m===x));$('toggleDrawBtn').textContent=m==='draw'?'✓ 完成編輯':'✎ 編輯路線';$('map').classList.toggle('editing',m!=='select');$('hint').textContent=m==='draw'?'點擊地圖新增站點，點現有車站即可連接；點路線可插入站點':m==='move'?'拖曳車站移動位置，路線將同步更新':'選擇路線，或點擊地圖中的車站查看資料'}
 function addLine(){if(!GEO_READY[city]){toast('請先載入行政 GeoJSON 邊界才能建站');return;}snapshot();const n=plan.lines.length+1,used=new Set(plan.lines.map(l=>l.color));const color=PALETTE.find(c=>!used.has(c))||PALETTE[(n-1)%PALETTE.length];const l={id:uid(),name:'新規劃線 '+n,color,type:'heavy',cars:4,peak:8,stops:[]};plan.lines.push(l);selectedLine=l.id;selectedStation=null;plan.source='custom';commit();setMode('draw');toast('已新增路線 · 點擊地圖開始建站')}
@@ -853,10 +881,97 @@ function hash(x){let q=Math.sin(x*127.1)*43758.5453;return q-Math.floor(q)}
 function drawFallback(ctx,W,H){ctx.fillStyle='#edf1eb';ctx.fillRect(0,0,W,H);ctx.save();ctx.strokeStyle='#d4ddd5';ctx.lineWidth=1;const sp=Math.max(32,95*Math.pow(2,map.zoom-12));const anchor=merc(0,0,map.zoom),c=merc(...map.center,map.zoom);let startX=((anchor[0]-c[0]+W/2)%sp+sp)%sp;let startY=((anchor[1]-c[1]+H/2)%sp+sp)%sp;for(let x=startX;x<W;x+=sp){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=startY;y<H;y+=sp){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}ctx.strokeStyle='#fafcf9';ctx.lineWidth=9;for(let j=-5;j<16;j++){const y=j*110+((c[1]*.017)%110);ctx.beginPath();ctx.moveTo(0,y+25*Math.sin(j));ctx.bezierCurveTo(W*.3,y-60,W*.6,y+45,W,y-24);ctx.stroke()}ctx.restore();ctx.fillStyle='#a9bab1';ctx.font='700 14px '+getComputedStyle(document.body).fontFamily;for(const z of CITIES[city].zones){const p=xy(z[1],z[2]);if(p.x>-100&&p.x<W+100&&p.y>-100&&p.y<H+100)ctx.fillText(z[0],p.x+12,p.y-12)}}
 // Only the offline schematic is rendered here; the vector renderer handles genuine streets / terrain.
 function drawTiles(){return 0}
+
+// Visual rail hardware, calculated from the user's line geometry (not real-world station engineering).
+// Platforms are displayed near zoom 12+ only, so city-scale maps remain legible.
+function drawStationPlatforms(ctx,W,H){
+ if(!platformsVisible||map.zoom<12.15)return;
+ const pxLen=clamp(24+(map.zoom-12)*10,24,48),gap=map.zoom>=13?8:6.1;
+ ctx.save();ctx.lineJoin='round';
+ for(const l of plan.lines){
+  const ids=l.stops;if(ids.length<2)continue;
+  for(let j=0;j<ids.length;j++){
+   const station=getStop(ids[j]);if(!station)continue;
+   const anchor=xy(station.lat,station.lng);
+   if(anchor.x<-50||anchor.y<-50||anchor.x>W+50||anchor.y>H+50)continue;
+   const before=getStop(ids[Math.max(0,j-1)]),after=getStop(ids[Math.min(ids.length-1,j+1)]);
+   const pa=before?xy(before.lat,before.lng):anchor,pb=after?xy(after.lat,after.lng):anchor;
+   const angle=Math.atan2(pb.y-pa.y,pb.x-pa.x);
+   if(!isFinite(angle))continue;
+   ctx.save();ctx.translate(anchor.x,anchor.y);ctx.rotate(angle);
+   for(const sign of [-1,1]){
+    const y=sign*gap;
+    ctx.fillStyle='rgba(249,252,250,.97)';ctx.strokeStyle='#49616a';ctx.lineWidth=1.15;
+    ctx.beginPath();ctx.roundRect(-pxLen/2,y-3.2,pxLen,6.4,2.4);ctx.fill();ctx.stroke();
+    ctx.strokeStyle=l.color;ctx.lineWidth=1.7;ctx.beginPath();ctx.moveTo(-pxLen/2+3,y+(sign>0?-.8:.8));ctx.lineTo(pxLen/2-3,y+(sign>0?-.8:.8));ctx.stroke();
+    if(map.zoom>=13.5){ctx.fillStyle='#f4b352';for(let n=-1;n<=1;n++)ctx.fillRect(n*5-1,y-1,2,2)}
+   }
+   ctx.restore();
+  }
+ }
+ ctx.restore();
+}
+function drawTrainSprite(ctx,x,y,angle,color,cars,zoom){
+ const L=clamp(19+(zoom-11.4)*5+Math.min(4,Math.max(2,cars))*2.4,21,49);
+ const H=clamp(9+(zoom-11.8)*.9,9,13.5);
+ const n=Math.min(4,Math.max(2,Math.round(cars/2)));
+ ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+ ctx.shadowColor='rgba(11,36,44,.30)';ctx.shadowBlur=4;ctx.shadowOffsetY=1.5;
+ // Thin outer body with angled cab ends; forward direction is to the right.
+ ctx.beginPath();ctx.moveTo(-L/2+4,-H/2);ctx.lineTo(L/2-6,-H/2);
+ ctx.quadraticCurveTo(L/2,-H/2,L/2,0);ctx.quadraticCurveTo(L/2,H/2,L/2-6,H/2);
+ ctx.lineTo(-L/2+4,H/2);ctx.quadraticCurveTo(-L/2,H/2,-L/2+1,0);
+ ctx.quadraticCurveTo(-L/2,-H/2,-L/2+4,-H/2);ctx.closePath();
+ ctx.fillStyle='#f8fcfe';ctx.strokeStyle='#244c57';ctx.lineWidth=1.6;ctx.fill();ctx.stroke();
+ ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+ // Transit line identification stripe, window panels and carriage seams.
+ ctx.strokeStyle=color;ctx.lineWidth=2.8;ctx.beginPath();ctx.moveTo(-L/2+4,H*.28);ctx.lineTo(L/2-4,H*.28);ctx.stroke();
+ const start=-L/2+5,available=L-13,step=available/n;
+ for(let k=0;k<n;k++){
+  const left=start+k*step;
+  ctx.fillStyle=k===n-1?'#244959':'#6d98a9';ctx.beginPath();ctx.roundRect(left,-H*.30,Math.max(2,step-2.4),H*.39,1.2);ctx.fill();
+  if(k>0){ctx.strokeStyle='#b7c8cb';ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(left-1,-H*.41);ctx.lineTo(left-1,H*.12);ctx.stroke()}
+ }
+ ctx.fillStyle='#294a57';ctx.beginPath();ctx.roundRect(L/2-6,-H*.34,4.2,H*.42,1);ctx.fill();
+ ctx.fillStyle='#fff7c2';ctx.beginPath();ctx.arc(L/2-2.3,-H*.27,1.1,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#df444e';ctx.beginPath();ctx.arc(-L/2+2.1,H*.12,1,0,Math.PI*2);ctx.fill();
+ ctx.restore();
+}
+function drawMovingTrains(ctx,W,H){
+ if(!trainsVisible)return;
+ for(const l of plan.lines){
+  const stops=l.stops.map(getStop).filter(Boolean);if(stops.length<2)continue;
+  const seg=[],cum=[0],screen=stops.map(s=>xy(s.lat,s.lng));
+  for(let i=1;i<stops.length;i++){
+   const km=hKm([stops[i-1].lat,stops[i-1].lng],[stops[i].lat,stops[i].lng]);seg.push(km);cum.push(cum[cum.length-1]+km);
+  }
+  const total=cum[cum.length-1];if(total<.01)continue;
+  const operating=Math.min(32,Math.max(1,Number(l.peak)||1));
+  const pxTrack=screen.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-screen[i].x,p.y-screen[i].y),0);
+  const maxVisible=Math.max(1,Math.min(operating,Math.floor(pxTrack/(map.zoom<11.8?42:34))));
+  const speedKmH=TYPE[l.type]?.speed||40;
+  const loopMinutes=total*2/speedKmH*60+stops.length*1.3;
+  for(let j=0;j<maxVisible;j++){
+   const k=Math.floor(j*operating/maxVisible);
+   const phase=((clock/loopMinutes)+(k/operating))%1;
+   const travelled=phase*total*2,reverse=travelled>total;
+   const along=reverse?2*total-travelled:travelled;
+   let i=0;while(i<seg.length-1&&along>cum[i+1])i++;
+   const f=clamp((along-cum[i])/(seg[i]||1),0,1);
+   const a=screen[i],b=screen[i+1];
+   const x=a.x+(b.x-a.x)*f,y=a.y+(b.y-a.y)*f;
+   if(x<-50||y<-50||x>W+50||y>H+50)continue;
+   const angle=Math.atan2(b.y-a.y,b.x-a.x)+(reverse?Math.PI:0);
+   drawTrainSprite(ctx,x,y,angle,l.color,l.cars,map.zoom);
+  }
+ }
+}
 function draw(){const W=map.canvas.clientWidth,H=map.canvas.clientHeight;if(W<2||H<2)return;const dpr=Math.min(window.devicePixelRatio||1,2),cw=Math.round(W*dpr),ch=Math.round(H*dpr);if(map.canvas.width!==cw||map.canvas.height!==ch){map.canvas.width=cw;map.canvas.height=ch}const ctx=map.ctx;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);if(!basemapReady)drawFallback(ctx,W,H);
 if(heat&&GEO_READY[city]){ctx.save();ctx.beginPath();appendPlayPaths(ctx);ctx.clip('evenodd');paintHeatSurface(ctx,W,H);ctx.restore()}if(GEO_READY[city])drawPlayBoundary(ctx,W,H);if(heat)drawDemandMarkers(ctx,W,H)
 ctx.lineCap='round';ctx.lineJoin='round';for(const l of plan.lines){let pts=l.stops.map(id=>getStop(id)).filter(Boolean).map(s=>xy(s.lat,s.lng));if(pts.length<2)continue;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle='#ffffffd9';ctx.lineWidth=l.id===selectedLine?11:9;ctx.stroke();ctx.strokeStyle=l.color;ctx.globalAlpha=selectedLine&&l.id!==selectedLine?.77:1;ctx.lineWidth=l.id===selectedLine?6:5;ctx.stroke();ctx.globalAlpha=1}
-if(trainsVisible){for(const l of plan.lines){if(l.stops.length<2)continue;const pts=l.stops.map(id=>getStop(id)).filter(Boolean);if(pts.length<2)continue;const seg=[],cum=[0];for(let i=1;i<pts.length;i++){seg.push(hKm([pts[i-1].lat,pts[i-1].lng],[pts[i].lat,pts[i].lng]));cum.push(cum[cum.length-1]+seg[i-1])}const total=cum.at(-1)||1;const cars=Math.min(32,l.peak);for(let k=0;k<cars;k++){let t=((clock/60/24*0)+clock/(total/TYPE[l.type].speed*120+pts.length*1.15+8)*((total*2)) + k/cars*total*2)%(total*2);if(t>total)t=total*2-t;let idx=0;while(idx<seg.length-1&&t>cum[idx+1])idx++;const f=clamp((t-cum[idx])/(seg[idx]||1),0,1);const lat=pts[idx].lat+(pts[idx+1].lat-pts[idx].lat)*f,lng=pts[idx].lng+(pts[idx+1].lng-pts[idx].lng)*f;const p=xy(lat,lng);if(p.x<-10||p.y<-10||p.x>W+10||p.y>H+10)continue;ctx.beginPath();ctx.arc(p.x,p.y,6.2,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle=l.color;ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(p.x,p.y,2.35,0,Math.PI*2);ctx.fillStyle=l.color;ctx.fill()}}}if(poiVisible)drawLandmarks(ctx,W,H)
+drawStationPlatforms(ctx,W,H);
+drawMovingTrains(ctx,W,H);
+if(poiVisible)drawLandmarks(ctx,W,H)
 const stationLines=new Map();for(const l of plan.lines)for(const id of l.stops)stationLines.set(id,(stationLines.get(id)||0)+1);for(const s of plan.stops){const p=xy(s.lat,s.lng);if(p.x<-30||p.y<-30||p.x>W+30||p.y>H+30)continue;const active=s.id===selectedStation;const transfers=(stationLines.get(s.id)||0)>1;ctx.beginPath();ctx.arc(p.x,p.y,active?10:transfers?7.8:6.2,0,Math.PI*2);ctx.fillStyle=active?'#f9eed6':'#fff';ctx.fill();ctx.lineWidth=active?3:transfers?2.6:1.8;ctx.strokeStyle=active?'#c28a12':'#354e53';ctx.stroke();if(transfers){ctx.beginPath();ctx.arc(p.x,p.y,2.6,0,Math.PI*2);ctx.fillStyle='#aec4c2';ctx.fill()}if(active||map.hover===s.id){ctx.font='700 11px '+getComputedStyle(document.body).fontFamily;const tw=ctx.measureText(s.name).width;const bx=clamp(p.x-tw/2-10,2,W-tw-22),by=p.y-32;ctx.fillStyle='#fff';ctx.strokeStyle='#d4dede';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(bx,by,tw+20,23,7);ctx.fill();ctx.stroke();ctx.fillStyle='#253e47';ctx.fillText(s.name,bx+10,by+15)}}map.dirty=false}
 function updateMap(){map.dirty=true;syncVectorMap()}function renderFrame(now){let elapsed=lastFrame?Math.min((now-lastFrame)/1000,.1):0;lastFrame=now;if(!paused){clock+=(elapsed*2*speed);if(clock>=1440){clock%=1440;gameDay++;}trainTick+=elapsed}if(map.dirty||(!paused&&trainTick>.05)){draw();trainTick=0}if(now%1000<30)updateClock();requestAnimationFrame(renderFrame)}
 function updateClock(){let min=Math.floor(clock)%1440;$('clock').textContent=String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0');const h=min/60;$('dayLabel').textContent='模擬第 '+gameDay+' 天 · '+(h>=7&&h<10?'早高峰':h>=17&&h<20?'晚高峰':h>=23||h<5?'夜間離峰':'日間時段');$('daybar').style.setProperty('--progress',min/1440*100+'%');$('pauseBtn').textContent=paused?'▶':'Ⅱ'}
@@ -883,7 +998,7 @@ map.canvas.addEventListener('pointerleave',()=>updateDemandTooltip(null,true));m
 function showModal(title,html){$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modalBack').classList.add('show')}
 function drawChart(){const canvas=$('ridershipChart');if(!canvas)return;const box=canvas.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);canvas.width=box.width*dpr;canvas.height=box.height*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);const w=box.width,h=box.height,arr=Array.from({length:24},(_,i)=>{const peak1=Math.exp(-(((i-8)/2.1)**2)),peak2=Math.exp(-(((i-18)/2.5)**2));return Math.round(metrics.rides*(.016+.050*peak1+.044*peak2))});const max=Math.max(1,...arr)*1.17;c.strokeStyle='#e0e8e8';for(let t=0;t<4;t++){let y=16+(h-45)*t/3;c.beginPath();c.moveTo(28,y);c.lineTo(w-12,y);c.stroke()}const bw=(w-55)/24;for(let i=0;i<24;i++){let bh=arr[i]/max*(h-45),x=30+i*bw,y=h-23-bh;c.fillStyle=i>=7&&i<=9||i>=17&&i<=19?'#0e8575':'#9fd5c8';c.fillRect(x,y,Math.max(2,bw-3),bh)}c.font='10px sans-serif';c.fillStyle='#81929c';for(let i=0;i<=24;i+=4)c.fillText(String(i).padStart(2,'0'),28+i*bw,h-6)}
 function showStats(){const rows=plan.lines.map(l=>`<tr><td><span style="color:${l.color};font-weight:900">●</span> ${escapeHTML(l.name)}</td><td>${l.stops.length}</td><td>${num(lineLength(l),1)} km</td><td>${isFinite(lineHeadway(l))?num(lineHeadway(l),1):'—'} 分</td><td>${num(metrics.lineRides[l.id]||0)}</td></tr>`).join('');showModal('城市營運統計',`<p>${CITIES[city].name} · 本遊戲以假設的需求區、接駁距離及乘車時間推估路網表現，並非真實官方運量資料。</p><div class="stat-grid"><div class="statbox"><small>模擬日運量</small><strong>${num(metrics.rides)}</strong></div><div class="statbox"><small>票務收入／日</small><strong>${num(metrics.revenue)}</strong></div><div class="statbox"><small>營運成本／日</small><strong>${num(metrics.expense)}</strong></div><div class="statbox"><small>收支比</small><strong style="color:${metrics.ratio>=100?'#14967f':'#bf6c54'}">${num(metrics.ratio)}%</strong></div></div><h3 style="font-size:12px">每小時乘車量（需求分布示意）</h3><canvas class="chart" id="ridershipChart"></canvas><div class="trend-caption"><span>早晚通勤高峰 · 車流隨模擬時鐘運行</span><span>收費單位：${city==='tp'?'NT$':city==='hk'?'HK$':city==='sg'?'S$':'RM'}</span></div><h3 style="font-size:12px;margin-top:20px">路線表現</h3><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left;white-space:nowrap;font-size:11px"><thead><tr style="color:#84949c;border-bottom:1px solid #dde5e7"><th style="padding:9px">路線</th><th>站數</th><th>里程</th><th>班距</th><th>搭乘量*</th></tr></thead><tbody>${rows||'<tr><td colspan="5">尚無路線</td></tr>'}</tbody></table></div><p>* 路線搭乘量計入轉乘，可能重複計算。客量使用簡化 OD 模型；車輛擁擠對結果的影響為品質分而非逐人排隊模擬。</p>`);requestAnimationFrame(drawChart)}
-function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>城市與郊區都顯示連續的模擬需求熱度；虛線為 GeoJSON 行政邊界，邊界外不可以建站或移動車站，地圖拖曳也受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。點既有軌道可在中間插入車站。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>新車站會先讀取 Mapbox 已載入的原始道路／建築圖徵，再以限速的 OpenStreetMap Photon 地點反查補齊小地名；外部服務可能有延遲或暫時無法使用，沒有精確結果時不會冒充真實建築名稱。已手動命名的站不會被更改。進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖使用 Mapbox 自訂樣式。行政 GeoJSON 首次載入亦需要網路，可從介面匯入自己的 GeoJSON；成功載入後會在本次瀏覽器會話快取。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲規劃範圍來自第三方行政 GeoJSON（精簡資料不保證法律精度；GADM 不允許未經授權的商業使用與再散布）；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
+function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>城市與郊區都顯示連續的模擬需求熱度；虛線為 GeoJSON 行政邊界，邊界外不可以建站或移動車站，地圖拖曳也受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。點既有軌道可在中間插入車站。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車會以有車頭與車廂的圖示沿線路移動，地圖放大後可看到各站的示意站臺。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>新車站會讀取 Mapbox 已載入的道路與公共設施圖徵，再以限速的 OpenStreetMap Photon 反查醫院、景點、機場、學校、博物館等；店鋪、餐廳、咖啡廳與一般商業建築不作為自動站名；外部服務可能有延遲或暫時無法使用，沒有精確結果時不會冒充真實建築名稱。已手動命名的站不會被更改。進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖使用 Mapbox 自訂樣式。行政 GeoJSON 首次載入亦需要網路，可從介面匯入自己的 GeoJSON；成功載入後會在本次瀏覽器會話快取。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲規劃範圍來自第三方行政 GeoJSON（精簡資料不保證法律精度；GADM 不允許未經授權的商業使用與再散布）；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
 function download(name,contents){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([contents],{type:'application/json;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
 
 $('geoRetry').onclick=()=>loadGeo(city,true);
@@ -899,7 +1014,7 @@ $('geoInput').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{
 function inBoundingRegion(bounds,center){const lat=clamp(center[0],bounds.south,bounds.north),lon=clamp(center[1],bounds.west,bounds.east);return hKm(center,[lat,lon])<85;}
 
 $('citySelect').innerHTML=Object.entries(CITIES).map(([k,c])=>`<option value="${k}">${c.name}</option>`).join('');$('citySelect').onchange=e=>showCity(e.target.value);
-$('modeSelect').onclick=()=>setMode('select');$('modeDraw').onclick=()=>{if(!selectedLine&&plan.lines.length)addLine();setMode('draw')};$('modeMove').onclick=()=>setMode('move');$('addLineBtn').onclick=addLine;$('toggleDrawBtn').onclick=()=>setMode(mode==='draw'?'select':'draw');$('moreZonesBtn').onclick=()=>{zoneExpanded=!zoneExpanded;renderDemandPanel()};$('heatBtn').onclick=()=>{heat=!heat;$('heatBtn').classList.toggle('active',heat);toast(heat?'已顯示連續需求熱度圖':'已隱藏需求熱度圖');updateDemandTooltip(null,true);updateMap()};$('trainBtn').onclick=()=>{trainsVisible=!trainsVisible;$('trainBtn').classList.toggle('active',trainsVisible);updateMap()};$('poiBtn').onclick=()=>{poiVisible=!poiVisible;$('poiBtn').classList.toggle('active',poiVisible);toast(poiVisible?'已顯示機場／渡輪／樞紐標註':'已隱藏樞紐標註');updateMap()};$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('zoomIn').onclick=()=>zoomAt(map.zoom+.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('zoomOut').onclick=()=>zoomAt(map.zoom-.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('recenter').onclick=()=>{map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();updateMap()};$('pauseBtn').onclick=()=>{paused=!paused;updateClock()};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b));toast('模擬速度 '+speed+'×')});$('daybar').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();clock=clamp((e.clientX-r.left)/r.width,0,1)*1439;updateClock();updateMap()};$('statsBtn').onclick=showStats;$('helpBtn').onclick=showHelp;$('closeModal').onclick=()=>$('modalBack').classList.remove('show');$('modalBack').onclick=e=>{if(e.target===$('modalBack'))$('closeModal').click()};$('resetBtn').onclick=()=>{if(!confirm('重新載入此城市的空白規劃畫布？目前的修改將被取代。建議先匯出備份。'))return;snapshot();plan=demo(city);selectedLine=plan.lines[0]?.id||null;selectedStation=null;commit();setMode('select');toast('已恢復空白規劃畫布')};$('blankBtn').onclick=()=>{if(!confirm('確定建立空白路網？這會取代目前城市的規劃，建議先匯出備份。'))return;snapshot();plan={stops:[],lines:[],source:'custom'};selectedLine=null;selectedStation=null;commit();setMode('select');toast('已建立空白方案')};$('exportBtn').onclick=()=>download('MetroPlanner_'+city+'_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'TransitStudio.Metro',version:3,city,exportedAt:new Date().toISOString(),plan},null,2));$('importInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!CITIES[p.city]||!validate(p.plan))throw Error('格式不正確');if(!(await loadGeo(p.city)))throw Error('請先載入 '+CITIES[p.city].short+' 的 GeoJSON 界線');if(p.plan.stops.some(s=>!inPlayableArea(s.lat,s.lng,p.city)))throw Error('匯入路網含有行政邊界外的車站，請先調整位置');if(!confirm('匯入將取代「'+CITIES[p.city].short+'」現有路網，確定要繼續？'))return;city=p.city;plan=p.plan;history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;persist();map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();map.tiles.clear();metrics=simulate();renderAll();setMode('select');toast('已成功匯入路網')}catch(ex){alert('無法匯入：'+ex.message)}finally{e.target.value=''}};
+$('modeSelect').onclick=()=>setMode('select');$('modeDraw').onclick=()=>{if(!selectedLine&&plan.lines.length)addLine();setMode('draw')};$('modeMove').onclick=()=>setMode('move');$('addLineBtn').onclick=addLine;$('toggleDrawBtn').onclick=()=>setMode(mode==='draw'?'select':'draw');$('moreZonesBtn').onclick=()=>{zoneExpanded=!zoneExpanded;renderDemandPanel()};$('heatBtn').onclick=()=>{heat=!heat;$('heatBtn').classList.toggle('active',heat);toast(heat?'已顯示連續需求熱度圖':'已隱藏需求熱度圖');updateDemandTooltip(null,true);updateMap()};$('trainBtn').onclick=()=>{trainsVisible=!trainsVisible;$('trainBtn').classList.toggle('active',trainsVisible);updateMap()};$('platformBtn').onclick=()=>{platformsVisible=!platformsVisible;$('platformBtn').classList.toggle('active',platformsVisible);updateMap()};$('poiBtn').onclick=()=>{poiVisible=!poiVisible;$('poiBtn').classList.toggle('active',poiVisible);toast(poiVisible?'已顯示機場／渡輪／樞紐標註':'已隱藏樞紐標註');updateMap()};$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('zoomIn').onclick=()=>zoomAt(map.zoom+.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('zoomOut').onclick=()=>zoomAt(map.zoom-.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('recenter').onclick=()=>{map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();updateMap()};$('pauseBtn').onclick=()=>{paused=!paused;updateClock()};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b));toast('模擬速度 '+speed+'×')});$('daybar').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();clock=clamp((e.clientX-r.left)/r.width,0,1)*1439;updateClock();updateMap()};$('statsBtn').onclick=showStats;$('helpBtn').onclick=showHelp;$('closeModal').onclick=()=>$('modalBack').classList.remove('show');$('modalBack').onclick=e=>{if(e.target===$('modalBack'))$('closeModal').click()};$('resetBtn').onclick=()=>{if(!confirm('重新載入此城市的空白規劃畫布？目前的修改將被取代。建議先匯出備份。'))return;snapshot();plan=demo(city);selectedLine=plan.lines[0]?.id||null;selectedStation=null;commit();setMode('select');toast('已恢復空白規劃畫布')};$('blankBtn').onclick=()=>{if(!confirm('確定建立空白路網？這會取代目前城市的規劃，建議先匯出備份。'))return;snapshot();plan={stops:[],lines:[],source:'custom'};selectedLine=null;selectedStation=null;commit();setMode('select');toast('已建立空白方案')};$('exportBtn').onclick=()=>download('MetroPlanner_'+city+'_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'TransitStudio.Metro',version:3,city,exportedAt:new Date().toISOString(),plan},null,2));$('importInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!CITIES[p.city]||!validate(p.plan))throw Error('格式不正確');if(!(await loadGeo(p.city)))throw Error('請先載入 '+CITIES[p.city].short+' 的 GeoJSON 界線');if(p.plan.stops.some(s=>!inPlayableArea(s.lat,s.lng,p.city)))throw Error('匯入路網含有行政邊界外的車站，請先調整位置');if(!confirm('匯入將取代「'+CITIES[p.city].short+'」現有路網，確定要繼續？'))return;city=p.city;plan=p.plan;history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;persist();map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();map.tiles.clear();metrics=simulate();renderAll();setMode('select');toast('已成功匯入路網')}catch(ex){alert('無法匯入：'+ex.message)}finally{e.target.value=''}};
 window.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo()}if(e.key==='Escape'){$('modalBack').classList.remove('show');selectedStation=null;renderInspector();updateMap()}});window.addEventListener('resize',()=>{constrainView();heatCache.key='';if(vectorMap){try{vectorMap.resize()}catch(e){}syncVectorMap(true)}updateMap()});
 showCity('kl');requestAnimationFrame(renderFrame);loadVectorScript();
 })();
