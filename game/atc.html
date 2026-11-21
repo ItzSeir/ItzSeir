@@ -7448,17 +7448,52 @@ window.__atcV31={
  // Steering by subtropical ridge in tropics, trough/westerlies farther poleward.
  // Northern systems often move WNW then recurve NE; southern ones WSW -> SE.
  function steering(env,storm,t){
+   // V64: synthetic *spatially and temporally evolving* synoptic flow. Each
+   // vortex gets its own persistent ridge/trough/monsoon environment; no
+   // random heading jumps or predetermined straight-line trajectories.
    const abs=Math.abs(env.lat),north=env.lat>=0;
-   const tropical=north?295:245;
-   const ridge=north?312:228;
-   const westerly=north?65:113;
-   let bearing=lerp(tropical,ridge,smooth(13,24,abs));
-   bearing=lerp(bearing,westerly,smooth(22,38,abs));
-   // Broad, slowly varying waves—not sudden random changes of direction.
-   bearing+=7.5*Math.sin(t/104000+env.lon*.04+storm.seed*2);
-   const speed=clamp(11+4*smooth(14,32,abs)+4*smooth(24,43,abs)
-       +2.5*Math.sin(t/93000+env.lon*.08+storm.seed),6,27);
-   return {heading:norm(bearing),speed};
+   const seed=Number.isFinite(storm.seed)?storm.seed:0;
+   const classKey=(Math.sin(seed*3.7)+1)*.5;
+   const phase=seed*2.39+env.lon*.019;
+   const hours=t/3600;
+   const ridgeWave=3.6*Math.sin(phase+hours/82)
+                    +2.1*Math.sin(env.lon*.045-hours/130+seed);
+   // Individual ridge strengths: early recurvature, classic parabolic track,
+   // longer westward track, monsoon drift, and weaker blocking scenarios.
+   const ridgeOffset=classKey<.21?-6.4:classKey<.46?-.6:classKey<.68?5.3:classKey<.84?10.2:1.5;
+   const ridgeEdge=17.8+ridgeOffset+ridgeWave;
+   const troughStrength=.70+.30*Math.sin(hours/74+env.lon*.025+seed*1.8);
+   const release=smooth(ridgeEdge-2,ridgeEdge+9,abs)*(.79+.21*troughStrength);
+   const polar=smooth(ridgeEdge+5,ridgeEdge+17,abs);
+   // Circular interpolation avoids a fake rotation through south when
+   // steering changes from NW (320 deg) to NE (50 deg).
+   const angleMix=(a,b,w)=>norm(a+signed(b,a)*clamp(w,0,1));
+   // Tropical steering is not universally WNW: monsoon-trough, weak-ridge,
+   // equatorward easterlies and strong-ridge states produce distinct tracks
+   // even when an airport lies near 2–8 degrees latitude.
+   const tropical=north
+       ?(classKey<.18?337:classKey<.37?285:classKey<.58?315:classKey<.79?274:324)
+       :(classKey<.18?202:classKey<.37?251:classKey<.58?225:classKey<.79?258:211);
+   const coastward=north?(classKey<.18?349:classKey>.79?335:307)
+                         :(classKey<.18?188:classKey>.79?201:231);
+   const poleward=north?352:188;
+   const extratropical=north?62:119;
+   let bearing=angleMix(tropical,coastward,smooth(7,18,abs));
+   bearing=angleMix(bearing,poleward,release);
+   bearing=angleMix(bearing,extratropical,polar*.96);
+   // Meandering ridge edge, not per-tick noise. Patterns remain smooth
+   // across forecast and active simulation because both call steering().
+   bearing+=6.0*Math.sin(hours/41+seed*3.2+env.lon*.034)
+           +3.8*Math.sin(hours/87-env.lon*.041+seed*.7);
+   // Slow/block near a saddle, then accelerate into the westerlies.
+   const saddle=Math.exp(-Math.pow((abs-ridgeEdge)/4.1,2));
+   const block=classKey>.69&&classKey<.87?.56:.19;
+   const monsoon=classKey<.18?.73:1;
+   const speed=clamp((11.6+8.3*polar+3.3*smooth(19,35,abs)
+       +2.6*Math.sin(hours/53+env.lon*.058+seed*1.12))
+       *(1-saddle*block)*monsoon,3.3,31);
+   return {heading:norm(bearing),speed,pattern:classKey,ridgeEdge,
+           regime:polar>.65?'西風帶轉向':release>.30?'高壓邊緣轉向':saddle>.5?'鞍形場／移速偏慢':'副熱帶高壓引導'};
  }
  function landExposure(storm,landAt,t,force=false){
    // Refresh shoreline exposure much faster near coasts. The old 260s cache
@@ -7524,9 +7559,9 @@ window.__atcV31={
      // Keep large-scale steering separate from the displayed motion heading,
      // so binary-vortex circulation is not accumulated again each step.
      const base=Number.isFinite(storm._v62BaseHeading)?storm._v62BaseHeading:(storm.heading||flow.heading);
-     storm._v62BaseHeading=norm(base+clamp(signed(flow.heading,base)*.13*hours,-3.6*hours,3.6*hours));
+     storm._v62BaseHeading=norm(base+clamp(signed(flow.heading,base)*.30*hours,-6.4*hours,6.4*hours));
      const bs=Number.isFinite(storm._v62BaseSpeed)?storm._v62BaseSpeed:storm.speed;
-     storm._v62BaseSpeed=clamp(bs+(flow.speed-bs)*Math.min(.22,.13*hours),6,29);
+     storm._v62BaseSpeed=clamp(bs+(flow.speed-bs)*Math.min(.24,.23*hours),3.2,32);
      let vx=Math.sin(radians(storm._v62BaseHeading))*storm._v62BaseSpeed;
      let vy=Math.cos(radians(storm._v62BaseHeading))*storm._v62BaseSpeed;
      let interaction=0,nearest=Infinity,partnerId=null;
@@ -11087,7 +11122,7 @@ refreshBadge();
 <style id="v61-consistent-ui">
 /* FINAL CONTROL PASS — one interaction language, no nested navigation for routine ATC */
 :root{--v61-ink:#244857;--v61-teal:#287a77;--v61-line:#d4e4e7;--v61-bg:#f4f8f9}
-#v61RadarTool{position:absolute;z-index:37;left:20px;top:294px;display:flex;flex-direction:column;align-items:flex-start;gap:7px;max-width:min(95%,500px);pointer-events:auto}
+#v61RadarTool{position:absolute;z-index:37;left:20px;top:294px;display:flex;flex-direction:column;align-items:flex-start;gap:7px;max-width:min(95%,665px);pointer-events:auto}
 .v61-tools{display:flex;flex-wrap:wrap;gap:5px;padding:5px;border-radius:13px;background:rgba(255,255,255,.96);border:1px solid #cbdde3;box-shadow:0 5px 24px #34556624;backdrop-filter:blur(10px)}
 .v61-tools button{font:750 11px var(--font);white-space:nowrap;color:#53717f;background:transparent;padding:9px 12px;border:1px solid transparent;border-radius:9px;min-height:37px;transition:background .15s}
 .v61-tools button:hover{background:#eef4f5}
@@ -11158,7 +11193,7 @@ refreshBadge();
   <button type="button" data-v61-mode="chain">＋ 連續航點</button>
   <button type="button" data-v61-mode="pan">✥ 平移</button><button type="button" data-v61-focus>⊙ 定位</button></div>
  <div id="v61RadarHelp" role="status"></div><div id="v61RadarProposal" role="group" aria-label="確認地圖指令">
-  <span id="v61ProposalText"></span><button type="button" data-v61-confirm>確認下達</button><button type="button" data-v61-dismiss>取消</button></div>
+  <span id="v61ProposalText"></span><button type="button" data-v61-confirm>確認下達 ↵ Enter</button><button type="button" data-v61-dismiss>取消</button></div>
  <div id="v61TapNote">先選航班；拖曳飛機可快速指定航向</div>`;
  area.appendChild(tool);
  const help=tool.querySelector('#v61RadarHelp'),proposal=tool.querySelector('#v61RadarProposal'),proposalText=tool.querySelector('#v61ProposalText');
@@ -11172,10 +11207,10 @@ refreshBadge();
   if((mode==='direct'||mode==='chain')&&(!selected()||!isFlightUsable(selected()))){mode='select';}
   btns.forEach(b=>{b.classList.toggle('active',b.dataset.v61Mode===mode);b.setAttribute('aria-pressed',String(b.dataset.v61Mode===mode));});
   radarEl.classList.toggle('v61-vector',mode==='vector');radarEl.classList.toggle('v61-pan',mode==='pan');
-  const hints={select:'點航班選取；拖曳該飛機可設定航向。點空白處不會誤發指令。',vector:'點地圖選一個方向，確認後向飛機下達航向；拖曳飛機可快速預覽。',direct:'點地圖指定直飛位置；會新增可追蹤航點。',chain:'依序點地圖新增航點，完成後按「結束標點」。',pan:'拖動地圖檢視其他空域，不會修改航班指令。'};
+  const hints={select:'先點航班，再點地圖設定航向預覽；按 Enter 確認，Esc 取消。也可直接拖曳航機。',vector:'點地圖選一個方向，確認後向飛機下達航向；拖曳飛機可快速預覽。',direct:'點地圖指定直飛位置；會新增可追蹤航點。',chain:'依序點地圖新增航點，完成後按「結束標點」。',pan:'拖動地圖檢視其他空域，不會修改航班指令。'};
   help.textContent=hints[mode];help.classList.toggle('visible',mode!=='select');
   const chainBtn=tool.querySelector('[data-v61-mode="chain"]');chainBtn.textContent=mode==='chain'?'✓ 結束標點':'＋ 連續航點';
-  const note=tool.querySelector('#v61TapNote');note.textContent=selected()?`${selected().callsign} · 拖曳航機可指定航向；使用上方工具切換操作`:'先點選一架航班；拖曳飛機可直接設定航向';
+  const note=tool.querySelector('#v61TapNote');note.textContent=selected()?`${selected().callsign} · 點地圖／拖曳航機 → Enter 確認發送`:'先選航班，再點地圖設定航向';
   backgroundDirty=true;
  }
  function clearProposal(){pending=null;proposal.classList.remove('open');}
@@ -11237,11 +11272,11 @@ refreshBadge();
    return;
   }
   if(mode==='vector')return prepare(f,fromScreen(x,y));
-  // select mode never silently reroutes a flight. It can select a nearby
-  // published fix by tapping its marker, but the command still needs approval.
+  // One-tap vector: after choosing a plane, a map tap PREVIEWS a heading,
+  // never sends it without Enter / explicit confirmation. Existing named fixes
+  // also work; the direct-to route mode remains a separate explicit action.
   const fix=fixes.find(t=>{const p=toScreen(t);return Math.hypot(p.x-x,p.y-y)<18;});
-  if(fix)return prepare(f,fix);
-  clearProposal();
+  return prepare(f,fix||fromScreen(x,y));
  };
  // Replace (rather than stack upon) the original pointer handlers. Pan is
  // available without selecting a plane; drag-from-plane is intentional.
@@ -11444,7 +11479,7 @@ refreshBadge();
       <div class="v62-hours">${times.map(h=>`<button type="button" data-hour="${h}" class="${h===hour?'active':''}">${h?'+'+h+'h':'目前'}</button>`).join('')}</div>
       <div class="v62-stats"><div><small>近中心最大持續風速</small><strong>${Math.round(kt*1.852)} km/h</strong></div><div><small>中心氣壓（模擬）</small><strong>${hpa} hPa</strong></div></div>
       <div class="v62-status ${centerOnLand||shore?'warn':''}"><b>${label}</b> · ${trend>=0?'+':''}${trend.toFixed(1)} kt/h<br>海溫 ${Number.isFinite(e.sst)?e.sst.toFixed(1):'—'} °C · 風切 ${Number.isFinite(e.shear)?e.shear.toFixed(0):'—'} kt · 濕度 ${Number.isFinite(e.humidity)?Math.round(e.humidity*100):'—'}%</div>
-      <div class="v62-status">${fuji!==undefined&&fuji!==null&&fuji<730?`藤原效應：鄰近氣旋 ${Math.round(fuji)} NM · 路徑可能互相偏轉`:'大尺度引導氣流控制移動方向'}<br>預報誤差示意半徑：約 ${Math.round(coneRadius(d)*1.852)} km</div>
+      <div class="v62-status">${fuji!==undefined&&fuji!==null&&fuji<730?`藤原效應：鄰近氣旋 ${Math.round(fuji)} NM · 路徑可能互相偏轉`:'大尺度引導氣流控制移動 · 路徑受高壓與槽線影響'}<br>預報誤差示意半徑：約 ${Math.round(coneRadius(d)*1.852)} km</div>
       <div class="v62-footnote">淺黃色錐形表示模擬路徑不確定性，不是七級風圈或降雨範圍。仿照 CWA 預報錐的視覺概念，並非經統計校準的 70% 官方預報；所有數據皆為遊戲生成。</div>`;
    ui.classList.add('visible');lastUi=simTime;refreshQuick();
  }
@@ -11812,6 +11847,126 @@ function v63GuideHolding(f,dt){
  };
  window.__atcV63={hold:id=>holdFlight(flights.find(x=>x.callsign===id)||selectedFlight()),exitHold:id=>exitHold(flights.find(x=>x.callsign===id)||selectedFlight()),
    state:()=>({holding:flights.filter(x=>x.mode==='hold').map(x=>({call:x.callsign,anchor:x.holdPoint,radius:x.v63Hold?.radius,offset:x.v63Hold?Math.hypot(x.x-x.v63Hold.x,x.y-x.v63Hold.y):null})),recentArrivals:entryAlerts.map(x=>x.id)})};
+})();
+</script>
+<style id="v64-airspace-ui">
+#v64ZoneSwitch{font:750 10px var(--font);border:1px solid #e6d4b0;background:#fff8e9;color:#795b2a;border-radius:9px;padding:8px 10px;cursor:pointer;min-height:34px}
+#v64ZoneSwitch.active{background:#f8e7c3;border-color:#b78b46;color:#684a1d}
+#v64ZoneKey{display:flex;align-items:center;gap:6px;color:#785d31;background:#fffaf0ee;border:1px solid #ecd8b7;border-radius:7px;padding:6px 9px;font:700 10px var(--font);max-width:fit-content}
+#v64ZoneKey span{display:inline-block;width:11px;height:11px;background:#f1bf6b55;border:1px dashed #bc8842;border-radius:3px}
+#v64ZoneAlert{position:absolute;z-index:12;left:50%;bottom:135px;transform:translateX(-50%);max-width:min(380px,92vw);padding:9px 12px;border:1px solid #d2a161;border-radius:10px;background:#fff6e4f5;color:#76501e;font:750 11px/1.5 var(--font);box-shadow:0 5px 22px #7a54231b;display:none;pointer-events:none;text-align:center}
+#v64ZoneAlert.show{display:block}
+.v64-enter-caption{font-size:10px;color:#57787d;margin:4px 0 8px}
+.v64-violation{color:#a15722!important;font-weight:800}
+@media(max-width:850px){#v64ZoneSwitch{min-height:32px;white-space:nowrap;padding:7px 8px}#v64ZoneAlert{bottom:157px;font-size:10px}#v64ZoneKey{display:none}}
+@media(max-width:620px){#v64ZoneSwitch{font-size:9px;padding:6px 7px}#v64ZoneAlert{bottom:124px}}
+</style>
+<script id="v64-minimum-altitude-and-enter">
+(function(){
+ 'use strict';
+ const radar=document.getElementById('radarArea');if(!radar)return;
+ const norm=a=>(a%360+360)%360;
+ const toRad=a=>a*Math.PI/180;
+ const unit=a=>({x:Math.sin(toRad(a)),y:Math.cos(toRad(a))});
+ const hash=s=>{let h=2166136261;for(const c of s){h=Math.imul(h^c.charCodeAt(0),16777619);}return h>>>0;};
+ const safeString=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
+ let zones=[],lastAirport='',visible=true,lastWarn=new Map(),lastUiAt=0;
+ const btn=document.createElement('button');btn.type='button';btn.id='v64ZoneSwitch';btn.className='active';btn.title='顯示模擬最低允許高度空域（不是正式航圖）';
+ btn.textContent='▧ 限高區';btn.setAttribute('aria-pressed','true');
+ const tools=document.querySelector('#v61RadarTool .v61-tools');if(tools)tools.insertBefore(btn,tools.querySelector('[data-v61-mode="vector"]'));
+ const key=document.createElement('div');key.id='v64ZoneKey';key.innerHTML='<span></span>區內不得低於標示高度 · 模擬空域';
+ document.querySelector('#v61RadarTool')?.append(key);
+ const alert=document.createElement('div');alert.id='v64ZoneAlert';alert.setAttribute('role','status');radar.append(alert);
+ btn.addEventListener('click',()=>{visible=!visible;btn.classList.toggle('active',visible);btn.setAttribute('aria-pressed',String(visible));alert.classList.remove('show');});
+ const add=(x,y,bearing,len,w,min,name)=>{
+   const v=unit(bearing),p=unit(bearing+90),half=w/2;
+   const c={x,y};const pts=[{x:x+p.x*half,y:y+p.y*half},{x:x-p.x*half,y:y-p.y*half},
+     {x:x-p.x*half+v.x*len,y:y-p.y*half+v.y*len},{x:x+p.x*half+v.x*len,y:y+p.y*half+v.y*len}];
+   zones.push({type:'poly',points:pts,min,name});
+ };
+ function setup(){
+  const id=airport?.icao||'';if(id===lastAirport&&zones.length)return;
+  lastAirport=id;lastWarn.clear();zones=[];if(!id)return;
+  const h=hash(id),theta=(h%72)*5,reverse=norm(theta+170),shift=norm(theta+85);
+  // Consistent training MINIMUM altitudes (not real obstacle/terrain charts).
+  // Sectors remain >=23 NM from airport so main ILS final is unobstructed.
+  const a=unit(theta),b=unit(shift),c=unit(reverse);
+  const m1=5000+(h%3)*1000,m2=4000+((h>>>5)%3)*1000,m3=5500+((h>>>9)%3)*1000;
+  add(a.x*26,a.y*26,theta,64,23,m1,'A');
+  add(b.x*30,b.y*30,shift,43,20,m2,'B');
+  add(c.x*31,c.y*31,reverse,34,19,m3,'C');
+ }
+ function inside(p,points){let ok=false;for(let i=0,j=points.length-1;i<points.length;j=i++){
+   const a=points[i],b=points[j];if(((a.y>p.y)!==(b.y>p.y))&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)ok=!ok;
+  }return ok;}
+ function zoneAt(p){setup();if(!p||!Number.isFinite(p.x)||!Number.isFinite(p.y))return null;
+   return zones.find(z=>inside(p,z.points))||null;
+ }
+ function inArrivalCorridor(f){return !!(f&& (f.v35ILS||f.approachPhase===2)&& f.mode==='approach')}
+ // Navigation overlays are not hard boundaries: preserve ILS and safety logic.
+ const oldDraw=drawWeather;
+ drawWeather=function(c){const result=oldDraw(c);if(!visible)return result;setup();
+   c.save();c.lineWidth=1.4;c.setLineDash([7,5]);
+   for(const z of zones){
+     const corners=z.points.map(toScreen);if(!corners.some(p=>p.x>-100&&p.x<viewport.w+100&&p.y>-100&&p.y<viewport.h+100))continue;
+     const hasViolation=flights.some(f=>f.altitude<z.min&&!['queued','lineup','takeoff-roll','landed'].includes(f.mode)&&!inArrivalCorridor(f)&&inside(f,z.points));
+     c.fillStyle=hasViolation?'rgba(213,117,62,.11)':'rgba(239,183,90,.092)';
+     c.strokeStyle=hasViolation?'rgba(176,77,45,.80)':'rgba(174,124,50,.56)';
+     c.beginPath();corners.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.closePath();c.fill();c.stroke();
+     const sx=corners.reduce((v,p)=>v+p.x,0)/4,sy=corners.reduce((v,p)=>v+p.y,0)/4;
+     if(sx<18||sx>viewport.w-74||sy<10||sy>viewport.h-32)continue;
+     c.setLineDash([]);c.fillStyle=hasViolation?'#a24e2e':'#9b7139';c.font='800 10px system-ui';
+     c.fillText(`≥ ${Math.round(z.min/1000)}000 ft`,sx-18,sy);c.font='700 9px system-ui';c.fillText(`MIN ${z.name}`,sx-18,sy+13);
+     c.setLineDash([7,5]);
+   }c.restore();return result;};
+ // Area surveillance warns only on continued violations; does not forcibly
+ // teleport planes, override autopilot, or block an established ILS approach.
+ const oldSim=simulate;
+ simulate=function(dt){const r=oldSim(dt);if(dt<=0)return r;setup();
+   const now=simTime;
+   for(const f of flights){
+     if(!f||['queued','lineup','takeoff-roll','landed','rollout'].includes(f.mode)||inArrivalCorridor(f))continue;
+     const z=zoneAt(f),last=lastWarn.get(f.id)||-Infinity;
+     if(z&&f.altitude+100<z.min&&now-last>85){
+       lastWarn.set(f.id,now);addLog(`${f.callsign} · 空域 ${z.name} 低於最低 ${z.min.toLocaleString()} ft`,'warn');
+       if(f.id===selectedId){alert.textContent=`⚠ ${f.callsign} 進入 MIN ${z.name} · 最低 ${z.min.toLocaleString()} ft，當前 ${Math.round(f.altitude).toLocaleString()} ft`;alert.classList.add('show');}
+     }
+   }
+   if(now-lastUiAt>8){lastUiAt=now;const f=selectedFlight(),z=f&&zoneAt(f);
+     if(!z||!f||f.altitude>=z.min||inArrivalCorridor(f))alert.classList.remove('show');
+   }return r;
+ };
+ // Prevent an unsafe LOW altitude command while already inside a restricted
+ // training sector. Outside the sector the controller remains free to plan.
+ document.addEventListener('click',e=>{
+   const b=e.target.closest?.('[data-v12-send="alt"]');if(!b)return;
+   const f=selectedFlight(),z=f&&zoneAt(f),requested=Number(document.getElementById('v12-alt')?.value);
+   if(z&&Number.isFinite(requested)&&requested<z.min&&!inArrivalCorridor(f)){
+     e.preventDefault();e.stopImmediatePropagation();notify(`${f.callsign} · MIN ${z.name} 限制 ${z.min.toLocaleString()} ft，不能下降至 ${requested.toLocaleString()} ft`,'warn');
+   }
+ },true);
+ // Map proposal gets first priority; numeric fields send their OWN command.
+ // Do not hijack Enter from other forms, dropdowns, dialogs or buttons.
+ document.addEventListener('keydown',e=>{
+   if(e.key!=='Enter'||e.isComposing||e.repeat||e.ctrlKey||e.altKey||e.metaKey)return;
+   const focused=document.activeElement;
+   if(focused?.matches?.('#v12-hdg,#v12-alt,#v12-spd')){
+     const type=focused.id.slice(4),b=document.querySelector(`#inspector [data-v12-send="${type}"]`);
+     if(b&&!b.disabled){e.preventDefault();e.stopImmediatePropagation();b.click();}return;
+   }
+   if(focused?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
+   if(document.querySelector('#helpModal.show,.v12-runway-modal.open,.modal-backdrop.show,#v34Panel.open'))return;
+   if(document.getElementById('v61RadarProposal')?.classList.contains('open')){
+     const b=document.querySelector('#v61RadarProposal [data-v61-confirm]');if(b){e.preventDefault();e.stopImmediatePropagation();b.click();}
+   }
+ },true);
+ // Esc discards the pending preview before the original handler deselects the flight.
+ document.addEventListener('keydown',e=>{
+   if(e.key!=='Escape'||!document.getElementById('v61RadarProposal')?.classList.contains('open'))return;
+   e.preventDefault();e.stopImmediatePropagation();window.__atcV61?.clear?.();
+ },true);
+ window.__atcV64={zones:()=>{setup();return zones.map(z=>({name:z.name,min:z.min,points:z.points}))},zoneAt,showAreas:value=>{visible=!!value;btn.classList.toggle('active',visible)},track:()=>window.__atcV49?.inspect?.()};
+ document.title='AIRSPACE — ATC V64 · Airspace & Dynamic Tracks';
 })();
 </script>
 </body>
