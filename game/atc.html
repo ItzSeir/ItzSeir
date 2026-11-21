@@ -2595,7 +2595,7 @@ function paint(now){requestAnimationFrame(paint);if(now-lastRendered<30)return;l
  for(const f of flights)if(f.id!==selectedId)drawFlight(ctx,f);const selectedToDraw=flights.find(f=>f.id===selectedId);if(selectedToDraw)drawFlight(ctx,selectedToDraw);
  if(now-lastHud>420){renderHud();lastHud=now;}
 }
-function resizeRadar(){const rect=radar.getBoundingClientRect();if(rect.width<10||rect.height<10)return;viewport={w:rect.width,h:rect.height,dpr:Math.min(window.devicePixelRatio||1,viewport.w<700?1.5:1.75)};
+function resizeRadar(){const rect=radar.getBoundingClientRect();if(rect.width<10||rect.height<10)return;viewport={w:rect.width,h:rect.height,dpr:Math.min(window.devicePixelRatio||1,viewport.w<700?1.35:1.50)};
  radar.width=Math.round(viewport.w*viewport.dpr);radar.height=Math.round(viewport.h*viewport.dpr);ctx.setTransform(viewport.dpr,0,0,viewport.dpr,0,0);
  backCanvas.width=radar.width;backCanvas.height=radar.height;back.setTransform(viewport.dpr,0,0,viewport.dpr,0,0);backgroundDirty=true;}
 function makeAirportMenu(){$('airportGroups').innerHTML=GROUPS.map((title,i)=>`<div class="airport-group"><div class="group-label">${title}</div><div class="airport-list">${AIRPORTS.filter(a=>a.group===i).map(a=>`<button type="button" class="airport-item ${a===airport?'active':''}" data-airport="${a.icao}"><span class="ap-code">${a.icao}</span><span><div class="ap-name">${a.name}</div><div class="ap-city">${a.city}</div></span><span class="ap-arr">›</span></button>`).join('')}</div></div>`).join('');}
@@ -12340,83 +12340,123 @@ document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
    }
    return false;
  }
- function frame(){
+ // V70 — progressive radar compositing. Heavy multi-vortex reflectivity is
+ // now amortized over animation frames; traffic and controls never have to
+ // wait for a full 40,000-pixel noise-field render in one JavaScript task.
+ let work=null,desiredKey='',desiredSince=0;
+ const worldState={left:0,top:0,scale:1,width:0,height:0};
+ const BUDGET_MS=3.3;
+ let perf={peakBatchMs:0,batches:0,compositeMs:0,completeAt:0};
+ function prepareWork(key,active,mode,now){
    const w=viewport.w,h=viewport.h;
-   if(!w||!h||!weatherOn)return;
-   const active=window.__atcV68TyphoonVisible?.()===false?[]:(window.__atcV35Typhoons?.()||[]);
-   const simStamp=Math.floor(simTime/8),mode=preset||'fair';
-   const step=w<630?3.5:4.8;
-   const cols=Math.max(1,Math.ceil(w/step)),rows=Math.max(1,Math.ceil(h/step));
-   const key=[cols,rows,w,h,rangeNM,pan.x.toFixed(2),pan.y.toFixed(2),
-     simStamp,mode,base.echoOpacity?.(),base.sceneRevision?.(),active.length,...active.flatMap(s=>[
-       s.id,Math.round(s.center.x*4),Math.round(s.center.y*4),
-       Math.round(s.strength*20),Math.round((s.v56RainMoisture||.8)*18)])].join('/');
-   // Sim clock is authoritative. Also allow updates on panning/zooming and
-   // manual weather-change while paused.
-   const now=performance.now();
-   if(key===cache.key&&now-cache.last<800)return;
-   const t0=performance.now();
+   // Slightly less dense sampling combined with canvas interpolation keeps
+   // visual detail while greatly cutting expensive cyclone-field evaluations.
+   const step=w<630?4.8:w<900?5.6:6.25;
+   const cols=Math.max(2,Math.ceil(w/step)),rows=Math.max(2,Math.ceil(h/step));
    scratch.width=cols;scratch.height=rows;
    sctx.setTransform(cols/w,0,0,rows/h,0,0);
    sctx.clearRect(0,0,w,h);
    base.paintRegularRadar(sctx);
    sctx.setTransform(1,0,0,1,0,0);
    const source=sctx.getImageData(0,0,cols,rows).data;
-   joined.width=cols;joined.height=rows;
-   const output=jctx.createImageData(cols,rows),data=output.data;
+   const im=jctx.createImageData(cols,rows),pixels=im.data;
    const sc=scale();
    const left=pan.x-w/(2*sc),top=pan.y+h/(2*sc);
    const dx=w/(cols*sc),dy=h/(rows*sc);
-   let ordinary=0,storm=0,mixed=0,visible=0,strong=0;
+   const xcoords=new Float64Array(cols),ycoords=new Float64Array(rows);
+   for(let x=0;x<cols;x++)xcoords[x]=left+(x+.5)*dx;
+   for(let y=0;y<rows;y++)ycoords[y]=top-(y+.5)*dy;
+   return {key,now,w,h,cols,rows,active,mode,source,im,pixels,xcoords,ycoords,
+     index:0,startMs:performance.now(),calculationMs:0,peakBatchMs:0,batches:0,
+     counts:{ordinary:0,storm:0,mixed:0,visible:0,strong:0},
+     transform:{left,top,scale:sc,width:w,height:h},
+     opacity:clamp(base.echoOpacity?.()||1,.1,1)};
+ }
+ function advance(t){
+   const started=performance.now(),limit=started+BUDGET_MS;
+   const {cols,rows,source,pixels,active,counts,xcoords,ycoords}=t;
    const influence=active.length>0;
-   for(let row=0;row<rows;row++){
-     const wy=top-(row+.5)*dy;
-     for(let col=0;col<cols;col++){
-       const idx=(row*cols+col)*4;
-       const vRegular=regularEcho(source[idx],source[idx+1],source[idx+2],source[idx+3]);
-       const wx=left+(col+.5)*dx;
-       let vCyclone=0;
-       if(influence&&relevantCyclones(wx,wy,active)){
-         vCyclone=clamp(cyclones.fieldAt({x:wx,y:wy},active).echo,0,1.4);
-       }
-       if(vRegular>.13)ordinary++;
-       if(vCyclone>.13)storm++;
-       if(vRegular>.15&&vCyclone>.15)mixed++;
-       // A capped mixed-field union. The dominant echo determines core strength;
-       // overlap adds *some* convergent intensity without making a solid red
-       // shape or double-applying semi-transparent images.
-       const weaker=Math.min(vRegular,vCyclone),stronger=Math.max(vRegular,vCyclone);
-       const v=clamp(stronger+weaker*.14*smoother(.13,.48,stronger),0,1.40);
-       if(v<.135)continue;
-       let [r,g,b,alpha]=echoColour(v);
-       // Preserve the original sprite's feathering and isolated convection.
-       const soft=smoother(.135,.29,v);
-       alpha*=soft*clamp(base.echoOpacity?.()||1,.1,1);
-       data[idx]=r;data[idx+1]=g;data[idx+2]=b;
-       data[idx+3]=Math.round(255*alpha);
-       if(v>.57)strong++;
-       visible++;
+   let index=t.index;
+   const total=cols*rows;
+   while(index<total){
+     const row=(index/cols)|0,col=index-row*cols,offset=index*4;
+     const regular=regularEcho(source[offset],source[offset+1],source[offset+2],source[offset+3]);
+     let cyclone=0;
+     const wx=xcoords[col],wy=ycoords[row];
+     if(influence&&relevantCyclones(wx,wy,active)){
+       cyclone=clamp(cyclones.fieldAt({x:wx,y:wy},active).echo,0,1.4);
      }
+     if(regular>.13)counts.ordinary++;
+     if(cyclone>.13)counts.storm++;
+     if(regular>.15&&cyclone>.15)counts.mixed++;
+     const weak=Math.min(regular,cyclone),strong=Math.max(regular,cyclone);
+     const value=clamp(strong+weak*.14*smoother(.13,.48,strong),0,1.4);
+     if(value>=.135){
+       const [r,g,b,a]=echoColour(value);
+       const alpha=a*smoother(.135,.29,value)*t.opacity;
+       pixels[offset]=r;pixels[offset+1]=g;pixels[offset+2]=b;
+       pixels[offset+3]=Math.round(255*alpha);
+       if(value>.57)counts.strong++;
+       counts.visible++;
+     }
+     index++;
+     // Check the deadline every 96 cells, not once for every pixel.
+     if((index%96)===0 && performance.now()>=limit)break;
    }
-   jctx.putImageData(output,0,0);
-   cache.key=key;cache.last=now;cache.width=w;cache.height=h;
-   stats={regularPixels:ordinary,cyclonePixels:storm,mixedPixels:mixed,
-     mergedPixels:visible,thunderCells:strong,frameMs:Math.round(performance.now()-t0),
-     scenario:mode,storms:active.length};
+   t.index=index;
+   const elapsed=performance.now()-started;
+   t.calculationMs+=elapsed;
+   t.peakBatchMs=Math.max(t.peakBatchMs,elapsed);t.batches++;
+   if(index<total)return;
+   // Swap the finished frame atomically: never display half an eyewall.
+   joined.width=cols;joined.height=rows;
+   jctx.putImageData(t.im,0,0);
+   cache.key=t.key;cache.last=performance.now();cache.width=t.w;cache.height=t.h;
+   Object.assign(worldState,t.transform);
+   stats={regularPixels:counts.ordinary,cyclonePixels:counts.storm,mixedPixels:counts.mixed,
+     mergedPixels:counts.visible,thunderCells:counts.strong,
+     frameMs:Math.round(t.calculationMs),peakBatchMs:Math.round(t.peakBatchMs*10)/10,
+     batches:t.batches,scenario:t.mode,storms:active.length};
+   work=null;
+ }
+ function frame(){
+   const w=viewport.w,h=viewport.h;
+   if(!w||!h||!weatherOn)return;
+   const active=window.__atcV68TyphoonVisible?.()===false?[]:(window.__atcV35Typhoons?.()||[]);
+   const simStamp=Math.floor(simTime/8),mode=preset||'fair';
+   // Quantize only tiny cyclone movements; preserve meaningful changes in
+   // storm position, intensity, weather mode and zoom/pan.
+   const key=[Math.round(w),Math.round(h),rangeNM,pan.x.toFixed(1),pan.y.toFixed(1),
+     simStamp,mode,base.echoOpacity?.(),base.sceneRevision?.(),active.length,
+     ...active.flatMap(s=>[s.id,Math.round(s.center.x),Math.round(s.center.y),
+       Math.round(s.strength*16),Math.round((s.v56RainMoisture||.8)*14)])].join('/');
+   const now=performance.now();
+   if(key!==desiredKey){desiredKey=key;desiredSince=now;}
+   if(work){advance(work);return;}
+   if(key===cache.key)return;
+   // During a map drag, keep the previous weather map geographically aligned
+   // instead of rebuilding and discarding an expensive image at every pointer event.
+   if(joined.width&&now-desiredSince<125)return;
+   work=prepareWork(key,active,mode,now);
+   advance(work);
  }
  function draw(c){
    if(!weatherOn)return;
    frame();
-   if(!joined.width||!joined.height)return;
-   c.save();c.imageSmoothingEnabled=true;
-   c.imageSmoothingQuality='medium';
-   c.drawImage(joined,0,0,joined.width,joined.height,0,0,viewport.w,viewport.h);
+   if(!joined.width||!joined.height||!worldState.scale)return;
+   const sc=scale();
+   const x=viewport.w/2+(worldState.left-pan.x)*sc;
+   const y=viewport.h/2-(worldState.top-pan.y)*sc;
+   const width=worldState.width*sc/worldState.scale;
+   const height=worldState.height*sc/worldState.scale;
+   c.save();c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';
+   c.drawImage(joined,0,0,joined.width,joined.height,x,y,width,height);
    c.restore();
  }
  // Radar colour and weather readouts now refer to one underlying synoptic+
  // vortex field, including rain and local thunderstorms during multi-TC events.
  // Keep runway/flight/weather input functions from V67 unchanged.
- window.__atcV68UnifiedRain={draw,stats:()=>({...stats}),refresh:()=>{cache.key='';},
+ window.__atcV68UnifiedRain={draw,stats:()=>({...stats}),refresh:()=>{cache.key='';desiredKey='';work=null;},
    sample:(x,y)=>{const c=cyclones.observe({x,y});const r=Number(base.precipitationAt?.(x,y))||0;
      return {ordinaryRainFraction:r,cycloneRainMmH:c.stormRain,
        combinedRainFraction:clamp(Math.max(r,c.echo)+Math.min(r,c.echo)*.14,0,1.4)};}};
@@ -12568,9 +12608,14 @@ document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
   // Do not expose a global timer for work; clean records only during UI refresh.
   const oldHud=renderHud;
   renderHud=function(...args){const res=oldHud(...args);gc();return res};
-  document.title='AIRSPACE — ATC V69 · Stable Aircraft Tags';
+  document.title='AIRSPACE — ATC V70 · Smooth Radar Performance';
 })();
 </script>
 
+<script id="v70-performance-diagnostics">
+// Lightweight read-only diagnostics for regression testing (no extra render loop).
+window.__atcV70={radar:()=>window.__atcV68UnifiedRain?.stats(),quality:'progressive-3.3ms',
+  note:'Weather composites rendered incrementally; aircraft frame remains responsive.'};
+</script>
 </body>
 </html>
