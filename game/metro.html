@@ -884,9 +884,34 @@ function drawTiles(){return 0}
 
 // Visual rail hardware, calculated from the user's line geometry (not real-world station engineering).
 // Platforms are displayed near zoom 12+ only, so city-scale maps remain legible.
+
+function drawPlatformCrowd(ctx,station,lineColor,angle,pxLen,gap){
+ const base=Math.max(0,metrics.stationRides?.[station.id]||0);
+ const zoomFactor=map.zoom<12.6?.55:map.zoom<13.3?.8:1;
+ const count=clamp(Math.round((Math.sqrt(base||1)/7.8)*zoomFactor),1,map.zoom>=13.8?11:7);
+ const t=clock/1440*Math.PI*2;
+ ctx.save();
+ ctx.rotate(angle);
+ for(const side of [-1,1]){
+  const y=side*gap;
+  for(let i=0;i<count;i++){
+   const seed=(station.id.length*19.37)+(i+1)*3.17+side*0.73;
+   const lane=(hash(seed*1.91)-.5)*Math.max(5,pxLen-12);
+   const walk=Math.sin(t*1.45+seed*4.3)*1.55;
+   const px=lane+walk;
+   const py=y+(side>0?1.2:-1.2)+(hash(seed*2.71)-.5)*1.6;
+   ctx.beginPath();
+   ctx.arc(px,py, map.zoom>=13.8?1.6:1.25, 0, Math.PI*2);
+   ctx.fillStyle='rgba(18,22,24,.88)';
+   ctx.fill();
+  }
+ }
+ ctx.restore();
+}
+
 function drawStationPlatforms(ctx,W,H){
  if(!platformsVisible||map.zoom<12.15)return;
- const pxLen=clamp(24+(map.zoom-12)*10,24,48),gap=map.zoom>=13?8:6.1;
+ const pxLen=clamp(26+(map.zoom-12)*11,26,56),gap=map.zoom>=13?8.5:6.4;
  ctx.save();ctx.lineJoin='round';
  for(const l of plan.lines){
   const ids=l.stops;if(ids.length<2)continue;
@@ -901,40 +926,57 @@ function drawStationPlatforms(ctx,W,H){
    ctx.save();ctx.translate(anchor.x,anchor.y);ctx.rotate(angle);
    for(const sign of [-1,1]){
     const y=sign*gap;
-    ctx.fillStyle='rgba(249,252,250,.97)';ctx.strokeStyle='#49616a';ctx.lineWidth=1.15;
-    ctx.beginPath();ctx.roundRect(-pxLen/2,y-3.2,pxLen,6.4,2.4);ctx.fill();ctx.stroke();
-    ctx.strokeStyle=l.color;ctx.lineWidth=1.7;ctx.beginPath();ctx.moveTo(-pxLen/2+3,y+(sign>0?-.8:.8));ctx.lineTo(pxLen/2-3,y+(sign>0?-.8:.8));ctx.stroke();
-    if(map.zoom>=13.5){ctx.fillStyle='#f4b352';for(let n=-1;n<=1;n++)ctx.fillRect(n*5-1,y-1,2,2)}
+    ctx.fillStyle='rgba(246,250,249,.97)';ctx.strokeStyle='#4a626b';ctx.lineWidth=1.15;
+    ctx.beginPath();ctx.roundRect(-pxLen/2,y-3.8,pxLen,7.6,2.8);ctx.fill();ctx.stroke();
+    ctx.strokeStyle=l.color;ctx.lineWidth=2.1;ctx.beginPath();ctx.moveTo(-pxLen/2+3,y+(sign>0?-1.0:1.0));ctx.lineTo(pxLen/2-3,y+(sign>0?-1.0:1.0));ctx.stroke();
+    if(map.zoom>=13.4){ctx.fillStyle='#f4b352';for(let n=-2;n<=2;n++)ctx.fillRect(n*4.8-1,y-1.15,2,2.3)}
    }
+   if(map.zoom>=12.8) drawPlatformCrowd(ctx,station,l.color,0,pxLen,gap);
    ctx.restore();
   }
  }
  ctx.restore();
 }
 function drawTrainSprite(ctx,x,y,angle,color,cars,zoom){
- const L=clamp(19+(zoom-11.4)*5+Math.min(4,Math.max(2,cars))*2.4,21,49);
- const H=clamp(9+(zoom-11.8)*.9,9,13.5);
- const n=Math.min(4,Math.max(2,Math.round(cars/2)));
+ const n=clamp(Math.round(cars)||4,2,8);
+ const carLen=clamp(5.6+(zoom-11.8)*1.15,5.2,8.6);
+ const gap=clamp(1.0+(zoom-12)*.18,0.9,1.8);
+ const H=clamp(8.8+(zoom-11.7)*.95,8.8,13.8);
+ const cab=clamp(4.4+(zoom-12)*.35,4.2,6.2);
+ const L=n*carLen+(n-1)*gap+cab;
  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
- ctx.shadowColor='rgba(11,36,44,.30)';ctx.shadowBlur=4;ctx.shadowOffsetY=1.5;
- // Thin outer body with angled cab ends; forward direction is to the right.
- ctx.beginPath();ctx.moveTo(-L/2+4,-H/2);ctx.lineTo(L/2-6,-H/2);
- ctx.quadraticCurveTo(L/2,-H/2,L/2,0);ctx.quadraticCurveTo(L/2,H/2,L/2-6,H/2);
- ctx.lineTo(-L/2+4,H/2);ctx.quadraticCurveTo(-L/2,H/2,-L/2+1,0);
- ctx.quadraticCurveTo(-L/2,-H/2,-L/2+4,-H/2);ctx.closePath();
- ctx.fillStyle='#f8fcfe';ctx.strokeStyle='#244c57';ctx.lineWidth=1.6;ctx.fill();ctx.stroke();
- ctx.shadowBlur=0;ctx.shadowOffsetY=0;
- // Transit line identification stripe, window panels and carriage seams.
- ctx.strokeStyle=color;ctx.lineWidth=2.8;ctx.beginPath();ctx.moveTo(-L/2+4,H*.28);ctx.lineTo(L/2-4,H*.28);ctx.stroke();
- const start=-L/2+5,available=L-13,step=available/n;
- for(let k=0;k<n;k++){
-  const left=start+k*step;
-  ctx.fillStyle=k===n-1?'#244959':'#6d98a9';ctx.beginPath();ctx.roundRect(left,-H*.30,Math.max(2,step-2.4),H*.39,1.2);ctx.fill();
-  if(k>0){ctx.strokeStyle='#b7c8cb';ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(left-1,-H*.41);ctx.lineTo(left-1,H*.12);ctx.stroke()}
+ ctx.shadowColor='rgba(11,36,44,.28)';ctx.shadowBlur=4.5;ctx.shadowOffsetY=1.5;
+ // Car bodies
+ let left=-L/2;
+ for(let i=0;i<n;i++){
+  const isHead=i===n-1;
+  const segX=left+(i===0?0:cab*0)+i*(carLen+gap);
+  if(isHead){
+   ctx.beginPath();
+   ctx.moveTo(segX,-H/2);
+   ctx.lineTo(segX+carLen-2.2,-H/2);
+   ctx.quadraticCurveTo(segX+carLen+cab*.55,-H/2,segX+carLen+cab*.75,-H*.18);
+   ctx.quadraticCurveTo(segX+carLen+cab,0,segX+carLen+cab*.75,H*.18);
+   ctx.quadraticCurveTo(segX+carLen+cab*.55,H/2,segX+carLen-2.2,H/2);
+   ctx.lineTo(segX,H/2);
+   ctx.closePath();
+   ctx.fillStyle='#f8fcfe';ctx.strokeStyle='#244c57';ctx.lineWidth=1.35;ctx.fill();ctx.stroke();
+   // windows / cab
+   ctx.fillStyle='#274b58';ctx.beginPath();ctx.roundRect(segX+1.4,-H*.28,Math.max(2,carLen-2.5),H*.38,1.05);ctx.fill();
+   ctx.fillStyle='#4e7f93';ctx.beginPath();ctx.roundRect(segX+carLen-1.5,-H*.22,cab*.46,H*.30,.9);ctx.fill();
+   ctx.fillStyle='#fff5b2';ctx.beginPath();ctx.arc(segX+carLen+cab*.64,-H*.16,1.05,0,Math.PI*2);ctx.fill();
+  } else {
+   ctx.beginPath();ctx.roundRect(segX,-H/2,carLen,H,1.8);ctx.fillStyle='#f8fcfe';ctx.strokeStyle='#244c57';ctx.lineWidth=1.25;ctx.fill();ctx.stroke();
+   ctx.fillStyle='#6f9caf';ctx.beginPath();ctx.roundRect(segX+1.0,-H*.29,carLen-2.0,H*.37,1.0);ctx.fill();
+  }
+  // line stripe and seam/door
+  ctx.strokeStyle=color;ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(segX+.7,H*.23);ctx.lineTo(segX+carLen-(isHead?1.3:.7),H*.23);ctx.stroke();
+  if(i<n-1){ctx.strokeStyle='#b7c8cb';ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(segX+carLen+gap/2,-H*.42);ctx.lineTo(segX+carLen+gap/2,H*.42);ctx.stroke()}
+  if(zoom>=12.9){ctx.strokeStyle='#d6e2e4';ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(segX+carLen*.48,-H*.36);ctx.lineTo(segX+carLen*.48,H*.36);ctx.stroke()}
  }
- ctx.fillStyle='#294a57';ctx.beginPath();ctx.roundRect(L/2-6,-H*.34,4.2,H*.42,1);ctx.fill();
- ctx.fillStyle='#fff7c2';ctx.beginPath();ctx.arc(L/2-2.3,-H*.27,1.1,0,Math.PI*2);ctx.fill();
- ctx.fillStyle='#df444e';ctx.beginPath();ctx.arc(-L/2+2.1,H*.12,1,0,Math.PI*2);ctx.fill();
+ // rear marker
+ ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+ ctx.fillStyle='#df444e';ctx.beginPath();ctx.arc(-L/2+1.9,H*.12,.95,0,Math.PI*2);ctx.fill();
  ctx.restore();
 }
 function drawMovingTrains(ctx,W,H){
@@ -998,7 +1040,7 @@ map.canvas.addEventListener('pointerleave',()=>updateDemandTooltip(null,true));m
 function showModal(title,html){$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modalBack').classList.add('show')}
 function drawChart(){const canvas=$('ridershipChart');if(!canvas)return;const box=canvas.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);canvas.width=box.width*dpr;canvas.height=box.height*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);const w=box.width,h=box.height,arr=Array.from({length:24},(_,i)=>{const peak1=Math.exp(-(((i-8)/2.1)**2)),peak2=Math.exp(-(((i-18)/2.5)**2));return Math.round(metrics.rides*(.016+.050*peak1+.044*peak2))});const max=Math.max(1,...arr)*1.17;c.strokeStyle='#e0e8e8';for(let t=0;t<4;t++){let y=16+(h-45)*t/3;c.beginPath();c.moveTo(28,y);c.lineTo(w-12,y);c.stroke()}const bw=(w-55)/24;for(let i=0;i<24;i++){let bh=arr[i]/max*(h-45),x=30+i*bw,y=h-23-bh;c.fillStyle=i>=7&&i<=9||i>=17&&i<=19?'#0e8575':'#9fd5c8';c.fillRect(x,y,Math.max(2,bw-3),bh)}c.font='10px sans-serif';c.fillStyle='#81929c';for(let i=0;i<=24;i+=4)c.fillText(String(i).padStart(2,'0'),28+i*bw,h-6)}
 function showStats(){const rows=plan.lines.map(l=>`<tr><td><span style="color:${l.color};font-weight:900">●</span> ${escapeHTML(l.name)}</td><td>${l.stops.length}</td><td>${num(lineLength(l),1)} km</td><td>${isFinite(lineHeadway(l))?num(lineHeadway(l),1):'—'} 分</td><td>${num(metrics.lineRides[l.id]||0)}</td></tr>`).join('');showModal('城市營運統計',`<p>${CITIES[city].name} · 本遊戲以假設的需求區、接駁距離及乘車時間推估路網表現，並非真實官方運量資料。</p><div class="stat-grid"><div class="statbox"><small>模擬日運量</small><strong>${num(metrics.rides)}</strong></div><div class="statbox"><small>票務收入／日</small><strong>${num(metrics.revenue)}</strong></div><div class="statbox"><small>營運成本／日</small><strong>${num(metrics.expense)}</strong></div><div class="statbox"><small>收支比</small><strong style="color:${metrics.ratio>=100?'#14967f':'#bf6c54'}">${num(metrics.ratio)}%</strong></div></div><h3 style="font-size:12px">每小時乘車量（需求分布示意）</h3><canvas class="chart" id="ridershipChart"></canvas><div class="trend-caption"><span>早晚通勤高峰 · 車流隨模擬時鐘運行</span><span>收費單位：${city==='tp'?'NT$':city==='hk'?'HK$':city==='sg'?'S$':'RM'}</span></div><h3 style="font-size:12px;margin-top:20px">路線表現</h3><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left;white-space:nowrap;font-size:11px"><thead><tr style="color:#84949c;border-bottom:1px solid #dde5e7"><th style="padding:9px">路線</th><th>站數</th><th>里程</th><th>班距</th><th>搭乘量*</th></tr></thead><tbody>${rows||'<tr><td colspan="5">尚無路線</td></tr>'}</tbody></table></div><p>* 路線搭乘量計入轉乘，可能重複計算。客量使用簡化 OD 模型；車輛擁擠對結果的影響為品質分而非逐人排隊模擬。</p>`);requestAnimationFrame(drawChart)}
-function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>城市與郊區都顯示連續的模擬需求熱度；虛線為 GeoJSON 行政邊界，邊界外不可以建站或移動車站，地圖拖曳也受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。點既有軌道可在中間插入車站。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車會以有車頭與車廂的圖示沿線路移動，地圖放大後可看到各站的示意站臺。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>新車站會讀取 Mapbox 已載入的道路與公共設施圖徵，再以限速的 OpenStreetMap Photon 反查醫院、景點、機場、學校、博物館等；店鋪、餐廳、咖啡廳與一般商業建築不作為自動站名；外部服務可能有延遲或暫時無法使用，沒有精確結果時不會冒充真實建築名稱。已手動命名的站不會被更改。進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖使用 Mapbox 自訂樣式。行政 GeoJSON 首次載入亦需要網路，可從介面匯入自己的 GeoJSON；成功載入後會在本次瀏覽器會話快取。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲規劃範圍來自第三方行政 GeoJSON（精簡資料不保證法律精度；GADM 不允許未經授權的商業使用與再散布）；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
+function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>城市與郊區都顯示連續的模擬需求熱度；虛線為 GeoJSON 行政邊界，邊界外不可以建站或移動車站，地圖拖曳也受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。點既有軌道可在中間插入車站。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車會依編組節數顯示為一節一節的車廂沿線移動，地圖放大後可看到各站的示意站臺與站臺人流黑點。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>新車站會讀取 Mapbox 已載入的道路與公共設施圖徵，再以限速的 OpenStreetMap Photon 反查醫院、景點、機場、學校、博物館等；店鋪、餐廳、咖啡廳與一般商業建築不作為自動站名；外部服務可能有延遲或暫時無法使用，沒有精確結果時不會冒充真實建築名稱。已手動命名的站不會被更改。進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖使用 Mapbox 自訂樣式。行政 GeoJSON 首次載入亦需要網路，可從介面匯入自己的 GeoJSON；成功載入後會在本次瀏覽器會話快取。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲規劃範圍來自第三方行政 GeoJSON（精簡資料不保證法律精度；GADM 不允許未經授權的商業使用與再散布）；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
 function download(name,contents){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([contents],{type:'application/json;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
 
 $('geoRetry').onclick=()=>loadGeo(city,true);
