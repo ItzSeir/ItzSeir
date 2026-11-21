@@ -1966,48 +1966,61 @@ function transit3DGeoJSON(){
    const maxCars=clamp(Number(l.cars)||4,2,8);
    const distance=station3DCentre(geom,i,maxCars);
    const centre=routePointGeo(geom,distance)||st,angle=geoTrackTangent(geom,stationPlatformSampleKm(geom,i));
+   const sampleKm=stationPlatformSampleKm(geom,i);
+   const sampleDeck=railSurfaceAtKm(geom,stops,sampleKm);
+   const levelAtPoint=railLevelAtKm(geom,stops,sampleKm);
+   const deckHint=sampleDeck===null?railHeight(levelAtPoint==='transition'?stationRailLevel(st):levelAtPoint):sampleDeck;
    let group=stationGroups.get(st.id);
    if(!group){group={st,corridors:[],lineIds:new Set(),maxCars};stationGroups.set(st.id,group)}
    group.maxCars=Math.max(group.maxCars,maxCars);group.lineIds.add(l.id);
-   const matching=group.corridors.find(c=>angleDifference(c.angle,angle)<.31);
-   const candidate={angle,centre,cars:maxCars,interior:i>0&&i<stops.length-1,services:[l.id]};
+   const matching=group.corridors.find(c=>angleDifference(c.angle,angle)<.20 && Math.abs((c.deckHint??0)-deckHint)<2.5);
+   const candidate={angle,centre,cars:maxCars,interior:i>0&&i<stops.length-1,services:[l.id],deckHint,levelHint:levelAtPoint};
    if(matching){
     matching.cars=Math.max(matching.cars,maxCars);
     matching.services.push(l.id);
+    matching.deckHint=(matching.deckHint+deckHint)/2;
     if(candidate.interior&&!matching.interior){matching.angle=angle;matching.centre=centre;matching.interior=true}
    }else group.corridors.push(candidate);
   }
  }
  for(const group of stationGroups.values()){
-  const {st,corridors,maxCars}=group,level=stationRailLevel(st);
-  const deck=railHeight(level),raised=deck>2;
-  if(level==='underground'){
-   // Underground hub: only one surface access complex per shared station.
+  const {st,corridors,maxCars}=group,baseLevel=stationRailLevel(st);
+  if(baseLevel==='underground'&&corridors.every(c=>(c.levelHint||'')==='underground')){
    const angle=corridors[0]?.angle||0;
    poly(mapRect(st,angle,19,12),'subway-entry',0,2.2,'#6f95aa');
    poly(mapRect(st,angle,11,9),'subway-entry-roof',2.2,2.7,'#bed7df');
    continue;
   }
   const shared=corridors.length>1||group.lineIds.size>1;
-  const platformLen=maxCars*TS3D_TRAIN_PITCH+15;
+  const hallDeck=shared?Math.min(...corridors.map(c=>c.deckHint??railHeight(baseLevel))):((corridors[0]?.deckHint)??railHeight(baseLevel));
+  const mainAngle=corridors[0]?.angle||0;
+  const withIndex=corridors.map((c,i)=>({c,i})).sort((a,b)=>a.c.angle-b.c.angle);
+  const n=withIndex.length;
+  withIndex.forEach(({c},rank)=>{
+   c.rank=rank;c.renderCentre=c.interior?st:c.centre;
+   if(n>1){
+    const spread=(rank-(n-1)/2)*12;
+    const outward=(n===2? (rank===0?-5:5) : (rank%2===0?-4:4));
+    c.renderCentre=pointOffsetAlong(st,c.angle,spread,outward);
+   }
+  });
   for(const corridor of corridors){
    const {angle}=corridor;
-   const len=platformLen;
-   // The same physical stop is always anchored at its shared geographic point.
-   // The rail-served platform axis stays aligned with its representative service.
-   const centre=corridor.interior?st:corridor.centre;
+   const len=Math.max(maxCars*TS3D_TRAIN_PITCH+15,corridor.cars*TS3D_TRAIN_PITCH+15);
+   const centre=corridor.renderCentre||corridor.centre||st;
+   const deck=clamp(corridor.deckHint??railHeight(baseLevel),0,TS3D_DECK_ELEVATED);
+   const raised=deck>2;
+   const roofShared=shared&&corridors.length>1;
    for(const side of [-1,1]){
     const off=side*8.15;
     poly(mapRect(centre,angle,len,4.7,off),'platform-slab',deck,deck+.77,'#e2e9e8');
     poly(mapRect(centre,angle,len-2,.32,side*5.9),'tactile-edge',deck+.78,deck+.86,'#f0be49');
     const nFrames=Math.max(2,Math.ceil(len/19));
-    // Stop roofs short of the shared central concourse, to avoid intersecting
-    // multiple bulky roof slabs on branching / crossing services.
-    if(!shared){
+    if(!roofShared){
      poly(mapRect(centre,angle,len*.91,4.1,off),'roof-top',deck+6.3,deck+6.65,'#7baeb9');
      poly(mapRect(centre,angle,len*.91,.20,off+side*2.0),'roof-edge',deck+6.2,deck+6.85,'#dbe8ea');
     }else{
-     const roofPart=Math.max(9,len*.31),distance=len*.30;
+     const roofPart=Math.max(9,len*.28),distance=len*.28;
      for(const half of [-1,1]){
       const part=pointOffsetAlong(centre,angle,half*distance,0);
       poly(mapRect(part,angle,roofPart,4.1,off),'roof-top',deck+6.3,deck+6.65,'#7baeb9');
@@ -2016,12 +2029,12 @@ function transit3DGeoJSON(){
     }
     for(let k=0;k<=nFrames;k++){
      const along=(k/nFrames-.5)*len*.86;
-     if(shared&&Math.abs(along)<10)continue;
+     if(roofShared&&Math.abs(along)<7)continue;
      const pos=pointOffsetAlong(centre,angle,along,off+side*1.1);
      poly(mapRect(pos,angle,.42,.45),'roof-post',deck+.8,deck+6.3,'#9db5bc');
      if(k<nFrames){
       const middle=pointOffsetAlong(centre,angle,(k+.5-nFrames/2)*len*.86/nFrames,off);
-      if(!shared||Math.abs((k+.5-nFrames/2)*len*.86/nFrames)>13)
+      if(!roofShared||Math.abs((k+.5-nFrames/2)*len*.86/nFrames)>9)
        poly(mapRect(middle,angle,.26,3.9),'roof-rib',deck+6.62,deck+6.8,'#d5e2e4');
      }
     }
@@ -2031,34 +2044,32 @@ function transit3DGeoJSON(){
     }
     if(raised){
      for(const distance of [-len*.32,0,len*.32]){
-      if(shared&&distance===0)continue;
       const col=pointOffsetAlong(centre,angle,distance,off);
       poly(mapRect(col,angle,2.6,2.6),'platform-column',0,deck,'#91a8b0');
       poly(mapRect(col,angle,2.6,4.8),'platform-cap',deck-1.0,deck,'#a9bfc5');
      }
     }
    }
-   // One crossing bridge for each DISTINCT track direction, tied to the hub.
-   poly(mapRect(st,angle,5.0,20),'concourse-bridge',deck+4.35,deck+4.8,'#c0d3d7');
-  }
-  // One unified transfer concourse and one lift core, not one per route.
-  const mainAngle=corridors[0]?.angle||0;
-  if(shared){
-   const width=corridors.length>1?24:21;
-   poly(mapRect(st,mainAngle,18,width),'transfer-hall-floor',deck+4.45,deck+4.85,'#bed3d9');
-   poly(mapRect(st,mainAngle,18,width),'transfer-hall-roof',deck+7.30,deck+7.65,'#74a6b2');
-   for(const offset of [-7,7]){
-    const p=pointOffsetAlong(st,mainAngle,offset,0);
-    poly(mapRect(p,mainAngle,.75,width-3),'transfer-hall-beam',deck+7.05,deck+7.3,'#d3e5e8');
+   // each service direction gets its own bridge / station body, connected back to hub
+   poly(mapRect(centre,angle,5.0,17),'concourse-bridge',deck+4.35,deck+4.8,'#c0d3d7');
+   if(shared){
+    const linkAngle=Math.atan2((st.lat-centre.lat),(st.lng-centre.lng)*Math.cos(st.lat*Math.PI/180));
+    const mid=pointOffsetAlong(centre,angle,0,0);
+    poly(mapRect(pointOffsetAlong(st,angle,0,0),angleDifference(angle,mainAngle)>.4?mainAngle:angle,10,3.0),'transfer-link',hallDeck+4.38,hallDeck+4.86,'#c2d8db');
    }
   }
-  const entry=pointOffsetAlong(st,mainAngle,shared?18:platformLen*.32,13.7);
-  poly(mapRect(entry,mainAngle,7.2,6.5),'lift-core',raised?0:deck,deck+5.6,'#abc0c4');
-  poly(mapRect(entry,mainAngle,7.6,7.0),'lift-roof',deck+5.65,deck+6.1,'#dce8e9');
   if(shared){
-   const connect=pointOffsetAlong(st,mainAngle,9,6.9);
-   poly(mapRect(connect,mainAngle,20,3.1),'transfer-link',deck+4.38,deck+4.86,'#c2d8db');
+   const width=Math.min(28,18+corridors.length*4);
+   poly(mapRect(st,mainAngle,12,width),'transfer-hall-floor',hallDeck+4.45,hallDeck+4.85,'#bed3d9');
+   poly(mapRect(st,mainAngle,12,width),'transfer-hall-roof',hallDeck+7.30,hallDeck+7.65,'#74a6b2');
+   for(const offset of [-4,4]){
+    const p=pointOffsetAlong(st,mainAngle,offset,0);
+    poly(mapRect(p,mainAngle,.75,width-3),'transfer-hall-beam',hallDeck+7.05,hallDeck+7.3,'#d3e5e8');
+   }
   }
+  const entry=pointOffsetAlong(st,mainAngle,shared?13:(maxCars*TS3D_TRAIN_PITCH+15)*.32,13.7);
+  poly(mapRect(entry,mainAngle,7.2,6.5),'lift-core',hallDeck>2?0:hallDeck,hallDeck+5.6,'#abc0c4');
+  poly(mapRect(entry,mainAngle,7.6,7.0),'lift-roof',hallDeck+5.65,hallDeck+6.1,'#dce8e9');
  }
  return {polygons:{type:'FeatureCollection',features:polygons.slice(0,5500)},tracks:{type:'FeatureCollection',features:tracks.slice(0,1200)}};
 }
