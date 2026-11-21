@@ -2369,8 +2369,9 @@ function runFlight(f,dt){
    f.mode='hold';f.holdPoint={x:f.x,y:f.y};f.targetSpeed=185;if(!f.notifiedHold){f.notifiedHold=true;addLog(`${f.callsign} 已到航路終點 · 等待進場指令`,'warn');}if(f.id===selectedId)renderInspector();
   }else{f.targetHeading=f.heading;f.targetAlt=Math.max(f.targetAlt,8500);f.targetSpeed=270;}
  }else if(f.mode==='hold'){
-  const pt=f.holdPoint||{x:0,y:0},r=len(f,pt);
-  f.targetHeading=norm(heading(f,pt)+(r<4?80:25));f.targetSpeed=185;
+  // V63: continuous, aircraft-specific holding geometry. Never oscillate
+  // between fixed +25/+80 degree chase headings at the holding fix.
+  v63GuideHolding(f,dt);
  }else if(f.mode==='takeoff'){
   f.targetHeading=currentRunway();f.targetAlt=7000;f.targetSpeed=225;
   if(len(f,{x:0,y:0})>6 && f.altitude>2200){f.mode='route';f.targetSpeed=260;}
@@ -7511,7 +7512,8 @@ window.__atcV31={
    storm._v49Env={...env,potentialKt:pot,trendKtH:0,landFraction:exposure.fraction,steerHeading:steer.heading};
    return storm;
  }
- function step(storm,delta,t,landAt){
+ function surfaceHemisphere(point){return geographic(point).lat;}
+ function step(storm,delta,t,landAt,peers=[]){
    if(!Number.isFinite(delta)||delta<=0)return storm;
    // Small substeps make one 30-minute forecast step and 1-second live ticks
    // converge on the same physical evolution to practical plotting precision.
@@ -7519,10 +7521,34 @@ window.__atcV31={
    for(let i=0;i<count;i++){
      const clock=t+(i+1)*dt, hours=dt/3600;
      const env=atmosphere(storm,clock),flow=steering(env,storm,clock);
-     storm.heading=norm((storm.heading||flow.heading)+clamp(signed(flow.heading,storm.heading||flow.heading)*.13*hours,-3.6*hours,3.6*hours));
-     storm.speed=clamp(storm.speed+(flow.speed-storm.speed)*Math.min(.22,.13*hours),6,29);
-     storm.center.x+=Math.sin(radians(storm.heading))*storm.speed*hours;
-     storm.center.y+=Math.cos(radians(storm.heading))*storm.speed*hours;
+     // Keep large-scale steering separate from the displayed motion heading,
+     // so binary-vortex circulation is not accumulated again each step.
+     const base=Number.isFinite(storm._v62BaseHeading)?storm._v62BaseHeading:(storm.heading||flow.heading);
+     storm._v62BaseHeading=norm(base+clamp(signed(flow.heading,base)*.13*hours,-3.6*hours,3.6*hours));
+     const bs=Number.isFinite(storm._v62BaseSpeed)?storm._v62BaseSpeed:storm.speed;
+     storm._v62BaseSpeed=clamp(bs+(flow.speed-bs)*Math.min(.22,.13*hours),6,29);
+     let vx=Math.sin(radians(storm._v62BaseHeading))*storm._v62BaseSpeed;
+     let vy=Math.cos(radians(storm._v62BaseHeading))*storm._v62BaseSpeed;
+     let interaction=0,nearest=Infinity,partnerId=null;
+     // Fujiwhara / binary interaction: northern CCW, southern CW.
+     // Falls off smoothly beyond ~700 NM; stronger cyclones dominate weaker.
+     for(const other of peers){
+       if(!other||other.id===storm.id||!other.center)continue;
+       const dx=storm.center.x-other.center.x,dy=storm.center.y-other.center.y;
+       const d=Math.hypot(dx,dy);if(d<1||d>730)continue;
+       const influence=Math.pow(1-smooth(150,730,d),1.35);
+       const partnerKt=clamp(82*(other.strength||.8),18,160),ownKt=clamp(82*(storm.strength||.8),18,160);
+       const dominance=clamp(.65+partnerKt/(ownKt+partnerKt),.65,1.6);
+       const orbitSpeed=clamp(1.3+770/Math.max(d,75),0,12.5)*influence*dominance;
+       const spin=surfaceHemisphere(storm.center)>=0?1:-1;
+       vx+=(-dy/d)*spin*orbitSpeed;vy+=(dx/d)*spin*orbitSpeed;
+       interaction+=orbitSpeed;
+       if(d<nearest){nearest=d;partnerId=other.id;}
+     }
+     storm.center.x+=vx*hours;storm.center.y+=vy*hours;
+     storm.heading=norm(Math.atan2(vx,vy)/R);
+     storm.speed=clamp(Math.hypot(vx,vy),3,39);
+     storm._v62Interaction={speedKt:interaction,nearestNM:Number.isFinite(nearest)?nearest:null,partnerId};
      const surface=atmosphere(storm,clock);
      // Recalculate the storm-centre land flag at the moved position. Even if
      // broader coastal-footprint sampling is cached, center-over-land is never
@@ -7565,6 +7591,10 @@ window.__atcV31={
          tendency=Math.min(tendency,maxGrow*recovery);
        }
      }
+     // Coastal friction prevents a falsely favourable intensity forecast while
+     // the inner rain circulation crosses land even before the eye does.
+     if(land.fraction>.17)tendency=Math.min(tendency,-.35-2.8*land.fraction);
+     if(centerOnLand)tendency=Math.min(tendency,-2.5);
      tendency=clamp(tendency,-12,maxGrow);
      const next=clamp(wind+tendency*hours,18,160);
      storm.strength=next/82;
@@ -7591,16 +7621,17 @@ window.__atcV31={
    }
    return storm;
  }
- function forecast(storm,start,landAt,hours=[0,3,6,12,24]){
+ function forecast(storm,start,landAt,hours=[0,3,6,12,24],peers=[]){
    if(!storm)return [];
    const shadow={...storm,center:{...storm.center},_landAtTime:-Infinity,_v49Env:storm._v49Env?{...storm._v49Env}:null};
+   const shadows=[shadow,...peers.filter(s=>s&&s.id!==storm.id).map(s=>({...s,center:{...s.center},_landAtTime:-Infinity,_v49Env:s._v49Env?{...s._v49Env}:null}))];
    const result=[];
    // Direct centre-location check prevents stale over-water labels in the
    // card when the centre has already crossed the local coastline polygon.
    const capture=(h)=>{
      const centreOnLand=landAt(shadow.center)===true;
      return {h,p:{...shadow.center},heading:shadow.heading,speed:shadow.speed,
-       strength:shadow.strength,land:centreOnLand,radius:shadow.radius,
+       strength:shadow.strength,land:centreOnLand,radius:shadow.radius,interaction:shadow._v62Interaction,
        env:{...(shadow._v49Env||{}),centerOnLand:centreOnLand,
           rainRetention:shadow.v56RainMoisture,cloudStructure:shadow.v56CloudStructure,
           landHours:shadow.v56LandHours}};
@@ -7608,7 +7639,10 @@ window.__atcV31={
    result.push(capture(0));
    for(let h=1;h<=Math.max(...hours);h++){
      // A full hour uses 4 x 15-minute deterministic integration steps.
-     for(let j=0;j<4;j++)step(shadow,900,start+(h-1)*3600+j*900,landAt);
+     for(let j=0;j<4;j++){
+       const snaps=shadows.map(s=>({id:s.id,center:{...s.center},strength:s.strength}));
+       for(const s of shadows)step(s,900,start+(h-1)*3600+j*900,landAt,snaps.filter(x=>x.id!==s.id));
+     }
      if(hours.includes(h))result.push(capture(h));
    }
    return result;
@@ -7626,7 +7660,7 @@ window.__atcV31={
   volcano:{name:'火山爆發 / 火山灰',emoji:'🌋',duration:17*60,desc:'建立移動火山灰危險區；雷達標示受影響空域，飛行員可能要求繞飛'},
   earthquake:{name:'地震 / 震央強度',emoji:'🌐',duration:9*60,desc:'隨機位置、規模和深度；依機場受到的震動決定是否封閉部分／全部跑道'},
   flood:{name:'水災 / 跑道積水',emoji:'🌊',duration:12*60,desc:'一條實體跑道因積水暫停使用，完成排水檢查後恢復'},
-  typhoon:{name:'熱帶氣旋 / 海上生成・登陸減弱',emoji:'🌀',duration:72*60*60,desc:'可能增強至強烈颱風；海溫、風切、濕度、登陸共同影響強度與雨帶（離線模擬）'},
+  typhoon:{name:'熱帶氣旋 / 海上生成・登陸減弱',emoji:'🌀',duration:7*24*60*60,desc:'可能增強至強烈颱風；海溫、風切、濕度、登陸共同影響強度與雨帶（離線模擬）'},
   emergency:{name:'飛機緊急狀態',emoji:'✈️',duration:16*60,desc:'隨機機型情境：液壓故障、醫療急症、燃油問題或引擎故障'}
  };
  const holder=document.querySelector('.top-actions')||document.querySelector('.topbar');
@@ -7646,7 +7680,7 @@ window.__atcV31={
    return false;
   });
  const restoreWeather=ev=>{
-  if(ev.type==='typhoon'&&ev.weatherBefore&&conditions){
+   if(ev.type==='typhoon'&&ev.weatherBefore&&conditions&&!active.some(x=>x.type==='typhoon')){
    Object.assign(conditions,ev.weatherBefore);
    try{updateWeatherUi()}catch(e){}
   }
@@ -7693,6 +7727,7 @@ window.__atcV31={
      if(!landAt({x:point.x+offset.x,y:point.y+offset.y}))seaNeighbors++;
     }
     if(seaNeighbors<5)continue;
+    if(active.some(e=>e.type==='typhoon'&&len(e.center,point)<77))continue;
     const towardAirport=norm(bearing+180);
     const heading=norm(towardAirport+rnd(-38,38));
     return {point,heading};
@@ -7714,8 +7749,10 @@ window.__atcV31={
  const tNow=()=>simTime;
  function spawn(type,opts={}){
   if(!TYPES[type])return false;
-  if(type!=='emergency'&&active.filter(x=>x.type!=='emergency').length>=2){notify('同時最多可進行兩種區域天災情境','warn');return false}
-  if(type!=='emergency'&&active.some(x=>x.type===type)){notify('此情境正在運作中','warn');return false}
+  const typhoonCount=active.filter(x=>x.type==='typhoon').length;
+  if(type==='typhoon'&&typhoonCount>=3){notify('同時最多三個熱帶氣旋','warn');return false}
+  if(type!=='typhoon'&&type!=='emergency'&&active.filter(x=>x.type!=='emergency'&&x.type!=='typhoon').length>=2){notify('其他區域天災同時最多兩種','warn');return false}
+  if(type!=='typhoon'&&type!=='emergency'&&active.some(x=>x.type===type)){notify('此情境正在運作中','warn');return false}
   let f=null,ev={id:incidentId++,type,start:tNow(),until:tNow()+TYPES[type].duration,reopened:false,blocks:false};
   if(type==='volcano'){
    ev.center={x:-26-Math.random()*18,y:22+Math.random()*27};ev.radius=14+Math.random()*10;
@@ -7747,6 +7784,7 @@ window.__atcV31={
    ev.eyewall=rnd(5,8);ev.strength=rnd(.70,1.19);
    ev.land=false;ev.landFraction=0;ev.landedAt=null;
    ev.track=[{x:ev.center.x,y:ev.center.y,t:simTime}];
+   ev.v62Name='模擬氣旋 '+String(ev.id).padStart(2,'0');
    ev.weatherBefore=conditions?{...conditions}:null;
    window.__atcV49?.init(ev,simTime,landAt);
    const env=ev._v49Env||{};
@@ -7803,13 +7841,13 @@ window.__atcV31={
   panel.innerHTML=`<div class="v34-panel-head"><div><strong>天災與緊急事件</strong><small>離線模擬 · 事件會影響管制，不是真實災害資訊</small></div><button type="button" id="v34Close" class="v34-close" aria-label="關閉事件面板">×</button></div>
   <div class="v34-inner"><label class="v34-auto"><div><strong>自動隨機事件</strong><small>預設關閉 · 開啟後偶爾出現事件，需由管制員處理</small></div><input id="v34Auto" type="checkbox" ${autoEvents?'checked':''}></label>
   <section><div class="v34-section-label">手動觸發情境</div><div class="v34-grid">${names.map(type=>`<button type="button" class="v34-trigger" data-v34-trigger="${type}"><b>${TYPES[type].emoji} ${TYPES[type].name}</b><span>${TYPES[type].desc}</span></button>`).join('')}</div></section>
-  <section><div class="v34-section-label">進行中的事件 · ${count}</div>${active.length?active.map(ev=>`<div class="v34-current ${['earthquake','flood','volcano'].includes(ev.type)?'alert':''}"><div class="v34-current-head"><strong>${TYPES[ev.type].emoji} ${TYPES[ev.type].name}</strong><span class="v34-time">${shortTime(ev.until-simTime)}</span></div><p>${eventDetail(ev)}</p><div style="display:flex;gap:7px;flex-wrap:wrap">${ev.blocks&&!ev.reopened?`<button type="button" class="v34-action" data-v34-inspect="${ev.id}" ${simTime<ev.releaseAt?'disabled':''}>${simTime<ev.releaseAt?`檢查中 · ${shortTime(ev.releaseAt-simTime)}`:'完成檢查 · 重新開放'}</button>`:''}${ev.type==='emergency'?`<button type="button" class="v34-action" data-v34-priority="${ev.id}">選取航班 · 優先管制</button>`:''}${ev.type==='typhoon'?`<button type="button" class="v34-action" data-v34-forecast="${ev.id}">查看路徑預報</button>`:''}<button type="button" class="v34-action" data-v34-stop="${ev.id}">結束情境</button></div></div>`).join(''):'<div class="v34-current">目前沒有事件。可手動啟動任一訓練情境。</div>'}</section>
+  <section><div class="v34-section-label">進行中的事件 · ${count}</div>${active.length?active.map(ev=>`<div class="v34-current ${['earthquake','flood','volcano'].includes(ev.type)?'alert':''}"><div class="v34-current-head"><strong>${TYPES[ev.type].emoji} ${ev.type==='typhoon'?(ev.v62Name||TYPES[ev.type].name):TYPES[ev.type].name}</strong><span class="v34-time">${shortTime(ev.until-simTime)}</span></div><p>${eventDetail(ev)}</p><div style="display:flex;gap:7px;flex-wrap:wrap">${ev.blocks&&!ev.reopened?`<button type="button" class="v34-action" data-v34-inspect="${ev.id}" ${simTime<ev.releaseAt?'disabled':''}>${simTime<ev.releaseAt?`檢查中 · ${shortTime(ev.releaseAt-simTime)}`:'完成檢查 · 重新開放'}</button>`:''}${ev.type==='emergency'?`<button type="button" class="v34-action" data-v34-priority="${ev.id}">選取航班 · 優先管制</button>`:''}${ev.type==='typhoon'?`<button type="button" class="v34-action" data-v34-forecast="${ev.id}">查看路徑預報</button>`:''}<button type="button" class="v34-action" data-v34-stop="${ev.id}">結束情境</button></div></div>`).join(''):'<div class="v34-current">目前沒有事件。可手動啟動任一訓練情境。</div>'}</section>
   <div class="v34-footer">地震／水災封閉跑道時，起飛與降落許可會受限制；火山灰需繞飛，颱風改變風場，緊急航班需要優先處置。事件規則為簡化訓練模擬。</div></div>`;
   panel.querySelector('#v34Close').onclick=()=>toggle(false);
   panel.querySelector('#v34Auto').onchange=e=>{autoEvents=e.target.checked;randomCheckAt=simTime+420;render()};
   panel.querySelectorAll('[data-v34-trigger]').forEach(b=>b.onclick=()=>spawn(b.dataset.v34Trigger));
   panel.querySelectorAll('[data-v34-stop]').forEach(b=>b.onclick=()=>closeEvent(b.dataset.v34Stop,true));
-  panel.querySelectorAll('[data-v34-forecast]').forEach(b=>b.onclick=()=>window.__atcV47?.open());
+  panel.querySelectorAll('[data-v34-forecast]').forEach(b=>b.onclick=()=>window.__atcV62?.open(Number(b.dataset.v34Forecast)));
   panel.querySelectorAll('[data-v34-inspect]').forEach(b=>b.onclick=()=>{
    const ev=active.find(x=>x.id===Number(b.dataset.v34Inspect));if(!ev||simTime<ev.releaseAt)return;
    ev.reopened=true;ev.blocks=false;addLog(`${TYPES[ev.type].name} · 跑道檢查完成，恢復運作`,'good');
@@ -7865,13 +7903,14 @@ window.__atcV31={
  simulate=function(dt){
   const result=oldSim(dt);
   if(dt<=0)return result;
+  const v62StormSnapshots=active.filter(x=>x.type==='typhoon').map(x=>({id:x.id,center:{...x.center},strength:x.strength}));
   for(const ev of [...active]){
    if(ev.type==='volcano'&&conditions){const drift=vector(norm(conditions.windFrom+180),Math.min(dt,2)*conditions.windKt/3600);ev.center.x+=drift.x;ev.center.y+=drift.y;}
    if(ev.type==='typhoon'){
     // Same physical integration engine is used by the radar's 24h forecast.
     // Smooth ridge/trough steering replaces discontinuous random turns.
     const previouslyLand=!!ev.land;
-    window.__atcV49?.step(ev,dt,simTime-dt,landAt);
+    window.__atcV49?.step(ev,dt,simTime-dt,landAt,v62StormSnapshots.filter(x=>x.id!==ev.id));
     if(ev.land&&!previouslyLand){
       ev.landedAt=simTime;
       addLog('🌀 颱風中心登陸 · 失去海洋熱源並受陸地摩擦影響','warn');
@@ -7899,7 +7938,7 @@ window.__atcV31={
    if(simTime>=ev.until)closeEvent(ev.id);
   }
   if(autoEvents&&simTime>=randomCheckAt){randomCheckAt=simTime+480+Math.random()*380;
-   if(Math.random()<.21&&active.length<2)spawn(names[Math.floor(Math.random()*names.length)]);
+   if(Math.random()<.21&&active.length<5)spawn(names[Math.floor(Math.random()*names.length)]);
   }
   if(panel.classList.contains('visible')&&simTime-renderAt>7){renderAt=simTime;render()}
   return result;
@@ -7945,11 +7984,13 @@ window.__atcV31={
   host.prepend(info);
  }return r};
  render();
+ window.__atcV35Typhoons=()=>active.filter(x=>x.type==='typhoon');
  window.__atcV35Typhoon=()=>active.find(x=>x.type==='typhoon')||null;
  window.__atcV36={landAt:(x,y)=>landAt({x,y}),typhoon:()=>{const t=active.find(ev=>ev.type==='typhoon');return t?{center:{...t.center},land:landAt(t.center),strength:t.strength,landFraction:t.landFraction,speed:t.speed}:null}};
  window.__atcV34={events:()=>active.map(ev=>({id:ev.id,type:ev.type,remaining:ev.until-simTime,blocked:ev.blocks&&!ev.reopened,magnitude:ev.magnitude,distanceNM:ev.distanceNM,depthKm:ev.depth,localImpact:ev.impact,closedAll:ev.closedAll,closedPhysical:ev.closedPhysical})),
   trigger:spawn,stop:closeEvent,setAutomatic:v=>{autoEvents=!!v;render()},
   flights:()=>flights.map(f=>({id:f.id,callsign:f.callsign,kind:f.kind,altitude:f.altitude,targetAlt:f.targetAlt,mode:f.mode,emergency:f.v34Emergency||null})),
+  storms:()=>active.filter(e=>e.type==='typhoon'),
   runwayBlocked:()=>anyBlocked('dep',selectedFlight()),
   currentWeather:()=>conditions?{...conditions}:null};
 })();
@@ -8545,10 +8586,9 @@ window.__atcV31={
      const value=z.severity*(1-smooth38(.20,1.0,r))*(.87+.13*Math.sin(z.phase));
      if(value>level){level=value;source='air';}
    }
-   const tc=getCyclone();
-   if(tc){
+   for(const tc of (window.__atcV35Typhoons?.()||[getCyclone()].filter(Boolean))){
      const d=dist38(f,tc.center),width=tc.radius*1.08;
-     const v=(1-smooth38(width*.12,width,d))*clamp38(tc.strength||.8,.22,1.36)*.89;
+     const v=(1-smooth38(width*.12,width,d))*clamp38(tc.strength||.8,.22,1.95)*.89;
      if(v>level){level=v;source='typhoon';}
    }
    return {level:clamp38(level,0,1),source};
@@ -8629,8 +8669,8 @@ window.__atcV31={
        c.fillText('TURB '+(severe?'SEV':moderate?'MOD':'LGT'),p.x-radius*.45,p.y-radius*.58);
      }
    }
-   const ev=previousGet?.();
-   if(ev&&showTyphoon){
+   const allStorms=window.__atcV35Typhoons?.()||[previousGet?.()].filter(Boolean);
+   for(const ev of (showTyphoon?allStorms:[])){
      const p=toScreen(ev.center),ss=scale(),power=clamp38(ev.strength||.8,.22,1.36);
      const rad=Math.max(8,ev.radius*ss*(.88+power*.16));
      if(Number.isFinite(p.x)&&p.x+rad>0&&p.x-rad<viewport.w&&p.y+rad>0&&p.y-rad<viewport.h){
@@ -8644,8 +8684,8 @@ window.__atcV31={
        const future=vector(ev.heading,Math.min(26,ev.speed*.85)),q=toScreen({x:ev.center.x+future.x,y:ev.center.y+future.y});
        c.beginPath();c.moveTo(p.x,p.y);c.lineTo(q.x,q.y);c.strokeStyle='#8463a4';c.lineWidth=1.5;c.stroke();
        c.beginPath();c.arc(p.x,p.y,5,0,2*Math.PI);c.fillStyle='#fff';c.fill();c.strokeStyle='#785a92';c.lineWidth=2;c.stroke();
-       const m46=window.__atcV46StormMetrics?.(ev);const name=`🌀 ${m46?.category||'熱帶氣旋'} · ${ev.land?'登陸':ev._v49Env?.trendKtH<-.3?'減弱':ev._v49Env?.trendKtH>.3?'增強':'海上'} · ${m46?.pressureHPa??'--'} hPa · ${m46?.windKmh??'--'} km/h`; 
-       c.font='700 12px system-ui';const w=Math.min(335,c.measureText(name).width+18),x=clamp38(p.x+12,5,Math.max(5,viewport.w-w-5)),y=clamp38(p.y-13,26,viewport.h-12);
+       const m46=window.__atcV46StormMetrics?.(ev);const name=`🌀 ${ev.v62Name||'氣旋'} · ${m46?.category||'熱帶氣旋'} · ${ev.land?'登陸':ev._v49Env?.trendKtH<-.3?'減弱':ev._v49Env?.trendKtH>.3?'增強':'海上'} · ${m46?.pressureHPa??'--'} hPa · ${m46?.windKmh??'--'} km/h`; 
+       c.font='700 12px system-ui';const w=Math.min(400,c.measureText(name).width+18),x=clamp38(p.x+12,5,Math.max(5,viewport.w-w-5)),y=clamp38(p.y-13,26,viewport.h-12);
        c.fillStyle='rgba(255,255,255,.95)';c.beginPath();c.roundRect(x,y-19,w,26,9);c.fill();c.strokeStyle='rgba(135,106,155,.35)';c.stroke();c.fillStyle='#604b79';c.fillText(name,x+9,y-1);c.restore();
      }
    }
@@ -9908,13 +9948,14 @@ const badge=document.createElement('div');badge.id='v46StormBadge';
 const wxHost=document.querySelector('#wxDisclosure .wx-detail-body')||document.getElementById('wxDisclosure');
 if(wxHost)wxHost.insertBefore(badge,wxHost.firstChild);
 function refreshBadge(){
- const t=window.__atcV35Typhoon?.(),on=!!t;
+ const all=window.__atcV35Typhoons?.()||[window.__atcV35Typhoon?.()].filter(Boolean);
+ const t=all.slice().sort((a,b)=>Math.hypot(a.center.x,a.center.y)-Math.hypot(b.center.x,b.center.y))[0],on=!!t;
  badge.classList.toggle('is-active',on);
  if(!on)return;
  const m=metrics(t);
  const distance=Math.round(Math.hypot(t.center.x,t.center.y));
  const rain=Number(conditions?.precipitationMm||0).toFixed(1);
- badge.innerHTML=`<b>🌀 模擬颱風</b><strong>${m.pressureHPa} hPa</strong><strong>${m.windKmh} km/h</strong><small>中心距機場約 ${distance} NM · 機場降雨 ${rain} mm/h · ${t.land?'登陸減弱中':t._v49Env?.trendKtH>0.3?'逐步增強':t._v49Env?.trendKtH<-.3?'逐漸減弱':'海上活動'} · 非實際觀測</small>`;
+ badge.innerHTML=`<b>🌀 ${all.length} 個模擬氣旋 · 最近 ${t.v62Name||''}</b><strong>${m.pressureHPa} hPa</strong><strong>${m.windKmh} km/h</strong><small>中心距機場約 ${distance} NM · 機場降雨 ${rain} mm/h · ${t.land?'登陸減弱中':t._v49Env?.trendKtH>0.3?'逐步增強':t._v49Env?.trendKtH<-.3?'逐漸減弱':'海上活動'} · 非實際觀測</small>`;
 }
 const oldUpdate=updateWeather;
 updateWeather=function(dt){
@@ -11312,6 +11353,465 @@ refreshBadge();
   touchCondition:f=>{const r=runwayGeom(f.v12RunwayIndex),out=vector(norm61(r.heading+180),1),dx=f.x-r.threshold.x,dy=f.y-r.threshold.y;return {along:dx*out.x+dy*out.y,cross:Math.abs(dx*out.y-dy*out.x),height:f.altitude,speed:f.speed}}};
  setMode('select');
  document.title='AIRSPACE — ATC V61 · Stable Radar & CWA';
+})();
+</script>
+<style id="v62-multi-cyclone-forecast-ui">
+/* V62 — transparent on-map forecast console, never a modal or full-screen block. */
+#v62CycloneDock{position:absolute;z-index:9;top:63px;left:14px;width:min(302px,calc(100% - 28px));max-height:min(68vh,525px);overflow-y:auto;overscroll-behavior:contain;display:none;background:rgba(251,254,255,.97);color:#294d5a;border:1px solid #b7d4d8;box-shadow:0 9px 30px #23465525;border-radius:14px;padding:12px;font:600 11px/1.5 system-ui,'Noto Sans TC',sans-serif;scrollbar-width:thin}
+#v62CycloneDock.visible{display:block}
+#v62CycloneDock .v62-titlebar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#v62CycloneDock .v62-titlebar b{font-size:12px;color:#245968}
+#v62CycloneDock .v62-titlebar button{background:#e8f3f3;border:1px solid #d0e3e5;color:#426977;border-radius:8px;min-width:28px;height:28px;font-size:18px}
+#v62CycloneDock .v62-selector{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin:10px 0 8px}
+#v62CycloneDock .v62-selector button{flex:1;min-width:65px;white-space:nowrap;border:1px solid #cbdfe3;border-radius:8px;background:#f1f7f8;color:#557987;padding:7px;font-size:10px;font-weight:800}
+#v62CycloneDock .v62-selector button.active{background:#286c74;color:white;border-color:#286c74}
+#v62CycloneDock .v62-strong{display:block;font-size:15px;letter-spacing:-.025em;color:#255a68;margin-bottom:2px}
+#v62CycloneDock .v62-sub{font-size:10px;color:#648490;line-height:1.55}
+#v62CycloneDock .v62-hours{display:flex;gap:4px;overflow-x:auto;padding:10px 0 8px;scrollbar-width:thin}
+#v62CycloneDock .v62-hours button{flex:0 0 auto;min-width:36px;padding:5px 6px;border:1px solid #cfdee3;background:#f3f8f9;color:#547886;border-radius:7px;font-size:10px;font-weight:800}
+#v62CycloneDock .v62-hours button.active{background:#355f93;color:white;border-color:#355f93}
+#v62CycloneDock .v62-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:4px 0 8px}
+#v62CycloneDock .v62-stats div{background:#eff6f7;border:1px solid #d7e9e9;border-radius:9px;padding:8px}
+#v62CycloneDock .v62-stats small{display:block;color:#7c98a2;font-size:9px;font-weight:750}
+#v62CycloneDock .v62-stats strong{font-size:16px;color:#2a6474;letter-spacing:-.04em}
+#v62CycloneDock .v62-status{border-top:1px solid #e0ebee;padding-top:8px;font-size:10px;line-height:1.6;color:#4d7480}
+#v62CycloneDock .v62-status.warn{color:#a35c46}
+#v62CycloneDock .v62-footnote{font-size:9px;line-height:1.5;color:#7e949f;border-top:1px solid #e1edef;margin-top:8px;padding-top:8px}
+#v62StormQuick{position:absolute;z-index:5;left:14px;bottom:65px;display:flex;gap:5px;flex-wrap:wrap;max-width:calc(100% - 30px);pointer-events:auto}
+#v62StormQuick button{font:800 10px system-ui,'Noto Sans TC';border-radius:999px;border:1px solid #c2d9dc;background:#ffffffed;color:#456c7d;box-shadow:0 3px 9px #123a4320;padding:6px 10px}
+#v62StormQuick button.active{color:#fff;background:#306c7b;border-color:#306c7b}
+@media(max-width:850px){#v62CycloneDock{top:61px;left:9px;max-height:min(49vh,440px);width:min(270px,calc(100% - 18px));padding:10px}#v62StormQuick{left:8px;bottom:127px}#v62CycloneDock .v62-strong{font-size:13px}}
+@media(max-width:480px){#v62CycloneDock{top:53px;left:8px;width:min(258px,calc(100% - 16px));max-height:44vh}#v62CycloneDock .v62-stats strong{font-size:14px}#v62StormQuick{bottom:123px}}
+</style>
+<script id="v62-multi-cyclone-forecast">
+(()=>{
+ 'use strict';
+ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), RAD=Math.PI/180;
+ const storms=()=>window.__atcV35Typhoons?.()||[];
+ const land=(p)=>window.__atcV36?.landAt?.(p.x,p.y)===true;
+ const sc=document.getElementById('radarArea'),canvas=document.getElementById('radarCanvas');
+ if(!sc||!canvas||!window.__atcV49||!window.__atcV34)return;
+ const ui=document.createElement('section');ui.id='v62CycloneDock';ui.setAttribute('aria-label','模擬颱風路徑及強度預報');
+ // A fixed, nonmodal radar card lives above the legacy weather/traffic overlays.
+ // It is still activated only by tapping a storm on the radar.
+ document.body.appendChild(ui);
+ const quick=document.createElement('div');quick.id='v62StormQuick';sc.appendChild(quick);
+ const times=[0,3,6,12,24,36,48,72,96,120];
+ const uncertainty={0:2,3:9,6:14,12:23,24:44,36:60,48:82,72:126,96:172,120:218};
+ const kts=s=>clamp((Number(s)||0)*82,18,160);
+ const classOf=kt=>kt>=100?'強烈颱風':kt>=64?'中度颱風':kt>=34?'輕度颱風':'熱帶性低氣壓';
+ const formatGeo=p=>{const {lat,lon}=toGeographic(p);return `${Math.abs(lat).toFixed(2)}°${lat>=0?'N':'S'} · ${Math.abs(lon).toFixed(2)}°${lon>=0?'E':'W'}`};
+ const fmtDate=t=>{const d=new Date(SIM_START_EPOCH+t*1000);return d.toISOString().slice(5,16).replace('T',' ')+' UTC'};
+ const measure=ev=>window.__atcV46StormMetrics?.(ev)||{category:classOf(kts(ev.strength)),pressureHPa:Math.round(1012-.00158*(kts(ev.strength)*1.852)**2)};
+ let currentId=null,hour=24,originalView=null,cacheKey='',cache=[],lastUi=-Infinity;
+ const current=()=>storms().find(s=>s.id===currentId)||null;
+ const coneRadius=(d)=>{
+   const q=uncertainty[d.h]??(2+d.h*1.7);
+   const shear=clamp((d.env?.shear||12)/28,.6,1.65);
+   const bin=d.interaction?.nearestNM<400?1.16:1;
+   return q*(.82+.20*shear)*bin;
+ };
+ function forecast(ev){
+   if(!ev)return [];
+   const all=storms();
+   const key=[ev.id,all.length,Math.floor(simTime/240),...all.map(s=>`${s.id}:${s.center.x.toFixed(1)}:${s.center.y.toFixed(1)}:${s.strength.toFixed(2)}`)].join('|');
+   if(key!==cacheKey){
+      cacheKey=key;
+      cache=window.__atcV49.forecast(ev,simTime,land,times,all.filter(s=>s.id!==ev.id));
+   }
+   return cache;
+ }
+ function refreshQuick(){
+   const active=storms();
+   const sig=active.map(s=>s.id+':'+(s.id===currentId)).join('|');
+   if(quick.dataset.state===sig)return;
+   quick.dataset.state=sig;
+   quick.innerHTML=active.map(s=>`<button type="button" class="${s.id===currentId?'active':''}" data-id="${s.id}" title="點擊查看個別路徑預報">🌀 ${s.v62Name||'氣旋 '+s.id}</button>`).join('');
+ }
+ function refreshCard(){
+   const ev=current();if(!ev){close();return;}
+   const rows=forecast(ev);const d=rows.find(p=>p.h===hour)||rows[0];if(!d)return;
+   const kt=kts(d.strength),hpa=Math.round(clamp(1012-.00158*(kt*1.852)**2,875,1009));
+   const e=d.env||{},centerOnLand=d.land||e.centerOnLand===true;
+   const shore=!centerOnLand&&(e.landFraction||0)>.17;
+   const trend=centerOnLand?Math.min(-2.5,e.trendKtH??-3):shore?Math.min(-.5,e.trendKtH??-.5):(e.trendKtH??0);
+   const cat=classOf(kt),label=centerOnLand?'登陸後減弱':shore?'沿岸摩擦／減弱':trend>.3?'海上增強':trend<-.3?'逐漸減弱':'強度相對穩定';
+   const fuji=ev._v62Interaction?.nearestNM;
+   ui.innerHTML=`<div class="v62-titlebar"><b>🌀 模擬颱風預報 · 路徑潛勢</b><button type="button" data-close aria-label="關閉預報">×</button></div>
+      <div class="v62-selector">${storms().map(s=>`<button type="button" data-storm="${s.id}" class="${ev.id===s.id?'active':''}">${s.v62Name||'氣旋 '+s.id}</button>`).join('')}</div>
+      <strong class="v62-strong">${ev.v62Name||'氣旋'} · ${cat}</strong>
+      <div class="v62-sub">${fmtDate(simTime+d.h*3600)} · ${formatGeo(d.p)}</div>
+      <div class="v62-hours">${times.map(h=>`<button type="button" data-hour="${h}" class="${h===hour?'active':''}">${h?'+'+h+'h':'目前'}</button>`).join('')}</div>
+      <div class="v62-stats"><div><small>近中心最大持續風速</small><strong>${Math.round(kt*1.852)} km/h</strong></div><div><small>中心氣壓（模擬）</small><strong>${hpa} hPa</strong></div></div>
+      <div class="v62-status ${centerOnLand||shore?'warn':''}"><b>${label}</b> · ${trend>=0?'+':''}${trend.toFixed(1)} kt/h<br>海溫 ${Number.isFinite(e.sst)?e.sst.toFixed(1):'—'} °C · 風切 ${Number.isFinite(e.shear)?e.shear.toFixed(0):'—'} kt · 濕度 ${Number.isFinite(e.humidity)?Math.round(e.humidity*100):'—'}%</div>
+      <div class="v62-status">${fuji!==undefined&&fuji!==null&&fuji<730?`藤原效應：鄰近氣旋 ${Math.round(fuji)} NM · 路徑可能互相偏轉`:'大尺度引導氣流控制移動方向'}<br>預報誤差示意半徑：約 ${Math.round(coneRadius(d)*1.852)} km</div>
+      <div class="v62-footnote">淺黃色錐形表示模擬路徑不確定性，不是七級風圈或降雨範圍。仿照 CWA 預報錐的視覺概念，並非經統計校準的 70% 官方預報；所有數據皆為遊戲生成。</div>`;
+   ui.classList.add('visible');lastUi=simTime;refreshQuick();
+ }
+ function fit(ev){
+   const points=forecast(ev);if(!points.length)return;
+   const r=points.map(d=>coneRadius(d));
+   const xs=points.flatMap((d,i)=>[d.p.x-r[i],d.p.x+r[i],0]),ys=points.flatMap((d,i)=>[d.p.y-r[i],d.p.y+r[i],0]);
+   const xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);
+   const mobile=viewport.w<700;
+   const availWidth=Math.max(220,viewport.w-(mobile?50:340));
+   const availHeight=Math.max(160,viewport.h-(mobile?245:115));
+   const pixPerNM=Math.min(availWidth/Math.max(50,xmax-xmin+32),availHeight/Math.max(50,ymax-ymin+32));
+   rangeNM=clamp(Math.ceil(Math.min(viewport.w,viewport.h)/(2*pixPerNM*10))*10,90,2600);
+   const ss=scale(),shiftX=mobile?0:150,shiftY=mobile?28:0;
+   pan={x:(xmin+xmax)/2-shiftX/ss,y:(ymin+ymax)/2+shiftY/ss};
+   const label=document.getElementById('rangeLabel');if(label)label.textContent=`${rangeNM} NM`;
+   backgroundDirty=true;
+ }
+ function open(id){
+   const ev=storms().find(e=>e.id===id)||storms()[0];if(!ev)return false;
+   try{window.__atcV48?.close?.()}catch(_){}
+   if(currentId===null)originalView={pan:{...pan},range:rangeNM};
+   currentId=ev.id;hour=24;cacheKey='';
+   fit(ev);refreshCard();
+   const panel=document.getElementById('v34Panel');if(panel?.classList.contains('visible'))document.getElementById('v34Close')?.click();
+   return true;
+ }
+ function close(){
+   if(currentId===null)return;
+   currentId=null;cacheKey='';ui.classList.remove('visible');
+   if(originalView){pan=originalView.pan;rangeNM=originalView.range;originalView=null;
+     const label=document.getElementById('rangeLabel');if(label)label.textContent=`${rangeNM} NM`;
+     backgroundDirty=true;
+   }
+   refreshQuick();
+ }
+ ui.addEventListener('click',e=>{
+   const el=e.target.closest('button');if(!el)return;
+   if(el.hasAttribute('data-close'))close();
+   else if(el.dataset.storm)open(Number(el.dataset.storm));
+   else if(el.dataset.hour){hour=Number(el.dataset.hour);refreshCard();}
+ });
+ quick.addEventListener('click',e=>{const b=e.target.closest('[data-id]');if(b)open(Number(b.dataset.id));});
+ function circleHit(x,y){
+   for(const ev of [...storms()].reverse()){
+     const c=toScreen(ev.center),r=clamp(ev.radius*scale()*.21,16,42);
+     if(Math.hypot(c.x-x,c.y-y)<r)return ev;
+     // Labels sit just right of the storm centre. Permit selection there too.
+     if(x>=c.x+5&&x<=c.x+Math.min(380,viewport.w*.55)&&y>=c.y-37&&y<=c.y+5)return ev;
+   }
+   return null;
+ }
+ function forecastHit(x,y){
+   if(currentId===null)return null;
+   for(const d of [...forecast(current())].reverse()){
+     const p=toScreen(d.p);
+     if(Math.hypot(p.x-x,p.y-y)<(viewport.w<620?24:17))return d;
+   }
+   return null;
+ }
+ const previousClick=clickRadar;
+ clickRadar=function(x,y){
+   const fp=forecastHit(x,y);if(fp){hour=fp.h;refreshCard();return;}
+   const target=circleHit(x,y);if(target){if(currentId===target.id)close();else open(target.id);return;}
+   return previousClick(x,y);
+ };
+ canvas.addEventListener('pointermove',e=>{if(e.buttons||currentId===null)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+   if(circleHit(x,y)||forecastHit(x,y))canvas.style.cursor='pointer';
+ });
+ function cone(c,pts){
+   if(pts.length<2)return;
+   // A smoothed, narrowing-to-origin corridor perpendicular to the
+   // central forecast track. This is uncertainty, NOT the gale-force radius.
+   const left=[],right=[];
+   pts.forEach((d,i)=>{
+     const prev=pts[Math.max(0,i-1)].p,next=pts[Math.min(pts.length-1,i+1)].p;
+     let dx=next.x-prev.x,dy=next.y-prev.y,mag=Math.hypot(dx,dy);
+     if(mag<.01){dx=0;dy=1;mag=1;}
+     const nx=-dy/mag,ny=dx/mag,r=coneRadius(d);
+     left.push(toScreen({x:d.p.x+nx*r,y:d.p.y+ny*r}));
+     right.push(toScreen({x:d.p.x-nx*r,y:d.p.y-ny*r}));
+   });
+   function smoothCurve(points,move=true){
+     if(!points.length)return;
+     if(move)c.moveTo(points[0].x,points[0].y);
+     for(let i=0;i<points.length-1;i++){
+       const p0=points[Math.max(0,i-1)],a=points[i],b=points[i+1],p3=points[Math.min(points.length-1,i+2)];
+       const v=.12; // restrained Catmull-Rom tangent to prevent overshoots at sharp turns
+       c.bezierCurveTo(a.x+(b.x-p0.x)*v,a.y+(b.y-p0.y)*v,
+         b.x-(p3.x-a.x)*v,b.y-(p3.y-a.y)*v,b.x,b.y);
+     }
+   }
+   c.save();c.beginPath();smoothCurve(left);
+   const rev=right.slice().reverse();c.lineTo(rev[0].x,rev[0].y);smoothCurve(rev,false);
+   c.closePath();c.fillStyle='rgba(246,198,85,.14)';c.fill();c.strokeStyle='rgba(201,153,71,.53)';c.lineWidth=1.5;c.stroke();
+   c.beginPath();smoothCurve(pts.map(d=>toScreen(d.p)));
+   c.strokeStyle='rgba(253,255,255,.9)';c.lineWidth=4;c.stroke();
+   c.strokeStyle='#4d7ca5';c.lineWidth=2;c.setLineDash([7,5]);c.stroke();c.setLineDash([]);
+   pts.forEach(d=>{
+     const p=toScreen(d.p);if(p.x<-40||p.y<-40||p.x>viewport.w+40||p.y>viewport.h+40)return;
+     const chosen=d.h===hour;const radius=chosen?6:4.4;
+     c.beginPath();c.arc(p.x,p.y,radius,0,2*Math.PI);c.fillStyle=chosen?'#975785':(d.land?'#ad7040':'#40779b');c.fill();c.lineWidth=2;c.strokeStyle='#fff';c.stroke();
+     if(d.h===0)return;
+     const text='+'+d.h+'h';c.font='800 10px system-ui';const w=c.measureText(text).width+12;
+     const tx=clamp(p.x+9,5,Math.max(5,viewport.w-w-6)),ty=clamp(p.y-18,12,Math.max(12,viewport.h-12));
+     c.fillStyle='#fffffff0';c.beginPath();c.roundRect(tx,ty-11,w,17,5);c.fill();c.fillStyle='#4e6986';c.fillText(text,tx+6,ty+1);
+   });
+   c.restore();
+ }
+ const previousDraw=drawWeather;
+ drawWeather=function(c){
+   previousDraw(c);
+   const active=storms();
+   for(const s of active){
+     const p=toScreen(s.center);if(p.x<-35||p.x>viewport.w+35||p.y<-35||p.y>viewport.h+35)continue;
+     c.save();c.beginPath();c.arc(p.x,p.y,s.id===currentId?13:9,0,Math.PI*2);
+     c.strokeStyle=s.id===currentId?'#e29d54':'#527b9b';c.lineWidth=s.id===currentId?3.2:2;c.stroke();c.restore();
+   }
+   if(currentId!==null){const s=current();if(!s){close();return;}cone(c,forecast(s));}
+ };
+ // Add weather influences from all local cyclone circulations, not just the
+ // first event, while keeping legacy single-storm APIs functional.
+ const originalWind=window.__atcV44StormWind;
+ if(originalWind){
+   const xy=(from,speed)=>{const r=(Number(from)+180)*RAD;return {x:Math.sin(r)*Number(speed),y:Math.cos(r)*Number(speed)}};
+   window.__atcV44StormWind=function(p,t,base){
+     const list=storms();if(list.length<=1)return originalWind(p,t||list[0],base);
+     const wx=base||t?.v44Base||conditions||{windFrom:0,windKt:0,gust:0};
+     const a=xy(wx.windFrom||0,wx.windKt||0);
+     let x=a.x,y=a.y,gust=Number(wx.gust)||0,nearest=Infinity,spin='CCW';
+     for(const s of list){
+       const w=originalWind(p,s,wx),v=xy(w.from,w.speed);
+       x+=v.x-a.x;y+=v.y-a.y;
+       gust=Math.max(gust,w.gust);nearest=Math.min(nearest,w.distanceNM);
+       spin=w.spin;
+     }
+     const speed=clamp(Math.hypot(x,y),0,160),from=(Math.atan2(x,y)/RAD+540)%360;
+     return {from,speed,gust:clamp(Math.max(speed+2,gust,speed*1.12),speed+2,185),intensity:clamp((speed-(wx.windKt||0))/130,0,1),distanceNM:nearest,cycloneKt:Math.max(0,speed-(wx.windKt||0)),spin};
+   };
+ }
+ const oldApply=window.__atcV46ApplyStorm;
+ if(oldApply){
+   window.__atcV46ApplyStorm=function(base,primary){
+     const result=oldApply(base,primary);
+     const extras=storms().filter(e=>e.id!==primary?.id);
+     let extraRain=0,extraCloud=0;
+     for(const s of extras){
+       const local=window.__atcV50Cloud?.precip?.({x:0,y:0},s);
+       if(local){extraRain+=local.mmh;extraCloud=Math.max(extraCloud,local.cloud);}
+     }
+     if(extras.length&&conditions){
+       const rain=Math.min(110,Math.max(0,conditions.precipitationMm||0)+extraRain);
+       conditions.precipitationMm=Math.round(rain*10)/10;
+       conditions.cloudCover=Math.max(conditions.cloudCover||0,Math.round(25+75*extraCloud));
+       conditions.vis=Math.min(conditions.vis||25,clamp(16/(1+.2*rain+.012*rain*rain),.3,25));
+       conditions.ceiling=Math.min(conditions.ceiling||15000,Math.max(220,10500*(1-extraCloud)**2.3+240));
+       conditions.stormNear=!!conditions.stormNear||extraRain>14;
+       conditions.weatherName=extraRain>20?'多颱風強降雨':extraRain>7?'多颱風雨帶影響':conditions.weatherName;
+     }
+     return result;
+   };
+ }
+ const oldSim=simulate;
+ simulate=function(dt){
+    const r=oldSim(dt);
+    if(currentId!==null){if(!current())close();else if(simTime-lastUi>80)refreshCard();}
+    refreshQuick();return r;
+ };
+ const oldAirport=setAirport;
+ setAirport=function(...a){close();const r=oldAirport(...a);refreshQuick();return r;};
+ const oldInit=initFlights;
+ initFlights=function(...a){close();const r=oldInit(...a);refreshQuick();return r;};
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&currentId!==null)close();});
+ const oldTrigger=window.__atcV34.trigger,oldStop=window.__atcV34.stop;
+ window.__atcV34.trigger=(...a)=>{const r=oldTrigger(...a);refreshQuick();return r;};
+ window.__atcV34.stop=(...a)=>{const r=oldStop(...a);if(currentId!==null&&!current())close();refreshQuick();return r;};
+ refreshQuick();
+ window.__atcV62={open,close,storms,forecast:(id)=>forecast(storms().find(s=>s.id===id)||current()),current:()=>currentId,interaction:(id)=>storms().find(s=>s.id===id)?._v62Interaction||null,landAt:land};
+ document.title='AIRSPACE — ATC V62 · Multiple Cyclones & Fujiwhara Forecast Cone';
+})();
+</script>
+
+<style id="v62-forecast-floating-fix">
+/* Floating radar information card, not a modal: do not let the weather strip,
+   flight list or older toolbar hide the forecast readings. */
+#v62CycloneDock{position:fixed!important;z-index:1005!important;left:19px!important;top:114px!important;max-height:min(65dvh,615px)!important;pointer-events:auto}
+@media(max-width:850px){#v62CycloneDock{left:10px!important;top:64px!important;max-height:min(48dvh,455px)!important}}
+@media(max-width:480px){#v62CycloneDock{left:8px!important;top:57px!important;max-height:min(45dvh,425px)!important}}
+</style>
+
+<style id="atc-v63-stable-hold-arrivals-style">
+/* V63: clear high-priority arrivals without permanently occupying the radar. */
+.v63-arrival-stack{position:absolute;top:231px;right:14px;z-index:8;display:grid;gap:8px;width:min(335px,calc(100% - 28px));max-height:42%;overflow-y:auto;pointer-events:none;scrollbar-width:thin;}
+.v63-arrival-alert{pointer-events:auto;position:relative;background:#fcfdfd; color:#254955;border:1px solid #7cbab0;border-left:5px solid #2d9d8c;border-radius:13px;box-shadow:0 10px 35px #102f3b45;overflow:hidden;animation:v63Entry .24s ease-out both;}
+.v63-arrival-alert:before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:#2d9d8c;}
+@keyframes v63Entry{from{transform:translateY(-9px);opacity:0}to{transform:translateY(0);opacity:1}}
+.v63-arrival-content{padding:12px 12px 11px 14px;}
+.v63-alert-top{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:6px;}
+.v63-alert-type{font-weight:850;font-size:10px;letter-spacing:.05em;color:#137665;display:flex;align-items:center;gap:6px;}
+.v63-alert-pulse{width:7px;height:7px;background:#279a80;border-radius:50%;box-shadow:0 0 0 3px #3fbaa522;animation:pulse 1.5s infinite;}
+.v63-alert-close{color:#5d7a81;background:#edf5f4;border:1px solid #d6e7e4;border-radius:7px;padding:3px 7px;font-weight:800;font-size:12px;}
+.v63-alert-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.v63-alert-call{font-weight:900;font-size:19px;letter-spacing:-.035em;color:#234a56;}
+.v63-alert-metrics{font-size:10px;color:#65828a;font-weight:700;margin-top:3px;line-height:1.5;}
+.v63-alert-select{border-radius:9px;border:1px solid #287f77;background:#2b706e;color:white;min-width:93px;font-size:11px;font-weight:800;padding:10px 9px;}
+.v63-alert-select:hover{background:#205c58;}
+.v63-hold-status{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0 11px;padding:10px 11px;background:#eaf4f1;color:#28545a;border:1px solid #b7d7d0;border-radius:11px;}
+.v63-hold-status strong{font-size:11px;font-weight:850;display:block;}.v63-hold-status small{font-size:10px;display:block;margin-top:3px;color:#587780;line-height:1.45;}
+.v63-hold-exit{flex:0 0 auto;background:#fff;border:1px solid #adc9c9;border-radius:8px;padding:8px 9px;color:#28636d;font-size:10px;font-weight:850;}
+#v22QuickActions .v63-quick-hold-exit{flex:1 1 100%;background:#d9efeb;color:#16675e;border:1px solid #a0cfc6;font-size:12px;font-weight:850;min-height:40px;}
+.traffic-item.v63-new-arrival{border-color:#2a9c8d!important;box-shadow:inset 3px 0 0 #2c9d8b,0 0 0 1px #2b9a8930!important;}
+.traffic-item.v63-new-arrival .traffic-call:after{content:' NEW';font-size:8px;color:#2eae9b;margin-left:5px;letter-spacing:.06em;}
+@media(max-width:850px){.v63-arrival-stack{top:192px;right:10px;width:min(302px,calc(100% - 20px));max-height:37%;}.v63-arrival-content{padding:10px 10px 10px 12px}.v63-alert-call{font-size:17px}}
+@media(max-width:460px){.v63-arrival-stack{top:192px;right:8px;width:min(286px,calc(100% - 16px));max-height:32%;}.v63-alert-select{padding:8px 7px;min-width:88px}.v63-alert-metrics{font-size:9px}.v63-hold-status{padding:9px;}}
+@media(prefers-reduced-motion:reduce){.v63-arrival-alert{animation:none}.v63-alert-pulse{animation:none}}
+</style>
+<script id="atc-v63-stable-holding-arrival-notice">
+/* Consistent V63 holding model.  Independent of wall-clock progression. */
+function v63GuideHolding(f,dt){
+  if(!f||f.mode!=='hold')return;
+  const anchor=f.holdPoint && Number.isFinite(f.holdPoint.x)&&Number.isFinite(f.holdPoint.y)?f.holdPoint:{x:f.x,y:f.y};
+  if(!f.holdPoint)f.holdPoint={x:anchor.x,y:anchor.y};
+  let st=f.v63Hold;
+  if(!st||Math.hypot(st.x-anchor.x,st.y-anchor.y)>0.6){
+    const radius=f.altitude>22000?6.5:f.altitude>14000?5.7:4.5;
+    st=f.v63Hold={x:anchor.x,y:anchor.y,radius,entryHeading:f.heading,established:false,start:simTime};
+  }
+  const dx=f.x-st.x,dy=f.y-st.y,r=Math.hypot(dx,dy);
+  if(!st.established&&r<st.radius*.8){
+    // Move out radially to establish the stable holding orbit first.
+    f.targetHeading=st.entryHeading;
+  }else{
+    st.established=true;
+    const radial=norm(Math.atan2(dx,dy)/RAD);
+    // Tangential right-hand circuit; continuous radial correction holds
+    // radius without the +25/+80 flip that previously caused a spiral.
+    f.targetHeading=norm(radial+90+clamp((r-st.radius)*12,-52,52));
+  }
+  f.targetSpeed=f.type==='ATR72'?165:f.altitude>24000?275:f.altitude>14000?230:190;
+}
+(function(){
+ const nearHold=(f)=>f&&f.mode==='hold'&&f.v63Hold;
+ const held=document.createElement('div');held.className='v63-arrival-stack';held.id='v63ArrivalStack';held.setAttribute('aria-live','polite');
+ document.querySelector('.radar-area')?.append(held);
+ const entryAlerts=[];
+ const label=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ function direction(f){let a=norm(Math.atan2(f.x,f.y)/RAD);return ['北','東北','東','東南','南','西南','西','西北'][Math.round(a/45)%8]}
+ function renderAlerts(){
+   if(!held)return;
+   // Keep newest on top, at most three simultaneously.
+   held.innerHTML=entryAlerts.slice(-3).reverse().map(e=>{
+     const f=flights.find(x=>x.id===e.id);
+     if(!f)return '';
+     return `<section class="v63-arrival-alert" data-v63-id="${f.id}"><div class="v63-arrival-content">
+       <div class="v63-alert-top"><span class="v63-alert-type"><span class="v63-alert-pulse"></span>新航班進入空域 · ARRIVAL</span><button type="button" class="v63-alert-close" data-v63-dismiss="${f.id}" aria-label="關閉進場通知">×</button></div>
+       <div class="v63-alert-row"><div><div class="v63-alert-call">${label(f.callsign)}</div><div class="v63-alert-metrics">${direction(f)}側進場 · ${Math.round(Math.hypot(f.x,f.y))} NM<br>ALT ${Math.round(f.altitude).toLocaleString()} ft · HDG ${String(Math.round(f.heading)).padStart(3,'0')}°</div></div>
+       <button type="button" class="v63-alert-select" data-v63-select="${f.id}">選取並指揮</button></div></div></section>`;
+   }).join('');
+ }
+ function dismiss(id){const idx=entryAlerts.findIndex(a=>a.id===id);if(idx>=0)entryAlerts.splice(idx,1);renderAlerts()}
+ held?.addEventListener('click',ev=>{
+   const s=ev.target.closest('[data-v63-select]');
+   if(s){const id=Number(s.dataset.v63Select);selectFlight(id);renderInspector();renderHud(true);dismiss(id);return}
+   const b=ev.target.closest('[data-v63-dismiss]');if(b)dismiss(Number(b.dataset.v63Dismiss));
+ });
+ function announce(f){
+   if(!f||entryAlerts.some(a=>a.id===f.id))return;
+   entryAlerts.push({id:f.id});while(entryAlerts.length>3)entryAlerts.shift();
+   f.v63ArrivalNoticeUntil=performance.now()+21000;
+   renderAlerts();
+   // UI-only notice duration; flight positions/weather stay on the SIM clock.
+   setTimeout(()=>dismiss(f.id),15500);
+ }
+ const oldLog=addLog;
+ addLog=function(message,type){
+   const r=oldLog(message,type);
+   if(typeof message==='string'&&message.includes('從雷達外飛入')){
+     const callsign=message.split(/\s+/)[0];
+     const f=flights.find(x=>x.callsign===callsign);
+     if(f)announce(f);
+   }
+   return r;
+ };
+ const oldHold=holdFlight;
+ holdFlight=function(f){
+   if(!f||['queued','lineup','takeoff-roll'].includes(f.mode)){
+     if(f)notify('飛機尚在地面等待，請使用跑道／起飛許可管理','warn');return false;
+   }
+   if(f.v40Radio){notify(`${f.callsign} 無線電失聯，HOLD 指令未收到`,'warn');return false}
+   if(f.mode==='approach'&&f.altitude<2300&&Math.hypot(f.x,f.y)<8){notify('低空最後進場不可直接轉入等待，請先執行復飛','warn');return false}
+   f.v60ILSStage=null;f.v35ILS=null;
+   f.mode='hold';f.legs=[];f.holdFix=null;f.holdPoint={x:f.x,y:f.y};f.v63Hold=null;
+   f.approachPhase=0;f.approachPath=null;f.landingCleared=false;
+   f.v19SimpleApproach=false;f.v19SimpleDefault=false;f.v19Override=false;f.v19Vector=false;
+   f.targetAlt=Math.max(2500,Math.round(f.altitude/100)*100);
+   f.targetHeading=f.heading;
+   f.targetSpeed=f.type==='ATR72'?165:f.altitude>24000?275:f.altitude>14000?230:190;
+   f.uiVersion=(f.uiVersion||0)+1;
+   addLog(`${f.callsign} HOLD · 右轉固定等待環線 · ${Math.round(f.targetAlt)} ft`,'warn');
+   radioCall(f,`HOLD PRESENT POSITION, RIGHT TURNS, MAINTAIN ${Math.round(f.targetAlt)} FT`,`HOLDING PRESENT POSITION, ${Math.round(f.targetAlt)} FEET`);
+   renderInspector();renderHud(true);
+   notify(`${f.callsign} · 已建立固定等待環線，按「退出 HOLD」恢復雷達引導`);
+   return true;
+ };
+ // Leave a hold explicitly without retaining the previous orbit autopilot.
+ function exitHold(f){
+   if(!f||f.mode!=='hold')return;
+   f.mode='vector';f.holdPoint=null;f.holdFix=null;f.v63Hold=null;
+   f.targetHeading=f.heading;f.targetAlt=Math.round(f.altitude/100)*100;
+   f.targetSpeed=Math.max(160,Math.round(f.speed));f.uiVersion=(f.uiVersion||0)+1;
+   addLog(`${f.callsign} 退出 HOLD · 維持現有航向`,'good');
+   renderInspector();renderHud(true);
+   notify(`${f.callsign} 已離開等待環線，恢復雷達引導`);
+ }
+ const oldInspector=renderInspector;
+ renderInspector=function(...args){
+   const r=oldInspector(...args),f=selectedFlight();
+   document.getElementById('v63HoldStatus')?.remove();
+   if(f?.mode==='hold'){
+     const host=document.querySelector('.rightpanel .control-wrap');
+     const bar=document.createElement('div');bar.className='v63-hold-status';bar.id='v63HoldStatus';
+     bar.innerHTML=`<div><strong>⟳ HOLD · 穩定等待中</strong><small>右轉固定環線 · ${Math.round(f.targetAlt)} ft · 不會自動切回航路</small></div><button class="v63-hold-exit" type="button">退出 HOLD</button>`;
+     bar.querySelector('button').onclick=()=>exitHold(selectedFlight());
+     if(host)host.insertBefore(bar,host.firstChild);
+   }
+   return r;
+ };
+ const oldDraw=drawFlight;
+ drawFlight=function(c,f){
+   const result=oldDraw(c,f);
+   if(nearHold(f)&&f.id===selectedId){
+     const st=f.v63Hold,p=toScreen(st),rad=st.radius*scale();
+     c.save();c.strokeStyle='rgba(32,135,119,.75)';c.fillStyle='rgba(35,150,132,.055)';c.lineWidth=1.6;c.setLineDash([7,6]);
+     c.beginPath();c.arc(p.x,p.y,rad,0,2*Math.PI);c.fill();c.stroke();c.setLineDash([]);
+     c.fillStyle='#267f75';c.font='750 10px system-ui';c.fillText('HOLD ↻',p.x+7,p.y-6);
+     c.restore();
+   }
+   if(f.v63ArrivalNoticeUntil && performance.now()<f.v63ArrivalNoticeUntil){
+     const p=toScreen(f),r=15+2.5*Math.sin(performance.now()/240);
+     c.save();c.strokeStyle='rgba(15,159,136,.82)';c.lineWidth=2;c.beginPath();c.arc(p.x,p.y,r,0,2*Math.PI);c.stroke();c.restore();
+   }
+   return result;
+ };
+ const quickActions=document.getElementById('v22QuickActions');
+ const mobileHoldExit=document.createElement('button');
+ mobileHoldExit.type='button';mobileHoldExit.id='v63QuickHoldExit';
+ mobileHoldExit.className='v63-quick-hold-exit';mobileHoldExit.textContent='⟳ 退出 HOLD · 維持目前航向';
+ mobileHoldExit.hidden=true;mobileHoldExit.onclick=()=>exitHold(selectedFlight());
+ quickActions?.prepend(mobileHoldExit);
+ const oldHud=renderHud;
+ renderHud=function(...args){
+   const r=oldHud(...args);
+   const liveQuickActions=document.getElementById('v22QuickActions');
+   if(liveQuickActions&&!liveQuickActions.contains(mobileHoldExit))liveQuickActions.prepend(mobileHoldExit);
+   mobileHoldExit.hidden=selectedFlight()?.mode!=='hold';
+   document.querySelectorAll('.traffic-item[data-flight]').forEach(el=>{
+     const f=flights.find(x=>String(x.id)===el.dataset.flight);
+     el.classList.toggle('v63-new-arrival',!!(f?.v63ArrivalNoticeUntil && performance.now()<f.v63ArrivalNoticeUntil));
+   });
+   return r;
+ };
+ const oldReset=initFlights;
+ initFlights=function(...args){
+   entryAlerts.length=0;renderAlerts();return oldReset(...args);
+ };
+ window.__atcV63={hold:id=>holdFlight(flights.find(x=>x.callsign===id)||selectedFlight()),exitHold:id=>exitHold(flights.find(x=>x.callsign===id)||selectedFlight()),
+   state:()=>({holding:flights.filter(x=>x.mode==='hold').map(x=>({call:x.callsign,anchor:x.holdPoint,radius:x.v63Hold?.radius,offset:x.v63Hold?Math.hypot(x.x-x.v63Hold.x,x.y-x.v63Hold.y):null})),recentArrivals:entryAlerts.map(x=>x.id)})};
 })();
 </script>
 </body>
