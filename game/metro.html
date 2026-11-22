@@ -1990,6 +1990,14 @@ function transit3DGeoJSON(){
  const poly=(ring,kind,base,height,tint)=>{if(ring?.length>=4&&Number.isFinite(base)&&Number.isFinite(height)) {const feature={type:'Feature',properties:{kind,base,height,tint},geometry:{type:'Polygon',coordinates:[ring]}};(TS3D_STATION_KINDS.includes(kind)?stationPolygons:polygons).push(feature)}};
  const line=(coords,level,color)=>{if(coords.length>1)tracks.push({type:'Feature',properties:{level,color},geometry:{type:'LineString',coordinates:coords.map(p=>[p.lng,p.lat])}})};
  if(!plan)return {polygons:ts3dEmpty(),tracks:ts3dEmpty()};
+ // Keep heavy railway support piers away from interchange throats. At a
+ // crossing, columns belong at the ends of the platforms, not in another
+ // service's train-clearance corridor.
+ const crossingStops=(plan.stops||[]).filter(s=>{
+  const p=stationServiceProfiles(s);
+  return p.length>1&&p.some(v=>v.groupIndex!==p[0].groupIndex);
+ });
+ const nearCrossingThroat=p=>crossingStops.some(s=>hKm([p.lat,p.lng],[s.lat,s.lng])<.13);
  const seen=new Set();
  for(const l of plan.lines){
   const stops=l.stops.map(getStop).filter(Boolean);
@@ -2031,7 +2039,7 @@ function transit3DGeoJSON(){
       poly(mapRect(midpoint,angle,.7,3.4,side*3.5),'sleeper',deck+.015,deck+.16,'#67777a');
      }
     }
-    if(deck>4.5 && (km[end]-lastPier)>.09&&pierCount<120){
+    if(deck>4.5 && !nearCrossingThroat(pts[end]) && (km[end]-lastPier)>.09&&pierCount<120){
      lastPier=km[end];pierCount++;
      const p=pts[end],before=pts[Math.max(0,end-1)],cy=Math.cos(p.lat*Math.PI/180);
      const angle=Math.atan2((p.lat-before.lat)*111320,(p.lng-before.lng)*111320*cy);
@@ -2070,94 +2078,111 @@ function transit3DGeoJSON(){
       len:cars*TS3D_TRAIN_PITCH+15,underground:stationRailLevel(st)==='underground'});
   }
  }
+ // Every service gets exactly ONE island-platform assembly between its
+ // directional tracks (offset ±3.5 m).  Avoid the old paired side-platforms
+ // which put FOUR canopies around a two-line transfer and caused collisions.
  for(const group of stationGroups.values()){
-  const {st,modules}=group;if(!modules.length)continue;
-  const shared=modules.length>1,visible=modules.filter(m=>!m.underground);
+  const {st,modules}=group;
+  if(!modules.length)continue;
+  const visible=modules.filter(m=>!m.underground);
   const underground=modules.filter(m=>m.underground);
   if(underground.length){
    const under=underground[0];
-   const doorway=pointOffsetAlong(st,under.angle,13,15);
-   poly(mapRect(doorway,under.angle,6.5,5.0),'subway-entry',0,2.3,'#779bab');
-   poly(mapRect(doorway,under.angle,6.9,5.3),'subway-entry-roof',2.3,2.8,'#c2dbe0');
+   const doorway=pointOffsetAlong(st,under.angle,18,19);
+   poly(mapRect(doorway,under.angle,5.8,5.0),'subway-entry',0,2.5,'#779bab');
+   poly(mapRect(doorway,under.angle,6.4,5.6),'subway-entry-roof',2.5,2.9,'#c2dbe0');
   }
   if(!visible.length)continue;
-  // Individual rail service = individually aligned rail, platform slabs and roofs.
-  // Side platforms do NOT become an elevated pedestrian roof across other rails.
+  const shared=modules.length>1;
   for(const m of visible){
-   const {line:l,angle,len,centre}=m,deck=m.deck;
-   const roofLength=len*.67;
+   const {angle,centre,len,deck,line:l}=m;
+   // One accessible island platform between the two bidirectional rails.
+   // Train centres are at ±3.5 m, so the width stays clear of their bodies.
+   const islandWidth=3.15,roofWidth=2.85,roofLen=len*.68;
+   poly(mapRect(centre,angle,len,islandWidth),'platform-slab',deck,deck+.68,'#e5eced');
    for(const side of [-1,1]){
-    const platformOff=side*7.0;
-    const plat=pointOffsetAlong(centre,angle,0,platformOff);
-    const width=4.25;
-    poly(mapRect(plat,angle,len,width),'platform-slab',deck,deck+.64,'#dde7e7');
-    const near=pointOffsetAlong(plat,angle,0,-side*(width/2-.28));
-    poly(mapRect(near,angle,len-1.4,.30),'tactile-edge',deck+.65,deck+.77,'#efbb46');
-    const band=pointOffsetAlong(plat,angle,0,side*(width/2-.45));
-    poly(mapRect(band,angle,len*.8,.22),'route-platform-band',deck+.73,deck+.88,l.color);
-    // Slender canopy, open platform ends for the transfers and stair access.
-    const canopy=pointOffsetAlong(plat,angle,-len*.04,0);
-    poly(mapRect(canopy,angle,roofLength,3.5),'roof-top',deck+5.10,deck+5.45,'#75a5b4');
-    const roofEdge=pointOffsetAlong(canopy,angle,0,side*1.68);
-    poly(mapRect(roofEdge,angle,roofLength,.20),'roof-edge',deck+5.1,deck+5.6,'#d4e7e9');
-    for(const step of [-roofLength*.35,roofLength*.35]){
-     const post=pointOffsetAlong(canopy,angle,step,side*.7);
-     poly(mapRect(post,angle,.5,.5),'roof-post',deck+.65,deck+5.10,'#9fb7bd');
+    const edge=pointOffsetAlong(centre,angle,0,side*(islandWidth/2-.15));
+    poly(mapRect(edge,angle,len-1.1,.22),'tactile-edge',deck+.69,deck+.78,'#efbc48');
+   }
+   // Roof, columns and signage stay inside the island platform footprint.
+   // Ends stay open for transfer and do not form a cross-roof junction.
+   const canopy=pointOffsetAlong(centre,angle,-len*.025,0);
+   poly(mapRect(canopy,angle,roofLen,roofWidth),'roof-top',deck+5.05,deck+5.38,'#7fa8b5');
+   for(const side of [-1,1]){
+    const trim=pointOffsetAlong(canopy,angle,0,side*(roofWidth/2-.12));
+    poly(mapRect(trim,angle,roofLen,.14),'roof-edge',deck+4.95,deck+5.40,'#d6e5e9');
+   }
+   for(const along of [-roofLen*.37,roofLen*.37]){
+    const p=pointOffsetAlong(canopy,angle,along,0);
+    poly(mapRect(p,angle,.48,.50),'roof-post',deck+.69,deck+5.05,'#9fb4bc');
+   }
+   const sign=pointOffsetAlong(centre,angle,-len*.03,0);
+   poly(mapRect(sign,angle,Math.min(12,len*.22),.22),'platform-sign',deck+3.15,deck+3.46,l.color);
+   if(deck>3.5){
+    // Only support the island centre. Not inside the running tracks.
+    for(const along of [-len*.30,len*.30]){
+     const p=pointOffsetAlong(centre,angle,along,0);
+     poly(mapRect(p,angle,2.15,2.0),'platform-column',0,Math.max(.3,deck-.72),'#92a9b1');
+     poly(mapRect(p,angle,2.55,2.65),'platform-cap',Math.max(.2,deck-.9),deck-.07,'#afc1c7');
     }
-    const sign=pointOffsetAlong(plat,angle,0,-side*.7);
-    poly(mapRect(sign,angle,Math.min(9.5,len*.22),.18),'platform-sign',deck+3.0,deck+3.4,l.color);
-    if(deck>3.5){
-     for(const along of [-len*.30,len*.30]){
-      const pillar=pointOffsetAlong(plat,angle,along,side*1.2);
-      // The columns support this platform, never a neighboring rail centreline.
-      poly(mapRect(pillar,angle,2.1,2.1),'platform-column',0,Math.max(.3,deck-.75),'#92a9b1');
-      poly(mapRect(pillar,angle,3.0,2.8),'platform-cap',Math.max(.2,deck-.95),deck-.05,'#afc2c8');
-     }
-    }
-    // Platform and train geometry share one projected rail centreline.
    }
   }
-  if(!shared)continue;
-  // Keep rail-surface structures distinct.  Link *platform ends*, not centres:
-  // the old centre-to-tower bridges cut diagonally through both train tracks.
-  const parallel=visible.length>=2 && visible.every(m=>stationAngleDifference(m.angle,visible[0].angle)<.24)
-                 && visible.every(m=>Math.abs(m.deck-visible[0].deck)<2);
+  if(!shared||visible.length<2)continue;
+  const parallel=visible.every(m=>stationAngleDifference(m.angle,visible[0].angle)<.24)
+    && visible.every(m=>Math.abs(m.deck-visible[0].deck)<2.0);
   if(parallel){
+   // A compact overhead transfer at ONE uncovered platform end. The gallery
+   // passes ABOVE both train roofs and station canopies, never across the
+   // middle of the station at train height.
    const ordered=visible.slice().sort((a,b)=>a.sideOffset-b.sideOffset);
    for(let i=1;i<ordered.length;i++){
     const a=ordered[i-1],b=ordered[i];
-    // Inward platform edge of each rail pair.  A short accessible passage is
-    // placed in the unroofed END section, between the two platform slabs.
-    const dir=a.sideOffset<b.sideOffset?1:-1;
-    const aEnd=pointOffsetAlong(a.centre,a.angle,Math.min(38,a.len*.43),dir*7.0);
-    const bEnd=pointOffsetAlong(b.centre,b.angle,Math.min(38,b.len*.43),-dir*7.0);
-    const bridge=geometryConnector(aEnd,bEnd);
-    if(bridge.length>1.0&&bridge.length<32){
-     const level=Math.max(a.deck,b.deck)+.82;
-     poly(mapRect(bridge.center,bridge.angle,bridge.length+1.4,2.5),'concourse-bridge',level,level+.36,'#aac9c8');
-     // Small tactile connection — not a large opaque roof.
+    const travel=Math.min(a.len,b.len)*.44;
+    const p1=pointOffsetAlong(a.centre,a.angle,travel,0);
+    const p2=pointOffsetAlong(b.centre,b.angle,travel,0);
+    const bridge=geometryConnector(p1,p2);
+    if(bridge.length<4||bridge.length>46)continue;
+    const walkway=Math.max(a.deck,b.deck)+7.1;
+    for(const p of [p1,p2]){
+     poly(mapRect(p,bridge.angle,2.7,2.9),'transfer-stair',Math.min(a.deck,b.deck)+.7,walkway,'#9fb9c0');
     }
+    poly(mapRect(bridge.center,bridge.angle,bridge.length+1.6,2.6),'concourse-bridge',walkway,walkway+.45,'#bdd5db');
    }
   }else{
-   const highest=Math.max(...visible.map(v=>v.deck));
-   const main=visible[0];
-   // Place the stair/lift outside both crossing axes (a corner, rather than
-   // in the middle of the railway junction).
-   const tower=pointOffsetAlong(st,main.angle,23,18);
-   poly(mapRect(tower,main.angle,4.8,4.8),'transfer-stair',0,highest+7.1,'#9ab1b8');
-   poly(mapRect(tower,main.angle,5.3,5.3),'lift-roof',highest+7.1,highest+7.6,'#d6e5e8');
-   for(const m of visible){
-    const portals=[];
-    for(const along of [-Math.min(38,m.len*.44),Math.min(38,m.len*.44)])
-     for(const side of [-1,1])portals.push(pointOffsetAlong(m.centre,m.angle,along,side*7.0));
-    portals.sort((a,b)=>geometryConnector(a,tower).length-geometryConnector(b,tower).length);
-    const end=portals[0],bridge=geometryConnector(end,tower);
-    // At different levels, passage is above each line's own canopy.
-    if(bridge.length>1&&bridge.length<58){
-     const height=m.deck+6.55;
-     poly(mapRect(bridge.center,bridge.angle,bridge.length+1.0,2.35),'transfer-link',height,height+.4,'#c0d7dd');
-     const stair=pointOffsetAlong(end,m.angle,0,0);
-     poly(mapRect(stair,m.angle,2.2,2.4),'transfer-stair',m.deck+.7,height,'#abbfc5');
+   // Grade-separated transfer: the intersecting viaducts remain on different
+   // decks. Place a lift OUTSIDE every rail corridor, and use narrow raised
+   // galleries reaching the uncovered ends of both island platforms.
+   const topDeck=Math.max(...visible.map(m=>m.deck));
+   const walk=topDeck+7.6;
+   const candidates=[];
+   for(const east of [-35,35])for(const north of [-35,35]){
+    const candidate={lat:offsetGeo(st,east,north)[1],lng:offsetGeo(st,east,north)[0]};
+    const clearance=Math.min(...visible.map(m=>{
+     const a=m.angle;
+     return Math.abs(-Math.sin(a)*east+Math.cos(a)*north-m.sideOffset);
+    }));
+    if(clearance<17)continue;
+    const nearest=visible.map(m=>Math.min(...[-1,1].map(sign=>{
+     const p=pointOffsetAlong(m.centre,m.angle,sign*Math.min(m.len*.46,64),0);
+     return geometryConnector(p,candidate).length;
+    })));
+    const maxLength=Math.max(...nearest);
+    candidates.push({candidate,score:maxLength-clearance*.08});
+   }
+   candidates.sort((a,b)=>a.score-b.score);
+   const lift=candidates[0]?.candidate;
+   if(lift){
+    const mainAngle=visible[0].angle;
+    poly(mapRect(lift,mainAngle,4.4,4.4),'transfer-stair',0,walk,'#9fb8bd');
+    poly(mapRect(lift,mainAngle,5.1,5.1),'lift-roof',walk,walk+.55,'#d6e7ea');
+    for(const m of visible){
+     const ends=[-1,1].map(sign=>pointOffsetAlong(m.centre,m.angle,sign*Math.min(m.len*.46,64),0));
+     ends.sort((a,b)=>geometryConnector(a,lift).length-geometryConnector(b,lift).length);
+     const end=ends[0],bridge=geometryConnector(end,lift);
+     if(bridge.length<3||bridge.length>90)continue;
+     // Vertical access at the open tip, NOT under the station canopy.
+     poly(mapRect(end,m.angle,2.5,2.6),'transfer-stair',m.deck+.72,walk,'#a8c0c6');
+     poly(mapRect(bridge.center,bridge.angle,bridge.length+1.0,2.3),'transfer-link',walk,walk+.43,'#c4d9df');
     }
    }
   }
@@ -2971,7 +2996,7 @@ map.canvas.addEventListener('pointerleave',()=>updateDemandTooltip(null,true));m
 function showModal(title,html){$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modalBack').classList.add('show')}
 function drawChart(){const canvas=$('ridershipChart');if(!canvas)return;const box=canvas.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);canvas.width=box.width*dpr;canvas.height=box.height*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);const w=box.width,h=box.height,arr=Array.from({length:24},(_,i)=>{const peak1=Math.exp(-(((i-8)/2.1)**2)),peak2=Math.exp(-(((i-18)/2.5)**2));return Math.round(metrics.rides*(.016+.050*peak1+.044*peak2))});const max=Math.max(1,...arr)*1.17;c.strokeStyle='#e0e8e8';for(let t=0;t<4;t++){let y=16+(h-45)*t/3;c.beginPath();c.moveTo(28,y);c.lineTo(w-12,y);c.stroke()}const bw=(w-55)/24;for(let i=0;i<24;i++){let bh=arr[i]/max*(h-45),x=30+i*bw,y=h-23-bh;c.fillStyle=i>=7&&i<=9||i>=17&&i<=19?'#0e8575':'#9fd5c8';c.fillRect(x,y,Math.max(2,bw-3),bh)}c.font='10px sans-serif';c.fillStyle='#81929c';for(let i=0;i<=24;i+=4)c.fillText(String(i).padStart(2,'0'),28+i*bw,h-6)}
 function showStats(){const rows=plan.lines.map(l=>`<tr><td><span style="color:${l.color};font-weight:900">●</span> ${escapeHTML(l.name)}</td><td>${l.stops.length}</td><td>${num(lineLength(l),1)} km</td><td>${isFinite(lineHeadway(l))?num(lineHeadway(l),1):'—'} 分</td><td>${num(metrics.lineRides[l.id]||0)}</td></tr>`).join('');showModal('城市營運統計',`<p>${CITIES[city].name} · 本遊戲以假設的需求區、接駁距離及乘車時間推估路網表現，並非真實官方運量資料。</p><div class="stat-grid"><div class="statbox"><small>模擬日運量</small><strong>${num(metrics.rides)}</strong></div><div class="statbox"><small>票務收入／日</small><strong>${num(metrics.revenue)}</strong></div><div class="statbox"><small>營運成本／日</small><strong>${num(metrics.expense)}</strong></div><div class="statbox"><small>收支比</small><strong style="color:${metrics.ratio>=100?'#14967f':'#bf6c54'}">${num(metrics.ratio)}%</strong></div></div><h3 style="font-size:12px">每小時乘車量（需求分布示意）</h3><canvas class="chart" id="ridershipChart"></canvas><div class="trend-caption"><span>早晚通勤高峰 · 車流隨模擬時鐘運行</span><span>收費單位：${city==='tp'?'NT$':city==='hk'?'HK$':city==='sg'?'S$':'RM'}</span></div><h3 style="font-size:12px;margin-top:20px">路線表現</h3><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left;white-space:nowrap;font-size:11px"><thead><tr style="color:#84949c;border-bottom:1px solid #dde5e7"><th style="padding:9px">路線</th><th>站數</th><th>里程</th><th>班距</th><th>搭乘量*</th></tr></thead><tbody>${rows||'<tr><td colspan="5">尚無路線</td></tr>'}</tbody></table></div><p>* 路線搭乘量計入轉乘，可能重複計算。客量使用簡化 OD 模型；車輛擁擠對結果的影響為品質分而非逐人排隊模擬。</p>`);requestAnimationFrame(drawChart)}
-function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>預設從 WorldPop API 取得 2025 年人口網格估算（不等同於地鐵搭乘需求）；人口圖使用相鄰資料格色彩插值平滑顯示，點擊「平滑／原始」可對照；滑鼠與 CSV 仍保留原始數值。可以切換至獨立的模擬需求熱度；新增「使用率」圖層可在各個遊戲需求地點直接顯示百分比：地鐵模擬搭乘旅次除以該區的潛在出行旅次。這是路網表現的遊戲估算，不是 WorldPop 人口比例或行政區實測使用率。放大地圖可減少標籤重疊；虛線為 GeoJSON 行政邊界，邊界外不能新增或移動車站，但軌道可跨海與跨行政界線；地圖拖曳仍受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。選擇「從哪一站延伸」，可由起點反向延長、由終點延長，或從中途建立支線；也可在建站模式點選既有車站指定延伸起點。切換「調整彎道」後，直接抓住路段任意位置拖曳拉出彎道，重複拖曳可生成多個曲線控制點，系統會檢查彎道半徑、折返和自我交叉。點既有軌道可在中間插入車站；選主線後可在現有車站或路段建立分岔支線，支線列車會共用分岔前的路段。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。站距會依列車類型提醒過密／過疏，但不會強制阻止建站。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車會按編組節數畫出各自獨立的小車廂，過彎時逐節跟隨軌道；編組也影響容量。縮小時只看路線，拉近後顯示車站標記，近距離才顯示按編組長度繪製的站臺與多節車廂；列車停靠開門時，黑點人物會從月臺外側走向車門，亦會從車門離開往出口方向移動。車站還能設定地面／高架／地下顯示；同站不同路線的月臺在 3D 中分開呈現，同方向並列，交叉方向自動分層並設有轉乘通道。可在地圖上右鍵拖曳或 Shift＋左鍵拖曳，直接平滑改變 2D／3D 傾斜角與方向；2D／3D 鍵只是快捷方式。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>新車站會讀取 Mapbox 已載入的道路與公共設施圖徵，再以限速的 OpenStreetMap Photon 反查醫院、景點、機場、學校、博物館等；店鋪、餐廳、咖啡廳與一般商業建築不作為自動站名；外部服務可能有延遲或暫時無法使用，沒有精確結果時不會冒充真實建築名稱。已手動命名的站不會被更改。進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖使用 Mapbox 自訂樣式。行政 GeoJSON 首次載入亦需要網路，可從介面匯入自己的 GeoJSON；成功載入後會在本次瀏覽器會話快取。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲規劃範圍來自第三方行政 GeoJSON（精簡資料不保證法律精度；GADM 不允許未經授權的商業使用與再散布）；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
+function showHelp(){showModal('地鐵規劃 · 操作指南',`<p>預設從 WorldPop API 取得 2025 年人口網格估算（不等同於地鐵搭乘需求）；人口圖使用相鄰資料格色彩插值平滑顯示，點擊「平滑／原始」可對照；滑鼠與 CSV 仍保留原始數值。可以切換至獨立的模擬需求熱度；新增「使用率」圖層可在各個遊戲需求地點直接顯示百分比：地鐵模擬搭乘旅次除以該區的潛在出行旅次。這是路網表現的遊戲估算，不是 WorldPop 人口比例或行政區實測使用率。放大地圖可減少標籤重疊；虛線為 GeoJSON 行政邊界，邊界外不能新增或移動車站，但軌道可跨海與跨行政界線；地圖拖曳仍受到限制。左側可定位最高需求區，路網預設空白。</p><div class="help-step"><span>01</span><b>選擇城市與路線：</b>左側切換城市，按「新增路線」，可自訂名稱與路線顏色。</div><div class="help-step"><span>02</span><b>新建／連接車站：</b>按「建站延線」，點地圖新增車站，或點已有車站建立轉乘。選擇「從哪一站延伸」，可由起點反向延長、由終點延長，或從中途建立支線；也可在建站模式點選既有車站指定延伸起點。切換「調整彎道」後，直接抓住路段任意位置拖曳拉出彎道，重複拖曳可生成多個曲線控制點，系統會檢查彎道半徑、折返和自我交叉。點既有軌道可在中間插入車站；選主線後可在現有車站或路段建立分岔支線，支線列車會共用分岔前的路段。</div><div class="help-step"><span>03</span><b>移動與編輯：</b>切換「移動車站」拖曳站點，點選車站可重新命名或刪除；操作可復原與重做。站距會依列車類型提醒過密／過疏，但不會強制阻止建站。</div><div class="help-step"><span>04</span><b>安排班次：</b>調整系統型式、編組與列車數。列車會按編組節數畫出各自獨立的小車廂，過彎時逐節跟隨軌道；編組也影響容量。縮小時只看路線，拉近後顯示車站標記，近距離才顯示按編組長度繪製的站臺與多節車廂；列車停靠開門時，黑點人物會從月臺外側走向車門，亦會從車門離開往出口方向移動。車站還能設定地面／高架／地下顯示；同站不同路線的 3D 島式月臺各自貼合雙向軌道：同方向並列，交叉方向分層；轉乘只在月臺無屋頂的末端以高架通道和升降機連接。可在地圖上右鍵拖曳或 Shift＋左鍵拖曳，直接平滑改變 2D／3D 傾斜角與方向；2D／3D 鍵只是快捷方式。列車較多可縮短候車時間，但成本也會增加。</div><div class="help-step"><span>05</span><b>觀察統計：</b>點「統計分析」查看日運量、估計收支、分擔率與服務品質；用時鐘加速列車運行。</div><p>新車站會讀取 Mapbox 已載入的道路與公共設施圖徵，再以限速的 OpenStreetMap Photon 反查醫院、景點、機場、學校、博物館等；店鋪、餐廳、咖啡廳與一般商業建築不作為自動站名；外部服務可能有延遲或暫時無法使用，沒有精確結果時不會冒充真實建築名稱。已手動命名的站不會被更改。進度會盡可能儲存於目前瀏覽器，也可以使用 JSON 匯出備份。城市底圖使用 Mapbox 自訂樣式。行政 GeoJSON 首次載入亦需要網路，可從介面匯入自己的 GeoJSON；成功載入後會在本次瀏覽器會話快取。需求熱度使用模擬人口錨點、郊區需求點與低密度網格插值生成，不是實際街區人口或官方乘客數；遊戲規劃範圍來自第三方行政 GeoJSON（精簡資料不保證法律精度；GADM 不允許未經授權的商業使用與再散布）；背景底圖失敗時，熱度、路線編輯與存檔仍可使用。</p>`)}
 function downloadText(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF',text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
 function download(name,contents){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([contents],{type:'application/json;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)}
 
