@@ -1835,19 +1835,42 @@ function mapRect(p,rad,len,width,offset=0){
  return [corner(-len/2,-width/2),corner(len/2,-width/2),corner(len/2,width/2),corner(-len/2,width/2),corner(-len/2,-width/2)];
 }
 function pointOffsetAlong(p,angle,d,side=0){return {lat:offsetGeo(p,Math.cos(angle)*d-Math.sin(angle)*side,Math.sin(angle)*d+Math.cos(angle)*side)[1],lng:offsetGeo(p,Math.cos(angle)*d-Math.sin(angle)*side,Math.sin(angle)*d+Math.cos(angle)*side)[0]}}
-function railRibbon(points,width,offset=0){
- if(points.length<2)return null;
- const left=[],right=[];
- for(let i=0;i<points.length;i++){
-  const p=points[i],a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)];
-  const cy=Math.max(.15,Math.cos(p.lat*Math.PI/180));
+// Build bounded-miter cross sections, never extrapolating a huge triangular
+// corner on a tight railway curve. Each adjacent quad shares exactly the same
+// edge, so no overlapping long deck polygons at bends or turnout joints.
+function railStripCrossSections(points,width,offset=0){
+ if(points.length<2)return [];
+ const normals=[];
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i],cy=Math.max(.15,Math.cos((a.lat+b.lat)*Math.PI/360));
   const dx=(b.lng-a.lng)*111320*cy,dy=(b.lat-a.lat)*111320,len=Math.hypot(dx,dy)||1;
-  const ex=dy/len,ny=-dx/len;
-  // A local normal in metres: offset and half-width, preserving cross-sections.
-  left.push(offsetGeo(p,ex*(offset+width/2),ny*(offset+width/2)));
-  right.push(offsetGeo(p,ex*(offset-width/2),ny*(offset-width/2)));
+  normals.push({x:-dy/len,y:dx/len});
  }
- return [...left,...right.reverse(),left[0]];
+ return points.map((p,i)=>{
+  const prev=normals[Math.max(0,i-1)],next=normals[Math.min(normals.length-1,i)];
+  const vx=prev.x+next.x,vy=prev.y+next.y,vlen=Math.hypot(vx,vy);
+  // A bounded miter preserves gauge without exaggerated corners. On a hairpin
+  // the bevel-normal is used instead of the mathematically unbounded join.
+  const tangent=vlen>.12?{x:vx/vlen,y:vy/vlen}:next;
+  const denominator=Math.max(.58,Math.abs(tangent.x*next.x+tangent.y*next.y));
+  const miter=Math.min(1.6,1/denominator);
+  const shift=(amount)=>offsetGeo(p,tangent.x*amount*miter,tangent.y*amount*miter);
+  return {left:shift(offset+width/2),right:shift(offset-width/2)};
+ });
+}
+function railStripQuads(points,width,offset=0){
+ const sections=railStripCrossSections(points,width,offset),rings=[];
+ for(let i=1;i<sections.length;i++){
+  const a=sections[i-1],b=sections[i];
+  rings.push([a.left,b.left,b.right,a.right,a.left]);
+ }
+ return rings;
+}
+// Small individual quads keep Mapbox's fill-extrusion triangulator away from
+// folded/self-crossing multi-kilometre railway strips.
+function railRibbon(points,width,offset=0){
+ const parts=railStripQuads(points,width,offset);
+ return parts.length===1?parts[0]:null;
 }
 function geoTrackTangent(geom,km){
  const left=routePointGeo(geom,Math.max(0,km-.008)),right=routePointGeo(geom,Math.min(geom.total,km+.008));
@@ -2007,47 +2030,87 @@ function transit3DGeoJSON(){
    const unshifted=segmentShape(a,b).pts;if(unshifted.length<2)continue;
    const raw=shiftedSegmentPoints(l,a,b,unshifted);
    // Subdivide long STRAIGHT sections: supports, sleepers and guardrails must not disappear between stations.
-   const pts=[raw[0]];for(let k=1;k<raw.length;k++){const p0=raw[k-1],p1=raw[k],d=hKm([p0.lat,p0.lng],[p1.lat,p1.lng]);const n=Math.max(1,Math.min(300,Math.ceil(d/.032)));for(let j=1;j<=n;j++){const t=j/n;pts.push({lat:p0.lat+(p1.lat-p0.lat)*t,lng:p0.lng+(p1.lng-p0.lng)*t})}}
+   const pts=[raw[0]];for(let k=1;k<raw.length;k++){const p0=raw[k-1],p1=raw[k],d=hKm([p0.lat,p0.lng],[p1.lat,p1.lng]);const n=Math.max(1,Math.min(300,Math.ceil(d/.014)));for(let j=1;j<=n;j++){const t=j/n;pts.push({lat:p0.lat+(p1.lat-p0.lat)*t,lng:p0.lng+(p1.lng-p0.lng)*t})}}
    if(!pts.some(p=>ts3dVisible(p,ts3dDetailRadius()+.15)))continue;
    const l1=stationRailLevel(a),l2=stationRailLevel(b),startDeck=railDeckAtStation(l,a),endDeck=railDeckAtStation(l,b);
    const km=[0];for(let i=1;i<pts.length;i++)km.push(km.at(-1)+hKm([pts[i-1].lat,pts[i-1].lng],[pts[i].lat,pts[i].lng]));
    const length=km.at(-1)||.001;
-   // Build the rail bed in smaller 3D pieces, to allow gradual grade changes.
-   // On long straights, avoid unnecessary polygons and pillars.
-   let acc=0,lastPier=-.12,pierCount=0,sleeperCount=0;
-   const maxParts=250,partEvery=Math.max(1,Math.ceil((pts.length-1)/maxParts));
-   for(let i=partEvery;i<=pts.length-1+partEvery;i+=partEvery){
-    const end=Math.min(pts.length-1,i);if(i-partEvery>=pts.length-1)break;const sub=pts.slice(Math.max(0,i-partEvery),end+1);if(sub.length<2)continue;
-    if(!ts3dVisible(sub[Math.floor(sub.length/2)],ts3dDetailRadius()+.1))continue;
-    const t=(km[end]+km[Math.max(0,i-partEvery)])/(2*length);
-    const aElev=startDeck,bElev=endDeck;
-    const underground=l1==='underground'||l2==='underground';
-    const baseHeight=aElev+(bElev-aElev)*t;
-    if(underground){line(sub,'underground',l.color);continue}
-    const deck=Math.max(.5,baseHeight);
-    const width=18.5;
-    poly(railRibbon(sub,width),'viaduct-deck',Math.max(0,deck-1.3),deck,'#b2c2c8');
-    for(const side of [-1,1]){
-     // Twin tracks and guard rails, physically above the deck, not overlaid on the street.
-     for(const halfGauge of [-.72,.72]){
-      poly(railRibbon(sub,.23,side*3.5+halfGauge),'steel-rail',deck+.06,deck+.32,'#4a6068');
-     }
-     poly(railRibbon(sub,.28,side*8.45),'parapet',deck+.04,deck+1.0,'#a1b3ba');
-     if(end%4===0){
-      const midpoint=sub[Math.floor(sub.length/2)],pre=sub[0],post=sub.at(-1),cy=Math.cos(midpoint.lat*Math.PI/180);
-      const angle=Math.atan2((post.lat-pre.lat)*111320,(post.lng-pre.lng)*111320*cy);
-      poly(mapRect(midpoint,angle,.7,3.4,side*3.5),'sleeper',deck+.015,deck+.16,'#67777a');
+   // Continuously sampled quads with bounded joins. The former wide ribbons
+   // could fold across their own centreline, making giant triangular slabs.
+   const underground=l1==='underground'||l2==='underground';
+   const visibleAt=p=>ts3dVisible(p,ts3dDetailRadius()+.1);
+   const steep=Math.abs(endDeck-startDeck)>.35;
+   const gradeStep=steep?Math.max(.002,Math.min(.014,length*.32/Math.max(.01,Math.abs(endDeck-startDeck)))):.014;
+   // Refine altitude transitions, so each extrusion top changes only a small amount.
+   if(steep){
+    const refined=[pts[0]];
+    for(let i=1;i<pts.length;i++){
+     const p0=pts[i-1],p1=pts[i],d=hKm([p0.lat,p0.lng],[p1.lat,p1.lng]);
+     const n=Math.max(1,Math.min(12,Math.ceil(d/gradeStep)));
+     for(let q=1;q<=n;q++){const t=q/n;refined.push({lat:p0.lat+(p1.lat-p0.lat)*t,lng:p0.lng+(p1.lng-p0.lng)*t})}
+    }
+    pts.length=0;pts.push(...refined);
+    km.length=0;km.push(0);
+    for(let i=1;i<pts.length;i++)km.push(km.at(-1)+hKm([pts[i-1].lat,pts[i-1].lng],[pts[i].lat,pts[i].lng]));
+   }
+   let lastPier=-.12,pierCount=0;
+   // Store the whole offset rail in a single polygonal station/service corridor;
+   // draw it as SEAMLESS quadrilaterals rather than overlapping sharp-edged slabs.
+   const strips=[
+    ['viaduct-deck',18.5,0,-1.3,0,'#b2c2c8'],
+    ['steel-rail',.23,-4.22,.06,.32,'#4a6068'],
+    ['steel-rail',.23,-2.78,.06,.32,'#4a6068'],
+    ['steel-rail',.23,2.78,.06,.32,'#4a6068'],
+    ['steel-rail',.23,4.22,.06,.32,'#4a6068'],
+    ['parapet',.28,-8.45,.04,1.0,'#a1b3ba'],
+    ['parapet',.28,8.45,.04,1.0,'#a1b3ba']
+   ];
+   if(underground){line(pts,'underground',l.color);continue}
+   const quads=strips.map(s=>railStripQuads(pts,s[1],s[2]));
+   const straightAngle=(p,q)=>Math.atan2((q.lat-p.lat)*111320,(q.lng-p.lng)*111320*Math.cos((p.lat+q.lat)*Math.PI/360));
+   const maxGradeChunk=steep?(.27*Math.max(.001,km.at(-1)||length)/Math.abs(endDeck-startDeck)):.07;
+   // Merge neighbouring quadrilaterals only on gentle sections with negligible
+   // elevation change. Tight bends remain individually triangulated, so the
+   // deck cannot make a large triangular cap across a switch or branch.
+   for(let i=0;i<pts.length-1;){
+    const heading=straightAngle(pts[i],pts[i+1]);
+    let end=i+1;
+    while(end<Math.min(pts.length-1,i+4)){
+     const a=straightAngle(pts[end],pts[end+1]);
+     const turn=Math.abs(Math.atan2(Math.sin(a-heading),Math.cos(a-heading)));
+     if(turn>.29||(km[end+1]-km[i])>maxGradeChunk)break;
+     end++;
+    }
+    const p0=pts[i],p1=pts[end],mid={lat:(p0.lat+p1.lat)/2,lng:(p0.lng+p1.lng)/2};
+    const startIndex=i;i=end;
+    if(!visibleAt(mid))continue;
+    const t=((km[startIndex]||0)+(km[end]||0))/(2*(km.at(-1)||.001));
+    const deck=Math.max(.5,startDeck+(endDeck-startDeck)*t);
+    for(let k=0;k<strips.length;k++){
+     const s=strips[k],segments=quads[k];
+     const ring=[segments[startIndex][0]];
+     for(let q=startIndex;q<end;q++)ring.push(segments[q][1]);
+     for(let q=end-1;q>=startIndex;q--)ring.push(segments[q][2]);
+     ring.push(segments[startIndex][3],segments[startIndex][0]);
+     const bottom=s[3]<0?Math.max(0,deck+s[3]):deck+s[3];
+     poly(ring,s[0],bottom,deck+s[4],s[5]);
+    }
+    if(startIndex%5===0){
+     const tangent=heading;
+     for(const side of [-1,1]){
+      const sleeper=pointOffsetAlong(mid,tangent,0,side*3.5);
+      poly(mapRect(sleeper,tangent,.6,3.3),'sleeper',deck+.015,deck+.16,'#67777a');
      }
     }
-    if(deck>4.5 && !nearCrossingThroat(pts[end]) && (km[end]-lastPier)>.09&&pierCount<120){
-     lastPier=km[end];pierCount++;
-     const p=pts[end],before=pts[Math.max(0,end-1)],cy=Math.cos(p.lat*Math.PI/180);
-     const angle=Math.atan2((p.lat-before.lat)*111320,(p.lng-before.lng)*111320*cy);
+    const travelKm=km[end]||0;
+    if(deck>4.5&&!nearCrossingThroat(mid)&&travelKm-lastPier>.095&&pierCount<110){
+     pierCount++;lastPier=travelKm;
+     const tangent=Math.atan2((p1.lat-p0.lat)*111320,(p1.lng-p0.lng)*111320*Math.cos(mid.lat*Math.PI/180));
      for(const side of [-5.4,5.4]){
-      poly(mapRect(p,angle,3.2,2.2,side),'column',0,Math.max(.5,deck-1.1),'#93a5af');
-      poly(mapRect(p,angle,2.7,3.6,side),'pier-cap',Math.max(.4,deck-2.0),deck-1.15,'#849aa4');
+      poly(mapRect(mid,tangent,2.8,2.0,side),'column',0,Math.max(.5,deck-1.1),'#93a5af');
+      poly(mapRect(mid,tangent,2.7,3.2,side),'pier-cap',Math.max(.4,deck-2),deck-1.15,'#849aa4');
      }
-     poly(mapRect(p,angle,2.8,17),'cross-beam',Math.max(.4,deck-1.1),deck-.4,'#a6b8be');
+     poly(mapRect(mid,tangent,2.4,16),'cross-beam',Math.max(.4,deck-1.1),deck-.4,'#a6b8be');
     }
    }
    // Keep the distinct ground/tunnel map overlay for zoomed-out navigation.
@@ -2119,9 +2182,17 @@ function transit3DGeoJSON(){
    const sign=pointOffsetAlong(centre,angle,-len*.03,0);
    poly(mapRect(sign,angle,Math.min(12,len*.22),.22),'platform-sign',deck+3.15,deck+3.46,l.color);
    if(deck>3.5){
-    // Only support the island centre. Not inside the running tracks.
-    for(const along of [-len*.30,len*.30]){
+    // A high platform must not send a column THROUGH the lower railway.
+    const clearanceToOtherService=p=>visible.every(other=>{
+     if(other.line.id===l.id||other.deck>=deck-2.1)return true;
+     const dx=(p.lng-other.centre.lng)*111320*Math.cos(p.lat*Math.PI/180),dy=(p.lat-other.centre.lat)*111320;
+     const along=dx*Math.cos(other.angle)+dy*Math.sin(other.angle);
+     const lateral=Math.abs(-dx*Math.sin(other.angle)+dy*Math.cos(other.angle));
+     return Math.abs(along)>other.len*.72||lateral>10.5;
+    });
+    for(const along of [-len*.34,len*.34]){
      const p=pointOffsetAlong(centre,angle,along,0);
+     if(!clearanceToOtherService(p))continue;
      poly(mapRect(p,angle,2.15,2.0),'platform-column',0,Math.max(.3,deck-.72),'#92a9b1');
      poly(mapRect(p,angle,2.55,2.65),'platform-cap',Math.max(.2,deck-.9),deck-.07,'#afc1c7');
     }
@@ -2149,42 +2220,21 @@ function transit3DGeoJSON(){
     poly(mapRect(bridge.center,bridge.angle,bridge.length+1.6,2.6),'concourse-bridge',walkway,walkway+.45,'#bdd5db');
    }
   }else{
-   // Grade-separated transfer: the intersecting viaducts remain on different
-   // decks. Place a lift OUTSIDE every rail corridor, and use narrow raised
-   // galleries reaching the uncovered ends of both island platforms.
-   const topDeck=Math.max(...visible.map(m=>m.deck));
-   const walk=topDeck+7.6;
-   const candidates=[];
-   for(const east of [-35,35])for(const north of [-35,35]){
-    const candidate={lat:offsetGeo(st,east,north)[1],lng:offsetGeo(st,east,north)[0]};
-    const clearance=Math.min(...visible.map(m=>{
-     const a=m.angle;
-     return Math.abs(-Math.sin(a)*east+Math.cos(a)*north-m.sideOffset);
-    }));
-    if(clearance<17)continue;
-    const nearest=visible.map(m=>Math.min(...[-1,1].map(sign=>{
-     const p=pointOffsetAlong(m.centre,m.angle,sign*Math.min(m.len*.46,64),0);
-     return geometryConnector(p,candidate).length;
-    })));
-    const maxLength=Math.max(...nearest);
-    candidates.push({candidate,score:maxLength-clearance*.08});
+   // Grade-separated interchange: avoid long diagonal bridges, which crossed
+   // running lines and station roofs in perspective. Each line retains its own
+   // platform; link levels by compact end-of-platform lifts/stairs instead.
+   const ordered=visible.slice().sort((a,b)=>a.deck-b.deck);
+   for(const m of ordered){
+    const tip=pointOffsetAlong(m.centre,m.angle,Math.min(m.len*.47,64),0);
+    const side=pointOffsetAlong(tip,m.angle,0,11.5);
+    const stairHeight=Math.max(m.deck+1.3,Math.min(m.deck+5.2,Math.max(...ordered.map(v=>v.deck))));
+    poly(mapRect(side,m.angle,3.0,3.0),'transfer-stair',m.deck+.7,stairHeight,'#abc0c7');
+    poly(mapRect(side,m.angle,3.5,3.5),'lift-roof',stairHeight,stairHeight+.55,'#d4e5e8');
    }
-   candidates.sort((a,b)=>a.score-b.score);
-   const lift=candidates[0]?.candidate;
-   if(lift){
-    const mainAngle=visible[0].angle;
-    poly(mapRect(lift,mainAngle,4.4,4.4),'transfer-stair',0,walk,'#9fb8bd');
-    poly(mapRect(lift,mainAngle,5.1,5.1),'lift-roof',walk,walk+.55,'#d6e7ea');
-    for(const m of visible){
-     const ends=[-1,1].map(sign=>pointOffsetAlong(m.centre,m.angle,sign*Math.min(m.len*.46,64),0));
-     ends.sort((a,b)=>geometryConnector(a,lift).length-geometryConnector(b,lift).length);
-     const end=ends[0],bridge=geometryConnector(end,lift);
-     if(bridge.length<3||bridge.length>90)continue;
-     // Vertical access at the open tip, NOT under the station canopy.
-     poly(mapRect(end,m.angle,2.5,2.6),'transfer-stair',m.deck+.72,walk,'#a8c0c6');
-     poly(mapRect(bridge.center,bridge.angle,bridge.length+1.0,2.3),'transfer-link',walk,walk+.43,'#c4d9df');
-    }
-   }
+   // A full pedestrian bridge is deliberately omitted until a verified
+   // collision-free connector can be routed; passenger interchange remains
+   // available in the gameplay graph.
+
   }
  }
  return {polygons:{type:'FeatureCollection',features:[...polygons.slice(0,4300),...stationPolygons.slice(0,1800)]},tracks:{type:'FeatureCollection',features:tracks.slice(0,1200)}};
