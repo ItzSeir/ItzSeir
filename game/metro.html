@@ -1820,6 +1820,7 @@ const TS3D_TUNNEL='transitstudio-underground-rail';
 const TS3D_TRAIN_SOURCE='transitstudio-live-trains';
 const TS3D_TRAIN_LAYER='transitstudio-train-models';
 const TS3D_DECK_ELEVATED=12.6,TS3D_DECK_GROUND=.65,TS3D_TRAIN_CAR_LEN=14.1,TS3D_TRAIN_PITCH=15.0;
+const TS3D_CROSS_LEVEL_GAP=16.5, TS3D_PARALLEL_RAIL_GAP=25;
 const TS3D_MAX_DETAIL_RADIUS_KM=12;
 let ts3dLastBuildCenter=null,ts3dLastBuildZoom=0;
 function ts3dDetailRadius(){return clamp(6*Math.pow(2,14.5-map.zoom),1.6,TS3D_MAX_DETAIL_RADIUS_KM)}
@@ -1885,13 +1886,11 @@ function stationServiceProfiles(station){
   for(let i=0;i<n;i++){
    const p=group.items[i];
    p.groupCount=n;p.slotIndex=i;
-   // Side platforms for parallel routes: rail centreline remains between them.
-   // Do not turn two different services into one shared platform object.
-   p.sideOffset=n===1? (profiles.length===1?0:(group.index%2===0?-8.6:8.6))
-     :(i-(n-1)/2)*17.2;
-   // A crossing cannot occupy the same physical level.  Preserve the baseline
-   // selected by the user; lift other crossing directions by a safe separation.
-   p.deck=base+group.index*11.4;
+   const physicalOffset=(i-(n-1)/2)*TS3D_PARALLEL_RAIL_GAP;
+   const directionSign=Math.cos(p.angle-group.angle)>=0?1:-1;
+   p.sideOffset=physicalOffset*directionSign;
+   // Keep crossing stations vertically separate with canopy clearance.
+   p.deck=base+group.index*TS3D_CROSS_LEVEL_GAP;
    p.levelName=stationRailLevel(station);
   }
  }
@@ -1901,6 +1900,46 @@ function stationServiceProfiles(station){
 function railDeckAtStation(l,station){
  const p=stationServiceProfiles(station).find(x=>x.line.id===l.id);
  return p?p.deck:railHeight(stationRailLevel(station));
+}
+function stationRailOffset(l,station){
+ const profile=stationServiceProfiles(station).find(p=>p.line.id===l.id);
+ return profile?.sideOffset||0;
+}
+function smoothOffset(t){t=clamp(t,0,1);return t*t*(3-2*t)}
+function serviceOffsetAtKm(l,geom,km){
+ const stops=l.stops.map(getStop).filter(Boolean);
+ const c=geom.stopKm;
+ if(!stops.length||!c.length)return 0;
+ let i=0;while(i<c.length-2&&c[i+1]<km)i++;
+ const first=stops[i],last=stops[Math.min(i+1,stops.length-1)];
+ if(!first||!last)return 0;
+ const f=smoothOffset((km-c[i])/Math.max(.0001,c[i+1]-c[i]));
+ return stationRailOffset(l,first)*(1-f)+stationRailOffset(l,last)*f;
+}
+function serviceRailPoint(l,geom,km){
+ const point=routePointGeo(geom,km);if(!point)return null;
+ const heading=geoTrackTangent(geom,km),offset=serviceOffsetAtKm(l,geom,km);
+ return pointOffsetAlong(point,heading,0,offset);
+}
+function serviceRailTangent(l,geom,km){
+ const delta=.004;
+ const start=serviceRailPoint(l,geom,Math.max(0,km-delta)),end=serviceRailPoint(l,geom,Math.min(geom.total,km+delta));
+ if(!start||!end)return geoTrackTangent(geom,km);
+ const cy=Math.max(.15,Math.cos((start.lat+end.lat)/2*Math.PI/180));
+ return Math.atan2((end.lat-start.lat)*111320,(end.lng-start.lng)*111320*cy);
+}
+function shiftedSegmentPoints(l,a,b,raw){
+ const startOffset=stationRailOffset(l,a),endOffset=stationRailOffset(l,b);
+ if(Math.abs(startOffset)<.001&&Math.abs(endOffset)<.001)return raw;
+ let total=0;const travelled=[0];
+ for(let i=1;i<raw.length;i++){total+=hKm([raw[i-1].lat,raw[i-1].lng],[raw[i].lat,raw[i].lng]);travelled.push(total)}
+ return raw.map((point,i)=>{
+  const from=raw[Math.max(0,i-1)],to=raw[Math.min(raw.length-1,i+1)];
+  const cy=Math.max(.15,Math.cos(point.lat*Math.PI/180));
+  const theta=Math.atan2((to.lat-from.lat)*111320,(to.lng-from.lng)*111320*cy);
+  const f=smoothOffset(travelled[i]/Math.max(.000001,total));
+  return pointOffsetAlong(point,theta,0,startOffset+(endOffset-startOffset)*f);
+ });
 }
 function geometryConnector(start,end){
  const cy=Math.max(.15,Math.cos((start.lat+end.lat)/2*Math.PI/180));
@@ -1947,8 +1986,8 @@ function station3DCentre(geom,index,cars){
  return clamp(geom.stopKm[index]||0,half,geom.total-half);
 }
 function transit3DGeoJSON(){
- const polygons=[],tracks=[];
- const poly=(ring,kind,base,height,tint)=>{if(ring?.length>=4&&Number.isFinite(base)&&Number.isFinite(height))polygons.push({type:'Feature',properties:{kind,base,height,tint},geometry:{type:'Polygon',coordinates:[ring]}})};
+ const polygons=[],stationPolygons=[],tracks=[];
+ const poly=(ring,kind,base,height,tint)=>{if(ring?.length>=4&&Number.isFinite(base)&&Number.isFinite(height)) {const feature={type:'Feature',properties:{kind,base,height,tint},geometry:{type:'Polygon',coordinates:[ring]}};(TS3D_STATION_KINDS.includes(kind)?stationPolygons:polygons).push(feature)}};
  const line=(coords,level,color)=>{if(coords.length>1)tracks.push({type:'Feature',properties:{level,color},geometry:{type:'LineString',coordinates:coords.map(p=>[p.lng,p.lat])}})};
  if(!plan)return {polygons:ts3dEmpty(),tracks:ts3dEmpty()};
  const seen=new Set();
@@ -1956,8 +1995,9 @@ function transit3DGeoJSON(){
   const stops=l.stops.map(getStop).filter(Boolean);
   for(let j=1;j<l.stops.length;j++){
    const a=getStop(l.stops[j-1]),b=getStop(l.stops[j]);if(!a||!b)continue;
-   const key=trackKey(a.id,b.id)+':'+railDeckAtStation(l,a).toFixed(1)+':'+railDeckAtStation(l,b).toFixed(1);if(seen.has(key))continue;seen.add(key);
-   const raw=segmentShape(a,b).pts;if(raw.length<2)continue;
+   const key=trackKey(a.id,b.id)+':'+railDeckAtStation(l,a).toFixed(1)+':'+railDeckAtStation(l,b).toFixed(1)+':'+stationRailOffset(l,a).toFixed(1)+':'+stationRailOffset(l,b).toFixed(1);if(seen.has(key))continue;seen.add(key);
+   const unshifted=segmentShape(a,b).pts;if(unshifted.length<2)continue;
+   const raw=shiftedSegmentPoints(l,a,b,unshifted);
    // Subdivide long STRAIGHT sections: supports, sleepers and guardrails must not disappear between stations.
    const pts=[raw[0]];for(let k=1;k<raw.length;k++){const p0=raw[k-1],p1=raw[k],d=hKm([p0.lat,p0.lng],[p1.lat,p1.lng]);const n=Math.max(1,Math.min(300,Math.ceil(d/.032)));for(let j=1;j<=n;j++){const t=j/n;pts.push({lat:p0.lat+(p1.lat-p0.lat)*t,lng:p0.lng+(p1.lng-p0.lng)*t})}}
    if(!pts.some(p=>ts3dVisible(p,ts3dDetailRadius()+.15)))continue;
@@ -2025,87 +2065,104 @@ function transit3DGeoJSON(){
    const cars=clamp(Number(l.cars)||4,2,8);
    const km=station3DCentre(geom,i,cars);
    const railCentre=routePointGeo(geom,km)||st;
-   const centre=pointOffsetAlong(railCentre,info.angle,0,info.sideOffset);
+   const centre=serviceRailPoint(l,geom,km)||st;
    group.modules.push({...info,st,cars,centre,railCentre,
       len:cars*TS3D_TRAIN_PITCH+15,underground:stationRailLevel(st)==='underground'});
   }
  }
  for(const group of stationGroups.values()){
-  const {st,modules}=group;
-  if(!modules.length)continue;
-  const shared=modules.length>1;
-  // A fully underground interchange only exposes the entrance at street level.
-  if(modules.every(m=>m.underground)){
-   const angle=modules[0].angle;
-   poly(mapRect(st,angle,10,7),'subway-entry',0,2.7,'#7295a9');
-   poly(mapRect(st,angle,10,7),'subway-entry-roof',2.7,3.3,'#bed9df');
-   continue;
+  const {st,modules}=group;if(!modules.length)continue;
+  const shared=modules.length>1,visible=modules.filter(m=>!m.underground);
+  const underground=modules.filter(m=>m.underground);
+  if(underground.length){
+   const under=underground[0];
+   const doorway=pointOffsetAlong(st,under.angle,13,15);
+   poly(mapRect(doorway,under.angle,6.5,5.0),'subway-entry',0,2.3,'#779bab');
+   poly(mapRect(doorway,under.angle,6.9,5.3),'subway-entry-roof',2.3,2.8,'#c2dbe0');
   }
-  const active=modules.filter(m=>!m.underground);
-  for(const m of active){
-   const {angle,cars,len,centre,line:l}=m,deck=m.deck;
-   // A non-transfer station still uses two side platforms. For a transfer,
-   // ONE separate passenger platform per line prevents roofs from intersecting.
-   const offsets=shared?[0]:[-8.4,8.4];
-   for(const off of offsets){
-    const c=pointOffsetAlong(centre,angle,0,off);
-    const width=4.6,canopyWidth=3.7;
-    poly(mapRect(c,angle,len,width),'platform-slab',deck,deck+.7,'#e1e9e9');
-    // Track-facing yellow tactile edge; line-specific colored band above it.
-    const near=shared? -Math.sign(m.sideOffset||1)*(width/2-.13) : -Math.sign(off||1)*(width/2-.13);
-    poly(mapRect(c,angle,len-1,.30,near),'tactile-edge',deck+.72,deck+.82,'#efc656');
-    poly(mapRect(c,angle,len*.83,.20,-near*.72),'route-platform-band',deck+.83,deck+.99,l.color);
-    // One slim independent canopy per service, with supports in its own footprint.
-    const roofLength=len*.83;
-    poly(mapRect(c,angle,roofLength,canopyWidth),'roof-top',deck+5.10,deck+5.47,'#6f9fb0');
-    poly(mapRect(c,angle,roofLength,.18,canopyWidth/2-.08),'roof-edge',deck+5.06,deck+5.62,'#d5e4e7');
-    for(const along of [-roofLength*.36,0,roofLength*.36]){
-     const post=pointOffsetAlong(c,angle,along,canopyWidth*.25);
-     poly(mapRect(post,angle,.52,.48),'roof-post',deck+.7,deck+5.10,'#9ab3b9');
+  if(!visible.length)continue;
+  // Individual rail service = individually aligned rail, platform slabs and roofs.
+  // Side platforms do NOT become an elevated pedestrian roof across other rails.
+  for(const m of visible){
+   const {line:l,angle,len,centre}=m,deck=m.deck;
+   const roofLength=len*.67;
+   for(const side of [-1,1]){
+    const platformOff=side*7.0;
+    const plat=pointOffsetAlong(centre,angle,0,platformOff);
+    const width=4.25;
+    poly(mapRect(plat,angle,len,width),'platform-slab',deck,deck+.64,'#dde7e7');
+    const near=pointOffsetAlong(plat,angle,0,-side*(width/2-.28));
+    poly(mapRect(near,angle,len-1.4,.30),'tactile-edge',deck+.65,deck+.77,'#efbb46');
+    const band=pointOffsetAlong(plat,angle,0,side*(width/2-.45));
+    poly(mapRect(band,angle,len*.8,.22),'route-platform-band',deck+.73,deck+.88,l.color);
+    // Slender canopy, open platform ends for the transfers and stair access.
+    const canopy=pointOffsetAlong(plat,angle,-len*.04,0);
+    poly(mapRect(canopy,angle,roofLength,3.5),'roof-top',deck+5.10,deck+5.45,'#75a5b4');
+    const roofEdge=pointOffsetAlong(canopy,angle,0,side*1.68);
+    poly(mapRect(roofEdge,angle,roofLength,.20),'roof-edge',deck+5.1,deck+5.6,'#d4e7e9');
+    for(const step of [-roofLength*.35,roofLength*.35]){
+     const post=pointOffsetAlong(canopy,angle,step,side*.7);
+     poly(mapRect(post,angle,.5,.5),'roof-post',deck+.65,deck+5.10,'#9fb7bd');
     }
-    const sign=pointOffsetAlong(c,angle,0,canopyWidth*.26);
-    poly(mapRect(sign,angle,Math.min(11,len*.25),.24),'platform-sign',deck+3.10,deck+3.50,l.color);
-    if(deck>3){
-     for(const along of [-len*.37,len*.37]){
-      const support=pointOffsetAlong(c,angle,along,0);
-      poly(mapRect(support,angle,2.6,2.5),'platform-column',0,Math.max(.5,deck-.8),'#91a9b2');
-      poly(mapRect(support,angle,3.6,3.0),'platform-cap',Math.max(.4,deck-1.05),deck-.02,'#a6bac1');
+    const sign=pointOffsetAlong(plat,angle,0,-side*.7);
+    poly(mapRect(sign,angle,Math.min(9.5,len*.22),.18),'platform-sign',deck+3.0,deck+3.4,l.color);
+    if(deck>3.5){
+     for(const along of [-len*.30,len*.30]){
+      const pillar=pointOffsetAlong(plat,angle,along,side*1.2);
+      // The columns support this platform, never a neighboring rail centreline.
+      poly(mapRect(pillar,angle,2.1,2.1),'platform-column',0,Math.max(.3,deck-.75),'#92a9b1');
+      poly(mapRect(pillar,angle,3.0,2.8),'platform-cap',Math.max(.2,deck-.95),deck-.05,'#afc2c8');
      }
     }
+    // Platform and train geometry share one projected rail centreline.
    }
   }
-  if(shared && active.length>1){
-   // Small vertical stair/lift core; do NOT pour one huge roof over both
-   // services. This links the station buildings without visually merging them.
-   const first=active[0],minDeck=Math.min(...active.map(m=>m.deck));
-   const maxDeck=Math.max(...active.map(m=>m.deck));
-   const tower=pointOffsetAlong(st,first.angle,Math.min(first.len*.34,19),13.0);
-   poly(mapRect(tower,first.angle,4.8,4.8),'transfer-stair',0,maxDeck+6.6,'#9aafb5');
-   poly(mapRect(tower,first.angle,5.5,5.5),'lift-roof',maxDeck+6.6,maxDeck+7.1,'#d5e3e6');
-   for(const m of active){
-    const conn=geometryConnector(m.centre,tower);
-    // Transfers occur ABOVE rolling stock. Each line retains its own level;
-    // the stair core bridges the height difference.
-    if(conn.length>4){
-     const bridgeFloor=m.deck+5.85;
-     poly(mapRect(conn.center,conn.angle,Math.max(2,conn.length),2.5),'transfer-link',bridgeFloor,bridgeFloor+.48,'#c2d8db');
-     const gantry=pointOffsetAlong(m.centre,m.angle,0,0);
-     poly(mapRect(gantry,m.angle,2.2,2.2),'transfer-stair',m.deck+.75,bridgeFloor,'#a4b9bd');
+  if(!shared)continue;
+  // Keep rail-surface structures distinct.  Link *platform ends*, not centres:
+  // the old centre-to-tower bridges cut diagonally through both train tracks.
+  const parallel=visible.length>=2 && visible.every(m=>stationAngleDifference(m.angle,visible[0].angle)<.24)
+                 && visible.every(m=>Math.abs(m.deck-visible[0].deck)<2);
+  if(parallel){
+   const ordered=visible.slice().sort((a,b)=>a.sideOffset-b.sideOffset);
+   for(let i=1;i<ordered.length;i++){
+    const a=ordered[i-1],b=ordered[i];
+    // Inward platform edge of each rail pair.  A short accessible passage is
+    // placed in the unroofed END section, between the two platform slabs.
+    const dir=a.sideOffset<b.sideOffset?1:-1;
+    const aEnd=pointOffsetAlong(a.centre,a.angle,Math.min(38,a.len*.43),dir*7.0);
+    const bEnd=pointOffsetAlong(b.centre,b.angle,Math.min(38,b.len*.43),-dir*7.0);
+    const bridge=geometryConnector(aEnd,bEnd);
+    if(bridge.length>1.0&&bridge.length<32){
+     const level=Math.max(a.deck,b.deck)+.82;
+     poly(mapRect(bridge.center,bridge.angle,bridge.length+1.4,2.5),'concourse-bridge',level,level+.36,'#aac9c8');
+     // Small tactile connection — not a large opaque roof.
     }
    }
-   // If the axes are parallel, place a compact footbridge between the TWO
-   // separate platform roofs, not a big concourse covering their canopies.
-   const sameAngle=active.every(m=>stationAngleDifference(m.angle,first.angle)<.28);
-   if(sameAngle && Math.abs(maxDeck-minDeck)<2){
-    const lo=active.reduce((a,b)=>a.sideOffset<b.sideOffset?a:b),hi=active.reduce((a,b)=>a.sideOffset>b.sideOffset?a:b);
-    const between=geometryConnector(lo.centre,hi.centre);
-    if(between.length>6){
-     poly(mapRect(between.center,between.angle,between.length,2.2),'concourse-bridge',maxDeck+6.0,maxDeck+6.48,'#b4cbd0');
+  }else{
+   const highest=Math.max(...visible.map(v=>v.deck));
+   const main=visible[0];
+   // Place the stair/lift outside both crossing axes (a corner, rather than
+   // in the middle of the railway junction).
+   const tower=pointOffsetAlong(st,main.angle,23,18);
+   poly(mapRect(tower,main.angle,4.8,4.8),'transfer-stair',0,highest+7.1,'#9ab1b8');
+   poly(mapRect(tower,main.angle,5.3,5.3),'lift-roof',highest+7.1,highest+7.6,'#d6e5e8');
+   for(const m of visible){
+    const portals=[];
+    for(const along of [-Math.min(38,m.len*.44),Math.min(38,m.len*.44)])
+     for(const side of [-1,1])portals.push(pointOffsetAlong(m.centre,m.angle,along,side*7.0));
+    portals.sort((a,b)=>geometryConnector(a,tower).length-geometryConnector(b,tower).length);
+    const end=portals[0],bridge=geometryConnector(end,tower);
+    // At different levels, passage is above each line's own canopy.
+    if(bridge.length>1&&bridge.length<58){
+     const height=m.deck+6.55;
+     poly(mapRect(bridge.center,bridge.angle,bridge.length+1.0,2.35),'transfer-link',height,height+.4,'#c0d7dd');
+     const stair=pointOffsetAlong(end,m.angle,0,0);
+     poly(mapRect(stair,m.angle,2.2,2.4),'transfer-stair',m.deck+.7,height,'#abbfc5');
     }
    }
   }
  }
- return {polygons:{type:'FeatureCollection',features:polygons.slice(0,5500)},tracks:{type:'FeatureCollection',features:tracks.slice(0,1200)}};
+ return {polygons:{type:'FeatureCollection',features:[...polygons.slice(0,4300),...stationPolygons.slice(0,1800)]},tracks:{type:'FeatureCollection',features:tracks.slice(0,1200)}};
 }
 function transit3DTrainsGeoJSON(){
  const features=[];
@@ -2130,10 +2187,10 @@ function transit3DTrainsGeoJSON(){
    // Follow the actual rail path, with a separate coordinate and heading for EVERY car.
    for(let j=0;j<cars;j++){
     const pos=clamp(centre+state.direction*((cars-1)/2-j)*TS3D_TRAIN_PITCH/1000,0,travel);
-    const railP=routePointGeo(geom,pos);if(!railP||!ts3dVisible(railP,ts3dDetailRadius()+.25))continue;
+    const railP=serviceRailPoint(l,geom,pos);if(!railP||!ts3dVisible(railP,ts3dDetailRadius()+.25))continue;
     const deck=railSurfaceAtKm(geom,stops,pos,l);
     if(deck===null)continue; // Surface does not reveal underground trains.
-    const angle=geoTrackTangent(geom,pos),off=state.direction>0?3.5:-3.5;
+    const angle=serviceRailTangent(l,geom,pos),off=state.direction>0?3.5:-3.5;
     const width=2.75,len=TS3D_TRAIN_CAR_LEN;
     const bodyB=deck+.35,bodyT=bodyB+3.2;
     poly(mapRect(railP,angle,len,width,off),bodyB,bodyT,'#edf5f7','train-body');
@@ -2160,7 +2217,7 @@ function transit3DTrainsGeoJSON(){
 function showTransit3D(visible){
  if(!vectorMap)return;
  for(const name of [TS3D_EXTRUSION,TS3D_STATION_LAYER,TS3D_ELEVATED,TS3D_GROUND,TS3D_TUNNEL,TS3D_TRAIN_LAYER]){
-  try{if(vectorMap.getLayer(name))vectorMap.setLayoutProperty(name,'visibility',visible?'visible':'none')}catch(e){}
+  try{if(vectorMap.getLayer(name))vectorMap.setLayoutProperty(name,'visibility',(visible && !(name===TS3D_ELEVATED&&map.zoom>=STATION_LOD.detail3D))?'visible':'none')}catch(e){}
  }
 }
 function syncTransit3DTrains(force=false){
@@ -2941,7 +2998,7 @@ $('populationExport').onclick=()=>{
  for(const c of ds.cells)rows.push(['grid','',ds.year,c.lat,c.lng,c.people.toFixed(2),c.density.toFixed(2),c.area.toFixed(4),'',c.s,c.n,c.w,c.e].join(','));
  for(const q of ds.places||[])rows.push(['place',JSON.stringify(q.name),ds.year,q.lat,q.lng,q.people.toFixed(2),q.density.toFixed(2),q.area.toFixed(4),q.radiusKm,'','','',''].join(','));
  downloadText('WorldPop_2025_'+city+'_population_grid.csv',rows.join('\n'),'text/csv;charset=utf-8')
-};$('trainBtn').onclick=()=>{trainsVisible=!trainsVisible;$('trainBtn').classList.toggle('active',trainsVisible);syncTransit3DTrains(true);updateMap()};$('view2DBtn').onclick=()=>setPerspective(false);$('view3DBtn').onclick=()=>setPerspective(true);$('rotate3DBtn').onclick=()=>{if(!view3D)return;mapBearing=(mapBearing+30)%360;heatCache.perspectiveKey='';boundaryCache.key='';syncVectorMap(true);updateMap()};$('platformBtn').onclick=()=>{platformsVisible=!platformsVisible;$('platformBtn').classList.toggle('active',platformsVisible);updateMap()};$('poiBtn').onclick=()=>{poiVisible=!poiVisible;$('poiBtn').classList.toggle('active',poiVisible);toast(poiVisible?'已顯示機場／渡輪／樞紐標註':'已隱藏樞紐標註');updateMap()};$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('zoomIn').onclick=()=>zoomAt(map.zoom+.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('zoomOut').onclick=()=>zoomAt(map.zoom-.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('recenter').onclick=()=>{map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();updateMap()};$('pauseBtn').onclick=()=>{paused=!paused;updateClock()};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b));toast('模擬速度 '+speed+'×')});$('daybar').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();clock=clamp((e.clientX-r.left)/r.width,0,1)*1439;updateClock();updateMap()};$('statsBtn').onclick=showStats;$('helpBtn').onclick=showHelp;$('closeModal').onclick=()=>$('modalBack').classList.remove('show');$('modalBack').onclick=e=>{if(e.target===$('modalBack'))$('closeModal').click()};$('resetBtn').onclick=()=>{if(!confirm('重新載入此城市的空白規劃畫布？目前的修改將被取代。建議先匯出備份。'))return;snapshot();plan=demo(city);selectedLine=plan.lines[0]?.id||null;selectedStation=null;extensionAnchorId=null;extensionSide='end';commit();setMode('select');toast('已恢復空白規劃畫布')};$('blankBtn').onclick=()=>{if(!confirm('確定建立空白路網？這會取代目前城市的規劃，建議先匯出備份。'))return;snapshot();plan={stops:[],lines:[],trackCurves:{},source:'custom'};selectedLine=null;selectedStation=null;extensionAnchorId=null;extensionSide='end';commit();setMode('select');toast('已建立空白方案')};$('exportBtn').onclick=()=>download('MetroPlanner_'+city+'_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'TransitStudio.Metro',version:3,city,exportedAt:new Date().toISOString(),plan},null,2));$('importInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!CITIES[p.city]||!validate(p.plan))throw Error('格式不正確');if(!(await loadGeo(p.city)))throw Error('請先載入 '+CITIES[p.city].short+' 的 GeoJSON 界線');if(p.plan.stops.some(s=>!inPlayableArea(s.lat,s.lng,p.city)))throw Error('匯入路網含有行政邊界外的車站，請先調整位置');/* Cross-sea tracks may exit administrative polygons; only station positions are constrained. */if(!confirm('匯入將取代「'+CITIES[p.city].short+'」現有路網，確定要繼續？'))return;city=p.city;plan=p.plan;syncBranchRoutes();branchPickParentId=null;history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;extensionAnchorId=null;extensionSide='end';persist();map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();map.tiles.clear();metrics=simulate();renderAll();setMode('select');toast('已成功匯入路網')}catch(ex){alert('無法匯入：'+ex.message)}finally{e.target.value=''}};
+};$('trainBtn').onclick=()=>{trainsVisible=!trainsVisible;$('trainBtn').classList.toggle('active',trainsVisible);syncTransit3DTrains(true);updateMap()};$('view2DBtn').onclick=()=>setPerspective(false);$('view3DBtn').onclick=()=>setPerspective(true);$('rotate3DBtn').onclick=()=>{if(!view3D)return;mapBearing=(mapBearing+30)%360;heatCache.perspectiveKey='';boundaryCache.key='';syncVectorMap(true);updateMap()};$('platformBtn').onclick=()=>{platformsVisible=!platformsVisible;$('platformBtn').classList.toggle('active',platformsVisible);updateMap()};$('poiBtn').onclick=()=>{poiVisible=!poiVisible;$('poiBtn').classList.toggle('active',poiVisible);toast(poiVisible?'已顯示機場／渡輪／樞紐標註':'已隱藏樞紐標註');updateMap()};$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('zoomIn').onclick=()=>zoomAt(map.zoom+.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('zoomOut').onclick=()=>zoomAt(map.zoom-.8,map.canvas.clientWidth/2,map.canvas.clientHeight/2);$('recenter').onclick=()=>{map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();updateMap()};$('pauseBtn').onclick=()=>{paused=!paused;updateClock()};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b));toast('模擬速度 '+speed+'×')});$('daybar').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();clock=clamp((e.clientX-r.left)/r.width,0,1)*1439;updateClock();updateMap()};$('statsBtn').onclick=showStats;$('helpBtn').onclick=showHelp;$('closeModal').onclick=()=>$('modalBack').classList.remove('show');$('modalBack').onclick=e=>{if(e.target===$('modalBack'))$('closeModal').click()};$('resetBtn').onclick=()=>{if(!confirm('重新載入此城市的空白規劃畫布？目前的修改將被取代。建議先匯出備份。'))return;snapshot();plan=demo(city);selectedLine=plan.lines[0]?.id||null;selectedStation=null;extensionAnchorId=null;extensionSide='end';commit();setMode('select');toast('已恢復空白規劃畫布')};$('blankBtn').onclick=()=>{if(!confirm('確定建立空白路網？這會取代目前城市的規劃，建議先匯出備份。'))return;snapshot();plan={stops:[],lines:[],trackCurves:{},source:'custom'};selectedLine=null;selectedStation=null;extensionAnchorId=null;extensionSide='end';commit();setMode('select');toast('已建立空白方案')};$('exportBtn').onclick=()=>download('MetroPlanner_'+city+'_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'TransitStudio.Metro',version:3,city,exportedAt:new Date().toISOString(),plan},null,2));$('importInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!CITIES[p.city]||!validate(p.plan))throw Error('格式不正確');if(!(await loadGeo(p.city)))throw Error('請先載入 '+CITIES[p.city].short+' 的 GeoJSON 界線');if(p.plan.stops.some(s=>!inPlayableArea(s.lat,s.lng,p.city)))throw Error('匯入路網含有行政邊界外的車站，請先調整位置');/* Cross-sea tracks may exit administrative polygons; only station positions are constrained. */if(!confirm('匯入將取代「'+CITIES[p.city].short+'」現有路網，確定要繼續？'))return;city=p.city;plan=p.plan;stationServiceProfileCache.clear();transit3DDirty=true;ts3dLastBuildCenter=null;syncBranchRoutes();branchPickParentId=null;history=[];future=[];selectedLine=plan.lines[0]?.id||null;selectedStation=null;extensionAnchorId=null;extensionSide='end';persist();map.center=CITIES[city].center.slice();map.zoom=CITIES[city].zoom;constrainView();map.tiles.clear();metrics=simulate();renderAll();setMode('select');toast('已成功匯入路網')}catch(ex){alert('無法匯入：'+ex.message)}finally{e.target.value=''}};
 window.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo()}if(e.key==='Escape'){branchPickParentId=null;document.querySelector('.app').classList.remove('branch-mode');$('hint').textContent='選取車站或路線以繼續規劃';$('modalBack').classList.remove('show');selectedStation=null;renderInspector();updateMap()}});window.addEventListener('resize',()=>{constrainView();heatCache.key='';if(vectorMap){try{vectorMap.resize()}catch(e){}syncVectorMap(true)}updateMap()});
 showCity('kl');requestAnimationFrame(renderFrame);loadVectorScript();
 })();
