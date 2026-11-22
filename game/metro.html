@@ -2134,14 +2134,18 @@ function stationRailOffset(l,station){
 }
 function smoothOffset(t){t=clamp(t,0,1);return t*t*(3-2*t)}
 function serviceOffsetAtKm(l,geom,km){
- const stops=l.stops.map(getStop).filter(Boolean);
- const c=geom.stopKm;
- if(!stops.length||!c.length)return 0;
+ const c=geom.stopKm;if(c.length<2)return 0;
  let i=0;while(i<c.length-2&&c[i+1]<km)i++;
- const first=stops[i],last=stops[Math.min(i+1,stops.length-1)];
- if(!first||!last)return 0;
- const f=smoothOffset((km-c[i])/Math.max(.0001,c[i+1]-c[i]));
- return stationRailOffset(l,first)*(1-f)+stationRailOffset(l,last)*f;
+ const a=getStop(l.stops[i]),b=getStop(l.stops[i+1]);if(!a||!b)return 0;
+ const length=Math.max(.00001,c[i+1]-c[i]),from=stationRailOffset(l,a),to=stationRailOffset(l,b);
+ const u=clamp((km-c[i])/length,0,1);
+ // Transition each side offset near its own station. This prevents a single
+ // offset at a distant station from making kilometres of diagonal rails.
+ const transition=Math.min(.23,length*.35);
+ if(length<.08)return from*(1-smoothOffset(u))+to*smoothOffset(u);
+ if(u*length<=transition)return from*(1-smoothOffset(u*length/transition));
+ if((1-u)*length<=transition)return to*(1-smoothOffset((1-u)*length/transition));
+ return 0;
 }
 function serviceRailPoint(l,geom,km){
  const point=routePointGeo(geom,km);if(!point)return null;
@@ -2156,16 +2160,16 @@ function serviceRailTangent(l,geom,km){
  return Math.atan2((end.lat-start.lat)*111320,(end.lng-start.lng)*111320*cy);
 }
 function shiftedSegmentPoints(l,a,b,raw){
- const startOffset=stationRailOffset(l,a),endOffset=stationRailOffset(l,b);
- if(Math.abs(startOffset)<.001&&Math.abs(endOffset)<.001)return raw;
- let total=0;const travelled=[0];
- for(let i=1;i<raw.length;i++){total+=hKm([raw[i-1].lat,raw[i-1].lng],[raw[i].lat,raw[i].lng]);travelled.push(total)}
- return raw.map((point,i)=>{
-  const from=raw[Math.max(0,i-1)],to=raw[Math.min(raw.length-1,i+1)];
+ if(raw.length<2)return raw;
+ const geom=trackLineGeometry(l),i=l.stops.findIndex((id,k)=>k>0&&l.stops[k-1]===a.id&&id===b.id);
+ if(i<1)return raw;
+ let travelled=0;const at=geom.stopKm[i-1]||0;
+ return raw.map((point,k)=>{
+  if(k>0)travelled+=hKm([raw[k-1].lat,raw[k-1].lng],[point.lat,point.lng]);
+  const previous=raw[Math.max(0,k-1)],following=raw[Math.min(raw.length-1,k+1)];
   const cy=Math.max(.15,Math.cos(point.lat*Math.PI/180));
-  const theta=Math.atan2((to.lat-from.lat)*111320,(to.lng-from.lng)*111320*cy);
-  const f=smoothOffset(travelled[i]/Math.max(.000001,total));
-  return pointOffsetAlong(point,theta,0,startOffset+(endOffset-startOffset)*f);
+  const angle=Math.atan2((following.lat-previous.lat)*111320,(following.lng-previous.lng)*111320*cy);
+  return pointOffsetAlong(point,angle,0,serviceOffsetAtKm(l,geom,at+travelled));
  });
 }
 function geometryConnector(start,end){
@@ -2227,12 +2231,39 @@ function stationPlatformSampleKm(geom,index){
  // choosing only the incoming side made platforms snap to a kink.
  return at;
 }
-function station3DCentre(geom,index,cars){
- // An end-of-line station's platforms are shifted inward by half the consist,
- // so a stopped train never protrudes beyond the rails or station platform.
+// A passenger interchange is one logical stop, but different crossing services
+// should not have their *physical* island platforms on top of each other.
+// Place each platform on its OWN actual rail a short way from the interchange.
+// Train dwell centres use the same km, so the train cannot stop beside a roof.
+function station3DCentre(geom,index,cars,service=null){
  const half=(clamp(Number(cars)||4,2,8)*TS3D_TRAIN_PITCH+10)/2000;
  if(geom.total<=2*half)return geom.total/2;
- return clamp(geom.stopKm[index]||0,half,geom.total-half);
+ const at=geom.stopKm[index]||0;
+ let offset=0;
+ if(service){
+  const station=getStop(service.stops[index]);
+  if(station){
+   const profiles=stationServiceProfiles(station);
+   const profile=profiles.find(p=>p.line.id===service.id);
+   const groups=[...new Set(profiles.filter(p=>p.levelName!=='underground').map(p=>p.groupIndex))];
+   if(profile&&profile.levelName!=='underground'&&groups.length>1){
+    const rank=groups.indexOf(profile.groupIndex),side=rank-(groups.length-1)/2;
+    // A grade-separated crossing gets staggered platforms, but not an abrupt
+    // diversion of the rail itself.  Never move the simulated station off its line.
+    const desired=side*0.160;
+    const prev=index>0?Math.max(0,at-geom.stopKm[index-1]):Infinity;
+    const next=index<geom.stopKm.length-1?Math.max(0,geom.stopKm[index+1]-at):Infinity;
+    if(index===0){
+     offset=Math.min(.20,Math.max(.085,Math.abs(desired)+.05),next*.36);
+    }else if(index===geom.stopKm.length-1){
+     offset=-Math.min(.20,Math.max(.085,Math.abs(desired)+.05),prev*.36);
+    }else{
+     offset=clamp(desired,-prev*.36,next*.36);
+    }
+   }
+  }
+ }
+ return clamp(at+offset,half,geom.total-half);
 }
 function transit3DGeoJSON(){
  const polygons=[],stationPolygons=[],tracks=[];
@@ -2367,12 +2398,12 @@ function transit3DGeoJSON(){
    let group=stationGroups.get(st.id);
    if(!group){group={st,modules:[]};stationGroups.set(st.id,group)}
    const cars=clamp(Number(l.cars)||4,2,8);
-   const km=station3DCentre(geom,i,cars);
+   const km=station3DCentre(geom,i,cars,l);
    const railCentre=routePointGeo(geom,km)||st;
    const centre=serviceRailPoint(l,geom,km)||st;
    group.modules.push({...info,st,cars,centre,railCentre,
       deck:railSurfaceAtKm(geom,stops,km,l)??info.deck,
-      angle:stationAxisAngle(l,st),
+      angle:serviceRailTangent(l,geom,km),
       len:cars*TS3D_TRAIN_PITCH+15,underground:stationLevelForLine(l,st)==='underground'});
   }
  }
@@ -2396,7 +2427,7 @@ function transit3DGeoJSON(){
    const {angle,centre,len,deck,line:l}=m;
    // One accessible island platform between the two bidirectional rails.
    // Train centres are at ±3.5 m, so the width stays clear of their bodies.
-   const islandWidth=3.15,roofWidth=2.85,roofLen=len*.68;
+   const islandWidth=3.15,roofWidth=2.65,roofLen=len*.58;
    poly(mapRect(centre,angle,len,islandWidth),'platform-slab',deck,deck+.68,'#e5eced');
    for(const side of [-1,1]){
     const edge=pointOffsetAlong(centre,angle,0,side*(islandWidth/2-.15));
@@ -2436,7 +2467,7 @@ function transit3DGeoJSON(){
   if(!shared||visible.length<2)continue;
   const parallel=visible.every(m=>stationAngleDifference(m.angle,visible[0].angle)<.24)
     && visible.every(m=>Math.abs(m.deck-visible[0].deck)<2.0);
-  if(parallel){
+  if(parallel && visible.length<=2){
    // A compact overhead transfer at ONE uncovered platform end. The gallery
    // passes ABOVE both train roofs and station canopies, never across the
    // middle of the station at train height.
@@ -2487,7 +2518,7 @@ function transit3DTrainsGeoJSON(){
   const count=Math.min(32,serviceTrainCount(l));
   const maxVis=Math.min(count,Math.max(1,Math.floor(geom.total/Math.max(.20,cars*.02))));
   const states=trainStatesForLine(l);
-  const centres=stops.map((_,i)=>station3DCentre(geom,i,cars));
+  const centres=stops.map((_,i)=>station3DCentre(geom,i,cars,l));
   const travel=geom.total,halfTrain=cars*TS3D_TRAIN_PITCH/2000;
   for(let k=0;k<maxVis;k++){
    const ix=Math.floor(k*count/maxVis),state=states[ix];if(!state)continue;
