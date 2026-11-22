@@ -306,6 +306,15 @@ body{background:linear-gradient(180deg,#eef3f2 0%,#e8eeee 100%)}
 @media(max-width:800px){.route-color-editor{grid-template-columns:44px minmax(0,1fr)}.route-color-picker{width:44px}}
 
 .mapwrap.is-3d .transit-level-legend{display:flex}.transit-level-legend{position:absolute;bottom:85px;right:16px;z-index:5;display:none;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 12px;border:1px solid rgba(218,229,232,.8);background:rgba(255,255,255,.92);border-radius:12px;box-shadow:0 9px 28px rgba(25,45,50,.11);font-size:10px;color:#47616d;pointer-events:none}.transit-level-legend span{display:flex;align-items:center;gap:5px}.transit-level-legend i{width:11px;height:7px;border-radius:2px;display:inline-block}.transit-level-legend .el i{background:#75b9cc}.transit-level-legend .gr i{background:#8eaa9f}.transit-level-legend .un i{background:#5e789a}@media(max-width:750px){.transit-level-legend{right:8px;bottom:105px;max-width:185px;font-size:9px}}
+
+/* v34: independent per-line rail levels in the same interchange */
+.line-level-section{margin:12px 0 11px;padding:10px;border:1px solid #dce8e7;border-radius:11px;background:#f5f9f8}
+.line-level-heading{display:flex;align-items:baseline;justify-content:space-between;gap:5px;margin-bottom:8px;flex-wrap:wrap}
+.line-level-heading strong{font-size:11px;color:#244d50}.line-level-heading small{font-size:9px;color:#6d8990}
+.line-level-row{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:7px 0;border-top:1px solid #e1ebea}
+.line-level-name{display:flex;align-items:center;gap:7px;min-width:0;font-size:11px;color:#28464c;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.line-level-name i{display:inline-block;flex-shrink:0;width:4px;height:19px;border-radius:3px}
+.line-level-row .line-level-select{flex:0 0 105px;width:105px;min-width:100px;padding:7px 9px;font-size:11px}
 </style>
 </head>
 <body>
@@ -1288,7 +1297,7 @@ const storeKey=c=>'transit_studio_metro_v3_'+c;
 function emptyPlan(){return {stops:[],lines:[],trackCurves:{},source:'blank'}}
 function demo(c){return emptyPlan()}
 function getSaved(c){try{const v=JSON.parse(localStorage.getItem(storeKey(c))||'null');if(v&&validate(v))return v}catch(e){}return demo(c)}
-function validate(p){return p&&Array.isArray(p.stops)&&Array.isArray(p.lines)&&p.stops.length<550&&p.lines.length<90&&p.stops.every(s=>typeof s.id==='string'&&typeof s.name==='string'&&isFinite(s.lat)&&isFinite(s.lng))&&p.lines.every(l=>typeof l.id==='string'&&Array.isArray(l.stops)&&l.stops.length<200&&(!l.branchTail||Array.isArray(l.branchTail)))&&(!p.trackCurves||typeof p.trackCurves==='object'&&!Array.isArray(p.trackCurves)&&Object.keys(p.trackCurves).length<700&&Object.values(p.trackCurves).every(c=>(Array.isArray(c)?c.length>0&&c.length<=14&&c.every(p=>p&&isFinite(p.lat)&&isFinite(p.lng)&&Math.abs(p.lat)<85&&Math.abs(p.lng)<=180):c&&isFinite(c.lat)&&isFinite(c.lng)&&Math.abs(c.lat)<85&&Math.abs(c.lng)<=180)))}
+function validate(p){return p&&Array.isArray(p.stops)&&Array.isArray(p.lines)&&p.stops.length<550&&p.lines.length<90&&p.stops.every(s=>typeof s.id==='string'&&typeof s.name==='string'&&isFinite(s.lat)&&isFinite(s.lng)&&(!s.lineLevels||(typeof s.lineLevels==='object'&&!Array.isArray(s.lineLevels)&&Object.keys(s.lineLevels).length<=90&&Object.values(s.lineLevels).every(v=>['ground','elevated','underground'].includes(v)))))&&p.lines.every(l=>typeof l.id==='string'&&Array.isArray(l.stops)&&l.stops.length<200&&(!l.branchTail||Array.isArray(l.branchTail)))&&(!p.trackCurves||typeof p.trackCurves==='object'&&!Array.isArray(p.trackCurves)&&Object.keys(p.trackCurves).length<700&&Object.values(p.trackCurves).every(c=>(Array.isArray(c)?c.length>0&&c.length<=14&&c.every(p=>p&&isFinite(p.lat)&&isFinite(p.lng)&&Math.abs(p.lat)<85&&Math.abs(p.lng)<=180):c&&isFinite(c.lat)&&isFinite(c.lng)&&Math.abs(c.lat)<85&&Math.abs(c.lng)<=180)))}
 // Branches are independent train services sharing their parent's trunk before a junction.
 // Only the exclusive tail is edited on a branch. The shared prefix is rebuilt after any main-line edit.
 function syncBranchRoutes(){
@@ -1691,7 +1700,12 @@ if(l.branchParentId){
  $('branchChildren').querySelectorAll('[data-child]').forEach(b=>b.onclick=()=>{selectedLine=b.dataset.child;extensionAnchorId=null;extensionSide='end';renderSidebar();updateMap()});
 }
 $('deleteLine').onclick=()=>{if(!confirm('確定刪除「'+l.name+'」及其路線？共用車站仍會保留在其他路線。'))return;snapshot();for(const child of plan.lines.filter(x=>x.branchParentId===l.id)){delete child.branchParentId;delete child.branchOriginId;delete child.branchTail;}plan.lines=plan.lines.filter(x=>x.id!==l.id);selectedLine=plan.lines[0]?.id||null;plan.source='custom';commit()};}
-function renderInspector(){const el=$('inspector'),s=getStop(selectedStation);if(!s){el.classList.add('hidden');return}const lnames=plan.lines.filter(l=>l.stops.includes(s.id));el.classList.remove('hidden');el.innerHTML=`<div class="inspect-head"><strong>車站管理</strong><button id="closeInspect">✕</button></div><div class="inspect-sub">${lnames.length>1?'● 轉乘車站':'● 一般車站'} · 分線獨立月臺 ${lnames.length>1?lnames.length:2} 座 · ${num(s.lat,4)}°, ${num(s.lng,4)}°</div><label class="fieldlabel" for="stationName" style="margin-top:0">車站名稱</label><input id="stationName" class="field" maxlength="45" value="${escapeHTML(s.name)}"><div class="auto-name-hint">來源：${escapeHTML(s.nameOrigin||'現有站名')} · 可自行修改</div>${(STATION_CHOICES.get(s.id)||[]).length?'<div class="name-choices"><small>附近其他名稱（點擊使用）</small>'+STATION_CHOICES.get(s.id).slice(0,4).map((x,i)=>`<button type="button" class="name-choice" data-name-index="${i}"><b>${escapeHTML(x.base)}</b><span>${escapeHTML(x.source)}</span></button>`).join('')+'</div>':''}<button class="btn tiny auto-name-btn" id="refreshStationName" title="優先查詢醫院、景點、機場、公共設施與道路；排除商店和餐廳">⌖ 搜尋附近公共設施／道路</button><label class="fieldlabel" for="stationLevel">車站與軌道層級（3D 結構）</label><select class="field" id="stationLevel"><option value="ground" ${(!s.level||s.level==='ground')?'selected':''}>地面</option><option value="elevated" ${s.level==='elevated'?'selected':''}>高架</option><option value="underground" ${s.level==='underground'?'selected':''}>地下</option></select><div class="inspect-kpis"><div><span>日估計進出站</span><b>${num(metrics.stationRides[s.id]||0)}</b></div><div><span>途經路線</span><b>${lnames.length} 條</b></div></div><div style="font-size:10px;color:#7e939d;line-height:1.7">${lnames.map(l=>`<span style="color:${l.color};font-weight:800">●</span> ${escapeHTML(l.name)}`).join('　')||'尚無路線'}</div>${stationSpacingInfo(s)}<button class="btn primary inspect-extend" type="button" id="extendFromThisStation">↗ 從本站延伸軌道</button><div class="station-service" id="stationService" aria-live="off"></div><div class="inspect-actions"><button class="btn primary" id="saveStation">儲存站名</button><button class="btn warn" id="delStation">移除車站</button></div><p class="edit-note">轉乘站各線保有獨立月臺；同方向左右並列，交叉方向在 3D 模式自動錯層並以轉乘通道連接。選擇「移動車站」後直接拖曳地圖上的站點。</p>`;$('extendFromThisStation').onclick=()=>startExtensionFromStation(s.id);$('closeInspect').onclick=()=>{selectedStation=null;renderInspector();updateMap()};$('stationLevel').onchange=e=>{snapshot();s.level=e.target.value;plan.source='custom';commit();toast('已更新站體與軌道結構；切換 3D 查看')};$('saveStation').onclick=()=>{let v=$('stationName').value.trim();if(!v)return toast('車站名稱不能為空');snapshot();s.name=v;s.autoName=false;s.autoRank=100;s.nameOrigin='自行命名';plan.source='custom';commit();toast('已更新站名')};$('refreshStationName').onclick=()=>{snapshot();s.autoName=true;s.autoRank=-1;updateAutoName(s.id,true);toast('正在搜尋醫院、景點、機場、道路與附近地名…');reverseStationName(s.id,true).then(list=>toast(list.length?'附近地名查詢完成，可點選候選站名':'尚無更精細地名，請自行命名'))};el.querySelectorAll('[data-name-index]').forEach(b=>b.onclick=()=>{const chosen=(STATION_CHOICES.get(s.id)||[])[Number(b.dataset.nameIndex)];if(!chosen)return;snapshot();s.name=namedStation(chosen.base,s.id);s.autoName=false;s.autoRank=120;s.nameOrigin='自行選擇 · '+chosen.source;plan.source='custom';commit();toast('已採用附近地名')});$('stationName').onkeydown=e=>{if(e.key==='Enter')$('saveStation').click()};$('delStation').onclick=()=>{if(!confirm('確定刪除「'+s.name+'」？所有經過此站的路線都會移除這個停靠站。'))return;snapshot();for(const l of plan.lines){l.stops=l.stops.filter(id=>id!==s.id);if(l.branchTail)l.branchTail=l.branchTail.filter(id=>id!==s.id)}selectedStation=null;plan.source='custom';commit();toast('已移除車站')};}
+function renderInspector(){const el=$('inspector'),s=getStop(selectedStation);if(!s){el.classList.add('hidden');return}const lnames=plan.lines.filter(l=>l.stops.includes(s.id));el.classList.remove('hidden');el.innerHTML=`<div class="inspect-head"><strong>車站管理</strong><button id="closeInspect">✕</button></div><div class="inspect-sub">${lnames.length>1?'● 轉乘車站':'● 一般車站'} · 分線獨立月臺 ${lnames.length>1?lnames.length:2} 座 · ${num(s.lat,4)}°, ${num(s.lng,4)}°</div><label class="fieldlabel" for="stationName" style="margin-top:0">車站名稱</label><input id="stationName" class="field" maxlength="45" value="${escapeHTML(s.name)}"><div class="auto-name-hint">來源：${escapeHTML(s.nameOrigin||'現有站名')} · 可自行修改</div>${(STATION_CHOICES.get(s.id)||[]).length?'<div class="name-choices"><small>附近其他名稱（點擊使用）</small>'+STATION_CHOICES.get(s.id).slice(0,4).map((x,i)=>`<button type="button" class="name-choice" data-name-index="${i}"><b>${escapeHTML(x.base)}</b><span>${escapeHTML(x.source)}</span></button>`).join('')+'</div>':''}<button class="btn tiny auto-name-btn" id="refreshStationName" title="優先查詢醫院、景點、機場、公共設施與道路；排除商店和餐廳">⌖ 搜尋附近公共設施／道路</button><div class="line-level-section"><div class="line-level-heading"><strong>各路線的車站形式</strong><small>${lnames.length>1?'轉乘站各線可選不同層級':'可獨立設定本線月臺與軌道'}</small></div>${lnames.map(l=>`<div class="line-level-row"><span class="line-level-name"><i style="background:${l.color}"></i>${escapeHTML(l.name)}</span><select class="field line-level-select" data-station-line-level="${escapeHTML(l.id)}" aria-label="${escapeHTML(l.name)} 的站臺層級">${RAIL_LEVELS.map(v=>`<option value="${v}" ${stationLevelForLine(l,s)===v?'selected':''}>${RAIL_LEVEL_TEXT[v]}</option>`).join('')}</select></div>`).join('')}</div><div class="inspect-kpis"><div><span>日估計進出站</span><b>${num(metrics.stationRides[s.id]||0)}</b></div><div><span>途經路線</span><b>${lnames.length} 條</b></div></div><div style="font-size:10px;color:#7e939d;line-height:1.7">${lnames.map(l=>`<span style="color:${l.color};font-weight:800">●</span> ${escapeHTML(l.name)}`).join('　')||'尚無路線'}</div>${stationSpacingInfo(s)}<button class="btn primary inspect-extend" type="button" id="extendFromThisStation">↗ 從本站延伸軌道</button><div class="station-service" id="stationService" aria-live="off"></div><div class="inspect-actions"><button class="btn primary" id="saveStation">儲存站名</button><button class="btn warn" id="delStation">移除車站</button></div><p class="edit-note">同一轉乘站可讓不同路線分別設為地面／高架／地下。系統仍會為地面上互相交叉的軌道預留最低淨空；地下線在地表 3D 視角只顯示入口及隧道提示。</p>`;$('extendFromThisStation').onclick=()=>startExtensionFromStation(s.id);$('closeInspect').onclick=()=>{selectedStation=null;renderInspector();updateMap()};el.querySelectorAll('[data-station-line-level]').forEach(select=>select.onchange=e=>{
+ const l=getLine(select.dataset.stationLineLevel);
+ if(!l||!RAIL_LEVELS.includes(e.target.value))return;
+ snapshot();setStationLineLevel(s,l,e.target.value);plan.source='custom';commit();
+ toast(l.name+' · '+RAIL_LEVEL_TEXT[e.target.value]+' 車站，軌道／列車高度已同步更新');
+});$('saveStation').onclick=()=>{let v=$('stationName').value.trim();if(!v)return toast('車站名稱不能為空');snapshot();s.name=v;s.autoName=false;s.autoRank=100;s.nameOrigin='自行命名';plan.source='custom';commit();toast('已更新站名')};$('refreshStationName').onclick=()=>{snapshot();s.autoName=true;s.autoRank=-1;updateAutoName(s.id,true);toast('正在搜尋醫院、景點、機場、道路與附近地名…');reverseStationName(s.id,true).then(list=>toast(list.length?'附近地名查詢完成，可點選候選站名':'尚無更精細地名，請自行命名'))};el.querySelectorAll('[data-name-index]').forEach(b=>b.onclick=()=>{const chosen=(STATION_CHOICES.get(s.id)||[])[Number(b.dataset.nameIndex)];if(!chosen)return;snapshot();s.name=namedStation(chosen.base,s.id);s.autoName=false;s.autoRank=120;s.nameOrigin='自行選擇 · '+chosen.source;plan.source='custom';commit();toast('已採用附近地名')});$('stationName').onkeydown=e=>{if(e.key==='Enter')$('saveStation').click()};$('delStation').onclick=()=>{if(!confirm('確定刪除「'+s.name+'」？所有經過此站的路線都會移除這個停靠站。'))return;snapshot();for(const l of plan.lines){l.stops=l.stops.filter(id=>id!==s.id);if(l.branchTail)l.branchTail=l.branchTail.filter(id=>id!==s.id)}selectedStation=null;plan.source='custom';commit();toast('已移除車站')};}
 function renderAll(){renderUsagePanel();renderBoundaryAudit();$('heatBtn').classList.toggle('active',heat);$('trainBtn').classList.toggle('active',trainsVisible);$('platformBtn').classList.toggle('active',platformsVisible);const poiEl=$('poiBtn');if(poiEl)poiEl.classList.toggle('active',poiVisible);renderSidebar();renderDemandPanel();renderInspector();renderStationService();updateClock();updateMap()}
 function toast(msg){const e=$('toast');e.textContent=msg;e.classList.add('show');clearTimeout(toastHandle);toastHandle=setTimeout(()=>e.classList.remove('show'),2300)}
 function setMode(m){branchPickParentId=null;document.querySelector('.app').classList.remove('branch-mode');if((['draw','move','insert','curve'].includes(m))&&!GEO_READY[city]){toast('先載入行政邊界 GeoJSON');return;}mode=m;updateDemandTooltip(null,true);$('modeCurve').classList.toggle('active',m==='curve');document.querySelector('.mapwrap').classList.toggle('curve-editing',m==='curve');$('curveEditor').hidden=m!=='curve'||!selectedCurve;['select','draw','move'].forEach(x=>$('mode'+x[0].toUpperCase()+x.slice(1)).classList.toggle('active',x==='draw'&&m==='insert'||m===x));$('toggleDrawBtn').textContent=m==='draw'||m==='insert'?'✓ 完成編輯':'✎ 編輯路線';$('map').classList.toggle('editing',m!=='select');$('hint').textContent=m==='curve'?'調整彎道：可從站前／站後軌道直接拖曳改變彎度（已擴大可抓取範圍）；Shift 點藍點可刪除':m==='insert'?'插站模式：點擊任一軌道路段，在兩站之間新增車站':m==='draw'?'點擊地圖建站 · 點軌道插入中途站 · 也可建立支線；站距會自動提醒':m==='move'?'拖曳車站移動位置，路線將同步更新':'選擇路線，或點擊地圖中的車站查看資料'}
@@ -1886,7 +1900,23 @@ let ts3dLastBuildCenter=null,ts3dLastBuildZoom=0;
 function ts3dDetailRadius(){return clamp(6*Math.pow(2,14.5-map.zoom),1.6,TS3D_MAX_DETAIL_RADIUS_KM)}
 function ts3dVisible(p,r=ts3dDetailRadius()){return hKm([p.lat,p.lng],map.center)<r}
 const ts3dEmpty=()=>({type:'FeatureCollection',features:[]});
-function stationRailLevel(s){return ['ground','elevated','underground'].includes(s?.level)?s.level:'ground'}
+const RAIL_LEVELS=['ground','elevated','underground'];
+const RAIL_LEVEL_TEXT={ground:'地面',elevated:'高架',underground:'地下'};
+function stationRailLevel(s){return RAIL_LEVELS.includes(s?.level)?s.level:'ground'}
+// A transfer has one logical passenger station, but every service owns a
+// separate rail/platform level. Legacy saves use station.level as the default.
+function stationLevelForLine(line,station){
+ const id=typeof line==='string'?line:line?.id;
+ const specific=id&&station?.lineLevels&&station.lineLevels[id];
+ return RAIL_LEVELS.includes(specific)?specific:stationRailLevel(station);
+}
+function setStationLineLevel(station,line,level){
+ if(!station||!line||!RAIL_LEVELS.includes(level))return false;
+ station.lineLevels ||= {};
+ station.lineLevels[line.id]=level;
+ return true;
+}
+
 function railHeight(level){return level==='elevated'?TS3D_DECK_ELEVATED:level==='ground'?TS3D_DECK_GROUND:0}
 function offsetGeo(p,east,north){const cy=Math.max(.15,Math.cos(p.lat*Math.PI/180));return [p.lng+east/(111320*cy),p.lat+north/111320]}
 function mapRect(p,rad,len,width,offset=0){
@@ -1959,35 +1989,53 @@ function stationAngleDifference(a,b){
 function stationServiceProfiles(station){
  if(stationServiceProfileCache.has(station.id))return stationServiceProfileCache.get(station.id);
  const lines=plan?.lines?.filter(l=>l.stops.includes(station.id)&&l.stops.length>1)||[];
- const base=railHeight(stationRailLevel(station));
  const groups=[],profiles=[];
- // Preserve route order: users should see a stable station layout on reload.
+ // Angles select parallel bays; the requested level belongs to the LINE,
+ // never to the transfer station as a whole.
  for(const l of lines){
-  const angle=stationAxisAngle(l,station);
+  const angle=stationAxisAngle(l,station),levelName=stationLevelForLine(l,station);
   let group=groups.find(g=>stationAngleDifference(g.angle,angle)<.28);
   if(!group){group={angle,items:[],index:groups.length};groups.push(group)}
-  const item={line:l,angle,groupIndex:group.index};
+  const item={line:l,angle,groupIndex:group.index,levelName};
   group.items.push(item);profiles.push(item);
  }
  for(const group of groups){
   const n=group.items.length;
   for(let i=0;i<n;i++){
-   const p=group.items[i];
-   p.groupCount=n;p.slotIndex=i;
-   const physicalOffset=(i-(n-1)/2)*TS3D_PARALLEL_RAIL_GAP;
+   const p=group.items[i];p.groupCount=n;p.slotIndex=i;
+   // Two parallel services at different levels share the geographic stop,
+   // but do not need separate lateral tracks for collision clearance.
+   const sameFloor=group.items.filter(q=>q.levelName===p.levelName);
+   const slot=sameFloor.indexOf(p);
+   const physicalOffset=(slot-(sameFloor.length-1)/2)*TS3D_PARALLEL_RAIL_GAP;
    const directionSign=Math.cos(p.angle-group.angle)>=0?1:-1;
    p.sideOffset=physicalOffset*directionSign;
-   // Keep crossing stations vertically separate with canopy clearance.
-   p.deck=base+group.index*TS3D_CROSS_LEVEL_GAP;
-   p.levelName=stationRailLevel(station);
+   p.deck=railHeight(p.levelName);
   }
+ }
+ // For crossing ABOVE-GROUND lines, preserve explicit ground/elevated order.
+ // If their selected heights still collide, lift only the upper service to
+ // ensure a clearance gap. Never elevate an explicitly underground line.
+ const surfaceGroups=groups.map(g=>({g,base:Math.min(...g.items.filter(p=>p.levelName!=='underground').map(p=>p.deck),Infinity)}))
+    .filter(o=>Number.isFinite(o.base)).sort((a,b)=>a.base-b.base||a.g.index-b.g.index);
+ for(let i=0;i<surfaceGroups.length;i++){
+  const current=surfaceGroups[i];
+  let required=current.base;
+  for(let j=0;j<i;j++){
+   const lower=surfaceGroups[j];
+   if(stationAngleDifference(current.g.angle,lower.g.angle)<.28)continue;
+   const highest=Math.max(...lower.g.items.filter(p=>p.levelName!=='underground').map(p=>p.deck));
+   required=Math.max(required,highest+TS3D_CROSS_LEVEL_GAP);
+  }
+  const lift=Math.max(0,required-current.base);
+  if(lift>.01){for(const p of current.g.items)if(p.levelName!=='underground')p.deck+=lift}
  }
  stationServiceProfileCache.set(station.id,profiles);
  return profiles;
 }
 function baseRailDeckAtStation(l,station){
  const p=stationServiceProfiles(station).find(x=>x.line.id===l.id);
- return p?p.deck:railHeight(stationRailLevel(station));
+ return p?p.deck:railHeight(stationLevelForLine(l,station));
 }
 let automaticCrossingCache=null;
 function invalidateCrossingHeights(){automaticCrossingCache=null;}
@@ -2051,8 +2099,8 @@ function automaticCrossings(){
     const lat=p.lat+(q.lat-p.lat)*intersect.t,lng=p.lng+(q.lng-p.lng)*intersect.t;
     if([...shared].some(id=>{const s=getStop(id);return s&&hKm([lat,lng],[s.lat,s.lng])<.045}))continue;
     const baseA=baseRailSurfaceAtKm(a.l,a.geom,kmA),baseB=baseRailSurfaceAtKm(b.l,b.geom,kmB);
-    if(a.l.stops.some(id=>stationRailLevel(getStop(id))==='underground')&&baseA<.01)continue;
-    if(b.l.stops.some(id=>stationRailLevel(getStop(id))==='underground')&&baseB<.01)continue;
+    if(lineLevelAtDistance(a.l,a.geom,kmA)==='underground')continue;
+    if(lineLevelAtDistance(b.l,b.geom,kmB)==='underground')continue;
     const separation=Math.abs(baseA-baseB);
     if(separation>=16.5)continue;
     const upper=baseA>baseB+.5?a:baseB>baseA+.5?b:(a.l.id<b.l.id?a:b);
@@ -2126,20 +2174,41 @@ function geometryConnector(start,end){
  return {center:{lat:(start.lat+end.lat)/2,lng:(start.lng+end.lng)/2},
    angle:Math.atan2(dy,dx),length:Math.hypot(dx,dy)};
 }
-function railLevelAtKm(geom,stops,km){
- let ix=0;while(ix<geom.stopKm.length-2&&geom.stopKm[ix+1]<km)ix++;
- const a=stops[ix],b=stops[Math.min(ix+1,stops.length-1)];
- const from=stationRailLevel(a),to=stationRailLevel(b);
- if(from==='underground'||to==='underground')return 'underground';
+function lineSegmentLevelInfo(line,geom,km){
+ let ix=0;
+ while(ix<geom.stopKm.length-2&&geom.stopKm[ix+1]<km)ix++;
+ const a=getStop(line.stops[ix]),b=getStop(line.stops[Math.min(ix+1,line.stops.length-1)]);
+ const from=stationLevelForLine(line,a),to=stationLevelForLine(line,b);
+ const t=clamp((km-geom.stopKm[ix])/Math.max(.000001,(geom.stopKm[ix+1]??km)-geom.stopKm[ix]),0,1);
+ return {a,b,from,to,t};
+}
+function lineLevelAtDistance(line,geom,km){
+ const p=lineSegmentLevelInfo(line,geom,km);
+ if(p.from===p.to)return p.from;
+ if(p.from==='underground')return p.t<.34?'underground':p.to;
+ if(p.to==='underground')return p.t>.66?'underground':p.from;
+ return p.t<.5?p.from:p.to;
+}
+function railLevelAtKm(geom,stops,km,service=null){
+ if(service)return lineLevelAtDistance(service,geom,km);
+ let i=0;while(i<geom.stopKm.length-2&&geom.stopKm[i+1]<km)i++;
+ const a=stops[i],b=stops[Math.min(i+1,stops.length-1)],from=stationRailLevel(a),to=stationRailLevel(b);
  return from===to?from:'transition';
 }
 function railSurfaceAtKm(geom,stops,km,service=null){
  let ix=0;while(ix<geom.stopKm.length-2&&geom.stopKm[ix+1]<km)ix++;
- const a=stops[ix],b=stops[Math.min(ix+1,stops.length-1)],from=stationRailLevel(a),to=stationRailLevel(b);
- if(from==='underground'||to==='underground')return null;
- const t=clamp((km-geom.stopKm[ix])/((geom.stopKm[ix+1]-geom.stopKm[ix])||1),0,1);
- const fromDeck=service?baseRailDeckAtStation(service,a):railHeight(from);
- const toDeck=service?baseRailDeckAtStation(service,b):railHeight(to);
+ const a=stops[ix],b=stops[Math.min(ix+1,stops.length-1)];
+ const from=service?stationLevelForLine(service,a):stationRailLevel(a),
+       to=service?stationLevelForLine(service,b):stationRailLevel(b);
+ const t=clamp((km-geom.stopKm[ix])/Math.max(.000001,geom.stopKm[ix+1]-geom.stopKm[ix]),0,1);
+ // The surface only shows open-air track; underground carriages are hidden.
+ // Mixed-level interstations emerge through a simplified tunnel portal.
+ if(from==='underground'&&to==='underground')return null;
+ if(from==='underground'&&t<.34)return null;
+ if(to==='underground'&&t>.66)return null;
+ const fromDeck=service?baseRailDeckAtStation(service,a):railHeight(from),
+       toDeck=service?baseRailDeckAtStation(service,b):railHeight(to);
+ // A tunnel/ramp changes elevation gradually instead of a sudden switch.
  const base=fromDeck+(toDeck-fromDeck)*t;
  return base+(service?automaticCrossingBonus(service,km):0);
 }
@@ -2189,7 +2258,7 @@ function transit3DGeoJSON(){
    // Subdivide long STRAIGHT sections: supports, sleepers and guardrails must not disappear between stations.
    const pts=[raw[0]];for(let k=1;k<raw.length;k++){const p0=raw[k-1],p1=raw[k],d=hKm([p0.lat,p0.lng],[p1.lat,p1.lng]);const n=Math.max(1,Math.min(300,Math.ceil(d/.014)));for(let j=1;j<=n;j++){const t=j/n;pts.push({lat:p0.lat+(p1.lat-p0.lat)*t,lng:p0.lng+(p1.lng-p0.lng)*t})}}
    if(!pts.some(p=>ts3dVisible(p,ts3dDetailRadius()+.15)))continue;
-   const l1=stationRailLevel(a),l2=stationRailLevel(b),geom=trackLineGeometry(l),
+   const l1=stationLevelForLine(l,a),l2=stationLevelForLine(l,b),geom=trackLineGeometry(l),
     segStartKm=geom.stopKm[j-1]||0,segEndKm=geom.stopKm[j]||segStartKm,
     startDeck=railSurfaceAtKm(geom,stops,segStartKm,l)??railDeckAtStation(l,a),
     endDeck=railSurfaceAtKm(geom,stops,segEndKm,l)??railDeckAtStation(l,b);
@@ -2226,7 +2295,7 @@ function transit3DGeoJSON(){
     ['parapet',.28,-8.45,.04,1.0,'#a1b3ba'],
     ['parapet',.28,8.45,.04,1.0,'#a1b3ba']
    ];
-   if(underground){line(pts,'underground',l.color);continue}
+   if(underground){line(pts,'underground',l.color);if(l1==='underground'&&l2==='underground')continue}
    const quads=strips.map(s=>railStripQuads(pts,s[1],s[2]));
    const straightAngle=(p,q)=>Math.atan2((q.lat-p.lat)*111320,(q.lng-p.lng)*111320*Math.cos((p.lat+q.lat)*Math.PI/360));
    const maxGradeChunk=hasCrossing?.013:(steep?Math.min(.020,.27*Math.max(.001,km.at(-1)||length)/Math.max(1,Math.abs(endDeck-startDeck))):.07);
@@ -2247,7 +2316,9 @@ function transit3DGeoJSON(){
     if(!visibleAt(mid))continue;
     const t=((km[startIndex]||0)+(km[end]||0))/(2*(km.at(-1)||.001));
     const globalKm=segStartKm+(segEndKm-segStartKm)*t;
-    const deck=Math.max(.5,railSurfaceAtKm(geom,stops,globalKm,l)??(startDeck+(endDeck-startDeck)*t));
+    const surface=railSurfaceAtKm(geom,stops,globalKm,l);
+    if(surface===null)continue; // no above-ground bridge inside a tunnel
+    const deck=Math.max(.5,surface);
     for(let k=0;k<strips.length;k++){
      const s=strips[k],segments=quads[k];
      const ring=[segments[startIndex][0]];
@@ -2302,7 +2373,7 @@ function transit3DGeoJSON(){
    group.modules.push({...info,st,cars,centre,railCentre,
       deck:railSurfaceAtKm(geom,stops,km,l)??info.deck,
       angle:stationAxisAngle(l,st),
-      len:cars*TS3D_TRAIN_PITCH+15,underground:stationRailLevel(st)==='underground'});
+      len:cars*TS3D_TRAIN_PITCH+15,underground:stationLevelForLine(l,st)==='underground'});
   }
  }
  // Every service gets exactly ONE island-platform assembly between its
@@ -2772,16 +2843,17 @@ function drawStationPlatforms(ctx,W,H){
    const ahead=sampleRailPx(rail,Math.min(rail.total,stationDist+Math.min(14,rail.total*.02)));
    const behind=sampleRailPx(rail,Math.max(0,stationDist-Math.min(14,rail.total*.02)));
    const angle=Math.atan2(ahead.y-behind.y,ahead.x-behind.x)||sampleRailPx(rail,stationDist).angle;
+   const serviceLevel=stationLevelForLine(l,station);
    const key=((angle%Math.PI)+Math.PI)%Math.PI,angles=already.get(station.id)||[];
-   if(angles.some(t=>Math.abs(Math.atan2(Math.sin(2*(t-key)),Math.cos(2*(t-key))))<.33))continue;
-   angles.push(key);already.set(station.id,angles);
+   if(angles.some(t=>t.level===serviceLevel&&Math.abs(Math.atan2(Math.sin(2*(t.angle-key)),Math.cos(2*(t.angle-key))))<.33))continue;
+   angles.push({angle:key,level:serviceLevel});already.set(station.id,angles);
    const state=states.find(v=>v.dwell&&v.stationId===station.id);
    ctx.save();ctx.translate(marker.x,marker.y);ctx.rotate(angle);
-   ctx.globalAlpha=station.level==='underground'?.66:1;
+   ctx.globalAlpha=serviceLevel==='underground'?.66:1;
    for(const sign of [-1,1]){
     const y=sign*gap;
     // Side platforms are muted grey slabs with a slim tactile edge, not two trains.
-    ctx.fillStyle=station.level==='elevated'?'#dce9ee':station.level==='underground'?'#dce0e9':'#e6ecea';
+    ctx.fillStyle=serviceLevel==='elevated'?'#dce9ee':serviceLevel==='underground'?'#dce0e9':'#e6ecea';
     ctx.strokeStyle='rgba(69,90,97,.75)';ctx.lineWidth=1.05;
     ctx.beginPath();ctx.roundRect(-len/2,y-4.2,len,8.4,2.1);ctx.fill();ctx.stroke();
     ctx.strokeStyle='#f2b957';ctx.lineWidth=1.4;ctx.beginPath();
@@ -2794,9 +2866,9 @@ function drawStationPlatforms(ctx,W,H){
     if(map.zoom>=STATION_LOD.people)drawPassengerFlowOnPlatform(ctx,station,state,len,y,sign);
    }
    // An understated visible level sign remains the same pixel size at all zoom levels.
-   if(map.zoom>=15&&station.level&&station.level!=='ground'){
-    ctx.font='800 9px sans-serif';ctx.fillStyle=station.level==='elevated'?'#17699c':'#5865a3';
-    ctx.fillText(station.level==='elevated'?'高架':'地下',-len/2,-17);
+   if(map.zoom>=15&&serviceLevel!=='ground'){
+    ctx.font='800 9px sans-serif';ctx.fillStyle=serviceLevel==='elevated'?'#17699c':'#5865a3';
+    ctx.fillText(serviceLevel==='elevated'?'高架':'地下',-len/2,-17);
    }
    ctx.restore();
   }
