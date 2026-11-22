@@ -2076,7 +2076,18 @@ const AIRPORTS = [
  {icao:"YPAD",name:"阿得雷德機場",city:"Adelaide",country:"Australia",lat:-34.9450,lon:138.5306,runways:[50,230],group:8,wind:230},
  {icao:"NZAA",name:"奧克蘭國際機場",city:"Auckland",country:"New Zealand",lat:-37.0082,lon:174.7850,runways:[50,230],group:8,wind:240},
  {icao:"NZWN",name:"威靈頓國際機場",city:"Wellington",country:"New Zealand",lat:-41.3272,lon:174.8053,runways:[160,340],group:8,wind:220},
- {icao:"NFFN",name:"楠迪國際機場",city:"Nadi",country:"Fiji",lat:-17.7554,lon:177.4434,runways:[20,200],group:8,wind:110}
+ {icao:"NFFN",name:"楠迪國際機場",city:"Nadi",country:"Fiji",lat:-17.7554,lon:177.4434,runways:[20,200],group:8,wind:110},
+ // V71 · Additional real coastal/island aerodromes (simulated approach fixes and sector).
+ {icao:'WMKE',name:'吉利地機場',city:'Kerteh',country:'Malaysia',lat:4.537220,lon:103.427002,runways:[163,343],group:0,wind:160,coastal:true,shortRunway:true},
+ {icao:'WMPR',name:'熱浪島機場',city:'Pulau Redang',country:'Malaysia',lat:5.768333,lon:103.005833,runways:[20,200],group:0,wind:55,coastal:true,shortRunway:true},
+ {icao:'WMBT',name:'刁曼島機場',city:'Tioman Island',country:'Malaysia',lat:2.818180,lon:104.160004,runways:[20,200],group:0,wind:65,coastal:true,shortRunway:true},
+ {icao:'WBKD',name:'拿篤機場',city:'Lahad Datu',country:'Malaysia',lat:5.032410,lon:118.323760,runways:[116,296],group:1,wind:95,coastal:true,shortRunway:true},
+ {icao:'VTSG',name:'喀比國際機場',city:'Krabi',country:'Thailand',lat:8.095591,lon:98.988955,runways:[140,320],group:2,wind:125,coastal:true},
+ {icao:'VTSM',name:'蘇梅島機場',city:'Koh Samui',country:'Thailand',lat:9.547790,lon:100.061996,runways:[170,350],group:2,wind:165,coastal:true},
+ {icao:'VVDN',name:'峴港國際機場',city:'Da Nang',country:'Vietnam',lat:16.043900,lon:108.198997,runways:[170,350],group:2,wind:85,coastal:true},
+ {icao:'VVCR',name:'金蘭國際機場',city:'Cam Ranh',country:'Vietnam',lat:11.998200,lon:109.219002,runways:[20,200],group:2,wind:75,coastal:true},
+ {icao:'RPVM',name:'麥克坦宿霧國際機場',city:'Cebu',country:'Philippines',lat:10.309261,lon:123.979740,runways:[40,220],group:3,wind:85,coastal:true},
+ {icao:'RPLB',name:'蘇比克灣國際機場',city:'Subic Bay',country:'Philippines',lat:14.794833,lon:120.271883,runways:[70,250],group:3,wind:90,coastal:true},
 ];
 const GROUPS=['馬來西亞 · 西馬','馬來西亞 · 東馬','東南亞 · 新加坡 / 汶萊','亞洲其他機場','歐洲 · EUROPE','北美洲 · NORTH AMERICA','南美洲 · SOUTH AMERICA','非洲 · AFRICA','大洋洲 · OCEANIA'];
 const CITIES=[['KUALA LUMPUR',3.139,101.687],['GEORGE TOWN',5.414,100.330],['IPOH',4.597,101.090],['MELAKA',2.189,102.251],['JOHOR BAHRU',1.492,103.742],['SINGAPORE',1.289,103.851],['ALOR SETAR',6.124,100.367],['BANGKOK',13.756,100.501],['KUCHING',1.554,110.359],['KOTA KINABALU',5.981,116.074],['TAOYUAN',25.01,121.31],['JAKARTA',-6.208,106.845]];
@@ -3849,7 +3860,19 @@ const RWY_DATA={
  WADD:[[['09',88],['27',268]]],
  RPLL:[[['06',60],['24',240]],[['13',135],['31',315]]],
  VHHH:[[['07L',74],['25R',254]],[['07C',71],['25C',251]],[['07R',71],['25L',251]]],
- RCKH:[[['09',92],['27',272]]]
+ RCKH:[[['09',92],['27',272]]],
+ // V71 · published coastal airport runway identifiers. Games use simplified heading geometry.
+ WMKE:[[['16',163],['34',343]]],
+ WMPR:[[['02',20],['20',200]]],
+ WMBT:[[['02',20],['20',200]]],
+ WBKD:[[['11',116],['29',296]]],
+ VTSG:[[['14',140],['32',320]]],
+ VTSM:[[['17',170],['35',350]]],
+ VVDN:[[['17L',170],['35R',350]],[['17R',170],['35L',350]]],
+ VVCR:[[['02L',20],['20R',200]],[['02R',20],['20L',200]]],
+ RPVM:[[['04L',40],['22R',220]],[['04R',40],['22L',220]]],
+ RPLB:[[['07',70],['25',250]]],
+
 };
 
 // V51: published physical runway configurations for the 42 international additions.
@@ -12343,7 +12366,7 @@ document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
  // V70 — progressive radar compositing. Heavy multi-vortex reflectivity is
  // now amortized over animation frames; traffic and controls never have to
  // wait for a full 40,000-pixel noise-field render in one JavaScript task.
- let work=null,desiredKey='',desiredSince=0;
+ let work=null,desiredKey='',desiredSince=0,lastWeatherAirport='',lastWeatherMode='',lastWeatherOn=false;
  const worldState={left:0,top:0,scale:1,width:0,height:0};
  const BUDGET_MS=3.3;
  let perf={peakBatchMs:0,batches:0,compositeMs:0,completeAt:0};
@@ -12408,6 +12431,8 @@ document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
    t.calculationMs+=elapsed;
    t.peakBatchMs=Math.max(t.peakBatchMs,elapsed);t.batches++;
    if(index<total)return;
+   // Out-of-date composition can finish after a new airport/camera mode was selected.
+   if(t.key!==desiredKey){work=null;return;}
    // Swap the finished frame atomically: never display half an eyewall.
    joined.width=cols;joined.height=rows;
    jctx.putImageData(t.im,0,0);
@@ -12421,9 +12446,10 @@ document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
  }
  function frame(){
    const w=viewport.w,h=viewport.h;
-   if(!w||!h||!weatherOn)return;
+   if(!w||!h)return;
+   if(!weatherOn){lastWeatherOn=false;return;}
    const active=window.__atcV68TyphoonVisible?.()===false?[]:(window.__atcV35Typhoons?.()||[]);
-   const simStamp=Math.floor(simTime/8),mode=preset||'fair';
+   const simStamp=Math.floor(simTime/12),mode=preset||'fair';
    // Quantize only tiny cyclone movements; preserve meaningful changes in
    // storm position, intensity, weather mode and zoom/pan.
    const key=[Math.round(w),Math.round(h),rangeNM,pan.x.toFixed(1),pan.y.toFixed(1),
@@ -12431,18 +12457,37 @@ document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
      ...active.flatMap(s=>[s.id,Math.round(s.center.x),Math.round(s.center.y),
        Math.round(s.strength*16),Math.round((s.v56RainMoisture||.8)*14)])].join('/');
    const now=performance.now();
+   // V71: never reuse another airport's or weather mode's bitmap.
+   const apt=airport?.icao||'';
+   if(apt!==lastWeatherAirport || mode!==lastWeatherMode || !lastWeatherOn){
+     work=null; cache.key=''; cache.last=-1; desiredKey='';
+     joined.width=0; joined.height=0; worldState.scale=0;
+     lastWeatherAirport=apt; lastWeatherMode=mode;
+   }
+   lastWeatherOn=true;
    if(key!==desiredKey){desiredKey=key;desiredSince=now;}
+   // Discard obsolete tiles after a zoom/pan rather than displaying them once finished.
+   if(work && work.key!==key){
+     const oldTransform=work.transform;
+     const moved=oldTransform.scale!==scale() ||
+       Math.abs(pan.x-(oldTransform.left+work.w/(2*oldTransform.scale)))>4 ||
+       Math.abs(pan.y-(oldTransform.top-work.h/(2*oldTransform.scale)))>4;
+     if(moved || mode!==work.mode || (now-work.startMs)>850)work=null;
+   }
    if(work){advance(work);return;}
    if(key===cache.key)return;
-   // During a map drag, keep the previous weather map geographically aligned
-   // instead of rebuilding and discarding an expensive image at every pointer event.
-   if(joined.width&&now-desiredSince<125)return;
+   // Keep flight/ATC input responsive during 3-typhoon situations.
+   // Weather is still updated repeatedly, but never recomputed every visual frame.
+   if(joined.width && now-desiredSince<120)return;
+   if(joined.width && cache.last>=0 && now-cache.last<440)return;
    work=prepareWork(key,active,mode,now);
    advance(work);
  }
  function draw(c){
    if(!weatherOn)return;
-   frame();
+   try{frame();}catch(err){work=null;cache.key='';
+     if(!window.__atcV71WeatherErrorReported){console.warn('Weather radar fallback:',err);window.__atcV71WeatherErrorReported=true;}
+     return;}
    if(!joined.width||!joined.height||!worldState.scale)return;
    const sc=scale();
    const x=viewport.w/2+(worldState.left-pan.x)*sc;
@@ -12456,7 +12501,7 @@ document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
  // Radar colour and weather readouts now refer to one underlying synoptic+
  // vortex field, including rain and local thunderstorms during multi-TC events.
  // Keep runway/flight/weather input functions from V67 unchanged.
- window.__atcV68UnifiedRain={draw,stats:()=>({...stats}),refresh:()=>{cache.key='';desiredKey='';work=null;},
+ window.__atcV68UnifiedRain={draw,stats:()=>({...stats}),refresh:()=>{cache.key='';cache.last=-1;desiredKey='';work=null;joined.width=0;joined.height=0;worldState.scale=0;},
    sample:(x,y)=>{const c=cyclones.observe({x,y});const r=Number(base.precipitationAt?.(x,y))||0;
      return {ordinaryRainFraction:r,cycloneRainMmH:c.stormRain,
        combinedRainFraction:clamp(Math.max(r,c.echo)+Math.min(r,c.echo)*.14,0,1.4)};}};
@@ -12616,6 +12661,33 @@ document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
 // Lightweight read-only diagnostics for regression testing (no extra render loop).
 window.__atcV70={radar:()=>window.__atcV68UnifiedRain?.stats(),quality:'progressive-3.3ms',
   note:'Weather composites rendered incrementally; aircraft frame remains responsive.'};
+</script>
+
+<script id="v71-coastal-airports-and-stability">
+/* V71: airfield-specific simulated schedules. Do not send wide-body jets into short island strips. */
+(()=>{
+  'use strict';
+  const small=new Set(['WMKE','WMPR','WMBT','WBKD']);
+  const oldCreate=createFlight;
+  createFlight=function(...args){
+    const f=oldCreate(...args);
+    if(f&&small.has(airport?.icao)){
+      f.type='ATR72';f.wake='M';
+      if(f.kind==='arrival'){
+        f.speed=Math.min(f.speed,190);f.targetSpeed=Math.min(f.targetSpeed,175);
+      }else{f.targetSpeed=Math.min(f.targetSpeed,175);}
+    }
+    return f;
+  };
+  // Airport switching is already handled by the original V12 engine; selecting a
+  // newly added airport resets active traffic and the weather bitmap normally.
+  document.title='AIRSPACE — ATC V71 · Coastal Airports & Radar Stability';
+  window.__atcV71={
+    airports:()=>AIRPORTS.filter(a=>a.coastal).map(a=>a.icao),
+    totalAirports:()=>AIRPORTS.length,
+    state:()=>({icao:airport?.icao,flights:flights.length,runways:airport?.v12Pairs?.length,weather:window.__atcV68UnifiedRain?.stats()})
+  };
+})();
 </script>
 </body>
 </html>
