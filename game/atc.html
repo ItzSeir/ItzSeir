@@ -6,7 +6,7 @@
 <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
 <meta content="#eaf0f1" name="theme-color"/>
 <meta content="真實地理比例的 ATC 管制遊戲，分離進場和離場程序、導航點、風向、降雨及備降管理。" name="description"/>
-<title>AIRSPACE — ATC V49 · Global Runways & Scientific Cyclone</title>
+<title>AIRSPACE — ATC V73 · HOLD & Schedule Tolerance</title>
 <style>
 :root{color-scheme:dark;--bg:#07111c;--shell:#0a1724;--panel:#0e1e2d;--panel2:#112335;--muted:#839aaa;--line:#243748;--line2:#1c3242;--text:#ebf4f6;--soft:#b7cbd6;--cyan:#73ddcf;--cyan2:#3cafa4;--green:#87d6ae;--amber:#f2c47d;--red:#f17c84;--blue:#8ab8f8;--radius:15px;--font:'DM Sans','Noto Sans TC',system-ui,-apple-system,sans-serif}
 *{box-sizing:border-box}html{font-family:var(--font);background:var(--bg);scrollbar-color:#304a5e transparent}body{margin:0;color:var(--text);min-width:320px;font-size:13px;letter-spacing:.005em}button,input{font:inherit}button{border:0;cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}svg{display:block}button, .airport-item,.traffic-item{transition:background .16s,border-color .16s,transform .16s,color .16s}button:active{transform:scale(.97)}.ico{width:17px;height:17px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
@@ -9515,14 +9515,14 @@ window.__atcV31={
    const duration=cruiseSeconds(from,to);
    let scheduledDeparture,scheduledArrival;
    if(kind==='DEP'){
-      scheduledDeparture=now+210+Math.random()*190;
-      scheduledArrival=scheduledDeparture+duration;
+      scheduledDeparture=now+330+Math.random()*190;
+      scheduledArrival=scheduledDeparture+duration+6*60;
    }else if(kind==='OVR'){
       scheduledDeparture=now-duration*.55;
-      scheduledArrival=scheduledDeparture+duration;
+      scheduledArrival=scheduledDeparture+duration+6*60;
    }else{
       const remaining=Math.max(12*60,safeNm(f)/Math.max(170,Number(f.speed)||200)*3600+5*60);
-      scheduledArrival=now+remaining;
+      scheduledArrival=now+remaining+7*60;
       scheduledDeparture=scheduledArrival-duration;
    }
    const d={from,to,kind,scheduledDeparture,scheduledArrival,duration,firstSeen:now,actualTakeoff:null,lastMode:f.mode,eta:scheduledArrival,etd:scheduledDeparture};
@@ -9587,13 +9587,13 @@ window.__atcV31={
    setText('v43ArrivalCaption',d.kind==='OVR'?'外站預估抵達 · ETA':q.dest!==d.to?'備降預估抵達 · ETA':'預計抵達 · ETA');
    let status='準時',klass='';
    if(f.v34Emergency||f.v40Critical||f.v37Emergency){status='緊急優先';klass='alert';}
-   else if(q.delay>15){status='延誤 '+q.delay+' 分鐘';klass='late';}
-   else if(q.delay>5){status='稍有延誤 +'+q.delay+' 分鐘';klass='late';}
-   else if(q.delay< -5){status='預計提前 '+absolute(q.delay)+' 分鐘';klass='early';}
-   else if(d.kind==='DEP'&&q.departDelay>5){status='離場延誤 +'+q.departDelay+' 分鐘';klass='late';}
+   else if(q.delay>30){status='延誤 '+q.delay+' 分鐘';klass='late';}
+   else if(q.delay>15){status='稍有延誤 +'+q.delay+' 分鐘';klass='late';}
+   else if(q.delay< -15){status='預計提前 '+absolute(q.delay)+' 分鐘';klass='early';}
+   else if(d.kind==='DEP'&&q.departDelay>15){status='離場延誤 +'+q.departDelay+' 分鐘';klass='late';}
    else if(q.dest!==d.to){status='已改降';klass='early';}
    setText('v43Status',status);$('v43Status').className='v43-status '+klass;
-   setText('v43ScheduleNote', d.kind==='ARR'?'進場 ETA 依目前位置、速度及等待狀態估算；離場時刻為模擬計畫，非實際追蹤。':d.kind==='OVR'?'此航班目的地在管制空域之外；抵達時間為粗略估計。':'離場時間與預估目的地抵達時間會依起飛等待和飛行進度更新。');
+   setText('v43ScheduleNote', d.kind==='ARR'?'航班計畫包含約 7 分鐘緩衝；入港延誤 15 分鐘內仍視為準時。ETA 按位置、速度及等待情況估算。':d.kind==='OVR'?'此航班目的地在管制空域之外；抵達時間為粗略估計。':'模擬離場有約 5 分鐘準備時間；離港及抵達 15 分鐘內的差異仍視為準時。');
  }
  const oldHud=renderHud;
  renderHud=function(...args){const out=oldHud.apply(this,args);refresh();return out;};
@@ -12778,6 +12778,175 @@ window.__atcV70={radar:()=>window.__atcV68UnifiedRain?.stats(),quality:'progress
  // Test diagnostics only; no timers, canvas, or render loops are added.
  window.__atcV72Tracks={state:()=>({...counters}),refreshOptions:()=>readSettings(true)};
  document.title='AIRSPACE — ATC V72 · Restored Flight Tracks';
+})();
+</script>
+<style id="atc-v73-hold-ui">
+.v73-hold-controls{display:flex;flex-direction:column;gap:9px;margin:0 0 13px;padding:12px;background:#eef7f5;border:1px solid #c7e0da;border-radius:14px;color:#274d4d}
+.v73-hold-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.v73-hold-heading b{font-size:12px;color:#224d4b}
+.v73-hold-heading span{font-size:10px;color:#668b86;white-space:nowrap}
+.v73-hold-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.v73-hold-actions button{min-height:39px;border:1px solid #bad4d0;background:#fff;color:#24514e;border-radius:9px;font-weight:800;font-size:11px}
+.v73-hold-actions button:first-child{background:#276e67;color:#fff;border-color:#276e67}
+.v73-hold-actions button:disabled{opacity:.47;cursor:not-allowed}
+.v73-hold-fix{display:flex;align-items:center;gap:8px}
+.v73-hold-fix label{font-size:10px;font-weight:700;color:#5e8480;white-space:nowrap}
+.v73-hold-fix select{min-width:0;flex:1;width:100%;border-radius:9px;border:1px solid #bad4d0;background:#fff;color:#244943;height:36px;padding:0 8px;font-size:11px;font-weight:700}
+.v73-hold-fix button{padding:8px 12px;background:#fff;color:#276d65;border:1px solid #bad4d0;border-radius:9px;font-weight:800;white-space:nowrap;min-height:36px;font-size:11px}
+.v73-hold-description{font-size:10px;color:#6a8886;line-height:1.5}
+.v73-hold-controls[data-active="true"]{background:#eaf4fa;border-color:#a9c8dd}
+.v73-hold-controls[data-active="true"] .v73-hold-heading b{color:#215c7a}
+@media(max-width:620px){.v73-hold-controls{margin:0 0 10px;padding:10px}.v73-hold-actions button{min-height:42px}.v73-hold-fix{gap:6px}.v73-hold-fix label{display:none}}
+</style>
+<script id="atc-v73-hold-and-punctuality">
+/* V73: two explicit HOLD modes with a stateful transfer to the holding orbit.
+   No inherited route-autopilot may retake a pending hold fix. */
+(function(){
+'use strict';
+const groundModes=new Set(['queued','lineup','takeoff-roll','landed','crashed']);
+const liveFlight=()=>typeof selectedFlight==='function'?selectedFlight():null;
+const fixLookup=id=>typeof fixById==='function'?fixById(id):null;
+const findFix=id=>fixLookup(id)||((typeof fixes!=='undefined'&&fixes)||[]).find(x=>x.id===id);
+const usable=f=>{
+ if(!f)return false;
+ if(groundModes.has(f.mode)){notify('地面航班不能建立空中 HOLD，請先完成起飛','warn');return false;}
+ if(f.v40Radio){notify(`${f.callsign} 無線電失聯，無法執行 HOLD`,'warn');return false;}
+ if(f.mode==='approach'&&f.approachPhase===2&&f.altitude<2300){notify('最後進場低空不能直接 HOLD，請先執行復飛','warn');return false;}
+ return true;
+};
+function cancelPriorAuto(f){
+ f.v60ILSStage=null;f.v35ILS=null;f.v19SimpleApproach=false;
+ f.v19SimpleDefault=false;f.v19Override=false;f.v19Vector=false;
+ f.approachPhase=0;f.approachPath=null;f.approachLegIndex=0;
+ f.landingCleared=false;f.legs=[];f.holdFix=null;f.holdPoint=null;
+ f.v63Hold=null;f.v10ManualRoute=null;f.v13Route=null;
+}
+const holdSpeed=f=>f.type==='ATR72'?155:f.altitude>24000?235:f.altitude>14000?215:180;
+function enterHold(f,point,fixId){
+ const at={x:Number(point.x),y:Number(point.y)};
+ f.v73HoldPlan=null;cancelPriorAuto(f);
+ f.mode='hold';f.holdPoint=at;f.v63Hold=null;
+ // Preserve a safe, gradual altitude: do not teleport upward to an arbitrary floor.
+ f.targetAlt=Math.max(2000,Math.round(f.altitude/100)*100);
+ f.targetHeading=f.heading;f.targetSpeed=holdSpeed(f);
+ f.uiVersion=(f.uiVersion||0)+1;
+ const message=fixId?`HOLD AT ${fixId}`:'HOLD PRESENT POSITION';
+ addLog(`${f.callsign} ${fixId?`航點 ${fixId}`:'原地'} HOLD · 維持 ${Math.round(f.targetAlt)} ft`,'good');
+ radioCall(f,`${message}, RIGHT TURNS, MAINTAIN ${Math.round(f.targetAlt)} FT`, `HOLDING, MAINTAIN ${Math.round(f.targetAlt)} FT`);
+ notify(`${f.callsign} · ${fixId?`已在 ${fixId}`:'已在目前位置'}開始右轉 HOLD`);
+ renderInspector();renderHud(true);return true;
+}
+function holdHere(f){if(!usable(f))return false;return enterHold(f,{x:f.x,y:f.y},null);}
+function holdAtFix(f,id){
+ if(!usable(f))return false;
+ const fix=findFix(id);if(!fix||!Number.isFinite(fix.x)||!Number.isFinite(fix.y)){
+  notify('請選擇有效的等待航點','warn');return false;
+ }
+ f.v73PreferredFix=id;
+ const d=Math.hypot(f.x-fix.x,f.y-fix.y);
+ if(d<3.8)return enterHold(f,fix,id);
+ cancelPriorAuto(f);
+ f.v73HoldPlan={fixId:id,x:fix.x,y:fix.y,issued:simTime,startedFrom:{x:f.x,y:f.y}};
+ // VECTOR is intentional. Route mode's end-of-leg handoff used to discard HOLD.
+ f.mode='vector';f.targetHeading=heading(f,fix);
+ f.targetSpeed=holdSpeed(f);f.targetAlt=Math.max(2000,Math.round(f.altitude/100)*100);
+ f.uiVersion=(f.uiVersion||0)+1;
+ addLog(`${f.callsign} DCT ${id} → HOLD，距離 ${Math.round(d)} NM`,'good');
+ radioCall(f,`DIRECT ${id}, HOLD ON ARRIVAL, RIGHT TURNS`, `DIRECT ${id}, HOLD ON ARRIVAL`);
+ notify(`${f.callsign} 前往 ${id}，到達後將自動進入 HOLD`);
+ renderInspector();renderHud(true);return true;
+}
+function exit(f){
+ if(!f)return false;
+ if(f.v73HoldPlan){
+   f.v73HoldPlan=null;f.mode='vector';f.targetHeading=f.heading;
+   f.uiVersion=(f.uiVersion||0)+1;
+   addLog(`${f.callsign} 取消前往 HOLD 航點`,'good');renderInspector();renderHud(true);return true;
+ }
+ if(f.mode!=='hold')return false;
+ f.v73HoldPlan=null;f.mode='vector';f.holdFix=null;f.holdPoint=null;f.v63Hold=null;
+ f.targetHeading=f.heading;f.targetSpeed=Math.max(145,Math.round(f.speed));
+ f.uiVersion=(f.uiVersion||0)+1;addLog(`${f.callsign} 退出 HOLD，維持現有航向`,'good');
+ radioCall(f,'RESUME RADAR VECTORS','RESUMING VECTORS');
+ renderInspector();renderHud(true);return true;
+}
+// Explicitly route the legacy HOLD AT FIX button through the new state machine.
+// Capture-phase interception prevents old DOM handlers from reinstalling route mode.
+document.addEventListener('click',e=>{
+ const b=e.target.closest?.('#v9Hold,#v73HoldAtFix,#v73HoldHere,#v73HoldExit');
+ if(!b)return;
+ e.preventDefault();e.stopImmediatePropagation();
+ const f=liveFlight();if(!f)return;
+ if(b.id==='v73HoldExit'){exit(f);return;}
+ if(b.id==='v73HoldHere'){holdHere(f);return;}
+ const dropdown=document.getElementById('v73HoldFix')||document.getElementById('v9FixSelect');
+ holdAtFix(f,dropdown?.value||f.v73PreferredFix);
+},true);
+// Entering a new manual route cancels any pending travel-to-hold plan.
+const cancelIds=new Set(['v9Direct','v9Via','v9AssignRoute','v9ClearRoute','v9ClrApproach','v9GoAround','v9SendHdg','v9SendAll','v9Takeoff','v9Divert','v9Refuse','applyBtn','directBtn','appendBtn','approachBtn']);
+document.addEventListener('click',e=>{
+ const b=e.target.closest?.('button');if(!b||!cancelIds.has(b.id))return;
+ const f=liveFlight();if(f?.v73HoldPlan)f.v73HoldPlan=null;
+},true);
+const oldHold=holdFlight;
+holdFlight=function(f){return holdHere(f)};
+const oldDirect=directToFix;
+directToFix=function(f,...args){if(f?.v73HoldPlan)f.v73HoldPlan=null;return oldDirect(f,...args)};
+const oldRun=runFlight;
+runFlight=function(f,dt){
+ const plan=f?.v73HoldPlan;
+ if(plan&&dt>0){
+   if(groundModes.has(f.mode)){f.v73HoldPlan=null;}
+   else{
+     const target=findFix(plan.fixId);
+     if(target&&Number.isFinite(target.x)&&Number.isFinite(target.y)){
+       plan.x=target.x;plan.y=target.y;
+     }
+     const dist=Math.hypot(f.x-plan.x,f.y-plan.y);
+     if(dist<3.8){enterHold(f,plan,plan.fixId);}
+     else{
+       // Reassert before executing the simulation chain, including legacy route logic.
+       f.mode='vector';f.legs=[];f.holdFix=null;
+       f.targetHeading=heading(f,plan);f.targetSpeed=holdSpeed(f);
+     }
+   }
+ }
+ const result=oldRun(f,dt);
+ if(f?.v73HoldPlan&&dt>0){
+   const p=f.v73HoldPlan,d=Math.hypot(f.x-p.x,f.y-p.y);
+   if(d<3.8)enterHold(f,p,p.fixId);
+ }
+ return result;
+};
+// Expose two well-labelled controls where the user can act without opening tabs.
+const previousInspector=renderInspector;
+renderInspector=function(...args){
+ const result=previousInspector(...args),f=liveFlight();
+ const host=document.querySelector('.rightpanel .control-wrap');
+ host?.querySelector('#v73HoldControls')?.remove();
+ if(!f||!host)return result;
+ const select=document.getElementById('v9FixSelect');
+ const options=(typeof fixes!=='undefined'?fixes:[]).filter(x=>x?.id&&Number.isFinite(x.x)&&Number.isFinite(x.y));
+ const preferred=f.v73PreferredFix||select?.value||options[0]?.id||'';
+ const html=options.map(pt=>`<option value="${String(pt.id).replaceAll('&','&amp;').replaceAll('"','&quot;')}" ${pt.id===preferred?'selected':''}>${String(pt.id).replaceAll('&','&amp;').replaceAll('<','&lt;')}</option>`).join('');
+ const bar=document.createElement('section');bar.id='v73HoldControls';bar.className='v73-hold-controls';
+ const pending=!!f.v73HoldPlan,holding=f.mode==='hold';bar.dataset.active=String(pending||holding);
+ const stat=pending?`前往 ${f.v73HoldPlan.fixId} · ${Math.round(Math.hypot(f.x-f.v73HoldPlan.x,f.y-f.v73HoldPlan.y))} NM`:
+   holding?'等待盤旋中 · 右轉':'航機位置／指定航點';
+ bar.innerHTML=`<div class="v73-hold-heading"><b>⟳ HOLD · 等待指令</b><span>${stat}</span></div>
+   <div class="v73-hold-actions"><button type="button" id="v73HoldHere" ${groundModes.has(f.mode)?'disabled':''}>原地 HOLD</button><button type="button" id="v73HoldAtFix" ${groundModes.has(f.mode)?'disabled':''}>航點 HOLD</button></div>
+   <div class="v73-hold-fix"><label for="v73HoldFix">等待航點</label><select id="v73HoldFix" aria-label="選擇等待航點">${html}</select>
+   ${(pending||holding)?'<button type="button" id="v73HoldExit">退出 HOLD</button>':''}</div>
+   <div class="v73-hold-description">原地：現在位置建立右轉盤旋 · 航點：直飛後自動等待。離開等待後恢復雷達引導。</div>`;
+ const s=bar.querySelector('select');s?.addEventListener('change',()=>{f.v73PreferredFix=s.value;if(select)select.value=s.value});
+ const oldBtn=document.getElementById('v9Hold');if(oldBtn)oldBtn.textContent='航點 HOLD';
+ const oldHoldButton=document.getElementById('holdBtn');if(oldHoldButton)oldHoldButton.textContent='原地 HOLD';
+ host.insertBefore(bar,host.firstChild);
+ return result;
+};
+document.title='AIRSPACE — ATC V73 · HOLD & Schedule Buffer';
+window.__atcV73={holdHere:call=>holdHere(flights.find(f=>f.callsign===call)||liveFlight()),holdAtFix:(call,fix)=>holdAtFix(flights.find(f=>f.callsign===call)||liveFlight(),fix),exit:call=>exit(flights.find(f=>f.callsign===call)||liveFlight()),state:()=>flights.map(f=>({callsign:f.callsign,mode:f.mode,pending:f.v73HoldPlan?.fixId||null,holdPoint:f.holdPoint}))};
+renderInspector();
 })();
 </script>
 </body>
