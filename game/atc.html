@@ -12689,5 +12689,96 @@ window.__atcV70={radar:()=>window.__atcV68UnifiedRain?.stats(),quality:'progress
   };
 })();
 </script>
+
+<script id="v72-restore-flight-trails">
+/* V72 — Restore the flown track layer after the unified-weather renderer.
+ * V27/V68 replaced drawWeather (rather than calling V22's track wrapper),
+ * so track histories were still recorded but never actually painted.
+ * Render once, after the final radar-weather composite and before targets/tags.
+ * Crucially, the map's weather-on switch must NOT govern the history layer.
+ */
+(()=>{
+ 'use strict';
+ const previousDrawWeatherV72=drawWeather;
+ let settings={showTrails:'all',trailMinutes:12};
+ let lastSettingsRead=0;
+ const counters={tracks:0,segments:0,sourceFlights:0,mode:'all',minutes:12};
+ function readSettings(force=false){
+   const now=performance.now();
+   if(!force && now-lastSettingsRead<440)return;
+   lastSettingsRead=now;
+   const s=window.__atcV22?.state?.();
+   if(s){
+     settings.showTrails=['all','selected','off'].includes(s.showTrails)?s.showTrails:'all';
+     settings.trailMinutes=[6,12,20].includes(s.trailMinutes)?s.trailMinutes:12;
+   }
+ }
+ function drawRecordedTrack(c,f,selected,cutoff){
+   if(!f||['queued','lineup','takeoff-roll','landed','rollout'].includes(f.mode))return;
+   const records=f.v22History;
+   if(!records||records.length<2)return;
+   const first=Number.isFinite(cutoff)?Math.max(0,lowerBound(records,cutoff)-1):0;
+   if(first>=records.length)return;
+   const rgb=f.mode==='divert'?'114,95,156':f.kind==='departure'?'67,92,174':'19,119,111';
+   const view=viewport;
+   const minX=-28,maxX=view.w+28,minY=-28,maxY=view.h+28;
+   // Culling the whole path avoids expensive drawing for far offscreen flights.
+   c.save();c.lineCap='round';c.lineJoin='round';c.setLineDash([]);
+   c.lineWidth=selected?2.75:1.65;
+   c.strokeStyle=`rgba(${rgb},${selected?.93:.62})`;
+   c.beginPath();
+   let prior=null,priorScreen=null,hasInk=false,segments=0;
+   // With a 5-second history sample, under a pixel movement is visually
+   // redundant. Keep the first and latest points even at zoomed-out scales.
+   for(let i=first;i<=records.length;i++){
+     const node=i<records.length?records[i]:f;
+     if(!Number.isFinite(node.x)||!Number.isFinite(node.y))continue;
+     const p=toScreen(node);
+     if(!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;
+     if(prior){
+       const dt=Math.max(.01,(node.t??simTime)-(prior.t??simTime));
+       const jump=Math.hypot(node.x-prior.x,node.y-prior.y);
+       if(node.break||jump>Math.max(2.4,dt*Math.max(f.speed||220,120)/3600*3.8)){
+         c.moveTo(p.x,p.y);prior=node;priorScreen=p;continue;
+       }
+       if(priorScreen && Math.hypot(p.x-priorScreen.x,p.y-priorScreen.y)<.9 && i<records.length)continue;
+       // Only count visible segments, even when the flight extends offscreen.
+       if(priorScreen && (Math.max(priorScreen.x,p.x)<minX||Math.min(priorScreen.x,p.x)>maxX||
+           Math.max(priorScreen.y,p.y)<minY||Math.min(priorScreen.y,p.y)>maxY)){
+         c.moveTo(p.x,p.y);
+       }else{c.lineTo(p.x,p.y);hasInk=true;segments++;}
+     }else c.moveTo(p.x,p.y);
+     prior=node;priorScreen=p;
+   }
+   if(hasInk){c.stroke();counters.tracks++;counters.segments+=segments;}
+   c.restore();
+ }
+ function lowerBound(records,t){
+   let lo=0,hi=records.length;
+   while(lo<hi){const mid=(lo+hi)>>1;if((records[mid]?.t??-Infinity)<t)lo=mid+1;else hi=mid;}
+   return lo;
+ }
+ drawWeather=function(c){
+   // Preserve all existing synoptic, cyclone, forecast, and terrain overlays.
+   const result=previousDrawWeatherV72(c);
+   readSettings();
+   counters.tracks=0;counters.segments=0;counters.sourceFlights=flights.length;
+   counters.mode=settings.showTrails;counters.minutes=settings.trailMinutes;
+   if(settings.showTrails==='off')return result;
+   const selected=flights.find(f=>f.id===selectedId);
+   if(settings.showTrails==='all'){
+     const cutoff=simTime-settings.trailMinutes*60;
+     for(const f of flights)if(!selected||f.id!==selected.id)drawRecordedTrack(c,f,false,cutoff);
+   }
+   // Selected aircraft retains the complete recorded path, irrespective of
+   // the 6 / 12 / 20 minute limit used for ordinary traffic.
+   if(selected)drawRecordedTrack(c,selected,true,-Infinity);
+   return result;
+ };
+ // Test diagnostics only; no timers, canvas, or render loops are added.
+ window.__atcV72Tracks={state:()=>({...counters}),refreshOptions:()=>readSettings(true)};
+ document.title='AIRSPACE — ATC V72 · Restored Flight Tracks';
+})();
+</script>
 </body>
 </html>
