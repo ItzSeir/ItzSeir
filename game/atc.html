@@ -2881,7 +2881,10 @@ const baseCreateFlight=createFlight;
 createFlight=function(kind,angle){const f=baseCreateFlight(kind,angle);
  const [type,wake]=FLEET[Math.floor(rnd(0,FLEET.length))];
  f.type=type;f.wake=wake;f.squawk=String(1000+Math.floor(rnd(0,6767))).padStart(4,'0');
- const remote=AIRPORTS.filter(a=>a!==airport).map(a=>({id:a.icao,dist:len(localXY(a.lat,a.lon),{x:0,y:0})})).sort((a,b)=>a.dist-b.dist).slice(0,16).map(a=>a.id);
+ const candidates=AIRPORTS.filter(a=>a!==airport).map(a=>({id:a.icao,dist:len(localXY(a.lat,a.lon),{x:0,y:0})})).sort((a,b)=>a.dist-b.dist);
+ const maxRoute=type==='ATR72'?850:['A333','A359','B789','B77W'].includes(type)?2800:2000;
+ const regional=candidates.filter(a=>a.dist>105&&a.dist<=maxRoute).slice(0,12);
+ const remote=(regional.length?regional:candidates.slice(0,3)).map(a=>a.id);
  const other=remote[Math.floor(rnd(0,remote.length))];
  f.origin=kind==='arrival'?other:airport.icao;
  f.destination=kind==='arrival'?airport.icao:other;
@@ -3548,6 +3551,18 @@ function v10DefaultArrival(f){
 }
 function v10RebuildPlan(f){
  if(!f)return;
+ // V75: The overflight has an independent sector crossing track.
+ // A runway change must never give it a STAR, local ILS or destination RWY.
+ if(f.v37Transit&&!f.v37Diverting){
+   const start=f.v10Entry||{x:f.x,y:f.y};
+   const bearing=f.v37CruiseHeading??f.v75EntryHeading??f.targetHeading??f.heading;
+   f.v75EntryHeading=bearing;
+   const out=vector(bearing,Math.max(140,entryRadius*2.25));
+   f.v10Plan=[{id:'OVR ENTRY',x:start.x,y:start.y,kind:'start'},
+              {id:'OVR EXIT',x:start.x+out.x,y:start.y+out.y,kind:'exit'}];
+   f.v10PlanMode='過境航線 · 不使用本場跑道';
+   return;
+ }
  const init={id:f.kind==='departure'?'AIRPORT': 'ENTRY',x:f.v10Entry?.x??f.x,y:f.v10Entry?.y??f.y,kind:'start'};
  let nodes=[init];
  if(f.mode==='divert'){
@@ -3693,6 +3708,7 @@ const v10OldSetRunway=setRunway;
 setRunway=function(){
  const was=runwayIndex;v10OldSetRunway();if(was!==runwayIndex){
   for(const f of flights){
+    if(f.v37Transit&&!f.v37Diverting)continue; // V75: passive OVR owns its crossing track
     if(f.kind==='departure'&&f.mode==='queued'){f.assignedRunway=rwyLabel();f.legs=[1,2,3].map(i=>`${f.v10Sid||'DCC'}${i}${rwyLabel()}`)}
     if(f.kind==='arrival'&&!['approach','divert'].includes(f.mode)){const t=transitionById(f.selectedTransition||'CTR');
       if(t&&f.mode==='route'&&f.v10ManualRoute===null)f.legs=[f.inboundGate,...t.ids.slice(0,-1)].filter(Boolean);
@@ -3728,6 +3744,7 @@ function v10ActivateRwy(i){
  while(runwayIndex!==i&&limit-->0){v10OldSetRunway();if(runwayIndex===before)break;}
  if(runwayIndex!==i){notify('跑道有進場／起飛限制，無法切換','warn');return false;}
  for(const f of flights){
+  if(f.v37Transit&&!f.v37Diverting)continue; // V75: active runway must not redirect a transit flight
   if(f.kind==='departure'&&f.mode==='queued'){f.assignedRunway=rwyLabel();f.legs=[1,2,3].map(j=>`${f.v10Sid||'DCC'}${j}${rwyLabel()}`);}
   if(f.kind==='arrival'&&!['approach','divert'].includes(f.mode))f.assignedRunway=rwyLabel();
   f.v10ManualRoute=null;v10RebuildPlan(f);f.uiVersion++;
@@ -3990,6 +4007,9 @@ function setGlobalEnd(i){
 }
 function shortActiveText(){return `${airport.v12Pairs.length} RWY · ${allowed('arr').length} ARR / ${allowed('dep').length} DEP`;}
 function assignPlaneRunway(f,idx){
+ // V75: An un-diverted overflight has no airport runway assignment, even
+ // though it shares the arrival record shape for radar/ATC purposes.
+ if(f?.v37Transit&&!f.v37Diverting){notify('此航班是過境 OVR，未核准改降前不指派本場跑道','warn');return false;}
  if(!f||!Number.isInteger(idx)||idx<0||!endAllowed(idx,f.kind==='arrival'?'arr':'dep')){notify('所選跑道未開放該用途','warn');return false;}
  if(['lineup','takeoff-roll'].includes(f.mode)||(f.kind==='arrival'&&f.mode==='approach'&&f.approachPhase>=1)){
   notify('航班已進入跑道或最後進場；請先完成操作或復飛再改派','warn');return false;
@@ -4011,6 +4031,9 @@ function assignPlaneRunway(f,idx){
 }
 function operationalWarnings(){
  for(const f of [...flights]){
+  // V75: An OVR never becomes a runway-operation task merely because a
+  // physical runway closes, changes direction or changes role.
+  if(f.v37Transit&&!f.v37Diverting)continue;
   const role=f.kind==='arrival'?'arr':'dep';if(endAllowed(f.v12RunwayIndex,role))continue;
   if(f.kind==='arrival'&&f.mode==='approach'){
    f.mode='vector';f.approachPhase=0;f.approachPath=null;f.landingCleared=false;
@@ -4045,7 +4068,7 @@ function v12RunwayChange(pair,mode,side){
  if(hasOnRunway&&side!==undefined&&side!==data.active){notify('有飛機正在跑道上，暫不可反轉使用方向','warn');return;}
  if(hasOnRunway&&mode==='off'){notify('跑道正被航班佔用，不能關閉','warn');return;}
  if(mode==='off'&&flights.some(f=>f.v12Physical===pair&&f.mode==='approach'&&f.landingCleared&&len(f,{x:0,y:0})<7)){notify('有飛機已獲降落許可並接近跑道；請先處理進場','warn');return;}
- if(side!==undefined){data.active=side;for(const f of flights.filter(f=>f.v12Physical===pair&&!['lineup','takeoff-roll'].includes(f.mode))){
+ if(side!==undefined){data.active=side;for(const f of flights.filter(f=>f.v12Physical===pair&&!['lineup','takeoff-roll'].includes(f.mode)&&!(f.v37Transit&&!f.v37Diverting))){
   if(f.kind==='arrival'&&f.mode==='approach'){f.mode='vector';f.approachPhase=0;f.landingCleared=false;}
   f.v12RunwayIndex=endIdx(data);f.assignedRunway=airport.v12Ends[f.v12RunwayIndex].id;
   f.v10ManualRoute=null;flightEnd(f,()=>{
@@ -4069,7 +4092,7 @@ function v12RunwayChange(pair,mode,side){
 }
 function v12MakeRunwayDialog(){
  const current=$('v10RunwayDialog');const clean=current.cloneNode(false);current.replaceWith(clean);clean.className='v12-runway-modal';clean.id='v10RunwayDialog';clean.setAttribute('role','dialog');clean.setAttribute('aria-modal','true');clean.setAttribute('aria-label','跑道使用設定');
- clean.innerHTML=`<section class="v12-rwy-modal-panel"><header class="v12-modal-header"><div><span class="v12-kicker">AIRFIELD OPERATIONS</span><h2>跑道管理</h2><p id="v12RunwaySummary"></p></div><button class="v12-close" type="button" data-rwy-close aria-label="關閉">×</button></header><div class="v12-rwy-list" id="v10RwyRows"></div><p class="v12-rwy-note">每列代表一條實體跑道。選擇啟用方向與用途，變更會影響航班分配及起降許可；航路和機場運行限制仍屬模擬。</p><footer class="v12-rwy-footer"><button type="button" id="v12RwyRestart">↻ 重開機場</button><button type="button" data-rwy-close class="v12-primary">完成</button></footer></section>`;
+ clean.innerHTML=`<section class="v12-rwy-modal-panel"><header class="v12-modal-header"><div><span class="v12-kicker">AIRFIELD OPERATIONS</span><h2>跑道管理</h2><p id="v12RunwaySummary"></p></div><button class="v12-close" type="button" data-rwy-close aria-label="關閉">×</button></header><div class="v12-rwy-list" id="v10RwyRows"></div><p class="v12-rwy-note">每列代表一條實體跑道。選擇啟用方向與用途，變更僅影響本場 ARR／DEP 航班分配與起降許可；未核准備降的 OVR 過境航班不受影響。</p><footer class="v12-rwy-footer"><button type="button" id="v12RwyRestart">↻ 重開機場</button><button type="button" data-rwy-close class="v12-primary">完成</button></footer></section>`;
  const open=()=>{v12UpdateRwy();clean.classList.add('open');},close=()=>clean.classList.remove('open');
  $('v10OpenRwy').onclick=open;$('runwayBtn').onclick=open;
  clean.addEventListener('click',e=>{
@@ -8380,7 +8403,7 @@ window.__atcV31={
      refusedAt:null,divertTo:null,divertStage:null,fuel:rnd(75,105),uiVersion:0,
      notifiedHold:false,landingCleared:false,clearanceIssued:false,
      type:['B738','A320','A333','B789','A359','B77W'][serial%6],wake:'M',squawk:String(Math.floor(rnd(2000,7800))),
-     origin:g.from,destination:g.to,assignedRunway:'—',v12RunwayIndex:rwi,
+     origin:g.from,destination:g.to,assignedRunway:'—',v37CruiseHeading:g.heading,v12RunwayIndex:rwi,
      v12Physical:airport.v12Ends?.[rwi]?.pairIndex??0,
      v22History:g.history.map(q=>({...q})),v22TrailWait:0,v10Plan:[],v10Entry:{x:g.x,y:g.y},
      v19Vector:true,v19Override:true,v19SimpleDefault:false,
@@ -9450,6 +9473,14 @@ window.__atcV31={
 }
 @media(max-width:350px){.v43-route{font-size:11px;padding:9px}.v43-timecard .v43-time{font-size:20px}.v43-open-controls{padding:0 8px}}
 </style>
+
+<style id="v76-sim-time-clarity">
+#v43FlightInfo .v76-day{display:block;margin-top:2px;font-size:10px;line-height:1.3;color:#668b96;font-weight:750;letter-spacing:.03em;font-variant-numeric:tabular-nums}
+#v43FlightInfo .v43-timecard .v43-plan{margin-top:5px;align-items:baseline}
+#v43FlightInfo .v43-timecard .v43-plan b{font-size:10px;white-space:nowrap}
+#v43FlightInfo .v43-simnote{font-variant-numeric:tabular-nums;letter-spacing:0}
+@media(max-width:430px){#v43FlightInfo .v43-simnote{font-size:9px}#v43FlightInfo .v43-timecard .v43-plan{gap:3px}#v43FlightInfo .v43-timecard .v43-plan b{font-size:9px}}
+</style>
 <script id="v43-info-runtime">
 (()=>{
  'use strict';
@@ -9459,9 +9490,9 @@ window.__atcV31={
  const panel=document.createElement('section');panel.id='v43FlightInfo';panel.hidden=true;panel.setAttribute('aria-label','所選航班排程與高度速度資訊');
  panel.innerHTML=`<div class="v43-top"><div><div class="v43-eyebrow"><span class="v43-dot"></span>FLIGHT INFORMATION · 航班資訊</div><div class="v43-title"><b id="v43Callsign">—</b><span id="v43Kind">—</span></div></div><div class="v43-headbuttons"><button class="v43-open-controls" type="button" id="v43Controls">管制指令</button><button class="v43-minimize" type="button" id="v43Collapse" aria-label="收合航班資訊">收起 −</button></div></div>
  <div class="v43-scroll"><div class="v43-route"><div><strong id="v43Origin">—</strong><small>起飛地</small></div><span class="v43-arrow">→</span><div style="text-align:right"><strong id="v43Dest">—</strong><small id="v43DestinationDesc">目的地</small></div></div>
- <div class="v43-statusrow"><span class="v43-status" id="v43Status">準時</span><span class="v43-simnote">SIM · 模擬班表，非真實航班資料</span></div>
- <div class="v43-times"><article class="v43-timecard"><div class="v43-cap" id="v43DepartureCaption">預計起飛 · ETD</div><strong class="v43-time" id="v43Departure">—</strong><div class="v43-plan"><span>原定</span><b id="v43PlanDeparture">—</b></div></article>
- <article class="v43-timecard"><div class="v43-cap" id="v43ArrivalCaption">預計抵達 · ETA</div><strong class="v43-time" id="v43Arrival">—</strong><div class="v43-plan"><span>原定</span><b id="v43PlanArrival">—</b></div></article></div>
+ <div class="v43-statusrow"><span class="v43-status" id="v43Status">準時</span><span class="v43-simnote" id="v76ClockReference">SIM · UTC</span></div>
+ <div class="v43-times"><article class="v43-timecard"><div class="v43-cap" id="v43DepartureCaption">預計起飛 · ETD</div><strong class="v43-time" id="v43Departure">—</strong><span class="v76-day" id="v76DepartureDay">DAY — · UTC</span><div class="v43-plan"><span>原定</span><b id="v43PlanDeparture">—</b></div></article>
+ <article class="v43-timecard"><div class="v43-cap" id="v43ArrivalCaption">預計抵達 · ETA</div><strong class="v43-time" id="v43Arrival">—</strong><span class="v76-day" id="v76ArrivalDay">DAY — · UTC</span><div class="v43-plan"><span>原定</span><b id="v43PlanArrival">—</b></div></article></div>
  <div class="v43-schedule-note" id="v43ScheduleNote">模擬時間會隨航班進度及管制等待更新。</div><div id="v43ChartMount"></div></div>`;
  document.body.appendChild(panel);
  document.getElementById('v43ChartMount').appendChild(graph);
@@ -9483,10 +9514,16 @@ window.__atcV31={
  let startEpoch=SIM_START_EPOCH;const timetables=new Map();
  let userCollapsed=false;
  const locale='zh-TW';
+ const gameStamp=t=>{
+   if(!Number.isFinite(t))return null;
+   const elapsed=8*3600+Math.floor(t),day=Math.floor(elapsed/86400)+1;
+   const seconds=((elapsed%86400)+86400)%86400;
+   const two=n=>String(n).padStart(2,'0');
+   return {day,clock:`${two(Math.floor(seconds/3600))}:${two(Math.floor(seconds/60)%60)}`,label:day<1?'前日 · UTC':`DAY ${two(day)} · UTC`};
+ };
  const fmtClock=t=>{
    if(!Number.isFinite(t))return '—';
-   const d=new Date(startEpoch+Math.round(t)*1000);
-   return d.toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'UTC'});
+   return gameStamp(t).clock;
  };
  const airportCodes=()=>typeof AIRPORTS!=='undefined'?AIRPORTS:[];
  const lookup=code=>airportCodes().find(a=>a.icao===code);
@@ -9496,11 +9533,27 @@ window.__atcV31={
    const h=Math.sin(dt/2)**2+Math.cos(a.lat*R)*Math.cos(b.lat*R)*Math.sin(dl/2)**2;
    return 3440*2*Math.atan2(Math.sqrt(h),Math.sqrt(Math.max(0,1-h)));
  };
- const cruiseSeconds=(a,b)=>Math.min(5*3600,Math.max(43*60,(gcNm(lookup(a),lookup(b))/430)*3600+22*60));
+ const cruiseSeconds=(a,b,f)=>{
+   const distance=gcNm(lookup(a),lookup(b));
+   const type=String(f?.type||f?.aircraft||'');
+   const cruise=/ATR|DH8|Q400/i.test(type)?260:/A33|A35|B77|B78|B74/i.test(type)?465:430;
+   return Math.min(18*3600,Math.max(45*60,distance/cruise*3600+24*60));
+ };
  const active=()=>typeof selectedFlight==='function'?selectedFlight():null;
- const pickOrigin=dest=>{
-   const opts=airportCodes().filter(a=>a.icao!==dest);
-   return opts.length?opts[Math.floor(Math.random()*opts.length)].icao:'ENROUTE';
+ const pickOrigin=(dest,f)=>{
+   const reference=lookup(dest);
+   const airports=airportCodes().filter(a=>a.icao!==dest&&Number.isFinite(a.lat)&&Number.isFinite(a.lon));
+   if(!airports.length)return 'ENROUTE';
+   // Prefer sensible regional city pairs. Long-haul routes remain possible, particularly for wide-bodies.
+   const wide=/A33|A35|B77|B78|B74/i.test(String(f?.type||f?.aircraft||''));
+   const candidates=reference?airports.map(a=>({a,nm:gcNm(reference,a)})).sort((a,b)=>a.nm-b.nm):airports.map(a=>({a,nm:950}));
+   const local=candidates.filter(o=>o.nm>120&&o.nm<=(wide?2200:1450)).slice(0,12);
+   // Use a plausible regional network when possible; do not invent 5-hour transoceanic schedules.
+   const preferred=local.length?local:candidates.slice(0,Math.min(8,candidates.length));
+   const weights=preferred.map(o=>1/(1+Math.abs(o.nm-(wide?1150:650))/800));
+   let r=Math.random()*weights.reduce((sum,v)=>sum+v,0);
+   for(let i=0;i<preferred.length;i++){r-=weights[i];if(r<=0)return preferred[i].a.icao;}
+   return preferred[preferred.length-1].a.icao;
  };
  const safeNm=f=>Math.hypot(Number(f.x)||0,Number(f.y)||0);
  const flightKey=f=>f.callsign+'|'+f.id;
@@ -9508,9 +9561,9 @@ window.__atcV31={
    const key=flightKey(f);if(timetables.has(key))return timetables.get(key);
    const now=Number(simTime)||0;
    let from=(f.origin||f.from),to=(f.destination||f.to),kind=f.v37Transit&&!f.v37Diverting?'OVR':f.kind==='departure'?'DEP':'ARR';
-   if(!from)from=kind==='DEP'?airport.icao:pickOrigin(airport.icao);
-   if(!to)to=kind==='DEP'?pickOrigin(airport.icao):airport.icao;
-   if(kind==='OVR'&&from===to)to=pickOrigin(from);
+   if(!from)from=kind==='DEP'?airport.icao:pickOrigin(airport.icao,f);
+   if(!to)to=kind==='DEP'?pickOrigin(airport.icao,f):airport.icao;
+   if(kind==='OVR'&&from===to)to=pickOrigin(from,f);
    if(f.divertTo||f.v37Diverting)to=f.divertTo||airport.icao;
    const duration=cruiseSeconds(from,to);
    let scheduledDeparture,scheduledArrival;
@@ -9525,7 +9578,7 @@ window.__atcV31={
       scheduledArrival=now+remaining+7*60;
       scheduledDeparture=scheduledArrival-duration;
    }
-   const d={from,to,kind,scheduledDeparture,scheduledArrival,duration,firstSeen:now,actualTakeoff:null,lastMode:f.mode,eta:scheduledArrival,etd:scheduledDeparture};
+   const d={from,to,kind,scheduledDeparture,scheduledArrival,duration,firstSeen:now,actualTakeoff:null,lastMode:f.mode,eta:scheduledArrival,etd:scheduledDeparture,estimatedDeparture:kind!=='DEP'};
    timetables.set(key,d);return d;
  }
  function detectActualTakeoff(f,d){
@@ -9559,7 +9612,7 @@ window.__atcV31={
      eta=Math.max(d.scheduledArrival,now+10*60);
    }
    d.etd=etd;d.eta=eta;
-   return {etd,eta,dest,delay:Math.round((eta-d.scheduledArrival)/60),departDelay:Math.round((etd-d.scheduledDeparture)/60)};
+   return {etd,eta,dest,delay:d.kind==='OVR'&&!f.v37Diverting?null:Math.round((eta-d.scheduledArrival)/60),departDelay:Math.round((etd-d.scheduledDeparture)/60)};
  }
  const setText=(id,txt)=>{const el=$(id);if(el&&el.textContent!==String(txt))el.textContent=String(txt);};
  const absolute=Math.abs;
@@ -9573,7 +9626,7 @@ window.__atcV31={
    if(!f){panel.hidden=!mobileInfo;if(!mobileInfo)return;
       setText('v43Callsign','請選取航班');setText('v43Kind','');$('v43ChartMount').style.display='none';
       setText('v43Origin','—');setText('v43Dest','—');setText('v43Departure','—');setText('v43Arrival','—');
-      setText('v43PlanDeparture','—');setText('v43PlanArrival','—');setText('v43Status','等待航班選取');setText('v43ScheduleNote','請先在雷達或航班列表選取飛機。');return;
+      setText('v43PlanDeparture','—');setText('v43PlanArrival','—');setText('v76DepartureDay','—');setText('v76ArrivalDay','—');setText('v76ClockReference','SIM · '+gameStamp(now).label+' '+fmtClock(now));setText('v43Status','等待航班選取');setText('v43ScheduleNote','請先在雷達或航班列表選取飛機。');return;
    }
    panel.hidden=false;$('v43ChartMount').style.display='';
    if(!force&&lastFlightId===f.id&&now-lastClock<1.2)return;
@@ -9582,18 +9635,24 @@ window.__atcV31={
    setText('v43Callsign',f.callsign);setText('v43Kind',d.kind);setText('v43Origin',d.from);setText('v43Dest',q.dest);
    setText('v43DestinationDesc',q.dest!==d.to?'改降機場':'目的地');
    setText('v43Departure',fmtClock(q.etd));setText('v43Arrival',fmtClock(q.eta));
-   setText('v43PlanDeparture',fmtClock(d.scheduledDeparture));setText('v43PlanArrival',fmtClock(d.scheduledArrival));
-   setText('v43DepartureCaption',d.actualTakeoff!==null?'實際起飛 · ATD':d.kind==='ARR'?'模擬起飛 · ETD':'預計起飛 · ETD');
-   setText('v43ArrivalCaption',d.kind==='OVR'?'外站預估抵達 · ETA':q.dest!==d.to?'備降預估抵達 · ETA':'預計抵達 · ETA');
+   setText('v76DepartureDay',gameStamp(q.etd)?.label||'—');setText('v76ArrivalDay',gameStamp(q.eta)?.label||'—');
+   setText('v76ClockReference',`目前 ${gameStamp(now).label} ${fmtClock(now)} · 模擬班表`);
+   setText('v43PlanDeparture',`${gameStamp(d.scheduledDeparture)?.label.replace(' · UTC','')||'—'} ${fmtClock(d.scheduledDeparture)}`);
+   setText('v43PlanArrival',`${gameStamp(d.scheduledArrival)?.label.replace(' · UTC','')||'—'} ${fmtClock(d.scheduledArrival)}`);
+   setText('v43DepartureCaption',d.actualTakeoff!==null?'實際起飛 · ATD':d.estimatedDeparture?'推算已起飛 · SIM':'預計起飛 · ETD');
+   setText('v43ArrivalCaption',d.kind==='OVR'&&!f.v37Diverting?'外站抵達估算 · ETA':q.dest!==d.to?'備降預估抵達 · ETA':'預計抵達 · ETA');
    let status='準時',klass='';
    if(f.v34Emergency||f.v40Critical||f.v37Emergency){status='緊急優先';klass='alert';}
+   else if(q.delay===null){status='過境中 · 外站未追蹤';klass='';}
    else if(q.delay>30){status='延誤 '+q.delay+' 分鐘';klass='late';}
    else if(q.delay>15){status='稍有延誤 +'+q.delay+' 分鐘';klass='late';}
    else if(q.delay< -15){status='預計提前 '+absolute(q.delay)+' 分鐘';klass='early';}
    else if(d.kind==='DEP'&&q.departDelay>15){status='離場延誤 +'+q.departDelay+' 分鐘';klass='late';}
    else if(q.dest!==d.to){status='已改降';klass='early';}
    setText('v43Status',status);$('v43Status').className='v43-status '+klass;
-   setText('v43ScheduleNote', d.kind==='ARR'?'航班計畫包含約 7 分鐘緩衝；入港延誤 15 分鐘內仍視為準時。ETA 按位置、速度及等待情況估算。':d.kind==='OVR'?'此航班目的地在管制空域之外；抵達時間為粗略估計。':'模擬離場有約 5 分鐘準備時間；離港及抵達 15 分鐘內的差異仍視為準時。');
+   const plannedArrival=`${gameStamp(d.scheduledArrival)?.label||'—'} ${fmtClock(d.scheduledArrival)}`;
+   const delayContext=q.delay!==null&&q.delay>15?`原定抵達 ${plannedArrival}，最新預估 ${gameStamp(q.eta)?.label||'—'} ${fmtClock(q.eta)}。等待與指揮延誤會累積。`:'';
+   setText('v43ScheduleNote', d.kind==='ARR'?`${delayContext} 出發時間為離線模擬推算，非實際航班紀錄。班表含 7 分鐘緩衝，延誤不超過 15 分鐘仍屬準時。`:d.kind==='OVR'&&!f.v37Diverting?'過境航班尚未在本場降落，外站抵達時間只是模擬估算，不計算外站延誤。':`原定抵達 ${plannedArrival}。準點寬限 15 分鐘；所有時間皆為遊戲 UTC。`);
  }
  const oldHud=renderHud;
  renderHud=function(...args){const out=oldHud.apply(this,args);refresh();return out;};
@@ -13117,7 +13176,7 @@ renderInspector();
    }
    return result;
  };
- document.title='AIRSPACE — ATC V74 · Fuel-Aware Diversion & ILS';
+ document.title='AIRSPACE — ATC V75 · Independent Overflights & Runway Control';
  window.__atcV74={alternates:(id)=>{
    const f=flights.find(x=>x.callsign===id)||getFlight();return f?airportAlternates(f).map(x=>({icao:x.airport.icao,dist:+x.flightDist.toFixed(1),weather:x.weatherStatus,fuelOK:x.fuelOK,needed:x.fuel.needed,reserve:x.fuel.reserve,margin:x.fuel.margin})):[];
  },approach:(id)=>{
@@ -13127,5 +13186,257 @@ renderInspector();
 })();
 
 </script>
+<script>
+/* V75: Compatibility guard for the legacy one-click runway switch. The main
+   V12 runway management uses its own protected loops above. Preserve every
+   passive overflight's operational state if an older control invokes setRunway. */
+(() => {
+  const prior=setRunway;
+  setRunway=function(...args){
+    const passive=flights.filter(f=>f.v37Transit&&!f.v37Diverting);
+    const saved=passive.map(f=>({f,mode:f.mode,heading:f.heading,targetHeading:f.targetHeading,
+      targetAlt:f.targetAlt,targetSpeed:f.targetSpeed,assignedRunway:f.assignedRunway,
+      v12RunwayIndex:f.v12RunwayIndex,v12Physical:f.v12Physical,
+      legs:f.legs?.slice(),selectedTransition:f.selectedTransition,
+      v10ManualRoute:f.v10ManualRoute?.slice(),v10Plan:f.v10Plan?.map(p=>({...p})),
+      v10PlanMode:f.v10PlanMode,uiVersion:f.uiVersion}));
+    try{return prior(...args)}finally{
+      saved.forEach(({f,...state})=>{
+        const exists=flights.includes(f)&&f.v37Transit&&!f.v37Diverting;
+        if(!exists)return;
+        Object.assign(f,state);
+      });
+    }
+  };
+  window.__atcV75={getOverflights:()=>flights.filter(f=>f.v37Transit&&!f.v37Diverting).map(f=>({
+    callsign:f.callsign,mode:f.mode,heading:f.heading,targetHeading:f.targetHeading,
+    assignedRunway:f.assignedRunway,legs:[...(f.legs||[])]}))};
+})();
+</script>
+<script id="v76-final-title">document.title="AIRSPACE — ATC V77 · Command Workspace & Arrival Alerts";</script>
+<style id="v77-command-workspace-style">
+/* V77: compact ATC dispatch area, preserving V12/V22/V58 event handlers. */
+#inspector .v77-command-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center;padding:11px 12px 10px;margin:9px 0 2px;border:1px solid #c8dedb;background:linear-gradient(110deg,#f0f8f6,#fff);border-radius:12px;}
+#inspector .v77-dispatch{grid-column:1/-1;display:flex;gap:8px;align-items:stretch;}
+#inspector .v77-send-all{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:7px;min-height:43px;padding:9px 16px;border-radius:10px;background:#23766d;color:#fff;border:1px solid #1f6c64;font-size:13px;font-weight:850;box-shadow:0 3px 9px #216c5b20;}
+#inspector .v77-send-all:not(:disabled):hover{background:#195f58;}
+#inspector .v77-send-all:disabled{background:#e4edeb;border-color:#d2e2df;color:#829ca0;box-shadow:none;cursor:not-allowed;}
+#inspector .v77-revert{flex:0 0 auto;border:1px solid #d7e4e4;background:#fff;color:#637e87;border-radius:10px;padding:0 13px;font-size:11px;font-weight:780;}
+#inspector .v77-revert:disabled{opacity:.45;cursor:not-allowed}
+#inspector .v77-hint{color:#587b83;font-size:10px;font-weight:650;line-height:1.5;}
+#inspector .v77-pending{color:#22766a;font-size:10px;font-weight:850;line-height:1.4;text-align:right;white-space:normal;}
+#inspector .v77-command-footer[data-dirty="true"]{background:linear-gradient(110deg,#e7f5f0,#fff);border-color:#8bbeb0;}
+#inspector .v12-command-grid{align-items:stretch!important;gap:8px!important;margin-top:8px!important;}
+#inspector .v12-command-grid .v12-command{display:flex!important;flex-direction:column;min-width:0;padding:11px!important;border:1px solid #dbe8e6!important;border-radius:12px!important;background:#fff!important;box-shadow:none!important;}
+#inspector .v12-command-grid .v12-command-heading{display:flex!important;align-items:center;justify-content:space-between;gap:7px;min-height:20px;margin:0 0 9px!important;font-size:12px!important;}
+#inspector .v12-command-grid .v12-command-heading b{display:block!important;margin:0!important;color:#527987;font-size:12px!important;font-variant-numeric:tabular-nums;white-space:nowrap;}
+#inspector .v12-command-grid .v12-command .v12-stepper{margin-top:auto!important;display:grid!important;grid-template-columns:34px minmax(0,1fr) 34px!important;align-items:center;gap:5px!important;min-width:0;}
+#inspector .v12-command-grid .v12-stepper button{height:38px!important;min-width:0;border-radius:9px!important;}
+#inspector .v12-command-grid .v12-number,#inspector .v12-command-grid .v12-number input{height:38px!important;min-width:0;width:100%;}
+#inspector .v12-command-grid .v12-command .v12-send{margin-top:7px!important;min-height:31px!important;height:31px!important;padding:4px!important;width:100%!important;border:1px solid #d7e6e3!important;background:#f3f9f7!important;color:#357269!important;border-radius:8px!important;font-size:10px!important;font-weight:780!important;}
+#inspector .v12-command-grid .v12-command .v12-send:disabled{opacity:.5!important;}
+#inspector .v12-command-grid .v12-command.v77-edited{border-color:#62ac9b!important;box-shadow:0 0 0 1px #7fc7b5!important;background:#f6fdfb!important;}
+#inspector .v12-command-grid .v12-command.v77-invalid{border-color:#d78578!important;background:#fff9f7!important;}
+#inspector .v22-controller{border-radius:12px!important;border:1px solid #dbe9e7!important;background:#f5faf8!important;}
+#inspector .v22-main-actions{gap:7px!important;}
+#inspector .v22-main-actions button{border-radius:9px!important;min-height:38px!important;}
+#inspector .v58-togglebox{margin:10px 0 8px!important;gap:7px!important;}
+#inspector .v58-title{margin:7px 0 4px!important;color:#436c74!important;font-size:11px!important;}
+/* Arrival notice is a compact, floating radar callout positioned beside (not behind) inspector. */
+#v63ArrivalStack.v77-float-arrival{position:fixed!important;z-index:120!important;top:77px!important;right:auto!important;left:var(--v77-alert-left,520px)!important;width:min(305px,calc(100vw - 20px))!important;max-height:min(40dvh,240px)!important;overflow:visible!important;pointer-events:none;filter:none!important;}
+#v63ArrivalStack.v77-float-arrival .v63-arrival-alert{box-shadow:0 12px 34px #123c3d38!important;border:1px solid #81bfb5!important;border-left:5px solid #209782!important;}
+#v63ArrivalStack.v77-float-arrival .v63-arrival-alert:not(:first-child){display:none!important;}
+#v63ArrivalStack.v77-float-arrival .v63-arrival-content{padding:10px 11px 11px!important;}
+#v63ArrivalStack.v77-float-arrival .v63-alert-call{font-size:18px!important;}
+#v63ArrivalStack.v77-float-arrival .v63-alert-metrics{line-height:1.35!important;}
+#v63ArrivalStack.v77-float-arrival .v63-alert-select{min-width:90px!important;padding:8px!important;}
+#v63ArrivalStack.v77-float-arrival .v63-alert-type::after{content:attr(data-v77-extra);font-size:9px;color:#527b79;font-weight:750;}
+@media(min-width:901px){
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"]{padding:12px!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-stepper{grid-template-columns:29px minmax(0,1fr) 29px!important;gap:3px!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command{padding:9px!important;}
+}
+@media(max-width:900px){
+ body #v63ArrivalStack.v77-float-arrival{top:106px!important;left:50%!important;transform:translateX(-50%);width:min(340px,calc(100vw - 20px))!important;z-index:125!important;}
+ body.m16-mode-control #v63ArrivalStack.v77-float-arrival,body.m16-mode-flights #v63ArrivalStack.v77-float-arrival,body.m16-mode-weather #v63ArrivalStack.v77-float-arrival{display:none!important;}
+ body.m16-mode-control .rightpanel.v58-panel .v12-controller>.v12-command-grid .v12-command{display:grid!important;grid-template-columns:58px minmax(0,1fr) 76px!important;gap:6px!important;align-items:center!important;padding:8px 9px!important;min-height:54px!important;}
+ body.m16-mode-control .rightpanel.v58-panel .v12-controller>.v12-command-grid .v12-command-heading{display:flex!important;flex-direction:column!important;align-items:flex-start!important;min-height:0;margin:0!important;font-size:11px!important;gap:3px!important;grid-area:1/1/2/2!important;}
+ body.m16-mode-control .rightpanel.v58-panel .v12-controller>.v12-command-grid .v12-command-heading b{font-size:10px!important;}
+ body.m16-mode-control .rightpanel.v58-panel .v12-controller>.v12-command-grid .v12-stepper{grid-template-columns:27px minmax(0,1fr) 27px!important;gap:3px!important;grid-area:1/2/2/3!important;margin:0!important;}
+ body.m16-mode-control .rightpanel.v58-panel .v12-controller>.v12-command-grid .v12-stepper button{height:35px!important;}
+ body.m16-mode-control .rightpanel.v58-panel .v12-controller>.v12-command-grid .v12-number,body.m16-mode-control .rightpanel.v58-panel .v12-controller>.v12-command-grid .v12-number input{height:35px!important;font-size:12px!important;}
+ body.m16-mode-control .rightpanel.v58-panel .v12-controller>.v12-command-grid .v12-send{grid-area:1/3/2/4!important;min-width:0!important;width:100%!important;min-height:35px!important;height:35px!important;margin:0!important;font-size:9px!important;}
+ #inspector .v77-command-footer{padding:9px!important;gap:5px!important;margin-top:7px!important;}
+ #inspector .v77-hint{font-size:9px;}
+ #inspector .v77-send-all{min-height:43px;font-size:12px;}
+}
+@media(max-width:370px){body.m16-mode-control .rightpanel.v58-panel .v12-controller>.v12-command-grid .v12-command{grid-template-columns:52px minmax(0,1fr) 66px!important;gap:3px!important;padding:7px 6px!important;}}
+@media(prefers-reduced-motion:reduce){#v63ArrivalStack.v77-float-arrival .v63-arrival-alert{animation:none!important}}
+</style>
+<script id="v77-command-workspace-runtime">
+(()=>{
+'use strict';
+const inspector=document.getElementById('inspector');
+const stack=document.getElementById('v63ArrivalStack');
+if(!inspector)return;
+const keys=['hdg','alt','spd'];
+let raf=0, lastSent='', currentFlight=null;
+const el=(id)=>document.getElementById(id);
+const ref=(k)=>el('v12-'+k);
+const nice={hdg:'HDG',alt:'ALT',spd:'SPD'};
+const appRoot=document.querySelector('.radar-area');
+function getChanges(){
+ let entries=[],invalid=false;
+ for(const k of keys){
+  const input=ref(k),btn=inspector.querySelector(`[data-v12-send="${k}"]`);
+  if(!input||!btn||input.disabled||btn.disabled)continue;
+  if(input.value===input.defaultValue)continue;
+  const n=Number(input.value),min=Number(input.min),max=Number(input.max);
+  const valid=input.value.trim()!==''&&Number.isFinite(n)&&(!input.min||n>=min)&&(!input.max||n<=max);
+  entries.push({key:k,value:input.value,valid});invalid ||= !valid;
+ }
+ return {entries,invalid};
+}
+function sync(){
+ const grid=inspector.querySelector('.v12-command-grid');
+ const bar=inspector.querySelector('.v77-command-footer');
+ if(!grid||!bar)return;
+ const {entries,invalid}=getChanges();
+ for(const k of keys){
+  const inp=ref(k),cell=inp?.closest('.v12-command');
+  if(!cell)continue;
+  const item=entries.find(x=>x.key===k);
+  cell.classList.toggle('v77-edited',!!item&&item.valid);
+  cell.classList.toggle('v77-invalid',!!item&&!item.valid);
+ }
+ const all=bar.querySelector('.v77-send-all');const reset=bar.querySelector('.v77-revert');
+ const disabled=!entries.length||invalid;all.disabled=disabled;reset.disabled=!entries.length;
+ bar.dataset.dirty=String(entries.length>0);
+ all.textContent=invalid?'請先修正指令':entries.length?`確認發送 ${entries.length} 項指令 ↵`:'先修改指令，再發送';
+ bar.querySelector('.v77-pending').textContent=invalid?'輸入超出有效範圍':entries.length?entries.map(x=>nice[x.key]).join(' / ')+' 待發送':lastSent;
+}
+function sendAll(){
+ const {entries,invalid}=getChanges();if(!entries.length||invalid)return;
+ // Reacquire the native V12 controls after each send: the original game may
+ // rebuild its inspector and enforce terrain/radio/flight-phase restrictions.
+ let issued=[];
+ for(const item of entries){
+  const input=ref(item.key),button=inspector.querySelector(`[data-v12-send="${item.key}"]`);
+  if(!input||!button||button.disabled)continue;
+  input.value=item.value;
+  button.click();issued.push(nice[item.key]);
+ }
+ if(issued.length)lastSent='已提交 '+issued.join(' / ');
+ requestAnimationFrame(sync);
+}
+function resetDraft(){for(const k of keys){let i=ref(k);if(i&&!i.disabled)i.value=i.defaultValue;}sync()}
+function mount(){
+ raf=0;
+ const grid=inspector.querySelector('.v12-command-grid');
+ if(!grid)return;
+ const root=grid.parentElement;
+ if(!root)return;
+ let bar=root.querySelector(':scope > .v77-command-footer');
+ if(!bar){
+  bar=document.createElement('div');bar.className='v77-command-footer';bar.setAttribute('role','group');bar.setAttribute('aria-label','航班指令確認');
+  bar.innerHTML='<span class="v77-hint">調整數值後，一次送出已修改的指令<br>Enter 可單獨送出目前欄位</span><span class="v77-pending" aria-live="polite"></span><div class="v77-dispatch"><button type="button" class="v77-send-all" disabled>先修改指令，再發送</button><button type="button" class="v77-revert" disabled>還原</button></div>';
+  grid.after(bar);
+  bar.querySelector('.v77-send-all').addEventListener('click',sendAll);
+  bar.querySelector('.v77-revert').addEventListener('click',resetDraft);
+ }
+ // Keep critical vector instructions before optional HOLD operations. The V73
+ // holding component retains all its original click listeners when moved.
+ const hold=el('v73HoldControls');
+ if(hold&&hold.previousElementSibling!==bar){bar.after(hold)}
+ let f=typeof selectedFlight==='function'?selectedFlight():null;
+ if(currentFlight!==f?.id){currentFlight=f?.id;lastSent='';}
+ sync();
+}
+function requestSync(){if(!raf)raf=requestAnimationFrame(mount)}
+inspector.addEventListener('input',e=>{if(e.target.matches('#v12-hdg,#v12-alt,#v12-spd'))requestSync()});
+inspector.addEventListener('change',e=>{if(e.target.matches('#v12-hdg,#v12-alt,#v12-spd'))requestSync()});
+inspector.addEventListener('click',e=>{if(e.target.closest('[data-v12-step],[data-v12-send]'))setTimeout(requestSync,0)});
+const observer=new MutationObserver(requestSync);
+observer.observe(inspector,{childList:true,subtree:true});
+// Keyboard shortcut: Enter within a field keeps the original single-field
+// behavior. Shift+Enter, outside text input, sends all edited fields.
+document.addEventListener('keydown',e=>{
+ if(e.key!=='Enter'||!e.shiftKey||e.isComposing||e.repeat||e.altKey||e.metaKey||e.ctrlKey)return;
+ if(e.target.closest('textarea,select,[contenteditable="true"]'))return;
+ if(el('v61RadarProposal')?.classList.contains('open'))return;
+ if(!getChanges().entries.length)return;
+ e.preventDefault();e.stopImmediatePropagation();sendAll();
+},true);
+function positionAlerts(){
+ if(!stack)return;
+ stack.classList.add('v77-float-arrival');
+ if(stack.parentElement!==document.body)document.body.appendChild(stack);
+ const right=document.querySelector('.rightpanel');
+ if(window.innerWidth>900){
+  const r=right?.getBoundingClientRect();
+  const leftLimit=r&&r.width>120?r.left:window.innerWidth-20;
+  const w=Math.min(305,window.innerWidth-20);
+  const left=Math.max(12,Math.min(window.innerWidth-w-10,leftLimit-w-14));
+  stack.style.setProperty('--v77-alert-left',left+'px');
+ }else stack.style.removeProperty('--v77-alert-left');
+ const count=stack.querySelectorAll('.v63-arrival-alert').length;
+ const type=stack.querySelector('.v63-alert-type');
+ if(type)type.dataset.v77Extra=count>1?` · 另有 ${count-1} 架`:'';
+}
+if(stack){
+ positionAlerts();
+ const alertsObserver=new MutationObserver(()=>{requestAnimationFrame(positionAlerts)});
+ alertsObserver.observe(stack,{childList:true});
+ window.addEventListener('resize',positionAlerts,{passive:true});
+ document.addEventListener('click',e=>{
+  const select=e.target.closest?.('[data-v63-select]');
+  if(!select)return;
+  if(window.innerWidth<=900){
+   // After V63 selects the aircraft, open the mobile controller directly.
+   setTimeout(()=>document.querySelector('.m16-nav-button[data-m16-tab="control"]')?.click(),0);
+  }
+ },true);
+}
+requestSync();
+document.title='AIRSPACE — ATC V77 · Command Workspace & Arrival Alerts';
+window.__atcV77={sync,sendAll,positionAlerts,changes:()=>getChanges().entries,alertPosition:()=>stack?.getBoundingClientRect().toJSON()};
+})();
+</script>
+<style id="v77-flow-priority-fix">
+/* The common commands must be visible before secondary holding options. */
+#inspector .v73-hold-controls{margin:9px 0 3px!important;border-radius:11px!important;padding:10px 11px!important;gap:7px!important;background:#f4faf9!important;}
+#inspector .v73-hold-heading{margin:0 0 6px!important;}
+#inspector .v73-hold-heading b{font-size:11px!important;}
+#inspector .v73-hold-heading span{font-size:10px!important;}
+#inspector .v73-hold-actions{gap:7px!important;}
+#inspector .v73-hold-actions button{min-height:36px!important;padding:7px!important;font-size:11px!important;}
+#inspector .v73-hold-fix{margin-top:6px!important;}
+#inspector .v73-hold-fix select{min-height:34px!important;}
+#inspector .v73-hold-description{display:none!important;}
+@media(max-width:900px){
+ body.m16-mode-control #inspector .v12-controller>#v22Controller{order:1!important;}
+ body.m16-mode-control #inspector .v12-controller>.v58-title{order:2!important;}
+ body.m16-mode-control #inspector .v12-controller>.v12-command-grid{order:3!important;}
+ body.m16-mode-control #inspector .v12-controller>.v77-command-footer{order:4!important;}
+ body.m16-mode-control #inspector .v12-controller>#v73HoldControls{order:5!important;}
+ body.m16-mode-control #inspector .v12-controller>.v58-togglebox{order:6!important;}
+ body.m16-mode-control #inspector .v12-controller>.v19-primary{order:7!important;}
+ body.m16-mode-control #inspector .v12-controller>.v12-quick-row{order:8!important;}
+ body.m16-mode-control #inspector .v12-controller>.v12-advanced-wrap{order:9!important;}
+}
+</style>
+<style id="v77-mobile-command-tighten">
+@media(max-width:900px){
+ body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-command{display:grid!important;grid-template-columns:58px minmax(0,1fr) 76px!important;grid-template-rows:1fr!important;align-items:center!important;gap:6px!important;padding:7px 8px!important;min-height:55px!important;}
+ body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-command-heading{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:3px!important;margin:0!important;grid-area:1/1/2/2!important;font-size:10px!important;}
+ body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-command-heading b{font-size:10px!important;}
+ body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-stepper{grid-area:1/2/2/3!important;grid-template-columns:27px minmax(0,1fr) 27px!important;gap:3px!important;margin:0!important;}
+ body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-stepper button,body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-number,body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-number input{height:34px!important;}
+ body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-command .v12-send{grid-area:1/3/2/4!important;min-width:0!important;width:100%!important;height:34px!important;min-height:34px!important;margin:0!important;font-size:9px!important;}
+ body.m16-mode-control #inspector .v77-command-footer{min-width:0!important;}
+}
+@media(max-width:365px){body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-command{grid-template-columns:50px minmax(0,1fr) 65px!important;gap:3px!important;padding:7px 6px!important;}}
+</style>
 </body>
 </html>
