@@ -11985,73 +11985,128 @@ const GRID={"WMKK":"EREREREREREREREREREREUR3d3djERERERERERERE1VVESERERERERERERER
 const N=81,R=113,STEP=2*R/(N-1);
 const LEVEL_M=[0,180,380,650,950,1300,1700,2200,2800,3500,4300,5200,6200,7000,7800,8600];
 const radar=document.getElementById('radarArea');if(!radar)return;
+const originalCodes=new Set(Object.keys(GRID));
+const decoded=new Map();
 let currentAirport='',terrain=null,terrainImage=null,labels=[],visible=true,lastWarn=new Map(),lastUiAt=0;
+let dataStatus='無',coverage=0;
 const btn=document.createElement('button');btn.type='button';btn.id='v64ZoneSwitch';btn.className='active';
-btn.title='按地形山區分布顯示模擬最低安全高度（離線地形估算，非正式航圖）';btn.textContent='▧ 山區限高';btn.setAttribute('aria-pressed','true');
+btn.title='離線地形高地最低高度（近似；沒有地形資料時不阻擋航班）';btn.textContent='▧ 山區限高';btn.setAttribute('aria-pressed','true');
 const tools=document.querySelector('#v61RadarTool .v61-tools');if(tools)tools.insertBefore(btn,tools.querySelector('[data-v61-mode="vector"]'));
-const key=document.createElement('div');key.id='v64ZoneKey';key.innerHTML='<span></span>山區地形最低安全高度 · 離線近似';
+const key=document.createElement('div');key.id='v64ZoneKey';
+key.innerHTML='<span></span><b id="v78TerrainLegend">山區最低高度 · 離線估算</b>';
 document.querySelector('#v61RadarTool')?.append(key);
 const alert=document.createElement('div');alert.id='v64ZoneAlert';alert.setAttribute('role','status');radar.append(alert);
 const rounded=v=>Math.ceil(Math.max(0,v)/500)*500;
-const sea=p=>window.__atcV36?.landAt?.(p.x,p.y)===false;
-function decode(str){
-  const bin=atob(str),r=new Uint8Array(N*N);
-  for(let i=0;i<r.length;i++){const v=bin.charCodeAt(i>>1);r[i]=(i&1)?v&15:v>>4;}
-  return r;
+const landKnown=(x,y)=>window.__atcV36?.landAt?.(x,y);
+function decode(code){
+ if(decoded.has(code))return decoded.get(code);
+ const encoded=GRID[code];if(!encoded){decoded.set(code,null);return null;}
+ try{
+  const binary=atob(encoded);
+  if(binary.length<Math.ceil(N*N/2)){decoded.set(code,null);return null;}
+  const raw=new Uint8Array(N*N);
+  for(let k=0;k<raw.length;k++){const c=binary.charCodeAt(k>>1);raw[k]=(k&1)?c&15:c>>4;}
+  decoded.set(code,raw);return raw;
+ }catch(e){console.warn('Terrain tile unavailable',code);decoded.set(code,null);return null;}
 }
 const altFromClass=k=>LEVEL_M[k]*3.28084;
-const minimumFromClass=(k)=>{
- const meters=LEVEL_M[k];
- if(meters<420)return 0; // no highlighted *mountain* restriction in plain/coastal areas
- const clearance=meters>=900?2000:1000;
- return rounded(altFromClass(k)+clearance);
-};
+function minimumFromClass(k){
+ const meters=LEVEL_M[k];if(!Number.isFinite(meters)||meters<420)return 0;
+ return rounded(altFromClass(k)+(meters>=900?2000:1000));
+}
 function idx(x,y){const gx=Math.round((x+R)/STEP),gy=Math.round((R-y)/STEP);return gx>=0&&gx<N&&gy>=0&&gy<N?gy*N+gx:-1;}
-function minimumAt(p,buffer=4.5){setup();if(!terrain||!p)return null;
+function stitchFromNearby(target){
+ // Never reuse an existing terrain tile at its own local coordinates: its
+ // origin is another airport, and that caused phantom mountain zones.
+ // Georeference every sampling cell by latitude/longitude, using actual
+ // embedded coverage only. Uncovered cells are UNSURVEYED (255), not land.
+ const candidates=AIRPORTS.filter(a=>originalCodes.has(a.icao)&&a.icao!==target.icao)
+  .map(a=>({a,d:Math.hypot((a.lat-target.lat)*60,(a.lon-target.lon)*60*Math.cos(target.lat*Math.PI/180))}))
+  .filter(o=>o.d<220).sort((a,b)=>a.d-b.d).slice(0,6);
+ const result=new Uint8Array(N*N).fill(255);
+ let known=0;
+ for(let row=0;row<N;row++)for(let col=0;col<N;col++){
+  const x=-R+col*STEP,y=R-row*STEP,i=row*N+col;
+  const pLat=target.lat+y/60;
+  const pLon=target.lon+x/(60*Math.max(.15,Math.cos(target.lat*Math.PI/180)));
+  let best=Infinity,cls=255;
+  for(const {a} of candidates){
+   const src=decode(a.icao);if(!src)continue;
+   const sx=(pLon-a.lon)*60*Math.cos(a.lat*Math.PI/180);
+   const sy=(pLat-a.lat)*60;
+   // Avoid edge extrapolation and far-away borrowed elevations.
+   if(Math.abs(sx)>R-2*STEP||Math.abs(sy)>R-2*STEP)continue;
+   const j=idx(sx,sy);if(j<0)continue;
+   const centerDist=Math.hypot(sx,sy);
+   if(centerDist<best){best=centerDist;cls=src[j];}
+  }
+  if(cls!==255){result[i]=cls;known++;}
+ }
+ return {data:result,known,candidates:candidates.length};
+}
+function minimumAt(p,buffer=4.5){
+ setup();if(!terrain||!p)return null;
  const x=p.x??NaN,y=p.y??NaN;if(!Number.isFinite(x)||!Number.isFinite(y))return null;
  let max=0,peak={x,y},height=0;
- const r=Math.max(1,Math.round(buffer/STEP));const c=Math.round((x+R)/STEP),row=Math.round((R-y)/STEP);
- for(let j=-r;j<=r;j++)for(let i=-r;i<=r;i++){
-  if(Math.hypot(i,j)>r+.2)continue;
-  const xx=c+i,yy=row+j;
+ const radius=Math.max(1,Math.round(buffer/STEP));
+ const col=Math.round((x+R)/STEP),row=Math.round((R-y)/STEP);
+ for(let j=-radius;j<=radius;j++)for(let i=-radius;i<=radius;i++){
+  if(Math.hypot(i,j)>radius+.2)continue;
+  const xx=col+i,yy=row+j;
   if(xx<0||xx>=N||yy<0||yy>=N)continue;
-  const cl=terrain[yy*N+xx],min=minimumFromClass(cl);
-  if(min>max){max=min;height=altFromClass(cl);peak={x:-R+xx*STEP,y:R-yy*STEP};}
+  const cl=terrain[yy*N+xx];if(cl===255||cl<3)continue;
+  const px=-R+xx*STEP,py=R-yy*STEP;
+  // Valid even during flight checks; sea cells NEVER trigger terrain alerts.
+  if(landKnown(px,py)===false)continue;
+  const min=minimumFromClass(cl);
+  if(min>max){max=min;height=altFromClass(cl);peak={x:px,y:py};}
  }
- return max?{name:'山區地形',min:max,elevationFt:Math.round(height),peak,approximate:true}:null;
+ return max?{name:'山區地形',min:max,elevationFt:Math.round(height),peak,approximate:true,coverage}:null;
 }
 function alongTrack(f,hdg,distance=14){
- let res=minimumAt(f,3.3),a=hdg*Math.PI/180;
+ let best=minimumAt(f,3.3),a=hdg*Math.PI/180;
  for(let d=4;d<=distance;d+=4){
-   const test=minimumAt({x:f.x+Math.sin(a)*d,y:f.y+Math.cos(a)*d},3.3);
-   if(test&&(!res||test.min>res.min))res=test;
- }return res;
+  const p={x:f.x+Math.sin(a)*d,y:f.y+Math.cos(a)*d};
+  const v=minimumAt(p,3.3);if(v&&(!best||v.min>best.min))best=v;
+ }return best;
 }
 function setup(){
  const code=airport?.icao||'';
  if(code===currentAirport&&terrain)return;
- currentAirport=code;lastWarn.clear();
- terrain=decode(GRID[code]||''); // every configured airport carries a tile
+ currentAirport=code;lastWarn.clear();labels=[];
+ const a=AIRPORTS.find(q=>q.icao===code);
+ if(!a){terrain=null;return;}
+ if(originalCodes.has(code)){
+  terrain=decode(code)?.slice()||null;dataStatus='內建地形';coverage=terrain?1:0;
+ }else{
+  const st=stitchFromNearby(a);terrain=st.data;coverage=st.known/(N*N);
+  dataStatus='周邊地形參考';
+ }
+ if(!terrain){coverage=0;return;}
  terrainImage=document.createElement('canvas');terrainImage.width=N;terrainImage.height=N;
  const ctxt=terrainImage.getContext('2d');const pix=ctxt.createImageData(N,N);
- const elevations=[];
+ const elevated=[];
  for(let row=0;row<N;row++)for(let col=0;col<N;col++){
-   const i=row*N+col,x=-R+col*STEP,y=R-row*STEP;
-   const m=LEVEL_M[terrain[i]];
-   // The coast mask avoids drawing mountain warnings over sea relief shades.
-   if(m>420&&window.__atcV36?.landAt?.(x,y)!==false){
-    const h=minimumFromClass(terrain[i]);
-    const t=Math.min(1,Math.max(0,(h-3000)/18000));
-    let color=t<.5?[236,179,89]:[183,94,64];
-    const a=Math.round(36+Math.min(.8,t)*70);
-    pix.data.set([...color,a],4*i);
-    if(row%4===0&&col%4===0)elevations.push({x,y,h});
-   }
+  const i=row*N+col,x=-R+col*STEP,y=R-row*STEP,k=terrain[i];
+  if(k===255||k<3)continue;
+  if(landKnown(x,y)===false){terrain[i]=0;continue;}
+  const h=minimumFromClass(k);if(!h)continue;
+  const t=Math.min(1,Math.max(0,(h-3000)/18000));
+  const color=t<.5?[236,179,89]:[183,94,64];const alpha=Math.round(34+Math.min(.8,t)*65);
+  pix.data.set([...color,alpha],4*i);
+  if(row%4===0&&col%4===0)elevated.push({x,y,h});
  }
  ctxt.putImageData(pix,0,0);
- // Pick a few separated local mountain maxima for compact map labels.
- elevations.sort((a,b)=>b.h-a.h);labels=[];
- for(const p of elevations){if(labels.length>=6)break;if(p.h<4000||labels.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<19))continue;labels.push(p);}
+ elevated.sort((a,b)=>b.h-a.h);
+ for(const p of elevated){
+  if(labels.length>=6)break;
+  if(p.h<4000||labels.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<19))continue;
+  labels.push(p);
+ }
+ const leg=document.getElementById('v78TerrainLegend');
+ if(leg)leg.textContent=coverage<.08?'此區地形資料不足 · 不強制限高':
+  coverage<.98?`山區最低高度 · 鄰區參考 (${Math.round(coverage*100)}% 覆蓋)`:
+  '山區最低高度 · 離線近似';
 }
 btn.addEventListener('click',()=>{visible=!visible;btn.classList.toggle('active',visible);btn.setAttribute('aria-pressed',String(visible));alert.classList.remove('show');});
 const oldDraw=drawWeather;
@@ -12060,44 +12115,44 @@ drawWeather=function(c){const res=oldDraw(c);if(!visible)return res;setup();
  const nw=toScreen({x:-R,y:R}),sz=2*R*scale();
  c.save();c.imageSmoothingEnabled=true;c.drawImage(terrainImage,nw.x,nw.y,sz,sz);
  c.textAlign='left';c.textBaseline='middle';c.font='700 10px system-ui';
- for(const p of labels){const q=toScreen(p);if(q.x<16||q.x>viewport.w-85||q.y<32||q.y>viewport.h-25)continue;
-  const str=`▲ MIN ${Math.round(p.h/500)*500} ft`;
-  const w=c.measureText(str).width+12;
-  c.fillStyle='rgba(255,248,231,.87)';c.fillRect(q.x-3,q.y-9,w,18);
-  c.fillStyle='#805638';c.fillText(str,q.x+3,q.y);
- }
- c.restore();return res;
+ for(const p of labels){const q=toScreen(p);if(q.x<16||q.x>viewport.w-115||q.y<32||q.y>viewport.h-25)continue;
+  const label=`▲ MIN ${Math.round(p.h/500)*500} ft`,w=c.measureText(label).width+12;
+  c.fillStyle='rgba(255,248,231,.9)';c.fillRect(q.x-3,q.y-9,w,18);
+  c.fillStyle='#805638';c.fillText(label,q.x+3,q.y);
+ }c.restore();return res;
 };
-function establishedFinal(f){
- return !!(f&&f.mode==='approach'&&(f.v35ILS||f.approachPhase===2)&&Math.hypot(f.x,f.y)<16);
+function establishedFinal(f){return !!(f&&f.mode==='approach'&&(f.v35ILS||f.approachPhase===2)&&Math.hypot(f.x,f.y)<16);}
+function protectedRunwayPhase(f){
+ // Prevent training-only terrain tiles from rejecting a legitimate final
+ // approach or initial climb close to the runway; ILS itself remains authoritative.
+ return !!(f&&(establishedFinal(f)||
+   (['departure','takeoff','climb'].includes(f.mode)||f.kind==='departure')&&Math.hypot(f.x,f.y)<5&&f.altitude<4500));
 }
 const oldSim=simulate;
 simulate=function(dt){const res=oldSim(dt);if(dt<=0)return res;setup();
  for(const f of flights){
-  if(!f||['queued','lineup','takeoff-roll','landed','rollout'].includes(f.mode))continue;
-  const z=minimumAt(f,3.5),last=lastWarn.get(f.id)||-Infinity;
+  if(!f||['queued','lineup','takeoff-roll','landed','rollout'].includes(f.mode)||protectedRunwayPhase(f))continue;
+  const z=minimumAt(f,3.5),last=lastWarn.get(f.id)??-Infinity;
   if(z&&f.altitude+120<z.min&&simTime-last>90){
    lastWarn.set(f.id,simTime);
-   addLog(`${f.callsign} · 山區地形警告：模擬最低 ${z.min.toLocaleString()} ft`,'warn');
-   if(f.id===selectedId){alert.textContent=`⚠ ${f.callsign} 地形接近 · 建議 ≥ ${z.min.toLocaleString()} ft（估算），目前 ${Math.round(f.altitude).toLocaleString()} ft`;
+   addLog(`${f.callsign} · 山區地形提醒：最低約 ${z.min.toLocaleString()} ft（估算）`,'warn');
+   if(f.id===selectedId){alert.textContent=`⚠ ${f.callsign} 山區接近 · 模擬建議 ≥ ${z.min.toLocaleString()} ft，目前 ${Math.round(f.altitude).toLocaleString()} ft`;
     alert.classList.add('show');}
   }
  }
  if(simTime-lastUiAt>7){lastUiAt=simTime;const f=selectedFlight();const z=f&&minimumAt(f);
-   if(!f||!z||f.altitude>=z.min)alert.classList.remove('show');
+  if(!f||!z||f.altitude>=z.min||protectedRunwayPhase(f))alert.classList.remove('show');
  }return res;
 };
-// Use terrain ahead as well as under aircraft, instead of arbitrary airport-ID rectangles.
 document.addEventListener('click',e=>{
  const b=e.target.closest?.('[data-v12-send="alt"]');if(!b)return;
  const f=selectedFlight(),requested=Number(document.getElementById('v12-alt')?.value);
- if(!f||!Number.isFinite(requested)||establishedFinal(f))return;
+ if(!f||!Number.isFinite(requested)||protectedRunwayPhase(f))return;
  const z=alongTrack(f,f.targetHeading??f.heading??0,15);
- if(z&&requested<z.min){
-  e.preventDefault();e.stopImmediatePropagation();notify(`${f.callsign} · 航路前方山區最低高度約 ${z.min.toLocaleString()} ft（地形估算）`,'warn');
+ if(z&&requested<z.min){e.preventDefault();e.stopImmediatePropagation();
+   notify(`${f.callsign} · 前方山區模擬最低高度約 ${z.min.toLocaleString()} ft`, 'warn');
  }
 },true);
-// Preserve V64 Enter/Escape behavior.
 document.addEventListener('keydown',e=>{
  if(e.key!=='Enter'||e.isComposing||e.repeat||e.ctrlKey||e.altKey||e.metaKey)return;
  const focused=document.activeElement;
@@ -12107,7 +12162,7 @@ document.addEventListener('keydown',e=>{
  }
  if(focused?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
  if(document.querySelector('#helpModal.show,.v12-runway-modal.open,.modal-backdrop.show,#v34Panel.open'))return;
- if(document.getElementById('v61RadarProposal')?.classList.contains('open')){
+ if(document.querySelector('#v61RadarProposal.open')){
   const b=document.querySelector('#v61RadarProposal [data-v61-confirm]');if(b){e.preventDefault();e.stopImmediatePropagation();b.click();}
  }
 },true);
@@ -12116,7 +12171,7 @@ document.addEventListener('keydown',e=>{
  e.preventDefault();e.stopImmediatePropagation();window.__atcV61?.clear?.();
 },true);
 window.__atcV64={zones:()=>{setup();return labels.map(p=>({name:'山區地形',min:p.h,points:[p]}));},zoneAt:minimumAt,showAreas:value=>{visible=!!value;btn.classList.toggle('active',visible);btn.setAttribute('aria-pressed',String(visible));},track:()=>window.__atcV49?.inspect?.()};
-window.__atcV65={minimumAt,alongTrack,tileInfo:()=>({airport:currentAirport,cells:terrain?.length,labels:labels.map(p=>({min:p.h,x:p.x,y:p.y})),source:'ETOPO1 shaded-relief approximation; NOT certified DEM'})};
+window.__atcV65={minimumAt,alongTrack,tileInfo:()=>{setup();return {airport:currentAirport,cells:terrain?.length||0,coverage,source:dataStatus,labels:labels.map(p=>({min:p.h,x:p.x,y:p.y})),newAirport:!originalCodes.has(currentAirport)};}};
 document.title='AIRSPACE — ATC V65 · Terrain-Aware Minimum Altitude';
 })();
 </script>
@@ -13438,5 +13493,131 @@ window.__atcV77={sync,sendAll,positionAlerts,changes:()=>getChanges().entries,al
 }
 @media(max-width:365px){body.m16-mode-control #inspector .v12-controller>.v12-command-grid .v12-command{grid-template-columns:50px minmax(0,1fr) 65px!important;gap:3px!important;padding:7px 6px!important;}}
 </style>
+<style id="v78-desktop-atc-refit">
+/* V78: a desktop-specific dispatcher, deliberately separate from mobile. */
+@media (min-width:901px){
+ body .rightpanel.v58-panel:not(.m16-pane){width:min(610px,calc(100vw - 385px))!important;border:1px solid #d6e5e4!important;border-radius:19px!important;box-shadow:0 16px 52px #385d6831!important;background:#f9fcfb!important;scrollbar-gutter:stable;}
+ body .rightpanel.v58-panel .control-wrap{padding:11px 14px 17px!important;background:transparent!important;}
+ body .rightpanel.v58-panel .control-head{margin:0 0 5px!important;padding:0 2px 8px!important;border-bottom:1px solid #e3edeb!important;}
+ body .rightpanel.v58-panel .control-head .section-title{font-size:13px!important;color:#244f5b!important;font-weight:900!important;}
+ body .rightpanel.v58-panel #inspector .v26-modules{grid-template-columns:minmax(0,1fr)!important;gap:8px!important;}
+ body .rightpanel.v58-panel #inspector .v26-modules>.v26-module[data-v26-area="identity"]{display:none!important;}
+ body .rightpanel.v58-panel #inspector .v26-modules>.v26-module[data-v26-area="stage"]{order:0!important;grid-column:1!important;padding:10px 11px!important;background:#edf6f3!important;border:1px solid #cfdfda!important;border-radius:13px!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="stage"] .v22-controller{background:transparent!important;border:0!important;padding:0!important;margin:0!important;}
+ body .rightpanel.v58-panel #inspector .v22-main-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;}
+ body .rightpanel.v58-panel #inspector .v22-main-actions button{min-height:35px!important;font-size:11px!important;}
+ body .rightpanel.v58-panel #inspector .v26-modules>.v26-module[data-v26-area="commands"]{order:1!important;grid-column:1!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-controller{border:0!important;padding:0!important;background:transparent!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;margin:0!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command{display:grid!important;grid-template-rows:auto auto auto!important;gap:0!important;align-items:stretch!important;padding:10px!important;border-radius:12px!important;border:1px solid #dce9e7!important;background:white!important;box-shadow:0 1px 3px #344d4c0c!important;min-width:0!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command-heading{margin:0 0 7px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;color:#305e66!important;font-size:11px!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command-heading b{font-size:11px!important;color:#7f9ba0!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-stepper{display:grid!important;grid-template-columns:30px minmax(0,1fr) 30px!important;gap:4px!important;margin:0!important;min-width:0!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-stepper button{height:40px!important;min-width:0!important;padding:0!important;border-radius:8px!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-number,body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-number input{height:40px!important;font-size:16px!important;min-width:0!important;border-radius:8px!important;font-weight:850!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-send{display:block!important;margin:6px 0 0!important;min-height:27px!important;height:27px!important;background:#f3f8f7!important;color:#507477!important;border:1px solid #e1eae8!important;border-radius:7px!important;font-size:10px!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command.v77-edited{background:#edf9f5!important;border-color:#68b59d!important;}
+ body .rightpanel.v58-panel #inspector .v77-command-footer{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(180px,auto)!important;grid-template-rows:auto auto!important;gap:3px 10px!important;align-items:center!important;margin:8px 0 3px!important;padding:11px 12px!important;border:1px solid #c5ded6!important;border-radius:13px!important;background:#f1f8f5!important;box-shadow:0 2px 8px #3559490d!important;}
+ body .rightpanel.v58-panel #inspector .v77-hint{grid-column:1!important;grid-row:1!important;align-self:end!important;font-size:10px!important;line-height:1.4!important;color:#557878!important;}
+ body .rightpanel.v58-panel #inspector .v77-pending{grid-column:1!important;grid-row:2!important;text-align:left!important;align-self:start!important;font-size:11px!important;color:#27796d!important;}
+ body .rightpanel.v58-panel #inspector .v77-dispatch{grid-column:2!important;grid-row:1/span 2!important;min-width:0!important;display:flex!important;align-self:stretch!important;}
+ body .rightpanel.v58-panel #inspector .v77-send-all{min-height:43px!important;white-space:normal!important;padding:6px 10px!important;font-size:12px!important;line-height:1.25!important;}
+ body .rightpanel.v58-panel #inspector .v77-revert{padding:0 10px!important;white-space:nowrap!important;}
+ body .rightpanel.v58-panel #inspector #v73HoldControls{margin:7px 0 3px!important;}
+ body .rightpanel.v58-panel #inspector .v58-togglebox{margin:7px 0!important;}
+ body .rightpanel.v58-panel #inspector .v58-toggle{min-height:36px!important;padding:7px 10px!important;}
+ body .rightpanel.v58-panel #inspector .v78-desktop-intro{display:flex!important;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:9px 11px;background:#153f4b;color:white;border:1px solid #1d5862;border-radius:11px;}
+ body .rightpanel.v58-panel #inspector .v78-desktop-intro strong{font-size:12px;letter-spacing:.025em;font-weight:850;}
+ body .rightpanel.v58-panel #inspector .v78-desktop-intro small{font-size:9px;color:#b4d8d6;}
+ body .rightpanel.v58-panel #inspector .v78-desktop-intro .v78-status{font-size:10px;padding:5px 8px;background:#275664;border-radius:6px;white-space:nowrap;color:#e2fbf5;}
+}
+@media (min-width:901px) and (max-width:1120px){
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command{padding:7px!important;}
+ body .rightpanel.v58-panel #inspector .v77-command-footer{grid-template-columns:1fr!important;}
+ body .rightpanel.v58-panel #inspector .v77-dispatch{grid-column:1!important;grid-row:3!important;}
+}
+</style>
+<script id="v78-desktop-command-behavior">
+(()=>{
+ 'use strict';
+ const inspector=document.getElementById('inspector');if(!inspector)return;
+ const niceMode={departure:'離場',arrival:'進場',overflight:'過境'};
+ let queued=0;
+ function mount(){
+  queued=0;
+  const modules=inspector.querySelector('.v26-modules');if(!modules)return;
+  let intro=inspector.querySelector('.v78-desktop-intro');
+  if(!intro){
+   intro=document.createElement('div');intro.className='v78-desktop-intro';
+   intro.innerHTML='<div><strong>ATC / 航班指揮</strong><small style="display:block;margin-top:3px">當前操作與高度、航向、速度集中控制</small></div><span class="v78-status">READY</span>';
+   modules.before(intro);
+  }
+  const flight=typeof selectedFlight==='function'?selectedFlight():null;
+  const status=flight?.callsign?`${flight.callsign} · ${niceMode[flight.kind]||flight.kind||'管制中'}`:'未選取航班';
+  const label=intro.querySelector('.v78-status');if(label&&label.textContent!==status)label.textContent=status;
+ }
+ function schedule(){if(!queued)queued=requestAnimationFrame(mount)}
+ new MutationObserver(schedule).observe(inspector,{childList:true,subtree:true});
+ window.addEventListener('resize',schedule,{passive:true});
+ if(typeof renderInspector==='function'){
+  const prev=renderInspector;
+  renderInspector=function(...args){const value=prev(...args);schedule();return value;};
+ }
+ schedule();
+ window.__atcV78Desktop={refresh:schedule};
+})();
+</script>
+<style id="v78-persistent-dispatch-style">
+@media(min-width:901px){
+ body .rightpanel.v58-panel #inspector .v77-command-footer[data-v78-fixed="true"]{background:#eff7f3!important;border-color:#a9ccc0!important;box-shadow:0 7px 22px #1d574a24!important;backdrop-filter:blur(8px);}
+ body .rightpanel.v58-panel:not(.ui-compact) .control-wrap{padding-bottom:94px!important;}
+}
+</style>
+<script id="v78-persistent-desktop-dispatch">
+(()=>{
+ 'use strict';
+ const panel=document.querySelector('.rightpanel.v58-panel');
+ const inspector=document.getElementById('inspector');
+ if(!panel||!inspector)return;
+ let scheduled=0,lastBar=null;
+ function update(){
+  scheduled=0;
+  if(lastBar&&!document.contains(lastBar))lastBar=null;
+  const bar=inspector.querySelector('.v77-command-footer');if(!bar)return;
+  lastBar=bar;
+  const desktop=window.innerWidth>900;
+  const visible=desktop&&!panel.classList.contains('ui-compact')&&!!selectedFlight?.();
+  if(!visible){
+   for(const name of ['position','top','left','width','z-index','box-shadow','display'])bar.style.removeProperty(name);
+   bar.removeAttribute('data-v78-fixed');return;
+  }
+  const r=panel.getBoundingClientRect();
+  if(!r.width||r.height<170)return;
+  // Anchor the dispatch row to the *visible* command panel, not its scroll
+  // content. This keeps Send/Reset reachable with no scrolling on desktop.
+  bar.style.setProperty('position','fixed','important');
+  bar.style.setProperty('left',Math.round(r.left+13)+'px','important');
+  bar.style.setProperty('width',Math.round(r.width-27)+'px','important');
+  // The compact 901-1120px layout wraps the send row; measure after its
+  // actual width has been applied so it never slips below the panel.
+  const barHeight=bar.getBoundingClientRect().height;
+  const top=Math.max(r.top+60,r.bottom-barHeight-8);
+  bar.style.setProperty('top',Math.round(top)+'px','important');
+  bar.style.setProperty('z-index','115','important');
+  bar.dataset.v78Fixed='true';
+ }
+ function schedule(){if(!scheduled)scheduled=requestAnimationFrame(update)}
+ new MutationObserver(schedule).observe(inspector,{subtree:true,childList:true});
+ new MutationObserver(schedule).observe(panel,{attributes:true,attributeFilter:['class','style']});
+ if(typeof ResizeObserver!=='undefined')new ResizeObserver(schedule).observe(panel);
+ window.addEventListener('resize',schedule,{passive:true});
+ inspector.addEventListener('input',schedule);
+ panel.addEventListener('scroll',schedule,{passive:true});
+ schedule();
+ window.__atcV78DesktopDock={refresh:schedule,state:()=>({fixed:!!lastBar?.dataset.v78Fixed,visible:!!lastBar?.getBoundingClientRect().width})};
+})();
+</script>
+<script id="v78-title">document.title='AIRSPACE — ATC V78 · Coastal Terrain & Desktop Control';</script>
+
 </body>
 </html>
