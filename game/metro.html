@@ -3381,7 +3381,7 @@ function drawStationAccessFlows(ctx,W,H){
    let vx=p0.x-anchor.x,vy=p0.y-anchor.y,len=Math.hypot(vx,vy)||1;
    const entry={x:anchor.x+vx/len*path.anchorRadius-vy/len*(path.spread*.08),y:anchor.y+vy/len*path.anchorRadius+vx/len*(path.spread*.08)};
    if((p0.x<-220&&entry.x<-220)||(p0.x>W+220&&entry.x>W+220)||(p0.y<-220&&entry.y<-220)||(p0.y>H+220&&entry.y>H+220))continue;
-   const kindBias=path.kind==='home'?.08:path.kind==='office'?.-0.12:0;
+   const kindBias=path.kind==='home'?.08:path.kind==='office' ? -0.12 : 0;
    for(let k=0;k<local;k++){
     const inbound=hash(path.seed*1.31+k*2.37)<clamp(inboundShare+kindBias,0.15,0.9);
     const phase=(clock*.0105+hash(path.seed*4.9+k*5.1)+k*.037)%1;
