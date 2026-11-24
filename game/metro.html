@@ -3303,6 +3303,100 @@ function drawPassengerFlowOnPlatform(ctx,station,state,len,y,sign){
   ctx.beginPath();ctx.arc(x,yy,map.zoom>=17?1.65:1.45,0,Math.PI*2);ctx.fillStyle='#343b40';ctx.fill();
  }
 }
+
+const STATION_ACCESS_LOD=15.2;
+const stationAccessPathCache=new Map();
+function geoOffsetMeters(lat,lng,meters,bearingRad){
+ const dLat=(meters*Math.cos(bearingRad))/111320;
+ const dLng=(meters*Math.sin(bearingRad))/(111320*Math.max(.2,Math.cos(lat*Math.PI/180)));
+ return [lat+dLat,lng+dLng];
+}
+function quadPoint(p0,p1,p2,t){
+ const mt=1-t;
+ return {x:mt*mt*p0.x+2*mt*t*p1.x+t*t*p2.x,y:mt*mt*p0.y+2*mt*t*p1.y+t*t*p2.y};
+}
+function smooth01(t){return t*t*(3-2*t)}
+function stationAccessDirectionBias(min=clock%1440){
+ const h=min/60;
+ if(h>=6&&h<10)return .76;
+ if(h>=10&&h<16)return .52;
+ if(h>=17&&h<20.5)return .28;
+ if(h>=20.5&&h<23)return .38;
+ return .58;
+}
+function stationAccessPaths(station){
+ let cached=stationAccessPathCache.get(station.id);
+ if(cached)return cached;
+ const base=(station.id.length*13.37)+(station.lat*17.17)+(station.lng*9.91);
+ const paths=[];
+ const n=4+Math.floor(hash(base*1.91)*3);
+ for(let i=0;i<n;i++){
+  const seed=base+i*11.73;
+  const ang=hash(seed*2.1)*Math.PI*2;
+  const dist=120+hash(seed*3.7)*380;
+  const bendAng=ang+(hash(seed*5.7)-.5)*1.1;
+  const bendDist=dist*(.34+.24*hash(seed*7.3));
+  const kindPick=hash(seed*6.6);
+  const kind=kindPick<.46?'home':kindPick<.8?'office':'other';
+  const spread=(hash(seed*9.9)-.5)*28;
+  const origin=geoOffsetMeters(station.lat,station.lng,dist,ang);
+  const control=geoOffsetMeters(station.lat,station.lng,bendDist,bendAng);
+  paths.push({seed,kind,origin,control,spread,anchorRadius:12+hash(seed*4.3)*8});
+ }
+ stationAccessPathCache.set(station.id,paths);
+ return paths;
+}
+function drawStationAccessFlows(ctx,W,H){
+ if(map.zoom<STATION_ACCESS_LOD)return;
+ const inboundShare=stationAccessDirectionBias();
+ const selectedBoost=map.zoom>=17?1.65:1.35;
+ ctx.save();
+ for(const station of plan.stops){
+  const rides=Math.max(0,metrics.stationRides?.[station.id]||0);
+  const anchor=xy(station.lat,station.lng);
+  if(anchor.x<-160||anchor.y<-160||anchor.x>W+160||anchor.y>H+160)continue;
+  if(rides<90&&selectedStation!==station.id&&map.hover!==station.id&&map.zoom<16.45)continue;
+  const paths=stationAccessPaths(station);
+  const focus=(selectedStation===station.id||map.hover===station.id)?selectedBoost:1;
+  const totalCount=clamp(Math.round(Math.sqrt(Math.max(1,rides))/(map.zoom>=17?10.5:15.5)*focus),1,map.zoom>=17?16:8);
+  if(!totalCount)continue;
+  if((selectedStation===station.id||map.hover===station.id||map.zoom>=16.9)){
+   ctx.lineWidth=1;
+   ctx.strokeStyle='rgba(16,24,26,.07)';
+   for(const path of paths){
+    const p0=xy(path.origin[0],path.origin[1]),p1=xy(path.control[0],path.control[1]);
+    if((p0.x<-180&&p1.x<-180)||(p0.x>W+180&&p1.x>W+180)||(p0.y<-180&&p1.y<-180)||(p0.y>H+180&&p1.y>H+180))continue;
+    let vx=p0.x-anchor.x,vy=p0.y-anchor.y,len=Math.hypot(vx,vy)||1;
+    const entry={x:anchor.x+vx/len*path.anchorRadius-vy/len*(path.spread*.08),y:anchor.y+vy/len*path.anchorRadius+vx/len*(path.spread*.08)};
+    ctx.beginPath();ctx.moveTo(p0.x,p0.y);ctx.quadraticCurveTo(p1.x,p1.y,entry.x,entry.y);ctx.stroke();
+   }
+  }
+  let remaining=totalCount;
+  for(let i=0;i<paths.length;i++){
+   const path=paths[i];
+   const local=Math.max(0,Math.min(remaining,Math.ceil(totalCount/paths.length)+(i<totalCount%paths.length?1:0)));
+   if(!local)continue;
+   remaining-=local;
+   const p0=xy(path.origin[0],path.origin[1]),p1=xy(path.control[0],path.control[1]);
+   let vx=p0.x-anchor.x,vy=p0.y-anchor.y,len=Math.hypot(vx,vy)||1;
+   const entry={x:anchor.x+vx/len*path.anchorRadius-vy/len*(path.spread*.08),y:anchor.y+vy/len*path.anchorRadius+vx/len*(path.spread*.08)};
+   if((p0.x<-220&&entry.x<-220)||(p0.x>W+220&&entry.x>W+220)||(p0.y<-220&&entry.y<-220)||(p0.y>H+220&&entry.y>H+220))continue;
+   const kindBias=path.kind==='home'?.08:path.kind==='office'?.-0.12:0;
+   for(let k=0;k<local;k++){
+    const inbound=hash(path.seed*1.31+k*2.37)<clamp(inboundShare+kindBias,0.15,0.9);
+    const phase=(clock*.0105+hash(path.seed*4.9+k*5.1)+k*.037)%1;
+    const eased=smooth01(phase);
+    const u=inbound?eased:1-eased;
+    const pt=quadPoint(p0,p1,entry,u);
+    if(pt.x<-14||pt.y<-14||pt.x>W+14||pt.y>H+14)continue;
+    const alpha=inbound?.92:.78;
+    const r=map.zoom>=17?1.7:1.45;
+    ctx.beginPath();ctx.arc(pt.x,pt.y,r,0,Math.PI*2);ctx.fillStyle='rgba(16,20,22,'+alpha+')';ctx.fill();
+   }
+  }
+ }
+ ctx.restore();
+}
 function drawStationPlatforms(ctx,W,H){
  if(!platformsVisible||map.zoom<STATION_LOD.platform)return;
  const gap=9,already=new Map();
@@ -3643,6 +3737,7 @@ if(heat&&GEO_READY[city]){ctx.save();ctx.beginPath();appendPlayPaths(ctx);ctx.cl
 ctx.lineCap='round';ctx.lineJoin='round';if(!(view3D&&vectorMap?.getLayer?.(TS3D_EXTRUSION)))for(const l of plan.lines){const stops=l.stops.map(id=>getStop(id)).filter(Boolean);if(stops.length<2)continue;for(let i=1;i<stops.length;i++){const a=stops[i-1],b=stops[i],shape=lineSegmentShape(l,i)||segmentShape(a,b),ok=trackWithinArea(a,b);ctx.beginPath();shape.pts.forEach((v,k)=>{const p=xy(v.lat,v.lng);k?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)});ctx.lineWidth=l.id===selectedLine?11:9;ctx.strokeStyle='#ffffffd9';ctx.stroke();if(!ok)ctx.setLineDash([7,5]);ctx.strokeStyle=ok?l.color:'#db4056';ctx.globalAlpha=selectedLine&&l.id!==selectedLine?.77:1;ctx.lineWidth=l.id===selectedLine?6:5;ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1}}
 drawStationSpacingWarnings(ctx,W,H);drawCurveEditor(ctx,W,H);
 if(!view3D||!vectorMap?.getLayer?.(TS3D_EXTRUSION))drawStationPlatforms(ctx,W,H);
+drawStationAccessFlows(ctx,W,H);
 if(!view3D)drawMovingTrains(ctx,W,H);
 if(poiVisible)drawLandmarks(ctx,W,H)
 const stationLines=new Map();for(const l of plan.lines)for(const id of l.stops)stationLines.set(id,(stationLines.get(id)||0)+1);for(const s of plan.stops){const p=xy(s.lat,s.lng);if(p.x<-30||p.y<-30||p.x>W+30||p.y>H+30)continue;const active=s.id===selectedStation;if(!stationSymbolVisible(s))continue;const small=map.zoom<STATION_LOD.platform&&!active;const radius=small?4.2:STATION_MARKER_RADIUS;const outside=GEO_READY[city]&&!inPlayableArea(s.lat,s.lng);const transfers=(stationLines.get(s.id)||0)>1;if(view3D&&vectorMap?.getLayer?.(TS3D_EXTRUSION)&&!active&&map.hover!==s.id)continue;if(mode==='draw'&&s.id===extensionAnchorId){ctx.beginPath();ctx.arc(p.x,p.y,radius+6,0,Math.PI*2);ctx.fillStyle='rgba(20,153,120,.17)';ctx.fill();ctx.strokeStyle='#16997d';ctx.lineWidth=2.3;ctx.stroke();}if(active){ctx.beginPath();ctx.arc(p.x,p.y,radius+4,0,Math.PI*2);ctx.fillStyle='rgba(240,184,56,.22)';ctx.fill()};ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);ctx.fillStyle=active?'#f9eed6':'#fff';ctx.fill();ctx.lineWidth=active?2.4:transfers?2.6:1.8;ctx.strokeStyle=outside?'#d32c50':active?'#c28a12':'#354e53';ctx.stroke();if(outside){ctx.strokeStyle='#c32743';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.x-5,p.y-5);ctx.lineTo(p.x+5,p.y+5);ctx.moveTo(p.x+5,p.y-5);ctx.lineTo(p.x-5,p.y+5);ctx.stroke()}if(transfers){ctx.beginPath();ctx.arc(p.x,p.y,2.6,0,Math.PI*2);ctx.fillStyle='#aec4c2';ctx.fill()}if(active||map.hover===s.id){ctx.font='700 11px '+getComputedStyle(document.body).fontFamily;const tw=ctx.measureText(s.name).width;const bx=clamp(p.x-tw/2-10,2,W-tw-22),by=p.y-32;ctx.fillStyle='#fff';ctx.strokeStyle='#d4dede';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(bx,by,tw+20,23,7);ctx.fill();ctx.stroke();ctx.fillStyle='#253e47';ctx.fillText(s.name,bx+10,by+15)}}drawUsageMarkers(ctx,W,H);map.dirty=false}
