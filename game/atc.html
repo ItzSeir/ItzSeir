@@ -13268,7 +13268,7 @@ renderInspector();
     assignedRunway:f.assignedRunway,legs:[...(f.legs||[])]}))};
 })();
 </script>
-<script id="v76-final-title">document.title="AIRSPACE — ATC V77 · Command Workspace & Arrival Alerts";</script>
+<script id="v76-final-title">document.title="AIRSPACE — ATC V79 · Responsive Command Layout";</script>
 <style id="v77-command-workspace-style">
 /* V77: compact ATC dispatch area, preserving V12/V22/V58 event handlers. */
 #inspector .v77-command-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center;padding:11px 12px 10px;margin:9px 0 2px;border:1px solid #c8dedb;background:linear-gradient(110deg,#f0f8f6,#fff);border-radius:12px;}
@@ -13454,7 +13454,7 @@ if(stack){
  },true);
 }
 requestSync();
-document.title='AIRSPACE — ATC V77 · Command Workspace & Arrival Alerts';
+document.title='AIRSPACE — ATC V79 · Responsive Command Layout';
 window.__atcV77={sync,sendAll,positionAlerts,changes:()=>getChanges().entries,alertPosition:()=>stack?.getBoundingClientRect().toJSON()};
 })();
 </script>
@@ -13567,57 +13567,125 @@ window.__atcV77={sync,sendAll,positionAlerts,changes:()=>getChanges().entries,al
  window.__atcV78Desktop={refresh:schedule};
 })();
 </script>
-<style id="v78-persistent-dispatch-style">
-@media(min-width:901px){
- body .rightpanel.v58-panel #inspector .v77-command-footer[data-v78-fixed="true"]{background:#eff7f3!important;border-color:#a9ccc0!important;box-shadow:0 7px 22px #1d574a24!important;backdrop-filter:blur(8px);}
- body .rightpanel.v58-panel:not(.ui-compact) .control-wrap{padding-bottom:94px!important;}
+
+
+<script id="v78-title">document.title='AIRSPACE — ATC V79 · Responsive Command Layout';</script>
+
+<style id="v79-command-responsiveness">
+/* V79: one true command surface. This overrides inherited V26/V58/V78
+   grid tracks that could squeeze every module to a tiny first column. */
+.rightpanel.v58-panel #inspector,
+.rightpanel.v58-panel #inspector .v12-controller,
+.rightpanel.v58-panel #inspector .v26-modules,
+.rightpanel.v58-panel #inspector .v26-module{min-width:0;max-width:100%;box-sizing:border-box;}
+.rightpanel.v58-panel #inspector .v77-command-footer{
+ position:relative!important;left:auto!important;top:auto!important;
+ width:100%!important;max-width:100%!important;z-index:auto!important;
+ bottom:auto!important;right:auto!important;transform:none!important;
+ margin:10px 0 0!important;box-shadow:none!important;
+}
+.rightpanel.v58-panel #inspector .v77-command-footer[data-v78-fixed]{position:relative!important;}
+.rightpanel.v58-panel #inspector .v77-send-all,
+.rightpanel.v58-panel #inspector .v77-revert{word-break:keep-all!important;overflow-wrap:normal!important;}
+@media (min-width:901px){
+ body .rightpanel.v58-panel:not(.m16-pane){
+   container-type:inline-size;container-name:atc-desk;
+   max-width:calc(100vw - 24px)!important;min-width:360px!important;
+ }
+ body .rightpanel.v58-panel .control-wrap,
+ body .rightpanel.v58-panel #inspector,
+ body .rightpanel.v58-panel #inspector>.v12-controller{width:100%!important;min-width:0!important;max-width:100%!important;}
+ body .rightpanel.v58-panel #inspector>.v12-controller{
+   display:flex!important;flex-flow:column nowrap!important;align-items:stretch!important;gap:10px!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-modules{
+   display:flex!important;flex-flow:column nowrap!important;align-items:stretch!important;
+   gap:11px!important;width:100%!important;min-width:0!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-modules>.v26-module[data-v26-area="stage"],
+ body .rightpanel.v58-panel #inspector .v26-modules>.v26-module[data-v26-area="commands"]{
+   flex:0 0 auto!important;display:block!important;position:relative;
+   width:100%!important;max-width:100%!important;min-width:0!important;
+   grid-column:auto!important;margin:0!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="stage"] .v22-controller,
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-controller,
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command-grid{
+   width:100%!important;max-width:100%!important;min-width:0!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command-grid{
+   grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command{
+   min-width:0!important;max-width:100%!important;overflow:visible!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="stage"] .v22-main-actions{
+   width:100%!important;min-width:0!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="stage"] .v22-main-actions button,
+ body .rightpanel.v58-panel #inspector .v58-toggle{
+   min-width:0!important;overflow-wrap:normal!important;word-break:keep-all!important;
+ }
+ body .rightpanel.v58-panel:not(.ui-compact) .control-wrap{padding-bottom:18px!important;}
+ body .rightpanel.v58-panel #inspector .v77-command-footer{
+   display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;
+   grid-template-rows:auto auto!important;align-items:center!important;
+   gap:5px 9px!important;padding:11px!important;
+ }
+ body .rightpanel.v58-panel #inspector .v77-dispatch{
+   grid-column:2!important;grid-row:1/span 2!important;align-self:stretch!important;min-width:0!important;
+ }
+ body .rightpanel.v58-panel #inspector .v77-hint{grid-column:1!important;grid-row:1!important;}
+ body .rightpanel.v58-panel #inspector .v77-pending{grid-column:1!important;grid-row:2!important;}
+}
+/* Container queries follow the actual inspector width, not desktop viewport;
+   crucial for snapped windows, browser zoom, and narrow right panels. */
+@container atc-desk (max-width:565px){
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command-grid{
+   grid-template-columns:1fr!important;gap:6px!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command{
+   display:grid!important;grid-template-columns:minmax(76px,.85fr) minmax(130px,2fr) minmax(74px,.78fr)!important;
+   grid-template-rows:1fr!important;gap:8px!important;align-items:center!important;
+   min-height:58px!important;padding:8px 10px!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command-heading{
+   grid-column:1!important;grid-row:1!important;display:flex!important;
+   flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;
+   gap:3px!important;margin:0!important;min-height:0!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-stepper{
+   grid-column:2!important;grid-row:1!important;margin:0!important;
+   grid-template-columns:30px minmax(0,1fr) 30px!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-send{
+   grid-column:3!important;grid-row:1!important;width:100%!important;
+   margin:0!important;min-height:38px!important;height:38px!important;
+ }
+ body .rightpanel.v58-panel #inspector .v77-command-footer{
+   grid-template-columns:1fr!important;grid-template-rows:auto auto auto!important;
+ }
+ body .rightpanel.v58-panel #inspector .v77-dispatch{
+   grid-column:1!important;grid-row:3!important;width:100%!important;
+ }
+}
+@container atc-desk (max-width:435px){
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command{
+   grid-template-columns:1fr!important;grid-template-rows:auto auto auto!important;
+ }
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-command-heading{grid-column:1!important;grid-row:1!important;flex-direction:row!important;justify-content:space-between!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-stepper{grid-column:1!important;grid-row:2!important;}
+ body .rightpanel.v58-panel #inspector .v26-module[data-v26-area="commands"] .v12-send{grid-column:1!important;grid-row:3!important;}
+ body .rightpanel.v58-panel #inspector .v22-main-actions{grid-template-columns:1fr!important;}
+}
+/* Protect smaller laptop and phone layouts from any inherited split grid. */
+@media (max-width:900px){
+ body .rightpanel.v58-panel #inspector{min-width:0!important;max-width:100%!important;}
+ body .rightpanel.v58-panel #inspector .v12-controller{min-width:0!important;max-width:100%!important;}
+ body .rightpanel.v58-panel #inspector .v12-command-grid .v12-command,
+ body .rightpanel.v58-panel #inspector .v12-command-grid .v12-stepper{min-width:0!important;}
+ body .rightpanel.v58-panel #inspector .v77-command-footer{position:relative!important;max-width:100%!important;}
 }
 </style>
-<script id="v78-persistent-desktop-dispatch">
-(()=>{
- 'use strict';
- const panel=document.querySelector('.rightpanel.v58-panel');
- const inspector=document.getElementById('inspector');
- if(!panel||!inspector)return;
- let scheduled=0,lastBar=null;
- function update(){
-  scheduled=0;
-  if(lastBar&&!document.contains(lastBar))lastBar=null;
-  const bar=inspector.querySelector('.v77-command-footer');if(!bar)return;
-  lastBar=bar;
-  const desktop=window.innerWidth>900;
-  const visible=desktop&&!panel.classList.contains('ui-compact')&&!!selectedFlight?.();
-  if(!visible){
-   for(const name of ['position','top','left','width','z-index','box-shadow','display'])bar.style.removeProperty(name);
-   bar.removeAttribute('data-v78-fixed');return;
-  }
-  const r=panel.getBoundingClientRect();
-  if(!r.width||r.height<170)return;
-  // Anchor the dispatch row to the *visible* command panel, not its scroll
-  // content. This keeps Send/Reset reachable with no scrolling on desktop.
-  bar.style.setProperty('position','fixed','important');
-  bar.style.setProperty('left',Math.round(r.left+13)+'px','important');
-  bar.style.setProperty('width',Math.round(r.width-27)+'px','important');
-  // The compact 901-1120px layout wraps the send row; measure after its
-  // actual width has been applied so it never slips below the panel.
-  const barHeight=bar.getBoundingClientRect().height;
-  const top=Math.max(r.top+60,r.bottom-barHeight-8);
-  bar.style.setProperty('top',Math.round(top)+'px','important');
-  bar.style.setProperty('z-index','115','important');
-  bar.dataset.v78Fixed='true';
- }
- function schedule(){if(!scheduled)scheduled=requestAnimationFrame(update)}
- new MutationObserver(schedule).observe(inspector,{subtree:true,childList:true});
- new MutationObserver(schedule).observe(panel,{attributes:true,attributeFilter:['class','style']});
- if(typeof ResizeObserver!=='undefined')new ResizeObserver(schedule).observe(panel);
- window.addEventListener('resize',schedule,{passive:true});
- inspector.addEventListener('input',schedule);
- panel.addEventListener('scroll',schedule,{passive:true});
- schedule();
- window.__atcV78DesktopDock={refresh:schedule,state:()=>({fixed:!!lastBar?.dataset.v78Fixed,visible:!!lastBar?.getBoundingClientRect().width})};
-})();
-</script>
-<script id="v78-title">document.title='AIRSPACE — ATC V78 · Coastal Terrain & Desktop Control';</script>
-
 </body>
 </html>
